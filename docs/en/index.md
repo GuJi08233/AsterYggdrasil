@@ -1,134 +1,84 @@
 ---
 layout: home
-description: AsterYggdrasil public documentation home covering getting started, runtime, configuration, authentication, mail delivery, audit and tasks, template generation, and Docker deployment.
+description: AsterYggdrasil is a self-hosted Minecraft skin site and Yggdrasil/authlib-injector authentication server.
 
 hero:
   name: AsterYggdrasil
-  text: Reusable service foundation
-  tagline: Rust + React foundation for authentication, runtime configuration, mail delivery, audit logs, background tasks, OpenAPI, admin UI, and deployment defaults, so downstream projects can focus on their product domain.
+  text: Minecraft skin site and auth server
+  tagline: Self-hosted Yggdrasil API, authlib-injector integration, launcher login, Minecraft profiles, skin/cape texture management, signing keys, audit logs, and maintenance tasks.
   actions:
     - theme: brand
       text: Getting Started
       link: /en/guide/getting-started
     - theme: alt
-      text: Configuration
-      link: /en/guide/configuration
+      text: authlib-injector
+      link: /en/guide/yggdrasil-api
     - theme: alt
-      text: Docker Deployment
+      text: Deployment
       link: /en/deployment/docker
 
 features:
-  - title: Service Startup
-    details: Actix Web, SeaORM, migrations, static config, and runtime config are already wired as a clean starting point for new services.
-    link: /en/guide/getting-started
-  - title: Runtime Lifecycle
-    details: Primary/follower mode, background loops, health checks, audit flush, and graceful shutdown live in one runtime layer.
-    link: /en/guide/runtime
-  - title: Admin Capabilities
-    details: Config, audit logs, external auth providers, and background tasks are admin-facing without assuming regular users can see task records.
+  - title: Yggdrasil API
+    details: "`/api/yggdrasil` serves metadata, authenticate, refresh, validate, invalidate, signout, join, hasJoined, and profile lookup."
+    link: /en/guide/yggdrasil-api
+  - title: Launcher Login
+    details: Supports accessToken/clientToken, selectedProfile, refresh, profile-name login policy, and authlib-injector profile properties.
+    link: /en/guide/launcher-login
+  - title: Minecraft Profiles
+    details: Profiles are modeled independently, names are unique and immutable, and deletion revokes related tokens and cleans texture references.
+    link: /en/guide/profiles
+  - title: Texture System
+    details: Supports skin/cape upload, PNG sanitization, 22x17 cape transparent padding, public hash URLs, metadata, and admin deletion.
+    link: /en/guide/yggdrasil-textures
+  - title: Config and Keys
+    details: "Yggdrasil runtime config lives in system_config; signing private keys rotate through config actions and sensitive values are not exposed."
+    link: /en/guide/configuration
+  - title: Maintenance
+    details: Runtime tasks clean expired tokens, orphan texture objects, storage consistency issues, audit logs, and task artifacts.
     link: /en/guide/audit-tasks
-  - title: Auth And External Login
-    details: First-admin setup, local sessions, refresh/logout, external auth providers, and secure cookie policy are included.
-    link: /en/guide/authentication
-  - title: Mail Delivery
-    details: SMTP runtime settings, mail templates, durable outbox, test mail, dispatch task, and audit records are already wired.
-    link: /en/guide/mail
-  - title: Template Initialization
-    details: Use cargo-generate or init.sh while keeping engineering config and filtering local build, runtime, and docs cache artifacts.
-    link: /en/guide/template-generation
-  - title: Deployment Defaults
-    details: Docker, Compose, GHCR image publishing, health checks, and reverse proxy expectations have clear defaults.
-    link: /en/deployment/docker
 ---
 
-AsterYggdrasil is a reusable service foundation for Aster projects. It covers the Rust backend, React admin panel, runtime configuration, authentication, mail delivery, audit logs, background tasks, OpenAPI, deployment defaults, and project template initialization.
+AsterYggdrasil is a self-hosted Minecraft skin site and Yggdrasil/authlib-injector authentication server. This documentation focuses on operating that service.
 
-It is meant to be the starting point for new services, not a finished product domain. Downstream projects can add their own models, APIs, frontend pages, background jobs, and deployment rules while keeping the shared runtime foundation.
+## Main Entrypoint
 
-## When To Use It
-
-AsterYggdrasil exists to avoid rebuilding the same service infrastructure for every project.
-
-It already includes:
-
-- Actix Web HTTP service with embedded frontend assets.
-- SeaORM entities, migrations, repositories, transactions, and database retry helpers.
-- Local auth, first-admin setup, session management, and external auth provider scaffolding.
-- SMTP mail delivery, template variables, durable outbox, test mail, and mail audit records.
-- Admin APIs for runtime config, audit logs, external auth providers, and background tasks.
-- `system_config` runtime configuration, separated from static `config.toml`.
-- Buffered audit writes, structured presentation data, and Admin UI query support.
-- Background task records, dispatch, leases, heartbeat, retry, cleanup, and presentation data.
-- Primary/follower startup mode, plus graceful shutdown for HTTP, tasks, audit, and databases.
-- OpenAPI export, generated frontend service types, API catalog, and evergreen E2E smoke tests.
-- Docker, GitHub Actions, VitePress docs, and `cargo-generate` template support.
-
-## Recommended Path
-
-If you only want to run the project, start with [Getting Started](./guide/getting-started.md).
-
-If you want to build a new service on top of it:
-
-1. Run the backend and frontend locally with [Getting Started](./guide/getting-started.md).
-2. Use [Template Generation](./guide/template-generation.md) to initialize project naming.
-3. Use [Configuration](./guide/configuration.md) to separate static config from runtime config.
-4. Use [Authentication](./guide/authentication.md) to decide registration, external auth, and cookie policy.
-5. Use [Mail Delivery](./guide/mail.md) to configure SMTP, templates, and test mail.
-6. Use [Audit and Tasks](./guide/audit-tasks.md) when adding admin operations or background jobs.
-7. Use [Docker Deployment](./deployment/docker.md) for a minimal production deployment.
-
-Implementation notes, extension contracts, and maintenance checklists live under `developer-docs/`. The public `docs/` tree is for users and deployers.
-
-## Runtime Overview
-
-```mermaid
-flowchart LR
-    Config[static config.toml] --> Startup[startup]
-    RuntimeConfig[system_config] --> AppState[AppState]
-    Startup --> AppState
-    AppState --> Http[HTTP server]
-    AppState --> Audit[audit buffer]
-    AppState --> Tasks[background tasks]
-    AppState --> Db[(database)]
-    Http --> Admin[admin APIs]
-    Tasks --> Db
-    Audit --> Db
-```
-
-AsterYggdrasil keeps startup-critical values in static config, such as bind address, database URL, secrets, and node mode. Values that can be changed online live in `system_config` and are managed through the Admin Config API or the admin panel.
-
-Background dispatch and periodic maintenance run only when `server.start_mode = "primary"`. A follower node initializes the common runtime, but skips the dispatcher, system health check, auth session cleanup, external auth flow cleanup, mail outbox dispatch, audit cleanup, and task artifact cleanup.
-
-## Key Entrypoints
-
-Local development:
-
-```bash
-cargo run
-cd frontend-panel && bun run check
-cd docs && bun run docs:dev
-```
-
-After startup:
+The authentication server root is:
 
 ```text
-http://127.0.0.1:3000
-http://127.0.0.1:3000/health
-http://127.0.0.1:3000/health/ready
+/api/yggdrasil
 ```
 
-OpenAPI export and frontend service generation:
+The site homepage returns `X-Authlib-Injector-API-Location: /api/yggdrasil/`, so launchers that support authlib-injector ALI can discover the API from the site URL.
 
-```bash
-cargo test --features openapi generate_openapi
-cd frontend-panel
-bun run generate-api
+Common public endpoints:
+
+```text
+GET  /api/yggdrasil
+POST /api/yggdrasil/authserver/authenticate
+POST /api/yggdrasil/authserver/refresh
+POST /api/yggdrasil/sessionserver/session/minecraft/join
+GET  /api/yggdrasil/sessionserver/session/minecraft/hasJoined
+GET  /api/yggdrasil/sessionserver/session/minecraft/profile/{uuid}
+GET  /api/yggdrasil/textures/{hash}
 ```
 
-## Next
+Site and admin APIs remain under `/api/v1`, including profile management, texture metadata, config, audit logs, and background tasks.
 
-- [Getting Started](./guide/getting-started.md)
-- [Configuration](./guide/configuration.md)
-- [Runtime](./guide/runtime.md)
-- [Mail Delivery](./guide/mail.md)
-- [Docker Deployment](./deployment/docker.md)
+## Recommended Reading
+
+1. [Getting Started](./guide/getting-started.md): start locally, create the first admin, and verify Yggdrasil metadata.
+2. [Yggdrasil API](./guide/yggdrasil-api.md): API root, ALI, metadata, signatures, and protocol errors.
+3. [Launcher Login](./guide/launcher-login.md): authenticate, refresh, clientToken, and selectedProfile behavior.
+4. [Minecraft Profiles](./guide/profiles.md): profile creation, deletion, immutability, and admin APIs.
+5. [Textures](./guide/yggdrasil-textures.md): skin/cape upload, 22x17 capes, hashes, public reads, and skinDomains.
+6. [Config and Keys](./guide/configuration.md): system_config, public base URLs, skinDomains, and signing key rotation.
+7. [Texture Storage](./guide/storage.md): local backend, future S3 schema, and consistency checks.
+8. [Audit and Tasks](./guide/audit-tasks.md): admin-visible audit logs, runtime tasks, and maintenance policy.
+9. [Deployment](./deployment/docker.md): reverse proxy, public URL, trusted proxies, and container persistence.
+
+## Current Boundaries
+
+- Minecraft profile names cannot be changed after creation. Rename flows should delete and recreate the profile.
+- Profile disabling is intentionally left for a future ban system that defines login, join, hasJoined, and texture access semantics together.
+- The current production texture storage backend is local. S3/minio config shape is reserved, but the backend still needs implementation.
+- The admin frontend is being rewritten; docs describe stable backend behavior and deployment semantics first.

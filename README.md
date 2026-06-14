@@ -1,105 +1,99 @@
 # AsterYggdrasil
 
-AsterYggdrasil is a reusable Rust + React service foundation for Aster projects. It is the base layer you copy before adding product-specific domain code: HTTP server, authentication, runtime configuration, mail delivery, audit logs, background tasks, admin APIs, OpenAPI generation, embedded frontend assets, and deployment defaults.
+Self-hosted Minecraft identity infrastructure in Rust: a skin site, player profile service, and Yggdrasil-compatible authentication server for launchers and Minecraft servers that need identity control without depending on Mojang/Microsoft session services for private deployments.
 
-The repository focuses on common runtime capabilities that are useful across services. Product-specific domains should be added by downstream projects on top of this foundation.
+The project is built as one MIT-licensed Rust + React service with SQLite by default, optional MySQL/PostgreSQL compatibility, runtime configuration, audit logs, cache-backed launcher sessions, and admin APIs.
 
 - Chinese README: [README.zh.md](README.zh.md)
 - Public docs: [docs/index.md](docs/index.md)
 - Developer docs: [developer-docs/README.md](developer-docs/README.md)
+- Docker guide: [docs/deployment/docker.md](docs/deployment/docker.md)
 - Example config: [config.example.toml](config.example.toml)
 - Frontend panel: [frontend-panel/](frontend-panel/)
 
-## What You Get
+## What is AsterYggdrasil?
 
-### Backend foundation
+AsterYggdrasil is a self-hosted Minecraft skin site and authentication server. It implements the project-side account system, external login foundation, Minecraft profile records, Yggdrasil launcher authentication, session join checks, runtime feature switches, and audit surfaces needed to operate a private Minecraft identity service.
 
-- Actix Web service with embedded frontend assets.
-- SeaORM entities, repositories, migrations, database retry helpers, transactions, and reader/writer database handles.
-- Stable API response envelope with public `AsterErrorCode` values.
-- Local auth: first-admin setup, register, login, refresh, logout, current user, and session management.
-- External auth provider scaffolding for OIDC/OAuth2-style flows.
-- Admin APIs for runtime config, audit logs, external auth providers, and background tasks.
-- Runtime config stored in `system_config`, separate from static `config.toml`.
-- Mail delivery with SMTP runtime settings, template variables, durable outbox, test mail, and mail audit records.
-- Memory/noop/Redis cache backends behind a shared cache trait.
-- Request ID, security headers, runtime CORS, CSRF helpers, request metrics, and IP rate limit middleware.
-- Health and readiness endpoints, plus optional Prometheus metrics.
+It is not a file drive, private cloud, or generic SaaS template anymore. The old React panel is still useful as a technical reference for Vite, service generation, and shadcn/ui wiring, but the product domain is Minecraft/Yggdrasil: users, player profiles, skins, capes, launcher login, session server compatibility, keys, cache, and admin operations.
 
-### Runtime foundation
+The current `0.0.0-alpha` line is early product work. The backend foundation is already substantial, but the Minecraft texture system and final frontend experience are still evolving.
 
-- Primary/follower startup split through `server.start_mode`.
-- Graceful shutdown for HTTP, background tasks, audit flush, and database handles.
-- Buffered async audit writes with structured presentation metadata for frontend display.
-- Background task records, dispatch, lease/heartbeat handling, retry classification, cleanup, and stable task presentation metadata.
-- Primary-only runtime maintenance tasks:
-  - background task dispatcher
-  - system health check
-  - auth session cleanup
-  - external auth flow cleanup
-  - mail outbox dispatch
-  - audit log cleanup
-  - task artifact cleanup
+## Where it fits
 
-Follower mode keeps common runtime initialization but skips primary-only dispatch, mail outbox delivery, and cleanup loops.
+AsterYggdrasil is a good fit when you want:
 
-### Frontend foundation
+- a single self-hosted service for Minecraft accounts, player profiles, and launcher authentication
+- Yggdrasil/authlib-injector compatible protocol endpoints
+- SQLite out of the box, with PostgreSQL or MySQL as deployment grows
+- local account auth plus external auth provider infrastructure
+- runtime feature switches stored in `system_config`
+- cache-backed join/hasJoined session checks instead of storing temporary launcher joins in the database
+- structured audit logs for profile creation and authentication/session write actions
+- a Rust codebase with explicit DTO validation, service/repository boundaries, migrations, and OpenAPI support
 
-- React + Vite + TypeScript admin panel under `frontend-panel/`.
-- Typed service layer generated from OpenAPI.
-- Admin pages for configuration, audit logs, external auth providers, and tasks. SMTP settings, templates, and test mail live under runtime configuration.
-- Stable audit/task presentation formatting so the frontend does not parse raw JSON details or task payloads.
-- Unit tests with Vitest and jsdom, formatting/linting with Biome, and Vite production build.
+AsterYggdrasil is probably not the right first choice when you need:
 
-## What Is Deliberately Not Included
+- a public Minecraft account provider that replaces official online-mode auth for arbitrary clients
+- a complete game server management panel
+- a generic file storage, WebDAV, WOPI, team share, or cloud-drive system
+- a finished visual skin marketplace today
+- multi-primary clustering, automatic failover, or enterprise compliance guarantees
+- a vendor-managed SaaS where someone else owns the deployment and data responsibility
 
-AsterYggdrasil leaves product-specific modules to downstream services:
+## Design focus
 
-- file storage
-- upload flows
-- teams or shares
-- trash or archives
-- thumbnails or media processing
-- WebDAV or WOPI
-- storage policies or remote nodes
-- ordinary user task APIs
+- **Protocol compatibility first** - Yggdrasil/authlib-injector endpoints return protocol-native response bodies and status codes, not the project API envelope.
+- **Clear product boundaries** - Minecraft profiles, textures, Yggdrasil tokens, and launcher sessions are first-class domain concepts. Old file-drive concepts do not belong here.
+- **Runtime control** - feature switches such as profile-name login and upload capability are stored in `system_config` so operators can change behavior without editing `config.toml`.
+- **Safe token handling** - Yggdrasil access tokens are hashed before storage. Client tokens, selected profiles, expiry, revocation, and active-token limits are handled in the token repository/service layer.
+- **Cache where the protocol expects cache** - temporary join records use the shared cache system with a short TTL; they are not persisted as durable database state.
+- **Structured errors** - project APIs use `AsterError` and stable `AsterErrorCode`; Yggdrasil APIs use a dedicated structured protocol error mapping.
+- **Auditability** - security-relevant write actions use `audit_service::log_with_details(...)` with presentation metadata for admin display.
+- **Hackable core** - Actix Web, SeaORM, React, shadcn/ui, DTO validation, migrations, and tests are kept explicit and readable.
 
-Background tasks in this template are administrator-facing and runtime-facing only. Do not assume ordinary users can see task records. If a product needs user task APIs, design that product-specific visibility model in the product repository.
+## Quick start
 
-AsterYggdrasil also does not include a second public API subcode system. Client-visible failures should use named `AsterErrorCode` values.
+### Run with Docker
 
-## Repository Layout
-
-```text
-src/                         Rust backend
-src/api/                     Routes, DTOs, OpenAPI registration, middleware, response envelope
-src/cache/                   Cache trait and memory/noop/Redis implementations
-src/config/                  Static config, runtime config definitions, normalizers
-src/db/                      Connections, retry helpers, transactions, repositories
-src/entities/                SeaORM entity models
-src/metrics/                 Prometheus implementation behind the metrics feature
-src/runtime/                 App state, startup, shutdown, logging, background task loops
-src/services/                Auth, external auth, config, mail, audit, task, health, examples
-src/types/                   Shared domain enums and stored DB wrapper types
-src/utils/                   Crypto, ID, path, number, email, and RAII helpers
-migration/                   SeaORM migration crate
-api-docs-macros/             OpenAPI helper macro crate
-frontend-panel/              React admin panel
-developer-docs/              Developer-facing notes and extension guide
-tests/                       Integration tests and OpenAPI export test
-```
-
-## Quick Start From Source
-
-Requirements:
-
-- Rust toolchain from [rust-toolchain.toml](rust-toolchain.toml)
-- Bun for the frontend panel
-- SQLite by default
-
-Build frontend assets, then run the service:
+For a local HTTP trial, prepare a writable data directory and start the service:
 
 ```bash
+mkdir -p ./data
+
+docker run -d \
+  --name asteryggdrasil \
+  -p 3000:3000 \
+  -e ASTER__SERVER__HOST=0.0.0.0 \
+  -e ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true \
+  -e "ASTER__DATABASE__URL=sqlite:///data/asteryggdrasil.db?mode=rwc" \
+  -v "$(pwd)/data:/data" \
+  ghcr.io/astercommunity/asteryggdrasil:latest
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000
+```
+
+`ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true` is only for local or internal HTTP testing. For production, put AsterYggdrasil behind HTTPS and keep secure cookies enabled.
+
+You can also use the included Compose file:
+
+```bash
+mkdir -p ./data
+docker compose up -d
+```
+
+See [docs/deployment/docker.md](docs/deployment/docker.md) for deployment notes.
+
+### Run from source
+
+```bash
+git clone https://github.com/AsterCommunity/AsterYggdrasil.git
+cd AsterYggdrasil
+
 cd frontend-panel
 bun install
 bun run build
@@ -108,20 +102,13 @@ cd ..
 cargo run
 ```
 
-On first startup AsterYggdrasil will:
+On first startup, AsterYggdrasil will automatically:
 
-- create `data/config.toml` if it is missing
-- resolve default relative paths under `data/`
-- create the default SQLite database
-- run migrations
-- install default runtime config rows into `system_config`
+- generate `data/config.toml` if it does not exist
+- create the default SQLite database when using the default database URL
+- run all database migrations
+- initialize built-in runtime configuration rows in `system_config`
 - start the HTTP service on `127.0.0.1:3000`
-
-Open:
-
-```text
-http://127.0.0.1:3000
-```
 
 Create the first admin user:
 
@@ -131,52 +118,85 @@ curl -X POST http://127.0.0.1:3000/api/v1/auth/setup \
   -d '{"username":"admin","email":"admin@example.com","password":"change-me-please"}'
 ```
 
-For local HTTP cookie testing before the first boot:
+## Production notes
 
-```bash
-ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true cargo run
-```
+- Do not expose `:3000` directly to the public Internet. Put it behind a reverse proxy that handles HTTPS, upload limits, real client IP forwarding, and security headers.
+- Configure a stable public base URL before handing launcher metadata to users.
+- Use strong `auth.jwt_secret` and secure cookie settings in production.
+- Plan backups for the database, config, uploaded texture blobs, and any external identity-provider secrets.
+- If Redis is configured, monitor it. If cache is disabled or Redis is unavailable, the service falls back to memory cache where configured, but join sessions are then node-local.
+- Treat Yggdrasil signing keys as sensitive operational material. Public-key export and texture signing should be tested before enabling strict authlib-injector clients.
 
-Keep secure cookies enabled behind HTTPS in real deployments.
+## Core capabilities
 
-## Docker
+### Accounts and login
 
-Run with Compose:
+- first-admin setup, registration, login, refresh, logout, current user, and session management
+- password hashing with Argon2
+- external auth provider administration and callback foundation
+- runtime registration/auth feature switches through `system_config`
+- project API errors using stable `AsterErrorCode` values
 
-```bash
-mkdir -p ./data
-docker compose up -d
-```
+### Minecraft profiles
 
-Or build and run locally:
+- separate Minecraft profile records bound to users
+- 32-character unsigned Minecraft UUIDs
+- validated profile names: 3-16 ASCII letters, numbers, or underscores
+- user profile list and create APIs under `/api/v1/profiles/minecraft`
+- profile-name login controlled by runtime config
 
-```bash
-docker build -t asteryggdrasil:local .
-docker run --rm -p 3000:3000 -v "$(pwd)/data:/data" asteryggdrasil:local
-```
+### Yggdrasil protocol API
 
-The container expects writable runtime state under `/data`.
+- service metadata at `/`
+- authserver endpoints:
+  - `POST /authserver/authenticate`
+  - `POST /authserver/refresh`
+  - `POST /authserver/validate`
+  - `POST /authserver/invalidate`
+  - `POST /authserver/signout`
+- sessionserver endpoints:
+  - `POST /sessionserver/session/minecraft/join`
+  - `GET /sessionserver/session/minecraft/hasJoined`
+  - `GET /sessionserver/session/minecraft/profile/{uuid}`
+- batch profile lookup:
+  - `POST /api/profiles/minecraft`
+- protocol-native error bodies for launcher compatibility
+- access token hashing, revocation, expiry, refresh rotation, and per-user active-token pruning
 
-## Generate A New Project
+### Textures
 
-AsterYggdrasil can be used with `cargo-generate` as a starter repository:
+- domain model for Minecraft textures is being added separately from old file-storage concepts
+- skin/cape upload capability is controlled by runtime Yggdrasil config
+- texture storage is modeled through a dedicated texture storage abstraction
+- future work includes MIME/dimension validation, public read cache headers, and signed texture properties
 
-```bash
-cargo install cargo-generate
-cargo generate --git https://github.com/AsterCommunity/AsterYggdrasil --name my-service
-cd my-service
-./init.sh
-```
+### Administration and operations
 
-The template config filters local build/runtime artifacts such as `target/`, `data/`, `tmp/`, frontend `node_modules/`, `dist/`, and generated OpenAPI output.
+- admin runtime configuration APIs backed by `system_config`
+- audit log query APIs with presentation metadata
+- background task records, dispatch, retry, cleanup, lease/heartbeat, and runtime task presentation
+- mail runtime configuration, durable outbox, test mail, and mail audit records
+- health endpoints: `/health`, `/health/ready`, optional `/health/metrics`
+- memory and Redis cache implementations behind a shared cache trait
+- primary/follower startup mode for separating primary-only maintenance loops from common runtime initialization
 
-The generated project intentionally keeps source identifiers such as `aster_yggdrasil` until initialization. That keeps this repository buildable as a normal Rust project while still supporting `cargo generate` as a clean copy path. Run `./init.sh --help` for non-interactive options, then use the checklist in [developer-docs/en/README.md](developer-docs/en/README.md) for any remaining product-specific branding.
-
-After initialization, regenerate lockfiles with `cargo generate-lockfile` and `cd frontend-panel && bun install`.
-
-## Important Endpoints
+## Important endpoints
 
 ```text
+GET  /
+
+POST /authserver/authenticate
+POST /authserver/refresh
+POST /authserver/validate
+POST /authserver/invalidate
+POST /authserver/signout
+
+POST /sessionserver/session/minecraft/join
+GET  /sessionserver/session/minecraft/hasJoined
+GET  /sessionserver/session/minecraft/profile/{uuid}
+
+POST /api/profiles/minecraft
+
 GET  /health
 GET  /health/ready
 GET  /health/metrics                    # with --features metrics
@@ -191,14 +211,8 @@ POST /api/v1/auth/logout
 GET  /api/v1/auth/me
 GET  /api/v1/auth/sessions
 
-GET  /api/v1/external-auth/providers
-POST /api/v1/external-auth/{provider}/start
-GET  /api/v1/external-auth/{provider}/callback
-
-GET  /api/v1/auth/external-auth/providers
-GET  /api/v1/auth/external-auth/{kind}/providers
-POST /api/v1/auth/external-auth/{kind}/{provider}/start
-GET  /api/v1/auth/external-auth/{kind}/{provider}/callback
+GET  /api/v1/profiles/minecraft
+POST /api/v1/profiles/minecraft
 
 GET    /api/v1/admin/config
 GET    /api/v1/admin/config/schema
@@ -224,7 +238,7 @@ POST   /api/v1/admin/external-auth/providers/test
 POST   /api/v1/admin/external-auth/providers/{id}/test
 ```
 
-In debug builds with the `openapi` feature, the project can export a static OpenAPI document:
+Debug builds with the `openapi` feature can export a static OpenAPI document:
 
 ```bash
 cargo test --features openapi generate_openapi
@@ -232,7 +246,7 @@ cd frontend-panel
 bun run generate-api
 ```
 
-## Configuration Model
+## Configuration model
 
 Static config is loaded from `data/config.toml` by default and can be overridden with `ASTER__...` environment variables:
 
@@ -246,72 +260,100 @@ ASTER__AUTH__JWT_SECRET='replace-with-a-long-random-secret'
 
 See [config.example.toml](config.example.toml) for the full static config shape.
 
-Runtime config lives in `system_config` and is edited through the Admin Config API/UI. Use runtime config for values that should change without editing `config.toml`; use static config for boot-critical settings such as database URL, bind address, and secrets.
+Runtime config lives in `system_config` and is edited through the Admin Config API/UI. Use runtime config for feature switches and values that should change without editing `config.toml`; use static config for boot-critical settings such as database URL, bind address, and secrets.
 
-Mail delivery is runtime configuration too. SMTP host, port, encryption, credentials, sender settings, mail templates, and `mail_outbox_dispatch_interval_secs` are managed through the Admin Config API/UI. Administrator test mail uses `POST /api/v1/admin/config/mail/action`, and the primary node delivers queued mail through the `mail-outbox-dispatch` periodic task. See [docs/en/guide/mail.md](docs/en/guide/mail.md) for details.
+Yggdrasil runtime config currently includes:
 
-## Development Commands
+- `yggdrasil_server_name`
+- `yggdrasil_allow_profile_name_login`
+- `yggdrasil_allow_skin_upload`
+- `yggdrasil_allow_cape_upload`
+- `yggdrasil_token_ttl_days`
+- `yggdrasil_max_active_tokens`
+- `yggdrasil_skin_domains`
+- `yggdrasil_signature_public_key`
 
-Backend:
+## Development
+
+### Requirements
+
+- Rust `1.94.0+`
+- Bun
+- Node.js for frontend tooling
+- SQLite by default
+
+### Common commands
 
 ```bash
+# Backend
 cargo fmt
-cargo check --bins
-cargo check --features openapi
-cargo clippy --tests -- -D warnings
+cargo check
 cargo test
+cargo test --lib
+cargo test --test test_yggdrasil
+cargo test --test test_audit
+cargo test --test test_cache
+cargo test --test test_config
+cargo test --features openapi --test generate_openapi
+cargo test --features metrics
 cargo run
-```
 
-Frontend:
-
-```bash
+# Frontend
 cd frontend-panel
 bun install
+bun run dev
+bun run build
 bun run check
 bun run test
-bun run build
-bun run dev
+bun run test:e2e
 ```
 
-OpenAPI and generated frontend API types:
+### Frontend notes
 
-```bash
-cargo test --features openapi generate_openapi
-cd frontend-panel
-bun run generate-api
-```
+- The current `frontend-panel/` is still template/demo-grade UI.
+- Keep the stack: React, Vite, TypeScript, Tailwind CSS, shadcn/ui, Biome, Vitest, and Playwright.
+- Do not preserve the old page structure, visual style, or information architecture when building the real product UI.
+- The real UI should focus on login/registration, player profiles, texture upload and preview, authlib-injector setup, admin config, users, and audit logs.
+- TypeScript `enum` is not allowed; use `as const` objects.
+- Type-only imports must use `import type`.
 
-## Features
+## Project structure
 
 ```text
-server               default service build
-cli                  reserved CLI feature
-metrics              Prometheus metrics and system metrics
-openapi              OpenAPI schemas and debug API docs support
-full                 server + cli + metrics + openapi
-jemalloc             use jemalloc allocator
-jemalloc-stats       expose jemalloc stats support
-jemalloc-profiling   enable jemalloc profiling support
+src/                         Rust backend
+src/api/                     Routes, DTOs, OpenAPI registration, middleware, response envelope
+src/cache/                   Cache trait plus memory/Redis implementations
+src/config/                  Static config, runtime config definitions, normalizers
+src/db/                      Connections, retry helpers, transactions, repositories
+src/entities/                SeaORM entity models
+src/metrics/                 Prometheus implementation behind the metrics feature
+src/runtime/                 App state, startup, shutdown, logging, background task loops
+src/services/                Auth, external auth, config, mail, audit, task, health, Yggdrasil
+src/texture_storage/         Minecraft texture storage abstraction
+src/types/                   Shared domain enums and stored DB wrapper types
+src/utils/                   Crypto, ID, path, number, email, and RAII helpers
+migration/                   SeaORM migration crate
+api-docs-macros/             OpenAPI helper macro crate
+frontend-panel/              React admin panel, currently demo-grade
+developer-docs/              Developer-facing notes
+docs/                        User/deployment docs site
+tests/                       Integration tests and OpenAPI export test
+tmp/authlib-injector/wiki/   Local authlib-injector/Yggdrasil reference wiki clone
 ```
 
-## Template Extension Rules
+## Testing focus
 
-When building a product from AsterYggdrasil:
+Recent Yggdrasil tests cover:
 
-1. Add product entities in `src/entities/` and migrations in `migration/`.
-2. Put DB access in `src/db/repository/`.
-3. Put business behavior in `src/services/`.
-4. Put HTTP contracts in `src/api/dto/` and routes under `src/api/routes/`.
-5. Register new OpenAPI paths and schemas in `src/api/openapi.rs`.
-6. Add audit events for admin or security-relevant state changes.
-7. Add task kinds only when the task has a clear owner, retry model, and visibility model.
-8. Keep new mail templates, mail payloads, or outbox semantic changes synchronized with runtime config, OpenAPI, audit presentation, and generated frontend types.
-9. Keep foundation modules generic. Product-specific workflows belong in the product repository.
-
-## Reference Implementation
-
-For a larger example of extending the same style of runtime foundation into a product, see AsterDrive. Treat it as an implementation reference for module boundaries, task integration, audit coverage, and operational surfaces, not as a list of modules that should be copied into this template.
+- authenticate, validate, refresh, invalidate, and signout flows
+- no-profile, single-profile, and multi-profile selection behavior
+- profile-name login runtime configuration
+- DTO validation and protocol error body shape
+- project profile API validation and response envelope
+- join/hasJoined cache-backed session behavior, including memory fallback
+- batch profile lookup edge cases
+- token hashing and active-token pruning
+- audit records and audit presentation codes for profile/auth/session write actions
 
 ## License
 

@@ -225,4 +225,34 @@ mod tests {
         assert_eq!(status.code, TaskPresentationCode::StatusTextFailed);
         assert_eq!(status.params["error"], "cleanup failed");
     }
+
+    #[test]
+    fn yggdrasil_texture_cleanup_gets_stable_title_code() {
+        for (kind, code) in [
+            (
+                SystemRuntimeTaskKind::YggdrasilTextureCleanup,
+                TaskPresentationCode::RuntimeTaskYggdrasilTextureCleanup,
+            ),
+            (
+                SystemRuntimeTaskKind::YggdrasilTokenCleanup,
+                TaskPresentationCode::RuntimeTaskYggdrasilTokenCleanup,
+            ),
+            (
+                SystemRuntimeTaskKind::YggdrasilStorageConsistencyCheck,
+                TaskPresentationCode::RuntimeTaskYggdrasilStorageConsistencyCheck,
+            ),
+        ] {
+            let presentation = build_task_presentation(
+                &TaskPayload::SystemRuntime(RuntimeTaskPayload {
+                    task_name: RuntimeTaskName::from(kind),
+                }),
+                None,
+                BackgroundTaskStatus::Pending,
+                None,
+            )
+            .expect("presentation should be built");
+
+            assert_eq!(presentation.title.as_ref().unwrap().code, code);
+        }
+    }
 }

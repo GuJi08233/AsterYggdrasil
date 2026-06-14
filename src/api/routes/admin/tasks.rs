@@ -38,10 +38,19 @@ pub async fn list_tasks(
     page: web::Query<LimitOffsetQuery>,
     query: web::Query<AdminTaskListQuery>,
 ) -> Result<HttpResponse> {
+    let limit = page.limit_or(20, 100);
+    let offset = page.offset();
+    tracing::debug!(
+        limit,
+        offset,
+        kind = ?query.kind,
+        status = ?query.status,
+        "admin listing tasks"
+    );
     let page = task_service::list_tasks_paginated_for_admin(
         state.get_ref(),
-        page.limit_or(20, 100),
-        page.offset(),
+        limit,
+        offset,
         task_service::AdminTaskListFilters {
             kind: query.kind,
             status: query.status,
@@ -50,6 +59,11 @@ pub async fn list_tasks(
         query.sort_order(),
     )
     .await?;
+    tracing::debug!(
+        count = page.items.len(),
+        total = page.total,
+        "admin listed tasks"
+    );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(page)))
 }
 
@@ -73,8 +87,17 @@ pub async fn retry_task(
     req: HttpRequest,
     path: web::Path<i64>,
 ) -> Result<HttpResponse> {
+    let task_id = *path;
+    tracing::debug!(task_id, "admin retry task request received");
     let ctx = audit_service::AuditContext::from_request(&req, current_admin_user_id(&req)?);
-    let task = task_service::retry_task_for_admin_with_audit(state.get_ref(), *path, &ctx).await?;
+    let task =
+        task_service::retry_task_for_admin_with_audit(state.get_ref(), task_id, &ctx).await?;
+    tracing::debug!(
+        task_id = task.id,
+        kind = ?task.kind,
+        status = ?task.status,
+        "admin retry task request completed"
+    );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(task)))
 }
 
@@ -98,6 +121,12 @@ pub async fn cleanup_tasks(
     body: web::Json<AdminTaskCleanupReq>,
 ) -> Result<HttpResponse> {
     validate_request(&*body)?;
+    tracing::debug!(
+        finished_before = %body.finished_before,
+        kind = ?body.kind,
+        status = ?body.status,
+        "admin cleanup tasks request received"
+    );
     let removed = task_service::cleanup_tasks_for_admin(
         state.get_ref(),
         task_service::AdminTaskCleanupFilters {
@@ -125,5 +154,6 @@ pub async fn cleanup_tasks(
         },
     )
     .await;
+    tracing::debug!(removed, "admin cleanup tasks request completed");
     Ok(HttpResponse::Ok().json(ApiResponse::ok(RemovedCountResponse { removed })))
 }

@@ -1,5 +1,5 @@
 use crate::config::operations;
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::RuntimeConfigRuntimeState;
 use crate::types::BackgroundTaskKind;
 
 use super::super::registry;
@@ -18,7 +18,7 @@ pub(super) struct TaskLaneConfig {
 
 pub(super) const TASK_LANES: [TaskLane; 1] = [TaskLane::Fallback];
 
-pub(super) fn task_lane_configs(state: &impl SharedRuntimeState) -> Vec<TaskLaneConfig> {
+pub(super) fn task_lane_configs(state: &impl RuntimeConfigRuntimeState) -> Vec<TaskLaneConfig> {
     vec![TaskLaneConfig {
         lane: TaskLane::Fallback,
         limit: operations::background_task_max_concurrency(state.runtime_config()),

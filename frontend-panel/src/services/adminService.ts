@@ -2,23 +2,42 @@ import { withQuery } from "@/lib/query";
 import type {
 	AdminAuditLogQuery,
 	AdminExternalAuthProviderInfo,
+	AdminExternalAuthProviderListQuery,
 	AdminExternalAuthProviderPage,
+	AdminMinecraftProfileInfo,
 	AdminTaskCleanupRequest,
 	AdminTaskListQuery,
 	AdminTaskPage,
+	AdminUserListQuery,
+	AdminUserPage,
 	AuditLogPage,
+	ConfigListQuery,
 	ConfigSchemaItem,
+	CreateAdminUserRequest,
 	CreateExternalAuthProviderRequest,
 	ExternalAuthProviderKindInfo,
 	ExternalAuthProviderTestParamsRequest,
 	ExternalAuthProviderTestResult,
+	MinecraftTextureMetadata,
+	OperationData,
+	OperationPath,
+	OperationRequestBody,
 	RemovedCountResponse,
 	SetConfigRequest,
 	SystemConfig,
 	SystemConfigPage,
+	SystemInfoResponse,
+	UpdateAdminUserRequest,
 	UpdateExternalAuthProviderRequest,
+	YggdrasilProfile,
 } from "@/types/api";
 import { api } from "./http";
+
+type AdminConfigPath = OperationPath<"get_config">;
+type AdminExternalAuthProviderPath =
+	OperationPath<"admin_get_external_auth_provider">;
+type AdminRetryTaskPath = OperationPath<"admin_retry_task">;
+type AdminUserPath = OperationPath<"admin_get_user">;
 
 export const adminAuditService = {
 	list: (params: AdminAuditLogQuery = {}) =>
@@ -38,8 +57,12 @@ export const adminAuditService = {
 		),
 };
 
+export const adminSystemService = {
+	getInfo: () => api.get<SystemInfoResponse>("/admin/system-info"),
+};
+
 export const adminConfigService = {
-	list: (params: { limit?: number; offset?: number } = {}) =>
+	list: (params: ConfigListQuery = {}) =>
 		api.get<SystemConfigPage>(
 			withQuery("/admin/config", {
 				limit: params.limit ?? 50,
@@ -47,11 +70,14 @@ export const adminConfigService = {
 			}),
 		),
 	schema: () => api.get<ConfigSchemaItem[]>("/admin/config/schema"),
-	get: (key: string) =>
+	get: (key: AdminConfigPath["key"]) =>
 		api.get<SystemConfig>(`/admin/config/${encodeURIComponent(key)}`),
-	set: (key: string, data: SetConfigRequest) =>
-		api.put<SystemConfig>(`/admin/config/${encodeURIComponent(key)}`, data),
-	delete: (key: string) =>
+	set: (key: AdminConfigPath["key"], data: SetConfigRequest) =>
+		api.put<SystemConfig, OperationRequestBody<"set_config">>(
+			`/admin/config/${encodeURIComponent(key)}`,
+			data,
+		),
+	delete: (key: AdminConfigPath["key"]) =>
 		api.delete<void>(`/admin/config/${encodeURIComponent(key)}`),
 };
 
@@ -68,9 +94,60 @@ export const adminTaskService = {
 			}),
 		),
 	cleanup: (data: AdminTaskCleanupRequest) =>
-		api.post<RemovedCountResponse>("/admin/tasks/cleanup", data),
-	retry: (id: number) =>
-		api.post<AdminTaskPage["items"][number]>(`/admin/tasks/${id}/retry`),
+		api.post<RemovedCountResponse, OperationRequestBody<"admin_cleanup_tasks">>(
+			"/admin/tasks/cleanup",
+			data,
+		),
+	retry: (id: AdminRetryTaskPath["id"]) =>
+		api.post<OperationData<"admin_retry_task">>(`/admin/tasks/${id}/retry`),
+};
+
+export const adminMinecraftProfileService = {
+	get: (uuid: string) =>
+		api.get<AdminMinecraftProfileInfo>(`/admin/minecraft-profiles/${uuid}`),
+	listTextures: (uuid: string) =>
+		api.get<MinecraftTextureMetadata[]>(
+			`/admin/minecraft-profiles/${uuid}/textures`,
+		),
+	listByUser: (userId: number) =>
+		api.get<YggdrasilProfile[]>(`/admin/users/${userId}/minecraft-profiles`),
+	delete: (uuid: string) =>
+		api.delete<void>(`/admin/minecraft-profiles/${uuid}`),
+	deleteTexture: (uuid: string, textureType: "skin" | "cape") =>
+		api.delete<void>(
+			`/admin/minecraft-profiles/${uuid}/textures/${textureType}`,
+		),
+};
+
+export const adminUserService = {
+	list: (params: AdminUserListQuery = {}) =>
+		api.get<AdminUserPage>(
+			withQuery("/admin/users", {
+				limit: params.limit ?? 20,
+				offset: params.offset ?? 0,
+				keyword: params.keyword,
+				role: params.role,
+				status: params.status,
+				sort_by: params.sort_by ?? "created_at",
+				sort_order: params.sort_order ?? "desc",
+			}),
+		),
+	get: (id: AdminUserPath["id"]) =>
+		api.get<OperationData<"admin_get_user">>(`/admin/users/${id}`),
+	create: (data: CreateAdminUserRequest) =>
+		api.post<
+			OperationData<"admin_create_user", 201>,
+			OperationRequestBody<"admin_create_user">
+		>("/admin/users", data),
+	update: (id: AdminUserPath["id"], data: UpdateAdminUserRequest) =>
+		api.patch<
+			OperationData<"admin_update_user">,
+			OperationRequestBody<"admin_update_user">
+		>(`/admin/users/${id}`, data),
+	revokeSessions: (id: AdminUserPath["id"]) =>
+		api.post<OperationData<"admin_revoke_user_sessions">>(
+			`/admin/users/${id}/sessions/revoke`,
+		),
 };
 
 export const adminExternalAuthService = {
@@ -78,35 +155,38 @@ export const adminExternalAuthService = {
 		api.get<ExternalAuthProviderKindInfo[]>(
 			"/admin/external-auth/provider-kinds",
 		),
-	list: (params: { limit?: number; offset?: number } = {}) =>
+	list: (params: AdminExternalAuthProviderListQuery = {}) =>
 		api.get<AdminExternalAuthProviderPage>(
 			withQuery("/admin/external-auth/providers", {
 				limit: params.limit ?? 50,
 				offset: params.offset ?? 0,
 			}),
 		),
-	get: (id: number) =>
+	get: (id: AdminExternalAuthProviderPath["id"]) =>
 		api.get<AdminExternalAuthProviderInfo>(
 			`/admin/external-auth/providers/${id}`,
 		),
 	create: (data: CreateExternalAuthProviderRequest) =>
-		api.post<AdminExternalAuthProviderInfo>(
-			"/admin/external-auth/providers",
-			data,
-		),
-	update: (id: number, data: UpdateExternalAuthProviderRequest) =>
-		api.patch<AdminExternalAuthProviderInfo>(
-			`/admin/external-auth/providers/${id}`,
-			data,
-		),
-	delete: (id: number) =>
+		api.post<
+			OperationData<"admin_create_external_auth_provider", 201>,
+			OperationRequestBody<"admin_create_external_auth_provider">
+		>("/admin/external-auth/providers", data),
+	update: (
+		id: AdminExternalAuthProviderPath["id"],
+		data: UpdateExternalAuthProviderRequest,
+	) =>
+		api.patch<
+			AdminExternalAuthProviderInfo,
+			OperationRequestBody<"admin_update_external_auth_provider">
+		>(`/admin/external-auth/providers/${id}`, data),
+	delete: (id: AdminExternalAuthProviderPath["id"]) =>
 		api.delete<void>(`/admin/external-auth/providers/${id}`),
 	testParams: (data: ExternalAuthProviderTestParamsRequest) =>
-		api.post<ExternalAuthProviderTestResult>(
-			"/admin/external-auth/providers/test",
-			data,
-		),
-	test: (id: number) =>
+		api.post<
+			ExternalAuthProviderTestResult,
+			OperationRequestBody<"admin_test_external_auth_provider_params">
+		>("/admin/external-auth/providers/test", data),
+	test: (id: AdminExternalAuthProviderPath["id"]) =>
 		api.post<ExternalAuthProviderTestResult>(
 			`/admin/external-auth/providers/${id}/test`,
 		),

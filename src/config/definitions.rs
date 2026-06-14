@@ -5,23 +5,27 @@ use crate::types::SystemConfigValueType;
 pub const CONFIG_CATEGORY_SITE: &str = "site";
 pub const CONFIG_CATEGORY_AUTH: &str = "auth";
 pub const CONFIG_CATEGORY_EXTERNAL_AUTH: &str = "external_auth";
+pub const CONFIG_CATEGORY_USER_AVATAR: &str = "user.avatar";
 pub const CONFIG_CATEGORY_NETWORK: &str = "network";
 pub const CONFIG_CATEGORY_AUDIT: &str = "audit";
 pub const CONFIG_CATEGORY_RUNTIME: &str = "runtime";
 pub const CONFIG_CATEGORY_RUNTIME_MAIL: &str = "runtime.mail";
 pub const CONFIG_CATEGORY_MAIL_CONFIG: &str = "mail.config";
 pub const CONFIG_CATEGORY_MAIL_TEMPLATE: &str = "mail.template";
+pub const CONFIG_CATEGORY_YGGDRASIL: &str = "yggdrasil";
 
 pub const SYSTEM_CONFIG_ALLOWED_CATEGORIES: &[&str] = &[
     CONFIG_CATEGORY_SITE,
     CONFIG_CATEGORY_AUTH,
     CONFIG_CATEGORY_EXTERNAL_AUTH,
+    CONFIG_CATEGORY_USER_AVATAR,
     CONFIG_CATEGORY_NETWORK,
     CONFIG_CATEGORY_AUDIT,
     CONFIG_CATEGORY_RUNTIME,
     CONFIG_CATEGORY_RUNTIME_MAIL,
     CONFIG_CATEGORY_MAIL_CONFIG,
     CONFIG_CATEGORY_MAIL_TEMPLATE,
+    CONFIG_CATEGORY_YGGDRASIL,
 ];
 
 pub const PUBLIC_SITE_URL_KEY: &str = "public_site_url";
@@ -55,6 +59,9 @@ pub const AUTH_LOCAL_EMAIL_BLOCKLIST_KEY: &str = "auth_local_email_blocklist";
 
 pub const EXTERNAL_AUTH_ENABLED_KEY: &str = "external_auth_enabled";
 pub const EXTERNAL_AUTH_AUTO_REGISTER_KEY: &str = "external_auth_auto_register";
+
+pub const AVATAR_DIR_KEY: &str = "avatar_dir";
+pub const GRAVATAR_BASE_URL_KEY: &str = "gravatar_base_url";
 
 pub const CORS_ENABLED_KEY: &str = "cors_enabled";
 pub const CORS_ALLOWED_ORIGINS_KEY: &str = "cors_allowed_origins";
@@ -109,6 +116,19 @@ pub const TASK_RETENTION_HOURS_KEY: &str = "task_retention_hours";
 pub const TASK_LIST_MAX_LIMIT_KEY: &str = "task_list_max_limit";
 pub const MAINTENANCE_CLEANUP_INTERVAL_SECS_KEY: &str = "maintenance_cleanup_interval_secs";
 
+pub const YGGDRASIL_SERVER_NAME_KEY: &str = "yggdrasil_server_name";
+pub const YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY: &str = "yggdrasil_allow_profile_name_login";
+pub const YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY: &str = "yggdrasil_allow_skin_upload";
+pub const YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY: &str = "yggdrasil_allow_cape_upload";
+pub const YGGDRASIL_TOKEN_TTL_DAYS_KEY: &str = "yggdrasil_token_ttl_days";
+pub const YGGDRASIL_MAX_ACTIVE_TOKENS_KEY: &str = "yggdrasil_max_active_tokens";
+pub const YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY: &str = "yggdrasil_max_texture_upload_bytes";
+pub const YGGDRASIL_MAX_TEXTURE_PIXELS_KEY: &str = "yggdrasil_max_texture_pixels";
+pub const YGGDRASIL_SKIN_DOMAINS_KEY: &str = "yggdrasil_skin_domains";
+pub const YGGDRASIL_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_public_base_url";
+pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public_key";
+pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
+
 pub struct ConfigDef {
     pub key: &'static str,
     pub label_i18n_key: &'static str,
@@ -153,7 +173,9 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         label_i18n_key: "settings_item_branding_description_label",
         description_i18n_key: "settings_item_branding_description_desc",
         value_type: SystemConfigValueType::String,
-        default_fn: || "Reusable Aster service foundation".to_string(),
+        default_fn: || {
+            "Self-hosted Minecraft skin site and Yggdrasil authentication server.".to_string()
+        },
         requires_restart: false,
         is_sensitive: false,
         category: CONFIG_CATEGORY_SITE,
@@ -318,7 +340,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         label_i18n_key: "settings_item_auth_passkey_login_enabled_label",
         description_i18n_key: "settings_item_auth_passkey_login_enabled_desc",
         value_type: SystemConfigValueType::Boolean,
-        default_fn: || "false".to_string(),
+        default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
         category: CONFIG_CATEGORY_AUTH,
@@ -400,6 +422,28 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_EXTERNAL_AUTH,
         description: "Allow external auth identities to create local users automatically",
+    },
+    ConfigDef {
+        key: AVATAR_DIR_KEY,
+        label_i18n_key: "settings_item_avatar_dir_label",
+        description_i18n_key: "settings_item_avatar_dir_desc",
+        value_type: SystemConfigValueType::String,
+        default_fn: || crate::config::avatar::DEFAULT_AVATAR_DIR.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_USER_AVATAR,
+        description: "Local directory used for uploaded avatar files; relative paths resolve under ./data",
+    },
+    ConfigDef {
+        key: GRAVATAR_BASE_URL_KEY,
+        label_i18n_key: "settings_item_gravatar_base_url_label",
+        description_i18n_key: "settings_item_gravatar_base_url_desc",
+        value_type: SystemConfigValueType::String,
+        default_fn: || "https://www.gravatar.com/avatar".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_USER_AVATAR,
+        description: "Gravatar avatar base URL; change to a proxy or mirror if needed",
     },
     ConfigDef {
         key: CORS_ENABLED_KEY,
@@ -778,6 +822,142 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_MAIL_TEMPLATE,
         description: "HTML template for login email code messages",
+    },
+    ConfigDef {
+        key: YGGDRASIL_SERVER_NAME_KEY,
+        label_i18n_key: "settings_item_yggdrasil_server_name_label",
+        description_i18n_key: "settings_item_yggdrasil_server_name_desc",
+        value_type: SystemConfigValueType::String,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_SERVER_NAME.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Server name exposed in authlib-injector metadata",
+    },
+    ConfigDef {
+        key: YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY,
+        label_i18n_key: "settings_item_yggdrasil_allow_profile_name_login_label",
+        description_i18n_key: "settings_item_yggdrasil_allow_profile_name_login_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN.to_string()
+        },
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Allow launcher login using Minecraft profile names",
+    },
+    ConfigDef {
+        key: YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY,
+        label_i18n_key: "settings_item_yggdrasil_allow_skin_upload_label",
+        description_i18n_key: "settings_item_yggdrasil_allow_skin_upload_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ALLOW_SKIN_UPLOAD.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Allow Minecraft profiles to upload skin textures",
+    },
+    ConfigDef {
+        key: YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY,
+        label_i18n_key: "settings_item_yggdrasil_allow_cape_upload_label",
+        description_i18n_key: "settings_item_yggdrasil_allow_cape_upload_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ALLOW_CAPE_UPLOAD.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Allow Minecraft profiles to upload cape textures",
+    },
+    ConfigDef {
+        key: YGGDRASIL_TOKEN_TTL_DAYS_KEY,
+        label_i18n_key: "settings_item_yggdrasil_token_ttl_days_label",
+        description_i18n_key: "settings_item_yggdrasil_token_ttl_days_desc",
+        value_type: SystemConfigValueType::Number,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_TOKEN_TTL_DAYS.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Launcher access token lifetime in days",
+    },
+    ConfigDef {
+        key: YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
+        label_i18n_key: "settings_item_yggdrasil_max_active_tokens_label",
+        description_i18n_key: "settings_item_yggdrasil_max_active_tokens_desc",
+        value_type: SystemConfigValueType::Number,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_ACTIVE_TOKENS.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Maximum active launcher tokens retained per user",
+    },
+    ConfigDef {
+        key: YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
+        label_i18n_key: "settings_item_yggdrasil_max_texture_upload_bytes_label",
+        description_i18n_key: "settings_item_yggdrasil_max_texture_upload_bytes_desc",
+        value_type: SystemConfigValueType::Number,
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES.to_string()
+        },
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Maximum uploaded texture file size in bytes, enforced while streaming multipart data",
+    },
+    ConfigDef {
+        key: YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
+        label_i18n_key: "settings_item_yggdrasil_max_texture_pixels_label",
+        description_i18n_key: "settings_item_yggdrasil_max_texture_pixels_desc",
+        value_type: SystemConfigValueType::Number,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Maximum uploaded texture pixel count checked from PNG dimensions before full decode",
+    },
+    ConfigDef {
+        key: YGGDRASIL_SKIN_DOMAINS_KEY,
+        label_i18n_key: "settings_item_yggdrasil_skin_domains_label",
+        description_i18n_key: "settings_item_yggdrasil_skin_domains_desc",
+        value_type: SystemConfigValueType::StringArray,
+        default_fn: crate::config::yggdrasil::default_skin_domains_config,
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Texture domain whitelist exposed in authlib-injector metadata",
+    },
+    ConfigDef {
+        key: YGGDRASIL_PUBLIC_BASE_URL_KEY,
+        label_i18n_key: "settings_item_yggdrasil_public_base_url_label",
+        description_i18n_key: "settings_item_yggdrasil_public_base_url_desc",
+        value_type: SystemConfigValueType::StringArray,
+        default_fn: empty_origin_list_default,
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Externally reachable base URL candidates used to build Yggdrasil texture URLs",
+    },
+    ConfigDef {
+        key: YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY,
+        label_i18n_key: "settings_item_yggdrasil_signature_public_key_label",
+        description_i18n_key: "settings_item_yggdrasil_signature_public_key_desc",
+        value_type: SystemConfigValueType::Multiline,
+        default_fn: String::new,
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "PEM public key exposed in authlib-injector metadata when no signing private key is configured; when a private key exists, metadata derives the public key from it",
+    },
+    ConfigDef {
+        key: YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
+        label_i18n_key: "settings_item_yggdrasil_signature_private_key_label",
+        description_i18n_key: "settings_item_yggdrasil_signature_private_key_desc",
+        value_type: SystemConfigValueType::Multiline,
+        default_fn: String::new,
+        requires_restart: false,
+        is_sensitive: true,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "PEM RSA private key used to sign Yggdrasil texture properties. Rotate via config action; new profile/hasJoined responses are signed with the current key",
     },
     ConfigDef {
         key: MAIL_OUTBOX_DISPATCH_INTERVAL_SECS_KEY,

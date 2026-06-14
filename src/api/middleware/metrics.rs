@@ -191,14 +191,14 @@ mod tests {
                 .app_data(web::Data::new(metrics.shared()))
                 .wrap(MetricsMiddleware)
                 .route(
-                    "/api/v1/examples/{id}",
+                    "/api/v1/profiles/{id}",
                     web::get().to(|| async { HttpResponse::Created().finish() }),
                 ),
         )
         .await;
 
         let req = actix_test::TestRequest::get()
-            .uri("/api/v1/examples/42")
+            .uri("/api/v1/profiles/42")
             .to_request();
         let resp = actix_test::call_service(&app, req).await;
         assert_eq!(resp.status(), 201);
@@ -206,7 +206,7 @@ mod tests {
         let records = metrics.records();
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].method, "GET");
-        assert_eq!(records[0].route, "/api/v1/examples/{id}");
+        assert_eq!(records[0].route, "/api/v1/profiles/{id}");
         assert_eq!(records[0].status, 201);
         assert!(records[0].duration_seconds >= 0.0);
     }

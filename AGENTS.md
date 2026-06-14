@@ -90,11 +90,17 @@ bun run test:e2e
 
 - Yggdrasil 认证服务: metadata、authenticate、refresh、validate、invalidate、signout、join、hasJoined 等协议端点
 - authlib-injector 兼容: API 根地址、拖拽添加 URI、签名密钥、材质签名策略、启动器/服务端兼容性
-- 玩家档案: Minecraft UUID、玩家名、角色/档案绑定、名称唯一性和历史策略
+- 玩家档案: Minecraft UUID、玩家名、角色/档案绑定、名称唯一性和删除策略
 - 材质系统: skin、cape、elytra 等材质上传、哈希、MIME/尺寸校验、公开读取、缓存头
 - 管理后台: 用户、玩家档案、材质、认证客户端、密钥、审计、系统配置
 
 不要用“文件存储/分享/团队/回收站/缩略图”这类旧云盘领域名来表达新业务。需要保存材质文件时，也要从 Minecraft 材质域建模，而不是复活云盘的文件模型。
+
+## 玩家档案生命周期
+
+- Minecraft profile name 创建后不可改名。不要添加 rename API、改名任务、名称历史表或后台直接改名入口，除非产品决策明确变更。
+- 需要换名时走删除并重新创建 profile 的流程；删除流程必须同时处理材质记录、存储对象、启动器 token 失效和审计。
+- profile name 唯一性以当前存活 profile 为准。后续如果引入软删除或保留删除记录，必须先明确旧名称是否释放，不能顺手加历史表。
 
 ## API 约定
 

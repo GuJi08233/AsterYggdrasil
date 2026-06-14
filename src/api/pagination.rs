@@ -122,3 +122,17 @@ pub enum AdminAuditLogSortBy {
     EntityName,
     IpAddress,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum AdminUserSortBy {
+    Id,
+    Username,
+    Email,
+    Role,
+    Status,
+    #[default]
+    CreatedAt,
+    UpdatedAt,
+}

@@ -2,13 +2,14 @@ use chrono::Utc;
 
 use crate::db::repository::background_task_repo;
 use crate::errors::{AsterError, Result};
-use crate::runtime::{AppState, SharedRuntimeState};
+use crate::runtime::{AppConfigRuntimeState, AppState, DatabaseRuntimeState};
 use crate::types::BackgroundTaskStatus;
 
 use super::{DispatchStats, TASK_DRAIN_MAX_ROUNDS, dispatch_due};
 
 pub async fn drain(state: &AppState) -> Result<DispatchStats> {
     let mut total = DispatchStats::default();
+    tracing::debug!("draining background task dispatcher");
 
     for _ in 0..TASK_DRAIN_MAX_ROUNDS {
         let stats = dispatch_due(state).await?;
@@ -22,25 +23,42 @@ pub async fn drain(state: &AppState) -> Result<DispatchStats> {
         }
 
         if background_task_repo::count_processing(state.writer_db()).await? == 0 {
+            tracing::debug!("background task drain finished because no tasks are processing");
             break;
         }
 
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
 
+    tracing::debug!(
+        claimed = total.claimed,
+        succeeded = total.succeeded,
+        retried = total.retried,
+        failed = total.failed,
+        "background task dispatcher drain completed"
+    );
     Ok(total)
 }
 
-pub async fn cleanup_expired(state: &impl SharedRuntimeState) -> Result<u64> {
+pub async fn cleanup_expired(
+    state: &(impl AppConfigRuntimeState + DatabaseRuntimeState),
+) -> Result<u64> {
     cleanup_expired_in_root(state, &state.config().server.temp_dir).await
 }
 
-async fn cleanup_expired_in_root(state: &impl SharedRuntimeState, temp_root: &str) -> Result<u64> {
+async fn cleanup_expired_in_root(
+    state: &impl DatabaseRuntimeState,
+    temp_root: &str,
+) -> Result<u64> {
     let now = Utc::now();
     let tasks_root = crate::utils::paths::temp_file_path(temp_root, "tasks");
+    tracing::debug!("cleaning expired background task temp dirs");
     let mut entries = match tokio::fs::read_dir(&tasks_root).await {
         Ok(entries) => entries,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            tracing::debug!("background task temp root missing during cleanup");
+            return Ok(0);
+        }
         Err(error) => {
             return Err(AsterError::internal_error(format!(
                 "read task temp root {tasks_root}: {error}"
@@ -96,6 +114,7 @@ async fn cleanup_expired_in_root(state: &impl SharedRuntimeState, temp_root: &st
                 Err(error) => return Err(error),
             };
         if !should_cleanup {
+            tracing::debug!(task_id, "skipping background task temp dir cleanup");
             continue;
         }
 
@@ -115,8 +134,13 @@ async fn cleanup_expired_in_root(state: &impl SharedRuntimeState, temp_root: &st
         }
 
         cleaned += 1;
+        tracing::debug!(task_id, cleaned, "cleaned background task temp dir");
     }
 
+    tracing::debug!(
+        cleaned,
+        "finished cleaning expired background task temp dirs"
+    );
     Ok(cleaned)
 }
 
@@ -124,7 +148,6 @@ async fn cleanup_expired_in_root(state: &impl SharedRuntimeState, temp_root: &st
 mod tests {
     use super::cleanup_expired_in_root;
     use crate::entities::background_task;
-    use crate::runtime::SharedRuntimeState;
     use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
     use chrono::{Duration, Utc};
     use sea_orm::{ActiveModelTrait, Set};
@@ -164,12 +187,16 @@ mod tests {
             ..Default::default()
         });
         let cache = crate::cache::create_cache(&config.cache).await;
+        let texture_storage =
+            crate::texture_storage::create_texture_storage(&config.texture_storage)
+                .expect("texture storage should initialize");
 
         crate::runtime::AppState {
             db_handles: crate::db::DbHandles::single(db),
             config,
             runtime_config,
             cache,
+            texture_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             background_task_dispatch_wakeup:

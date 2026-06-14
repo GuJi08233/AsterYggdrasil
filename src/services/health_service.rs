@@ -3,7 +3,7 @@
 use crate::cache::CacheBackend;
 use crate::config::CacheConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
 use sea_orm::DatabaseConnection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,27 +104,49 @@ impl SystemHealthReport {
 }
 
 pub async fn ping_database(db: &DatabaseConnection) -> Result<()> {
+    tracing::debug!("pinging database health check");
     db.ping()
         .await
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn check_ready<S: SharedRuntimeState>(state: &S) -> Result<()> {
+pub async fn check_ready<S: DatabaseRuntimeState>(state: &S) -> Result<()> {
+    tracing::debug!("running readiness check");
     ping_database(state.reader_db()).await
 }
 
-pub async fn run_system_health_checks<S: SharedRuntimeState>(state: &S) -> SystemHealthReport {
+pub async fn run_system_health_checks<S>(state: &S) -> SystemHealthReport
+where
+    S: DatabaseRuntimeState + AppConfigRuntimeState + CacheRuntimeState,
+{
+    tracing::debug!("running system health checks");
     let components = vec![
         check_database_component(state.reader_db()).await,
         check_cache_component(&state.config().cache, state.cache().as_ref()).await,
     ];
+    tracing::debug!(
+        component_count = components.len(),
+        unhealthy_count = components
+            .iter()
+            .filter(|component| matches!(component.status, HealthStatus::Unhealthy))
+            .count(),
+        degraded_count = components
+            .iter()
+            .filter(|component| matches!(component.status, HealthStatus::Degraded))
+            .count(),
+        "completed system health checks"
+    );
     SystemHealthReport { components }
 }
 
 async fn check_database_component(db: &DatabaseConnection) -> HealthComponentReport {
     match ping_database(db).await {
-        Ok(()) => HealthComponentReport::healthy("database", "database ping succeeded"),
+        Ok(()) => {
+            tracing::debug!("database health check succeeded");
+            HealthComponentReport::healthy("database", "database ping succeeded")
+        }
         Err(error) => {
+            tracing::debug!(error = %error, "database health check failed");
             HealthComponentReport::unhealthy("database", format!("database ping failed: {error}"))
         }
     }
@@ -135,18 +157,37 @@ async fn check_cache_component(
     cache: &dyn CacheBackend,
 ) -> HealthComponentReport {
     if !config.enabled {
-        return HealthComponentReport::healthy("cache", "cache is disabled by configuration");
+        tracing::debug!(
+            backend = cache.backend_name(),
+            "cache health check skipped because cache is disabled"
+        );
+        return HealthComponentReport::healthy(
+            "cache",
+            format!(
+                "cache.enabled=false is deprecated; using {} cache fallback",
+                cache.backend_name()
+            ),
+        );
     }
 
     match cache.health_check().await {
-        Ok(()) => HealthComponentReport::healthy("cache", "cache health check succeeded"),
-        Err(error) => HealthComponentReport::degraded(
-            "cache",
-            format!(
-                "{} cache health check failed: {error}",
-                cache.backend_name()
-            ),
-        ),
+        Ok(()) => {
+            tracing::debug!(
+                backend = cache.backend_name(),
+                "cache health check succeeded"
+            );
+            HealthComponentReport::healthy("cache", "cache health check succeeded")
+        }
+        Err(error) => {
+            tracing::debug!(backend = cache.backend_name(), error = %error, "cache health check failed");
+            HealthComponentReport::degraded(
+                "cache",
+                format!(
+                    "{} cache health check failed: {error}",
+                    cache.backend_name()
+                ),
+            )
+        }
     }
 }
 
@@ -292,7 +333,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cache_component_is_healthy_when_cache_is_disabled() {
+    async fn cache_component_reports_memory_fallback_when_cache_is_disabled() {
         let config = CacheConfig {
             enabled: false,
             backend: "redis".to_string(),
@@ -305,7 +346,10 @@ mod tests {
 
         assert_eq!(report.name, "cache");
         assert_eq!(report.status, HealthStatus::Healthy);
-        assert_eq!(report.message, "cache is disabled by configuration");
+        assert_eq!(
+            report.message,
+            "cache.enabled=false is deprecated; using redis cache fallback"
+        );
     }
 
     #[tokio::test]

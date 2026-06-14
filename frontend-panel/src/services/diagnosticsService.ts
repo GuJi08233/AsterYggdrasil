@@ -2,11 +2,8 @@ import type { IconName } from "@/components/ui/icon";
 import type {
 	AsterErrorCode,
 	CheckResp,
-	ExampleMessage,
 	ExternalAuthPublicProvider,
 	HealthResponse,
-	ProtectedExampleMessage,
-	SystemInfo,
 } from "@/types/api";
 import { ApiError, api, formatUnknownError } from "./http";
 
@@ -41,19 +38,38 @@ type ServiceDiagnosticDefinition = Omit<
 	guardedValue?: string;
 };
 
+function defineDiagnostic<T>(
+	definition: Omit<
+		ServiceDiagnosticResult,
+		"status" | "value" | "detail" | "error"
+	> & {
+		load: (signal: AbortSignal) => Promise<T>;
+		summarize: (data: T) => string;
+		describe?: (data: T) => string | undefined;
+		guardedErrorCodes?: AsterErrorCode[];
+		guardedValue?: string;
+	},
+): ServiceDiagnosticDefinition {
+	return definition as ServiceDiagnosticDefinition;
+}
+
 const definitions: ServiceDiagnosticDefinition[] = [
-	{
+	defineDiagnostic<HealthResponse>({
 		id: "health",
 		group: "Runtime",
 		label: "Process health",
 		method: "GET",
 		path: "/health",
 		icon: "Gauge",
-		load: (signal) => api.root.get<HealthResponse>("/health", { signal }),
-		summarize: (data) => (data as HealthResponse).status,
-		describe: (data) => `v${(data as HealthResponse).version}`,
-	},
-	{
+		load: async (signal) => {
+			const response = await api.rootClient.get<HealthResponse>("/health", {
+				signal,
+			});
+			return response.data;
+		},
+		summarize: (data) => data.status,
+	}),
+	defineDiagnostic<HealthResponse>({
 		id: "ready",
 		group: "Runtime",
 		label: "Database readiness",
@@ -61,24 +77,9 @@ const definitions: ServiceDiagnosticDefinition[] = [
 		path: "/health/ready",
 		icon: "HardDrive",
 		load: (signal) => api.root.get<HealthResponse>("/health/ready", { signal }),
-		summarize: (data) => (data as HealthResponse).status,
-		describe: (data) => `build ${(data as HealthResponse).build_time}`,
-	},
-	{
-		id: "system",
-		group: "Runtime",
-		label: "Runtime information",
-		method: "GET",
-		path: "/api/v1/system/info",
-		icon: "Cpu",
-		load: (signal) => api.get<SystemInfo>("/system/info", { signal }),
-		summarize: (data) => (data as SystemInfo).site_title,
-		describe: (data) => {
-			const info = data as SystemInfo;
-			return `${info.name} ${info.version}`;
-		},
-	},
-	{
+		summarize: (data) => data.status,
+	}),
+	defineDiagnostic<CheckResp>({
 		id: "auth-check",
 		group: "Identity",
 		label: "Auth bootstrap state",
@@ -86,57 +87,26 @@ const definitions: ServiceDiagnosticDefinition[] = [
 		path: "/api/v1/auth/check",
 		icon: "Key",
 		load: (signal) => api.get<CheckResp>("/auth/check", { signal }),
-		summarize: (data) =>
-			(data as CheckResp).initialized ? "initialized" : "setup required",
+		summarize: (data) => (data.initialized ? "initialized" : "setup required"),
 		describe: () => "first-admin gate",
-	},
-	{
+	}),
+	defineDiagnostic<ExternalAuthPublicProvider[]>({
 		id: "external-auth",
 		group: "Identity",
 		label: "External auth providers",
 		method: "GET",
-		path: "/api/v1/external-auth/providers",
+		path: "/api/v1/auth/external-auth/providers",
 		icon: "Globe",
 		load: (signal) =>
-			api.get<ExternalAuthPublicProvider[]>("/external-auth/providers", {
+			api.get<ExternalAuthPublicProvider[]>("/auth/external-auth/providers", {
 				signal,
 			}),
-		summarize: (data) => `${(data as ExternalAuthPublicProvider[]).length}`,
+		summarize: (data) => `${data.length}`,
 		describe: (data) => {
-			const providers = data as ExternalAuthPublicProvider[];
-			if (providers.length === 0) return "no enabled providers";
-			return providers.map((provider) => provider.display_name).join(", ");
+			if (data.length === 0) return "no enabled providers";
+			return data.map((provider) => provider.display_name).join(", ");
 		},
-	},
-	{
-		id: "public-example",
-		group: "Examples",
-		label: "Public template API",
-		method: "GET",
-		path: "/api/v1/examples/public",
-		icon: "BracketsCurly",
-		load: (signal) => api.get<ExampleMessage>("/examples/public", { signal }),
-		summarize: (data) => (data as ExampleMessage).message,
-		describe: (data) => `build ${(data as ExampleMessage).build_time}`,
-	},
-	{
-		id: "protected-example",
-		group: "Examples",
-		label: "Authenticated API",
-		method: "GET",
-		path: "/api/v1/examples/protected",
-		icon: "Lock",
-		load: (signal) =>
-			api.get<ProtectedExampleMessage>("/examples/protected", { signal }),
-		summarize: (data) => (data as ProtectedExampleMessage).message,
-		describe: (data) => (data as ProtectedExampleMessage).user.username,
-		guardedErrorCodes: [
-			"auth.token_invalid",
-			"auth.token_expired",
-			"forbidden",
-		],
-		guardedValue: "sign-in required",
-	},
+	}),
 ];
 
 export const DIAGNOSTIC_ENDPOINTS = definitions.map(

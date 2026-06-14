@@ -36,3 +36,16 @@ impl UserStatus {
         matches!(self, Self::Active)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(32))")]
+#[serde(rename_all = "snake_case")]
+pub enum AvatarSource {
+    #[sea_orm(string_value = "none")]
+    None,
+    #[sea_orm(string_value = "gravatar")]
+    Gravatar,
+    #[sea_orm(string_value = "upload")]
+    Upload,
+}

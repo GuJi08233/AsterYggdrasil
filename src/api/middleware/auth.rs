@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::api::middleware::csrf::{self, RequestSourceMode};
 use crate::api::request_auth::access_cookie_token;
 use crate::errors::AsterError;
-use crate::runtime::{AppState, SharedRuntimeState};
+use crate::runtime::AppState;
 use crate::services::auth_service::{self, AuthUserInfo};
 
 pub struct JwtAuth;

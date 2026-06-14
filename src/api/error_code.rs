@@ -54,22 +54,122 @@ impl utoipa::ToSchema for AsterErrorCode {
 define_error_codes! {
     Success => "success",
 
+    // Generic request and platform errors.
     BadRequest => "bad_request",
+    ValidationFailed => "validation.failed",
+    RequestMalformed => "request.malformed",
+    RequestPayloadTooLarge => "request.payload_too_large",
     NotFound => "not_found",
     InternalServerError => "internal_server_error",
     DatabaseError => "database.error",
+    CacheError => "cache.error",
+    StorageError => "storage.error",
     ConfigError => "config.error",
+    RuntimeUnavailable => "runtime.unavailable",
     EndpointNotFound => "endpoint.not_found",
+    EndpointMethodNotAllowed => "endpoint.method_not_allowed",
     RateLimited => "rate_limited",
+
+    // Authentication, session and request-security errors.
+    AuthSetupRequired => "auth.setup_required",
+    AuthSetupAlreadyCompleted => "auth.setup_already_completed",
+    AuthRegistrationDisabled => "auth.registration_disabled",
+    AuthPasswordPolicyFailed => "auth.password_policy_failed",
+    AuthUsernameExists => "auth.username_exists",
+    AuthEmailExists => "auth.email_exists",
+    AuthUserDisabled => "auth.user_disabled",
+    AuthPendingActivation => "auth.pending_activation",
+    AuthPasskeyLoginDisabled => "auth.passkey_login_disabled",
+    ContactVerificationInvalid => "auth.contact_verification_invalid",
+    ContactVerificationExpired => "auth.contact_verification_expired",
     MailNotConfigured => "mail.not_configured",
     MailDeliveryFailed => "mail.delivery_failed",
 
     AuthCredentialsFailed => "auth.credentials_failed",
     AuthTokenExpired => "auth.token_expired",
     AuthTokenInvalid => "auth.token_invalid",
+    AuthSessionNotFound => "auth.session_not_found",
+    AuthSessionRevocationFailed => "auth.session_revocation_failed",
+    AuthCsrfMissing => "auth.csrf_missing",
+    AuthCsrfInvalid => "auth.csrf_invalid",
+    AuthAdminRequired => "auth.admin_required",
     Forbidden => "forbidden",
 
+    // External authentication provider and login-flow errors.
     ExternalAuthError => "external_auth.error",
+    ExternalAuthProviderNotFound => "external_auth.provider_not_found",
+    ExternalAuthProviderDisabled => "external_auth.provider_disabled",
+    ExternalAuthProviderMisconfigured => "external_auth.provider_misconfigured",
+    ExternalAuthStateInvalid => "external_auth.state_invalid",
+    ExternalAuthStateExpired => "external_auth.state_expired",
+    ExternalAuthCallbackFailed => "external_auth.callback_failed",
+    ExternalAuthIdentityConflict => "external_auth.identity_conflict",
+    ExternalAuthCallbackRedirectUriRequired => "external_auth.callback_redirect_uri_required",
+
+    // Mail and outbox errors.
+    MailTemplateInvalid => "mail.template_invalid",
+    MailOutboxNotFound => "mail.outbox_not_found",
+
+    // Runtime configuration and action errors.
+    ConfigNotFound => "config.not_found",
+    ConfigReadOnly => "config.read_only",
+    ConfigValidationFailed => "config.validation_failed",
+    ConfigActionNotFound => "config.action_not_found",
+    ConfigActionInvalid => "config.action_invalid",
+    ConfigActionFailed => "config.action_failed",
+
+    // Audit-log and background-task errors.
+    AuditLogInvalidFilter => "audit_log.invalid_filter",
+    TaskNotFound => "task.not_found",
+    TaskInvalidState => "task.invalid_state",
+    TaskRetryNotAllowed => "task.retry_not_allowed",
+    TaskCleanupFailed => "task.cleanup_failed",
+    TaskLeaseConflict => "task.lease_conflict",
+
+    // Minecraft profile errors exposed by project API endpoints.
+    MinecraftProfileNotFound => "minecraft_profile.not_found",
+    MinecraftProfileUuidInvalid => "minecraft_profile.uuid_invalid",
+    MinecraftProfileNameInvalid => "minecraft_profile.name_invalid",
+    MinecraftProfileNameTaken => "minecraft_profile.name_taken",
+    MinecraftProfileLimitExceeded => "minecraft_profile.limit_exceeded",
+    MinecraftProfileDeleteForbidden => "minecraft_profile.delete_forbidden",
+
+    // Minecraft texture asset and binding errors.
+    MinecraftTextureNotFound => "minecraft_texture.not_found",
+    MinecraftTextureInvalidType => "minecraft_texture.invalid_type",
+    MinecraftTextureUploadDisabled => "minecraft_texture.upload_disabled",
+    MinecraftTextureInvalidPng => "minecraft_texture.invalid_png",
+    MinecraftTextureInvalidDimensions => "minecraft_texture.invalid_dimensions",
+    MinecraftTextureInvalidModel => "minecraft_texture.invalid_model",
+    MinecraftTextureUnsupportedMime => "minecraft_texture.unsupported_mime",
+    MinecraftTextureTooLarge => "minecraft_texture.too_large",
+    MinecraftTextureStorageFailed => "minecraft_texture.storage_failed",
+    MinecraftTextureBindConflict => "minecraft_texture.bind_conflict",
+
+    // Wardrobe-specific texture library errors.
+    WardrobeTextureNotFound => "wardrobe.texture_not_found",
+    WardrobeTextureTypeMismatch => "wardrobe.texture_type_mismatch",
+    WardrobeTextureDeleteConflict => "wardrobe.texture_delete_conflict",
+
+    // Passkey / WebAuthn errors.
+    PasskeyNameInvalid => "passkey.name_invalid",
+    PasskeyNameTooLong => "passkey.name_too_long",
+    PasskeyNotDiscoverable => "passkey.not_discoverable",
+
+    // User profile and avatar errors.
+    AvatarNotFound => "avatar.not_found",
+    AvatarFileRequired => "avatar.file_required",
+    AvatarUploadReadFailed => "avatar.upload_read_failed",
+    AvatarEmptyImage => "avatar.empty_image",
+    AvatarSourceInvalid => "avatar.source_invalid",
+    AvatarSizeInvalid => "avatar.size_invalid",
+    AvatarRenderFailed => "avatar.render_failed",
+    AvatarOutputInvalid => "avatar.output_invalid",
+
+    // Public frontend/bootstrap errors.
+    ConfigPublicSiteUrlRequired => "config.public_site_url_required",
+    ConfigPublicSiteUrlInvalid => "config.public_site_url_invalid",
+    FrontendConfigUnavailable => "frontend_config.unavailable",
 }
 
 impl AsRef<str> for AsterErrorCode {
@@ -106,6 +206,7 @@ impl FromStr for AsterErrorCode {
 #[cfg(test)]
 mod tests {
     use super::{AsterErrorCode, ParseAsterErrorCodeError};
+    use std::collections::HashSet;
     use std::str::FromStr;
 
     #[test]
@@ -135,6 +236,41 @@ mod tests {
             AsterErrorCode::RateLimited
         );
         assert!(AsterErrorCode::from_str("RATE_LIMITED").is_err());
+    }
+
+    #[test]
+    fn stable_wire_values_are_unique() {
+        let mut seen = HashSet::new();
+        for &code in AsterErrorCode::ALL {
+            assert!(
+                seen.insert(code.as_str()),
+                "duplicate AsterErrorCode wire value: {}",
+                code.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn project_api_domains_have_specific_error_codes() {
+        for domain in [
+            "auth.",
+            "external_auth.",
+            "mail.",
+            "config.",
+            "audit_log.",
+            "task.",
+            "minecraft_profile.",
+            "minecraft_texture.",
+            "wardrobe.",
+            "frontend_config.",
+        ] {
+            assert!(
+                AsterErrorCode::ALL
+                    .iter()
+                    .any(|code| code.as_str().starts_with(domain)),
+                "missing domain-specific error code for {domain}"
+            );
+        }
     }
 
     #[test]

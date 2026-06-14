@@ -9,7 +9,8 @@ pub use crate::config::definitions::{
 };
 
 pub const DEFAULT_BRANDING_TITLE: &str = "AsterYggdrasil";
-pub const DEFAULT_BRANDING_DESCRIPTION: &str = "Reusable Aster service foundation";
+pub const DEFAULT_BRANDING_DESCRIPTION: &str =
+    "Self-hosted Minecraft skin site and Yggdrasil authentication server.";
 pub const DEFAULT_BRANDING_FAVICON_URL: &str = "/favicon.svg";
 pub const DEFAULT_BRANDING_WORDMARK_DARK_URL: &str = "";
 pub const DEFAULT_BRANDING_WORDMARK_LIGHT_URL: &str = "";
@@ -48,12 +49,17 @@ pub fn title_or_default(runtime_config: &RuntimeConfig) -> String {
 }
 
 pub fn description_or_default(runtime_config: &RuntimeConfig) -> String {
-    string_or_default(
+    let description = string_or_default(
         runtime_config.get(BRANDING_DESCRIPTION_KEY),
         DEFAULT_BRANDING_DESCRIPTION,
         "branding_description",
         MAX_BRANDING_DESCRIPTION_LEN,
-    )
+    );
+    if is_legacy_template_description(&description) {
+        DEFAULT_BRANDING_DESCRIPTION.to_string()
+    } else {
+        description
+    }
 }
 
 pub fn favicon_url_or_default(runtime_config: &RuntimeConfig) -> String {
@@ -142,6 +148,15 @@ fn string_or_default(
         .and_then(|value| normalize_text_value(field_name, &value, max_len).ok())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| default.to_string())
+}
+
+fn is_legacy_template_description(value: &str) -> bool {
+    matches!(
+        value.trim(),
+        "Reusable Aster service foundation"
+            | "Reusable Rust and React service foundation"
+            | "Reusable Rust + React service foundation for Aster projects"
+    )
 }
 
 fn is_allowed_branding_asset_url(value: &str) -> bool {
@@ -244,6 +259,15 @@ mod tests {
         runtime_config.apply(config_model(BRANDING_WORDMARK_LIGHT_URL_KEY, " "));
 
         assert_eq!(title_or_default(&runtime_config), DEFAULT_BRANDING_TITLE);
+        assert_eq!(
+            description_or_default(&runtime_config),
+            DEFAULT_BRANDING_DESCRIPTION
+        );
+
+        runtime_config.apply(config_model(
+            BRANDING_DESCRIPTION_KEY,
+            "Reusable Aster service foundation",
+        ));
         assert_eq!(
             description_or_default(&runtime_config),
             DEFAULT_BRANDING_DESCRIPTION

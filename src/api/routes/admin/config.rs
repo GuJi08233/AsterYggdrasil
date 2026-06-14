@@ -35,9 +35,15 @@ pub async fn list_config(
     state: web::Data<AppState>,
     query: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
-    let configs =
-        config_service::list_paginated(state.get_ref(), query.limit_or(50, 100), query.offset())
-            .await?;
+    let limit = query.limit_or(50, 100);
+    let offset = query.offset();
+    tracing::debug!(limit, offset, "admin listing config entries");
+    let configs = config_service::list_paginated(state.get_ref(), limit, offset).await?;
+    tracing::debug!(
+        count = configs.items.len(),
+        total = configs.total,
+        "admin listed config entries"
+    );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(configs)))
 }
 
@@ -54,7 +60,9 @@ pub async fn list_config(
     security(("bearer" = [])),
 )]
 pub async fn config_schema() -> Result<HttpResponse> {
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(config_service::get_schema())))
+    let schema = config_service::get_schema();
+    tracing::debug!(count = schema.len(), "admin loaded config schema");
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(schema)))
 }
 
 #[api_docs_macros::path(
@@ -70,9 +78,12 @@ pub async fn config_schema() -> Result<HttpResponse> {
     security(("bearer" = [])),
 )]
 pub async fn config_template_variables() -> Result<HttpResponse> {
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(
-        config_service::list_template_variable_groups(),
-    )))
+    let groups = config_service::list_template_variable_groups();
+    tracing::debug!(
+        count = groups.len(),
+        "admin loaded config template variable groups"
+    );
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(groups)))
 }
 
 #[api_docs_macros::path(
@@ -93,7 +104,10 @@ pub async fn get_config(
     state: web::Data<AppState>,
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
-    let config = config_service::get_by_key(state.get_ref(), &path).await?;
+    let key = path.into_inner();
+    tracing::debug!(key, "admin loading config entry");
+    let config = config_service::get_by_key(state.get_ref(), &key).await?;
+    tracing::debug!(key, config_id = config.id, "admin loaded config entry");
     Ok(HttpResponse::Ok().json(ApiResponse::ok(config)))
 }
 
@@ -105,7 +119,7 @@ pub async fn get_config(
     params(("key" = String, Path, description = "Config key")),
     request_body = SetConfigReq,
     responses(
-        (status = 200, description = "Config value set", body = inline(ApiResponse<config_service::SystemConfig>)),
+        (status = 200, description = "Config value set", body = inline(ApiResponse<config_service::SystemConfigUpdateResult>)),
         (status = 400, description = "Invalid request"),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
@@ -119,17 +133,31 @@ pub async fn set_config(
     body: web::Json<SetConfigReq>,
 ) -> Result<HttpResponse> {
     let user_id = current_admin_user_id(&req)?;
+    let key = path.into_inner();
+    tracing::debug!(
+        admin_user_id = user_id,
+        key,
+        has_visibility = body.visibility.is_some(),
+        "admin setting config entry"
+    );
     let ctx = audit_service::AuditContext::from_request(&req, user_id);
-    let config = config_service::set_with_audit_and_visibility(
+    let result = config_service::set_with_audit_and_visibility_result(
         state.get_ref(),
-        &path,
+        &key,
         &body.value,
         body.visibility,
         user_id,
         &ctx,
     )
     .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(config)))
+    tracing::debug!(
+        admin_user_id = user_id,
+        key,
+        config_id = result.config.id,
+        warnings = result.warnings.len(),
+        "admin set config entry"
+    );
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(result)))
 }
 
 #[api_docs_macros::path(
@@ -152,8 +180,11 @@ pub async fn delete_config(
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
     let user_id = current_admin_user_id(&req)?;
+    let key = path.into_inner();
+    tracing::debug!(admin_user_id = user_id, key, "admin deleting config entry");
     let ctx = audit_service::AuditContext::from_request(&req, user_id);
-    config_service::delete_with_audit(state.get_ref(), &path, &ctx).await?;
+    config_service::delete_with_audit(state.get_ref(), &key, &ctx).await?;
+    tracing::debug!(admin_user_id = user_id, key, "admin deleted config entry");
     Ok(HttpResponse::Ok().json(ApiResponse::<()>::ok_empty()))
 }
 
@@ -183,6 +214,13 @@ pub async fn execute_config_action(
     crate::api::dto::validate_request(&*body)?;
     let user_id = current_admin_user_id(&req)?;
     let key = path.into_inner();
+    tracing::debug!(
+        admin_user_id = user_id,
+        key,
+        action = %body.action.as_str(),
+        has_target_email = body.target_email.is_some(),
+        "admin executing config action"
+    );
     let ctx = audit_service::AuditContext::from_request(&req, user_id);
     let action_result = config_service::execute_action_with_audit(
         state.get_ref(),
@@ -196,6 +234,13 @@ pub async fn execute_config_action(
     )
     .await?;
 
+    tracing::debug!(
+        admin_user_id = user_id,
+        key,
+        action = %body.action.as_str(),
+        has_value = action_result.value.is_some(),
+        "admin executed config action"
+    );
     Ok(
         HttpResponse::Ok().json(ApiResponse::ok(ExecuteConfigActionResp {
             message: action_result.message,

@@ -61,7 +61,7 @@ where
             };
 
             if !is_admin {
-                return Err(AsterError::auth_forbidden("admin role required").into());
+                return Err(AsterError::auth_admin_required("admin role required").into());
             }
 
             svc.call(req).await

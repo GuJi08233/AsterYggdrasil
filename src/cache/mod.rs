@@ -1,7 +1,6 @@
 //! 缓存抽象与实现导出。
 
 mod memory;
-mod noop;
 mod redis_cache;
 mod reservation;
 
@@ -68,8 +67,10 @@ impl CacheExt for dyn CacheBackend {
 /// 根据配置创建缓存后端
 pub async fn create_cache(config: &CacheConfig) -> Arc<dyn CacheBackend> {
     if !config.enabled {
-        tracing::info!("cache disabled");
-        return Arc::new(noop::NoopCache::new(config.default_ttl));
+        tracing::warn!(
+            "cache.enabled=false is deprecated; using memory cache because runtime protocols require cache semantics"
+        );
+        return Arc::new(memory::MemoryCache::new(config.default_ttl));
     }
 
     match config.backend.as_str() {

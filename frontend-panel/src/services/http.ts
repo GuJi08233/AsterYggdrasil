@@ -107,6 +107,8 @@ const SKIP_REFRESH_PATHS = [
 	"/auth/logout",
 	"/auth/check",
 	"/auth/setup",
+	"/auth/passkeys/login/start",
+	"/auth/passkeys/login/finish",
 	"/auth/external-auth/providers",
 ];
 
@@ -151,6 +153,24 @@ function setHeader(
 	request.headers.set(name, value);
 }
 
+function isFormDataPayload(value: unknown): value is FormData {
+	return typeof FormData !== "undefined" && value instanceof FormData;
+}
+
+function suppressHeader(request: InternalAxiosRequestConfig, name: string) {
+	if (
+		request.headers &&
+		"set" in request.headers &&
+		typeof request.headers.set === "function"
+	) {
+		request.headers.set(name, false);
+		return;
+	}
+
+	request.headers = AxiosHeaders.from(request.headers ?? {});
+	request.headers.set(name, false);
+}
+
 export function formatUnknownError(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
 	if (typeof error === "string" && error.trim()) return error;
@@ -161,7 +181,11 @@ async function unwrap<T>(
 	promise: Promise<AxiosResponse<ApiResponse<T>>>,
 ): Promise<T> {
 	try {
-		const { data: response } = await promise;
+		const axiosResponse = await promise;
+		const { data: response } = axiosResponse;
+		if (axiosResponse.status === 204) {
+			return undefined as T;
+		}
 		if (response === undefined || response === null) {
 			return undefined as T;
 		}
@@ -188,12 +212,21 @@ function createApi(axiosClient: AxiosInstance) {
 	return {
 		get: <T>(url: string, requestConfig?: ApiRequestConfig) =>
 			unwrap<T>(axiosClient.get<ApiResponse<T>>(url, requestConfig)),
-		post: <T>(url: string, data?: unknown, requestConfig?: ApiRequestConfig) =>
-			unwrap<T>(axiosClient.post<ApiResponse<T>>(url, data, requestConfig)),
-		put: <T>(url: string, data?: unknown, requestConfig?: ApiRequestConfig) =>
-			unwrap<T>(axiosClient.put<ApiResponse<T>>(url, data, requestConfig)),
-		patch: <T>(url: string, data?: unknown, requestConfig?: ApiRequestConfig) =>
-			unwrap<T>(axiosClient.patch<ApiResponse<T>>(url, data, requestConfig)),
+		post: <T, TBody = never>(
+			url: string,
+			data?: TBody,
+			requestConfig?: ApiRequestConfig,
+		) => unwrap<T>(axiosClient.post<ApiResponse<T>>(url, data, requestConfig)),
+		put: <T, TBody = never>(
+			url: string,
+			data?: TBody,
+			requestConfig?: ApiRequestConfig,
+		) => unwrap<T>(axiosClient.put<ApiResponse<T>>(url, data, requestConfig)),
+		patch: <T, TBody = never>(
+			url: string,
+			data?: TBody,
+			requestConfig?: ApiRequestConfig,
+		) => unwrap<T>(axiosClient.patch<ApiResponse<T>>(url, data, requestConfig)),
 		delete: <T>(url: string, requestConfig?: ApiRequestConfig) =>
 			unwrap<T>(axiosClient.delete<ApiResponse<T>>(url, requestConfig)),
 		client: axiosClient,
@@ -209,8 +242,15 @@ function attachCsrfHeader(request: InternalAxiosRequestConfig) {
 	return request;
 }
 
-client.interceptors.request.use(attachCsrfHeader);
-rootClient.interceptors.request.use(attachCsrfHeader);
+function prepareRequest(request: InternalAxiosRequestConfig) {
+	if (isFormDataPayload(request.data)) {
+		suppressHeader(request, "Content-Type");
+	}
+	return attachCsrfHeader(request);
+}
+
+client.interceptors.request.use(prepareRequest);
+rootClient.interceptors.request.use(prepareRequest);
 
 let isRefreshing = false;
 let refreshPromise: Promise<void> | null = null;

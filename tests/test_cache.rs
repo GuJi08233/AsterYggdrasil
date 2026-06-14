@@ -13,15 +13,13 @@ fn cache_config(enabled: bool, backend: &str, default_ttl: u64) -> CacheConfig {
 }
 
 #[tokio::test]
-async fn create_cache_disabled_uses_noop_backend_with_reservations() {
+async fn create_cache_disabled_uses_memory_backend() {
     let cache = create_cache(&cache_config(false, "memory", 60)).await;
 
-    assert_eq!(cache.backend_name(), "noop");
+    assert_eq!(cache.backend_name(), "memory");
     cache.health_check().await.unwrap();
-    cache
-        .set_bytes("ignored", b"value".to_vec(), Some(60))
-        .await;
-    assert_eq!(cache.get_bytes("ignored").await, None);
+    cache.set_bytes("stored", b"value".to_vec(), Some(60)).await;
+    assert_eq!(cache.get_bytes("stored").await, Some(b"value".to_vec()));
     assert!(
         cache
             .set_bytes_if_absent("reservation", b"first".to_vec(), Some(60))

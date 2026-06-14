@@ -124,6 +124,46 @@ describe("presentation helpers", () => {
 		);
 	});
 
+	it("formats minecraft texture binding audit presentation metadata", () => {
+		const entry = {
+			action: "minecraft_texture_bind",
+			entity_id: 9,
+			entity_name: "WardrobeUser",
+			entity_type: "minecraft_texture",
+			presentation: {
+				detail: {
+					code: "minecraft_texture_bound",
+					params: {
+						file_size: 156,
+						height: 64,
+						profile_name: "WardrobeUser",
+						profile_uuid: "00000000000000000000000000000001",
+						texture_hash: "abc123",
+						texture_model: "slim",
+						texture_type: "skin",
+						width: 64,
+					},
+				},
+				summary: { code: "minecraft_texture_bind" },
+				target: {
+					code: "minecraft_texture",
+					params: {
+						id: 9,
+						name: "WardrobeUser",
+					},
+				},
+			},
+		} satisfies AuditPresentationSample;
+
+		expect(formatAuditSummary(entry)).toBe("Minecraft texture bound");
+		expect(formatAuditTarget(entry)).toBe(
+			"WardrobeUser · Minecraft texture · #9",
+		);
+		expect(formatAuditDetail(entry)).toBe(
+			"Minecraft texture bound · Profile: WardrobeUser; Profile UUID: 00000000000000000000000000000001; Type: skin; Model: slim; Hash: abc123; Width: 64; Height: 64; File size: 156",
+		);
+	});
+
 	it("falls back to wire values when presentation metadata is absent or unknown", () => {
 		const entry = {
 			action: "user_login",

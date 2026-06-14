@@ -11,7 +11,7 @@ use futures::stream::{self, StreamExt};
 use tokio_util::sync::CancellationToken;
 
 use crate::errors::Result;
-use crate::runtime::{AppState, SharedRuntimeState};
+use crate::runtime::{AppState, DatabaseRuntimeState, MetricsRuntimeState};
 
 use claim::claim_due_for_lane;
 use execute::run_claimed_tasks;
@@ -61,6 +61,7 @@ pub(super) struct TaskDispatchOutcome {
 }
 
 pub async fn dispatch_due(state: &AppState) -> Result<DispatchStats> {
+    tracing::debug!("dispatching due background tasks");
     dispatch_due_with_shutdown(state, CancellationToken::new()).await
 }
 
@@ -69,6 +70,7 @@ pub(crate) async fn dispatch_due_with_shutdown(
     shutdown_token: CancellationToken,
 ) -> Result<DispatchStats> {
     let mut stats = DispatchStats::default();
+    tracing::debug!("dispatching due background tasks across lanes");
     let lane_results = stream::iter(
         task_lane_configs(state)
             .into_iter()
@@ -101,10 +103,17 @@ pub(crate) async fn dispatch_due_with_shutdown(
         return Err(first_error);
     }
 
+    tracing::debug!(
+        claimed = stats.claimed,
+        succeeded = stats.succeeded,
+        retried = stats.retried,
+        failed = stats.failed,
+        "finished dispatching due background tasks"
+    );
     Ok(stats)
 }
 
-async fn refresh_pending_metric(state: &impl SharedRuntimeState) {
+async fn refresh_pending_metric(state: &(impl DatabaseRuntimeState + MetricsRuntimeState)) {
     match crate::db::repository::background_task_repo::count_pending_or_retry(state.writer_db())
         .await
     {
@@ -122,14 +131,22 @@ async fn dispatch_lane(
     shutdown_token: CancellationToken,
 ) -> Result<DispatchStats> {
     let mut total = DispatchStats::default();
+    tracing::debug!(
+        lane = ?lane_config.lane,
+        limit = lane_config.limit,
+        fast_continue = lane_config.fast_continue,
+        "dispatching background task lane"
+    );
 
     loop {
         if shutdown_token.is_cancelled() {
+            tracing::debug!(lane = ?lane_config.lane, "background task lane dispatch stopped by shutdown");
             break;
         }
 
         let claimed_tasks = claim_due_for_lane(state, lane_config).await?;
         if claimed_tasks.is_empty() {
+            tracing::debug!(lane = ?lane_config.lane, "background task lane had no claimable tasks");
             break;
         }
 
@@ -142,6 +159,14 @@ async fn dispatch_lane(
         }
     }
 
+    tracing::debug!(
+        lane = ?lane_config.lane,
+        claimed = total.claimed,
+        succeeded = total.succeeded,
+        retried = total.retried,
+        failed = total.failed,
+        "finished background task lane dispatch"
+    );
     Ok(total)
 }
 

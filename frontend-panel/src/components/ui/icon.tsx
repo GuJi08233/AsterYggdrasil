@@ -13,16 +13,20 @@ import {
 	PiArrowUp,
 	PiArrowUUpLeft,
 	PiBracketsCurly,
+	PiBrowsers,
 	PiCaretDown,
 	PiCaretLeft,
 	PiCaretRight,
 	PiCaretUp,
+	PiChartBar,
 	PiCheck,
 	PiClipboardText,
 	PiClockCounterClockwise,
 	PiCloud,
 	PiCopy,
 	PiCpu,
+	PiDeviceMobile,
+	PiDeviceTablet,
 	PiDotsThree,
 	PiDownloadSimple,
 	PiEnvelopeSimple,
@@ -48,6 +52,7 @@ import {
 	PiHouse,
 	PiInfo,
 	PiKey,
+	PiLaptop,
 	PiLink,
 	PiLinkSimple,
 	PiList,
@@ -113,6 +118,7 @@ export type IconName =
 	| "CaretLeft"
 	| "CaretRight"
 	| "CaretUp"
+	| "ChartBar"
 	| "Check"
 	| "CircleAlert"
 	| "ClipboardText"
@@ -120,6 +126,9 @@ export type IconName =
 	| "Cloud"
 	| "Copy"
 	| "Cpu"
+	| "Browsers"
+	| "DeviceMobile"
+	| "DeviceTablet"
 	| "Docker"
 	| "DotsThree"
 	| "Download"
@@ -146,6 +155,7 @@ export type IconName =
 	| "House"
 	| "Info"
 	| "Key"
+	| "Laptop"
 	| "Link"
 	| "LinkSimple"
 	| "List"
@@ -210,6 +220,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	CaretLeft: PiCaretLeft,
 	CaretRight: PiCaretRight,
 	CaretUp: PiCaretUp,
+	ChartBar: PiChartBar,
 	Check: PiCheck,
 	CircleAlert: PiWarningCircle,
 	ClipboardText: PiClipboardText,
@@ -217,6 +228,9 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	Cloud: PiCloud,
 	Copy: PiCopy,
 	Cpu: PiCpu,
+	Browsers: PiBrowsers,
+	DeviceMobile: PiDeviceMobile,
+	DeviceTablet: PiDeviceTablet,
 	Docker: FaDocker,
 	DotsThree: PiDotsThree,
 	Download: PiDownloadSimple,
@@ -243,6 +257,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	House: PiHouse,
 	Info: PiInfo,
 	Key: PiKey,
+	Laptop: PiLaptop,
 	Link: PiLink,
 	LinkSimple: PiLinkSimple,
 	List: PiList,

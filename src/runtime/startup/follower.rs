@@ -18,6 +18,7 @@ pub async fn prepare_follower(config: Arc<Config>) -> Result<PreparedFollowerRun
         mail_sender: crate::services::mail_service::runtime_sender(common.runtime_config.clone()),
         runtime_config: common.runtime_config,
         cache: common.cache,
+        texture_storage: common.texture_storage,
         metrics: common.metrics,
         background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
     };

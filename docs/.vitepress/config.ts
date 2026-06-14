@@ -23,7 +23,7 @@ export default withMermaid(
 	defineConfig({
 		title: "AsterYggdrasil",
 		description:
-			"Reusable Rust + React service foundation for Aster projects.",
+			"Self-hosted Minecraft skin site and Yggdrasil authentication server.",
 		lang: "zh-CN",
 		cleanUrls: true,
 		lastUpdated: true,
@@ -36,7 +36,7 @@ export default withMermaid(
 				label: "简体中文",
 				lang: "zh-CN",
 				title: "AsterYggdrasil",
-				description: "Aster 项目的可复用 Rust + React 服务地基。",
+				description: "自建 Minecraft 皮肤站与 Yggdrasil 认证服务器。",
 				themeConfig: {
 					outline: {
 						label: "本页内容",
@@ -83,22 +83,23 @@ export default withMermaid(
 					},
 					nav: [
 						{ text: "首页", link: "/" },
-						{ text: "使用指南", link: "/guide/getting-started" },
+						{ text: "接入", link: "/guide/yggdrasil-api" },
 						{ text: "部署", link: "/deployment/docker" },
 						{ text: `v${version}`, link: "https://github.com/AsterCommunity/AsterYggdrasil" },
 					],
 					sidebar: [
 						{
-							text: "开始",
+							text: "运行 AsterYggdrasil",
 							items: [
 								{ text: "概览", link: "/" },
 								{ text: "快速开始", link: "/guide/getting-started" },
-								{ text: "配置模型", link: "/guide/configuration" },
-								{ text: "运行时", link: "/guide/runtime" },
-								{ text: "认证", link: "/guide/authentication" },
-								{ text: "邮件投递", link: "/guide/mail" },
+								{ text: "Yggdrasil API", link: "/guide/yggdrasil-api" },
+								{ text: "启动器登录", link: "/guide/launcher-login" },
+								{ text: "玩家档案", link: "/guide/profiles" },
+								{ text: "材质处理", link: "/guide/yggdrasil-textures" },
+								{ text: "配置和密钥", link: "/guide/configuration" },
+								{ text: "材质存储", link: "/guide/storage" },
 								{ text: "审计与后台任务", link: "/guide/audit-tasks" },
-								{ text: "模板生成", link: "/guide/template-generation" },
 							],
 						},
 						{
@@ -113,26 +114,27 @@ export default withMermaid(
 				lang: "en-US",
 				title: "AsterYggdrasil",
 				description:
-					"Reusable Rust + React service foundation for Aster projects.",
+					"Self-hosted Minecraft skin site and Yggdrasil authentication server.",
 				themeConfig: {
 					nav: [
 						{ text: "Home", link: "/en/" },
-						{ text: "Guide", link: "/en/guide/getting-started" },
+						{ text: "Integration", link: "/en/guide/yggdrasil-api" },
 						{ text: "Deployment", link: "/en/deployment/docker" },
 						{ text: `v${version}`, link: "https://github.com/AsterCommunity/AsterYggdrasil" },
 					],
 					sidebar: [
 						{
-							text: "Start",
+							text: "Run AsterYggdrasil",
 							items: [
 								{ text: "Overview", link: "/en/" },
 								{ text: "Getting Started", link: "/en/guide/getting-started" },
-								{ text: "Configuration", link: "/en/guide/configuration" },
-								{ text: "Runtime", link: "/en/guide/runtime" },
-								{ text: "Authentication", link: "/en/guide/authentication" },
-								{ text: "Mail Delivery", link: "/en/guide/mail" },
+								{ text: "Yggdrasil API", link: "/en/guide/yggdrasil-api" },
+								{ text: "Launcher Login", link: "/en/guide/launcher-login" },
+								{ text: "Minecraft Profiles", link: "/en/guide/profiles" },
+								{ text: "Textures", link: "/en/guide/yggdrasil-textures" },
+								{ text: "Config and Keys", link: "/en/guide/configuration" },
+								{ text: "Texture Storage", link: "/en/guide/storage" },
 								{ text: "Audit and Tasks", link: "/en/guide/audit-tasks" },
-								{ text: "Template Generation", link: "/en/guide/template-generation" },
 							],
 						},
 						{

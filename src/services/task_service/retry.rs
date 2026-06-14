@@ -21,6 +21,14 @@ impl TaskRetryClass {
 
 pub(super) fn default_retry_class(error: &AsterError) -> TaskRetryClass {
     match error {
+        AsterError::Public {
+            status, retryable, ..
+        } => match retryable {
+            Some(true) => TaskRetryClass::Auto,
+            Some(false) => TaskRetryClass::Never,
+            None if status.is_server_error() => TaskRetryClass::Manual,
+            None => TaskRetryClass::Never,
+        },
         AsterError::DatabaseConnection(_) | AsterError::MailDeliveryFailed(_) => {
             TaskRetryClass::Auto
         }
@@ -65,12 +73,26 @@ mod tests {
             default_retry_class(&AsterError::mail_delivery_failed("smtp timeout")),
             TaskRetryClass::Auto
         );
+        assert_eq!(
+            default_retry_class(&AsterError::public_error_with_retryable(
+                actix_web::http::StatusCode::SERVICE_UNAVAILABLE,
+                crate::api::error_code::AsterErrorCode::RuntimeUnavailable,
+                "runtime unavailable",
+                Some(true)
+            )),
+            TaskRetryClass::Auto
+        );
 
         for error in [
             AsterError::database_operation("query failed"),
             AsterError::config_error("config failed"),
             AsterError::external_auth_error("provider failed"),
             AsterError::internal_error("internal failed"),
+            AsterError::public_error(
+                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                crate::api::error_code::AsterErrorCode::InternalServerError,
+                "internal failed",
+            ),
         ] {
             assert_eq!(default_retry_class(&error), TaskRetryClass::Manual);
         }
@@ -83,6 +105,11 @@ mod tests {
             AsterError::auth_forbidden("forbidden"),
             AsterError::record_not_found("missing"),
             AsterError::mail_not_configured("smtp missing"),
+            AsterError::public_error(
+                actix_web::http::StatusCode::BAD_REQUEST,
+                crate::api::error_code::AsterErrorCode::ValidationFailed,
+                "bad input",
+            ),
         ] {
             assert_eq!(default_retry_class(&error), TaskRetryClass::Never);
         }

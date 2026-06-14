@@ -23,8 +23,8 @@ export default function runtimeSmoke() {
 		"readiness is ok": (response) => response.status === 200,
 	});
 
-	const systemInfo = http.get(`${baseUrl}/api/v1/system/info`);
-	check(systemInfo, {
-		"system info is ok": (response) => response.status === 200,
+	const authCheck = http.get(`${baseUrl}/api/v1/auth/check`);
+	check(authCheck, {
+		"auth check is ok": (response) => response.status === 200,
 	});
 }

@@ -1,0 +1,115 @@
+{
+	"admin": {
+		"externalAuth": {
+			"title": "外部认证",
+			"description": "管理站点账号登录用的 OAuth2 / OIDC 提供方。新增前先完成连接测试，避免用户在登录页踩坑。",
+			"create": "新增提供方",
+			"created": "提供方已创建",
+			"updated": "提供方已更新",
+			"deleted": "提供方已删除",
+			"emptyTitle": "暂无外部认证提供方",
+			"emptyDescription": "可以先接入一个 OIDC 身份源，用户就能通过外部账号登录。",
+			"displayName": "显示名称",
+			"key": "提供方标识",
+			"keyHint": "保存时自动生成，用于登录入口和重定向 URI 路径，不能手动修改。",
+			"generatedKey": "保存后自动生成",
+			"iconUrl": "登录图标 URL",
+			"iconUrlHint": "可选。填写 HTTPS 绝对 URL 或以 / 开头的同源路径；留空或图片加载失败时，登录页会回退到该类型的默认图标。",
+			"defaultIcon": "使用默认图标",
+			"clientId": "客户端 ID",
+			"clientSecret": "客户端密钥",
+			"issuerUrl": "签发者 URL",
+			"authorizationUrl": "授权地址",
+			"tokenUrl": "Token 地址",
+			"userinfoUrl": "用户信息地址",
+			"scopes": "授权范围",
+			"callbackUrl": "回调 URL",
+			"kindLabel": "提供方类型",
+			"primaryEndpoint": "主端点",
+			"status": "状态",
+			"enabled": "启用",
+			"disabled": "禁用",
+			"enabledDesc": "禁用后登录页不再展示该提供方，已有绑定关系不会被删除。",
+			"secretHint": "如果提供方不要求 secret，可以留空。",
+			"secretKeepPlaceholder": "留空则保留当前 secret",
+			"secretKeepHint": "已配置 secret。保存时留空不会覆盖当前值。",
+			"test": "测试连接",
+			"testHint": "测试会读取发现文档或检查手动端点。",
+			"testComplete": "连接测试完成",
+			"testSuccess": "连接测试通过，{{count}} 项检查成功",
+			"testPartial": "连接测试完成，{{total}} 项中 {{failed}} 项未通过",
+			"copyCallback": "复制回调 URL",
+			"callbackTitle": "提供方已创建，复制回调 URL",
+			"delete": "删除提供方",
+			"deleteTitle": "删除 {{name}}？",
+			"deleteDescription": "删除后用户不能再通过该提供方发起新登录。已有本地账号不会被删除。",
+			"progress": "步骤 {{current}} / {{total}}",
+			"kind": {
+				"generic_oauth2": "通用 OAuth2",
+				"github": "GitHub",
+				"google": "Google",
+				"microsoft": "Microsoft",
+				"oidc": "OpenID Connect",
+				"qq": "QQ"
+			},
+			"kindDesc": {
+				"generic_oauth2": "手动配置授权、token 和用户信息端点，适合非标准 OAuth2 服务。",
+				"github": "使用 GitHub OAuth App 登录，并从用户邮箱 API 读取已验证主邮箱。",
+				"google": "使用 Google OpenID Connect 登录，issuer 和邮箱验证语义由系统固定。",
+				"microsoft": "使用 Microsoft 或 Entra ID 登录，issuer 由 Microsoft provider 规则处理。",
+				"oidc": "通过 issuer 发现文档读取授权端点，适合标准 OIDC 服务。",
+				"qq": "使用 QQ 互联 OAuth2 登录，token、openid 和用户信息端点由系统固定。"
+			},
+			"fixedConnection": {
+				"title": "固定连接参数",
+				"github": {
+					"description": "GitHub 使用固定 OAuth 端点和默认授权范围；这里只需要填写 OAuth App 的 Client ID 和 Client Secret。",
+					"summary": "GitHub OAuth 固定端点"
+				},
+				"google": {
+					"description": "Google 使用固定 OpenID Connect issuer，前端不会允许覆盖 issuer 或手动端点。",
+					"summary": "Google OIDC 固定 issuer"
+				},
+				"microsoft": {
+					"description": "Microsoft 使用固定 identity platform 规则生成 issuer；不要在这里填写自定义授权、token 或用户信息端点。",
+					"summary": "Microsoft identity platform"
+				},
+				"qq": {
+					"description": "QQ 使用固定 OAuth2、openid、用户信息端点和默认授权范围；这里只需要填写 QQ 互联应用凭据。",
+					"summary": "QQ 互联固定端点"
+				}
+			},
+			"steps": {
+				"type": {
+					"title": "选择类型",
+					"description": "根据身份源能力选择 OIDC、通用 OAuth2 或专用平台。"
+				},
+				"connection": {
+					"title": "连接参数",
+					"description": "填写客户端凭据和端点，先测试再保存。"
+				},
+				"review": {
+					"title": "确认启用",
+					"description": "确认登录页是否立即开放这个提供方。"
+				}
+			},
+			"dialog": {
+				"createTitle": "新增外部认证提供方",
+				"editTitle": "编辑外部认证提供方",
+				"description": "这些配置会直接影响登录页和账号绑定流程。",
+				"connectionTitle": "身份源连接",
+				"connectionDesc": "OIDC 填 issuer；通用 OAuth2 填手动端点；GitHub、Google、Microsoft 和 QQ 使用固定连接参数。",
+				"accessTitle": "可用性",
+				"summaryTitle": "配置摘要"
+			},
+			"table": {
+				"provider": "提供方",
+				"endpoint": "主端点",
+				"status": "状态",
+				"actions": "操作",
+				"noEndpoint": "未配置端点",
+				"updatedAt": "更新于 {{value}}"
+			}
+		}
+	}
+}

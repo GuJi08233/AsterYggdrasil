@@ -3,8 +3,8 @@ import { Icon } from "@/components/ui/icon";
 const cards = [
 	{
 		label: "Runtime",
-		title: "Rust service foundation",
-		body: "Actix Web, SeaORM migrations, static config, runtime config, cache, health checks, embedded frontend assets, and request response conventions are wired in.",
+		title: "Minecraft identity runtime",
+		body: "Actix Web, SeaORM migrations, runtime config, cache, health checks, embedded frontend assets, and Yggdrasil-facing response conventions are wired in.",
 		icon: "Cpu",
 		iconClassName: "bg-slate-950 text-white",
 	},

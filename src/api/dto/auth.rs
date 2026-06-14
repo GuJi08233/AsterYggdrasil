@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
+use crate::types::AvatarSource;
+
 #[derive(Debug, Deserialize, Validate)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct SetupReq {
@@ -14,6 +16,7 @@ pub struct SetupReq {
     pub email: String,
     #[validate(custom(function = "crate::api::dto::validation::validate_auth_password"))]
     pub password: String,
+    pub public_site_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -50,6 +53,18 @@ pub struct LogoutReq {
     pub refresh_token: String,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct UpdateProfileReq {
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct UpdateAvatarSourceReq {
+    pub source: AvatarSource,
+}
+
 #[derive(Debug, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct CheckResp {
@@ -60,4 +75,38 @@ pub struct CheckResp {
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct LogoutResp {
     pub revoked: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PasskeyRegisterStartReq {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PasskeyRegisterFinishReq {
+    pub flow_id: String,
+    pub credential: serde_json::Value,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PatchPasskeyReq {
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PasskeyLoginStartReq {
+    pub identifier: Option<String>,
+    pub conditional: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PasskeyLoginFinishReq {
+    pub flow_id: String,
+    pub credential: serde_json::Value,
 }

@@ -16,7 +16,7 @@ use super::{
 use crate::db::repository::background_task_repo;
 use crate::entities::background_task;
 use crate::errors::{AsterError, Result};
-use crate::runtime::{AppState, SharedRuntimeState};
+use crate::runtime::{AppState, MetricsRuntimeState, TaskRuntimeState};
 use crate::services::task_service::{
     TaskExecutionContext, registry,
     retry::TaskRetryClass,
@@ -309,7 +309,7 @@ async fn release_task_for_shutdown(
 }
 
 fn record_task_metric(
-    state: &impl SharedRuntimeState,
+    state: &impl MetricsRuntimeState,
     kind: BackgroundTaskKind,
     status: &'static str,
 ) {
@@ -410,7 +410,7 @@ mod tests {
 
     use super::release_task_for_shutdown;
     use crate::entities::background_task;
-    use crate::runtime::{AppState, SharedRuntimeState};
+    use crate::runtime::AppState;
     use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
 
     async fn test_state() -> AppState {
@@ -440,12 +440,17 @@ mod tests {
             ..Default::default()
         })
         .await;
+        let config = Arc::new(crate::config::Config::default());
 
         AppState {
             db_handles: crate::db::DbHandles::single(db),
-            config: Arc::new(crate::config::Config::default()),
+            config: config.clone(),
             runtime_config,
             cache,
+            texture_storage: crate::texture_storage::create_texture_storage(
+                &config.texture_storage,
+            )
+            .expect("texture storage should initialize"),
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),

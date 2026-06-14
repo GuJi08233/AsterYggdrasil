@@ -100,7 +100,7 @@ async fn runtime_cors_hot_reload_updates_whitelist_and_max_age() {
     );
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["value"], "https://app.example.com");
+    assert_eq!(body["data"]["config"]["value"], "https://app.example.com");
 
     let req = test::TestRequest::default()
         .method(actix_web::http::Method::OPTIONS)
@@ -213,7 +213,7 @@ async fn runtime_cors_adds_credentials_header_for_allowed_origin() {
     assert_eq!(resp.status(), 200);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/examples/public")
+        .uri("/api/v1/auth/check")
         .insert_header((header::ORIGIN, "https://panel.example.com"))
         .to_request();
     let resp = test::call_service(&app, req).await;

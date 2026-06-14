@@ -40,10 +40,10 @@ export function parseStringOrStringArray(value: string) {
 	}
 
 	if (trimmed.includes("\n")) {
-		return trimmed
-			.split("\n")
-			.map((line) => line.trim())
-			.filter(Boolean);
+		return trimmed.split("\n").flatMap((line) => {
+			const value = line.trim();
+			return value ? [value] : [];
+		});
 	}
 
 	return trimmed;

@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use crate::errors::{AsterError, Result};
-use url::Url;
 use validator::{Validate, ValidationError, ValidationErrors, ValidationErrorsKind};
 
 pub(crate) fn validate_request<T: Validate>(value: &T) -> Result<()> {
@@ -15,13 +14,26 @@ pub(crate) fn validate_non_blank(value: &str) -> std::result::Result<(), Validat
     Ok(())
 }
 
-pub(crate) fn validate_http_url(value: &str) -> std::result::Result<(), ValidationError> {
-    validate_non_blank(value)?;
-    let parsed = Url::parse(value).map_err(|_| message_validation_error("value must be a URL"))?;
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return Err(message_validation_error("value must use http or https"));
+pub(crate) fn validate_optional_non_blank(value: &str) -> std::result::Result<(), ValidationError> {
+    validate_non_blank(value)
+}
+
+pub(crate) fn validate_unsigned_uuid(value: &str) -> std::result::Result<(), ValidationError> {
+    if value.len() == 32 && value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Ok(());
     }
-    Ok(())
+    Err(message_validation_error(
+        "uuid must be a 32-character unsigned hexadecimal UUID",
+    ))
+}
+
+pub(crate) fn validate_yggdrasil_agent_name(
+    value: &str,
+) -> std::result::Result<(), ValidationError> {
+    if value == "Minecraft" {
+        return Ok(());
+    }
+    Err(message_validation_error("agent name must be Minecraft"))
 }
 
 pub(crate) fn validate_auth_username(value: &str) -> std::result::Result<(), ValidationError> {
@@ -34,6 +46,25 @@ pub(crate) fn validate_auth_email(value: &str) -> std::result::Result<(), Valida
 
 pub(crate) fn validate_auth_password(value: &str) -> std::result::Result<(), ValidationError> {
     crate::services::auth_service::validate_password(value).map_err(aster_to_validation_error)
+}
+
+pub(crate) fn validate_minecraft_profile_name(
+    value: &str,
+) -> std::result::Result<(), ValidationError> {
+    crate::services::yggdrasil_service::validate_profile_name(value)
+        .map_err(aster_to_validation_error)
+}
+
+pub(crate) fn validate_optional_minecraft_profile_name(
+    value: &str,
+) -> std::result::Result<(), ValidationError> {
+    validate_minecraft_profile_name(value)
+}
+
+pub(crate) fn validate_optional_unsigned_uuid(
+    value: &str,
+) -> std::result::Result<(), ValidationError> {
+    validate_unsigned_uuid(value)
 }
 
 fn aster_to_validation_error(error: AsterError) -> ValidationError {

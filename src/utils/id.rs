@@ -63,6 +63,10 @@ pub fn new_short_token() -> String {
     Uuid::new_v4().simple().to_string()
 }
 
+pub fn new_unsigned_uuid() -> String {
+    new_short_token()
+}
+
 pub fn new_base62_token(len: usize) -> String {
     use rand::RngExt;
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

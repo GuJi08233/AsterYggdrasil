@@ -184,6 +184,8 @@ fn resolve_loaded_paths(base_dir: &Path, config_path: &Path, cfg: &mut Config) -
         config_dir,
         &cfg.server.follower.managed_ingress_local_root,
     )?;
+    cfg.texture_storage.local_root =
+        resolve_config_relative_path(base_dir, config_dir, &cfg.texture_storage.local_root)?;
     cfg.database.url = resolve_config_relative_sqlite_url(base_dir, config_dir, &cfg.database.url)?;
     Ok(())
 }
@@ -228,6 +230,8 @@ mod tests {
             cfg.server.follower.managed_ingress_local_root,
             "data/managed-ingress"
         );
+        assert_eq!(cfg.texture_storage.backend, "local");
+        assert_eq!(cfg.texture_storage.local_root, "data/textures");
         assert!(cfg.network_trust.trusted_proxies.is_empty());
         assert!(dir.join(DEFAULT_CONFIG_PATH).exists());
         assert!(generated.contains("# AsterYggdrasil configuration file"));
@@ -237,6 +241,10 @@ mod tests {
         assert!(generated.contains(r#"temp_dir = ".tmp""#));
         assert!(generated.contains("[server.follower]"));
         assert!(generated.contains(r#"managed_ingress_local_root = "managed-ingress""#));
+        assert!(generated.contains("[texture_storage]"));
+        assert!(generated.contains(r#"backend = "local""#));
+        assert!(generated.contains(r#"local_root = "textures""#));
+        assert!(generated.contains("[texture_storage.s3]"));
         assert!(generated.contains("[network_trust]"));
         assert!(generated.contains(r#"trusted_proxies = []"#));
 
@@ -304,6 +312,9 @@ temp_dir = "data/.tmp"
 
 [server.follower]
 managed_ingress_local_root = "data/managed-ingress"
+
+[texture_storage]
+local_root = "data/textures"
 "#,
         );
 
@@ -315,6 +326,26 @@ managed_ingress_local_root = "data/managed-ingress"
             cfg.server.follower.managed_ingress_local_root,
             "data/managed-ingress"
         );
+        assert_eq!(cfg.texture_storage.local_root, "data/textures");
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_resolves_relative_texture_storage_root_under_config_dir() {
+        let dir = make_temp_dir("texture-storage-root-relative");
+        write(
+            &dir.join(DEFAULT_CONFIG_PATH),
+            br#"[texture_storage]
+backend = "local"
+local_root = "custom-textures"
+"#,
+        );
+
+        let cfg = load_from_dir(&dir, None, false).unwrap();
+
+        assert_eq!(cfg.texture_storage.backend, "local");
+        assert_eq!(cfg.texture_storage.local_root, "data/custom-textures");
 
         let _ = std::fs::remove_dir_all(dir);
     }

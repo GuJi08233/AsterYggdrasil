@@ -170,7 +170,7 @@ pub fn spawn_runtime_background_tasks(
     state: web::Data<AppState>,
     shutdown_token: CancellationToken,
 ) -> BackgroundTasks {
-    match state.config.server.start_mode {
+    match state.config().server.start_mode {
         NodeRuntimeMode::Primary => spawn_primary_background_tasks(state, shutdown_token),
         NodeRuntimeMode::Follower => spawn_follower_background_tasks(state, shutdown_token),
     }
@@ -181,7 +181,7 @@ pub fn spawn_follower_background_tasks(
     shutdown_token: CancellationToken,
 ) -> BackgroundTasks {
     tracing::info!("starting follower runtime background tasks");
-    build_background_tasks_base(&state.metrics, shutdown_token)
+    build_background_tasks_base(state.metrics(), shutdown_token)
 }
 
 pub fn spawn_primary_background_tasks(
@@ -189,7 +189,7 @@ pub fn spawn_primary_background_tasks(
     shutdown_token: CancellationToken,
 ) -> BackgroundTasks {
     tracing::info!("starting primary runtime background tasks");
-    let mut tasks = build_background_tasks_base(&state.metrics, shutdown_token);
+    let mut tasks = build_background_tasks_base(state.metrics(), shutdown_token);
     let shutdown_token = tasks.shutdown_token();
 
     tasks.push(spawn_background_task_dispatcher(
@@ -197,189 +197,349 @@ pub fn spawn_primary_background_tasks(
         state.clone(),
     ));
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::MailOutboxDispatch,
         mail_outbox_dispatch_interval,
         None,
-        shutdown_token.clone(),
-        state.clone(),
-        |s| async move {
-            match crate::services::mail_outbox_service::dispatch_due(s.get_ref()).await {
-                Ok(stats)
-                    if stats.claimed > 0
-                        || stats.sent > 0
-                        || stats.retried > 0
-                        || stats.failed > 0 =>
-                {
-                    tracing::info!(
-                        claimed = stats.claimed,
-                        sent = stats.sent,
-                        retried = stats.retried,
-                        failed = stats.failed,
-                        "processed mail outbox batch"
-                    );
-                    RuntimeTaskRunOutcome::succeeded(Some(format!(
-                        "claimed {}, sent {}, retried {}, failed {}",
-                        stats.claimed, stats.sent, stats.retried, stats.failed
-                    )))
-                }
-                Ok(_) => RuntimeTaskRunOutcome::quiet(),
-                Err(error) => {
-                    tracing::warn!("mail outbox dispatch failed: {error}");
-                    RuntimeTaskRunOutcome::failed(
-                        Some("Mail outbox dispatch failed".to_string()),
-                        error.to_string(),
-                    )
-                }
-            }
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_mail_outbox_dispatch,
+    );
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::SystemHealthCheck,
         maintenance_cleanup_interval,
         None,
-        shutdown_token.clone(),
-        state.clone(),
-        |s| async move {
-            let report = crate::services::health_service::run_system_health_checks(s.get_ref()).await;
-            let status = match report.status() {
-                crate::services::health_service::HealthStatus::Healthy => {
-                    crate::services::task_service::types::RuntimeSystemHealthStatus::Healthy
-                }
-                crate::services::health_service::HealthStatus::Degraded => {
-                    crate::services::task_service::types::RuntimeSystemHealthStatus::Degraded
-                }
-                crate::services::health_service::HealthStatus::Unhealthy => {
-                    crate::services::task_service::types::RuntimeSystemHealthStatus::Unhealthy
-                }
-            };
-            let system_health =
-                crate::services::task_service::types::RuntimeSystemHealthResult {
-                    status,
-                    components: report
-                        .components
-                        .into_iter()
-                        .map(|component| {
-                            let status = match component.status {
-                                crate::services::health_service::HealthStatus::Healthy => {
-                                    crate::services::task_service::types::RuntimeSystemHealthStatus::Healthy
-                                }
-                                crate::services::health_service::HealthStatus::Degraded => {
-                                    crate::services::task_service::types::RuntimeSystemHealthStatus::Degraded
-                                }
-                                crate::services::health_service::HealthStatus::Unhealthy => {
-                                    crate::services::task_service::types::RuntimeSystemHealthStatus::Unhealthy
-                                }
-                            };
-                            crate::services::task_service::types::RuntimeSystemHealthComponent {
-                                name: component.name.to_string(),
-                                status,
-                                message: component.message,
-                            }
-                        })
-                        .collect(),
-                };
-            RuntimeTaskRunOutcome::succeeded_with_system_health(
-                Some("System health check completed".to_string()),
-                system_health,
-            )
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_system_health_check,
+    );
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::AuthSessionCleanup,
         maintenance_cleanup_interval,
         Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        shutdown_token.clone(),
-        state.clone(),
-        |s| async move {
-            match crate::services::auth_service::cleanup_expired_auth_sessions(s.get_ref()).await {
-                Ok(count) if count > 0 => {
-                    tracing::info!(count, "cleaned up expired auth sessions");
-                    RuntimeTaskRunOutcome::succeeded(Some(format!(
-                        "cleaned up {count} expired auth sessions"
-                    )))
-                }
-                Ok(_) => RuntimeTaskRunOutcome::quiet(),
-                Err(error) => RuntimeTaskRunOutcome::failed(
-                    Some("Auth session cleanup failed".to_string()),
-                    error.to_string(),
-                ),
-            }
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_auth_session_cleanup,
+    );
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::ExternalAuthFlowCleanup,
         maintenance_cleanup_interval,
         Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        shutdown_token.clone(),
-        state.clone(),
-        |s| async move {
-            match crate::services::external_auth_service::cleanup_expired_flows(s.get_ref()).await {
-                Ok(count) if count > 0 => {
-                    tracing::info!(count, "cleaned up expired external auth flows");
-                    RuntimeTaskRunOutcome::succeeded(Some(format!(
-                        "cleaned up {count} expired external auth flows"
-                    )))
-                }
-                Ok(_) => RuntimeTaskRunOutcome::quiet(),
-                Err(error) => RuntimeTaskRunOutcome::failed(
-                    Some("External auth flow cleanup failed".to_string()),
-                    error.to_string(),
-                ),
-            }
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_external_auth_flow_cleanup,
+    );
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
+        SystemRuntimeTaskKind::YggdrasilTokenCleanup,
+        maintenance_cleanup_interval,
+        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+        &shutdown_token,
+        &state,
+        run_yggdrasil_token_cleanup,
+    );
+
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::AuditCleanup,
         maintenance_cleanup_interval,
         Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        shutdown_token.clone(),
-        state.clone(),
-        |s| async move {
-            match crate::services::audit_service::cleanup_expired(s.get_ref()).await {
-                Ok(count) if count > 0 => {
-                    tracing::info!(count, "cleaned up expired audit logs");
-                    RuntimeTaskRunOutcome::succeeded(Some(format!(
-                        "cleaned up {count} expired audit logs"
-                    )))
-                }
-                Ok(_) => RuntimeTaskRunOutcome::quiet(),
-                Err(error) => RuntimeTaskRunOutcome::failed(
-                    Some("Audit cleanup failed".to_string()),
-                    error.to_string(),
-                ),
-            }
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_audit_cleanup,
+    );
 
-    tasks.push(spawn_periodic(
+    push_primary_periodic_task(
+        &mut tasks,
         SystemRuntimeTaskKind::TaskCleanup,
         maintenance_cleanup_interval,
         Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        shutdown_token,
-        state,
-        |s| async move {
-            match crate::services::task_service::cleanup_expired(s.get_ref()).await {
-                Ok(count) if count > 0 => {
-                    tracing::info!(count, "cleaned up expired task temp dirs");
-                    RuntimeTaskRunOutcome::succeeded(Some(format!(
-                        "cleaned up {count} expired task temp dirs"
-                    )))
-                }
-                Ok(_) => RuntimeTaskRunOutcome::quiet(),
-                Err(error) => RuntimeTaskRunOutcome::failed(
-                    Some("Task cleanup failed".to_string()),
-                    error.to_string(),
-                ),
-            }
-        },
-    ));
+        &shutdown_token,
+        &state,
+        run_task_cleanup,
+    );
+
+    push_primary_periodic_task(
+        &mut tasks,
+        SystemRuntimeTaskKind::YggdrasilStorageConsistencyCheck,
+        maintenance_cleanup_interval,
+        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+        &shutdown_token,
+        &state,
+        run_yggdrasil_storage_consistency_check,
+    );
+
+    push_primary_periodic_task(
+        &mut tasks,
+        SystemRuntimeTaskKind::YggdrasilTextureCleanup,
+        maintenance_cleanup_interval,
+        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+        &shutdown_token,
+        &state,
+        run_yggdrasil_texture_cleanup,
+    );
 
     tasks
+}
+
+fn push_primary_periodic_task<F, I, Fut>(
+    tasks: &mut BackgroundTasks,
+    name: SystemRuntimeTaskKind,
+    interval_fn: I,
+    jitter_cap: Option<Duration>,
+    shutdown_token: &CancellationToken,
+    state: &web::Data<AppState>,
+    task_fn: F,
+) where
+    I: Fn(&AppState) -> Duration + Send + Sync + 'static,
+    F: Fn(web::Data<AppState>) -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = RuntimeTaskRunOutcome> + Send + 'static,
+{
+    tasks.push(spawn_periodic(
+        name,
+        interval_fn,
+        jitter_cap,
+        shutdown_token.clone(),
+        state.clone(),
+        task_fn,
+    ));
+}
+
+async fn run_mail_outbox_dispatch(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::mail_outbox_service::dispatch_due(state.get_ref()).await {
+        Ok(stats)
+            if stats.claimed > 0 || stats.sent > 0 || stats.retried > 0 || stats.failed > 0 =>
+        {
+            tracing::info!(
+                claimed = stats.claimed,
+                sent = stats.sent,
+                retried = stats.retried,
+                failed = stats.failed,
+                "processed mail outbox batch"
+            );
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "claimed {}, sent {}, retried {}, failed {}",
+                stats.claimed, stats.sent, stats.retried, stats.failed
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => {
+            tracing::warn!("mail outbox dispatch failed: {error}");
+            RuntimeTaskRunOutcome::failed(
+                Some("Mail outbox dispatch failed".to_string()),
+                error.to_string(),
+            )
+        }
+    }
+}
+
+async fn run_system_health_check(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    let report = crate::services::health_service::run_system_health_checks(state.get_ref()).await;
+    let status = runtime_health_status(report.status());
+    let system_health = crate::services::task_service::types::RuntimeSystemHealthResult {
+        status,
+        components: report
+            .components
+            .into_iter()
+            .map(
+                |component| crate::services::task_service::types::RuntimeSystemHealthComponent {
+                    name: component.name.to_string(),
+                    status: runtime_health_status(component.status),
+                    message: component.message,
+                },
+            )
+            .collect(),
+    };
+    RuntimeTaskRunOutcome::succeeded_with_system_health(
+        Some("System health check completed".to_string()),
+        system_health,
+    )
+}
+
+fn runtime_health_status(
+    status: crate::services::health_service::HealthStatus,
+) -> crate::services::task_service::types::RuntimeSystemHealthStatus {
+    match status {
+        crate::services::health_service::HealthStatus::Healthy => {
+            crate::services::task_service::types::RuntimeSystemHealthStatus::Healthy
+        }
+        crate::services::health_service::HealthStatus::Degraded => {
+            crate::services::task_service::types::RuntimeSystemHealthStatus::Degraded
+        }
+        crate::services::health_service::HealthStatus::Unhealthy => {
+            crate::services::task_service::types::RuntimeSystemHealthStatus::Unhealthy
+        }
+    }
+}
+
+async fn run_auth_session_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::auth_service::cleanup_expired_auth_sessions(state.get_ref()).await {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "cleaned up expired auth sessions");
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "cleaned up {count} expired auth sessions"
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Auth session cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_external_auth_flow_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::external_auth_service::cleanup_expired_flows(state.get_ref()).await {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "cleaned up expired external auth flows");
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "cleaned up {count} expired external auth flows"
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("External auth flow cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_yggdrasil_token_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::yggdrasil_service::cleanup_expired_or_revoked_tokens(state.get_ref())
+        .await
+    {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "cleaned up expired or revoked Yggdrasil tokens");
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "cleaned up {count} expired or revoked Yggdrasil tokens"
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Yggdrasil token cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_audit_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::audit_service::cleanup_expired(state.get_ref()).await {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "cleaned up expired audit logs");
+            RuntimeTaskRunOutcome::succeeded(Some(format!("cleaned up {count} expired audit logs")))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Audit cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_task_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    match crate::services::task_service::cleanup_expired(state.get_ref()).await {
+        Ok(count) if count > 0 => {
+            tracing::info!(count, "cleaned up expired task temp dirs");
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "cleaned up {count} expired task temp dirs"
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Task cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_yggdrasil_storage_consistency_check(
+    state: web::Data<AppState>,
+) -> RuntimeTaskRunOutcome {
+    match crate::services::texture_service::check_texture_storage_consistency(state.get_ref()).await
+    {
+        Ok(report) if report.missing > 0 || report.hash_mismatched > 0 => {
+            tracing::warn!(
+                checked = report.checked,
+                missing = report.missing,
+                hash_mismatched = report.hash_mismatched,
+                "Yggdrasil texture storage consistency issues found"
+            );
+            RuntimeTaskRunOutcome::failed(
+                Some(format!(
+                    "checked {}, missing {}, hash mismatched {} texture blobs",
+                    report.checked, report.missing, report.hash_mismatched
+                )),
+                "Yggdrasil texture storage consistency check found issues",
+            )
+        }
+        Ok(report) if report.checked > 0 => RuntimeTaskRunOutcome::succeeded(Some(format!(
+            "checked {} texture storage records",
+            report.checked
+        ))),
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Yggdrasil storage consistency check failed".to_string()),
+            error.to_string(),
+        ),
+    }
+}
+
+async fn run_yggdrasil_texture_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
+    let registration = match crate::services::texture_service::register_bound_textures_in_wardrobe(
+        state.get_ref(),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            return RuntimeTaskRunOutcome::failed(
+                Some("Yggdrasil texture cleanup failed".to_string()),
+                error.protocol_message(),
+            );
+        }
+    };
+
+    match crate::services::texture_service::cleanup_orphan_texture_blobs(state.get_ref()).await {
+        Ok(result)
+            if registration.converted_textures > 0
+                || registration.rebound_bindings > 0
+                || registration.removed_duplicate_textures > 0
+                || result.deleted > 0 =>
+        {
+            tracing::info!(
+                scanned_bindings = registration.scanned_bindings,
+                converted_textures = registration.converted_textures,
+                rebound_bindings = registration.rebound_bindings,
+                removed_duplicate_textures = registration.removed_duplicate_textures,
+                scanned = result.scanned,
+                deleted = result.deleted,
+                skipped = result.skipped,
+                "cleaned up orphan Yggdrasil texture blobs"
+            );
+            RuntimeTaskRunOutcome::succeeded(Some(format!(
+                "registered {} bound textures, rebound {}, removed {} duplicates; scanned {}, deleted {}, skipped {} texture blobs",
+                registration.converted_textures,
+                registration.rebound_bindings,
+                registration.removed_duplicate_textures,
+                result.scanned,
+                result.deleted,
+                result.skipped
+            )))
+        }
+        Ok(_) => RuntimeTaskRunOutcome::quiet(),
+        Err(error) => RuntimeTaskRunOutcome::failed(
+            Some("Yggdrasil texture cleanup failed".to_string()),
+            error.to_string(),
+        ),
+    }
 }
 
 async fn spawn_periodic<F, I, Fut>(
@@ -488,7 +648,7 @@ async fn spawn_background_task_dispatcher(
         let trigger = tokio::select! {
             biased;
             _ = shutdown_token.cancelled() => break,
-            _ = state.background_task_dispatch_wakeup.notified() => {
+            _ = state.background_task_dispatch_wakeup().notified() => {
                 BackgroundTaskDispatchTrigger::Wakeup
             }
             _ = tokio::time::sleep(sleep_duration) => {

@@ -1,360 +1,625 @@
-import { useEffect, useState } from "react";
-import { EndpointCard } from "@/components/panel/EndpointCard";
 import {
-	NativeSelectField,
-	TextareaField,
-	TextField,
-} from "@/components/panel/FormControls";
-import { JsonPanel } from "@/components/panel/JsonPanel";
-import { PageShell, SectionTitle } from "@/components/panel/PageShell";
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+} from "react";
+import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
+import { ExternalAuthProviderDialog } from "@/components/admin/admin-external-auth-page/ExternalAuthProviderDialog";
+import {
+	ExternalAuthProvidersTableHeader,
+	ExternalAuthProvidersTableRow,
+} from "@/components/admin/admin-external-auth-page/ExternalAuthProvidersTable";
+import {
+	callbackUrl,
+	createPayload,
+	DEFAULT_EXTERNAL_AUTH_PAGE_SIZE,
+	defaultScopesForKind,
+	EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
+	type ExternalAuthCreateStep,
+	type ExternalAuthProviderFormData,
+	emptyExternalAuthForm,
+	formatTestResult,
+	formFromProvider,
+	requiredFieldsMissing,
+	sortExternalAuthProviderKinds,
+	testParamsPayload,
+	updatePayload,
+} from "@/components/admin/admin-external-auth-page/shared";
+import { AdminTableList } from "@/components/common/AdminTableList";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
+import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import { handleApiError } from "@/hooks/useApiError";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
-import { useAsyncTask } from "@/hooks/useAsyncTask";
-import { apiCatalog } from "@/lib/apiCatalog";
-import { compactRecord, emptyToNull, emptyToUndefined } from "@/lib/form";
+	parseOffsetSearchParam,
+	parsePageSizeOption,
+	parsePageSizeSearchParam,
+} from "@/lib/pagination";
+import { cn } from "@/lib/utils";
 import { adminExternalAuthService } from "@/services/adminService";
 import type {
-	AdminExternalAuthProviderPage,
-	CreateExternalAuthProviderRequest,
+	AdminExternalAuthProviderInfo,
 	ExternalAuthKind,
-	ExternalAuthProviderTestParamsRequest,
-	UpdateExternalAuthProviderRequest,
+	ExternalAuthProviderKindInfo,
 } from "@/types/api";
 
+type UiState = {
+	createStep: number;
+	createStepTouched: boolean;
+	createdProvider: AdminExternalAuthProviderInfo | null;
+	deletingProvider: AdminExternalAuthProviderInfo | null;
+	dialogOpen: boolean;
+	editingProvider: AdminExternalAuthProviderInfo | null;
+	form: ExternalAuthProviderFormData;
+	loading: boolean;
+	providerKinds: ExternalAuthProviderKindInfo[];
+	providers: AdminExternalAuthProviderInfo[];
+	submitting: boolean;
+	testResult: string | null;
+	testingDraft: boolean;
+	testingId: number | null;
+	total: number;
+};
+
+type UiAction =
+	| { type: "set_loading"; value: boolean }
+	| {
+			type: "loaded";
+			providerKinds: ExternalAuthProviderKindInfo[];
+			providers: AdminExternalAuthProviderInfo[];
+			total: number;
+	  }
+	| { type: "open_create"; form: ExternalAuthProviderFormData }
+	| {
+			type: "open_edit";
+			form: ExternalAuthProviderFormData;
+			provider: AdminExternalAuthProviderInfo;
+	  }
+	| { type: "close_dialog" }
+	| {
+			type: "set_form_field";
+			key: keyof ExternalAuthProviderFormData;
+			value: ExternalAuthProviderFormData[keyof ExternalAuthProviderFormData];
+	  }
+	| {
+			type: "set_provider_kind";
+			kind: ExternalAuthKind;
+			scopes: string;
+	  }
+	| { type: "set_create_step"; value: number }
+	| { type: "set_create_step_touched"; value: boolean }
+	| { type: "set_submitting"; value: boolean }
+	| { type: "set_testing_draft"; value: boolean }
+	| { type: "set_testing_id"; value: number | null }
+	| { type: "set_test_result"; value: string | null }
+	| {
+			type: "set_deleting_provider";
+			value: AdminExternalAuthProviderInfo | null;
+	  }
+	| {
+			type: "set_created_provider";
+			value: AdminExternalAuthProviderInfo | null;
+	  }
+	| { type: "provider_updated"; value: AdminExternalAuthProviderInfo };
+
+function initialState(): UiState {
+	return {
+		createStep: 0,
+		createStepTouched: false,
+		createdProvider: null,
+		deletingProvider: null,
+		dialogOpen: false,
+		editingProvider: null,
+		form: emptyExternalAuthForm,
+		loading: true,
+		providerKinds: [],
+		providers: [],
+		submitting: false,
+		testResult: null,
+		testingDraft: false,
+		testingId: null,
+		total: 0,
+	};
+}
+
+function reducer(state: UiState, action: UiAction): UiState {
+	switch (action.type) {
+		case "set_loading":
+			return { ...state, loading: action.value };
+		case "loaded":
+			return {
+				...state,
+				providerKinds: sortExternalAuthProviderKinds(action.providerKinds),
+				providers: action.providers,
+				total: action.total,
+			};
+		case "open_create":
+			return {
+				...state,
+				createStep: 0,
+				createStepTouched: false,
+				dialogOpen: true,
+				editingProvider: null,
+				form: action.form,
+				testResult: null,
+			};
+		case "open_edit":
+			return {
+				...state,
+				createStep: 0,
+				createStepTouched: false,
+				dialogOpen: true,
+				editingProvider: action.provider,
+				form: action.form,
+				testResult: null,
+			};
+		case "close_dialog":
+			return {
+				...state,
+				createStep: 0,
+				createStepTouched: false,
+				dialogOpen: false,
+				editingProvider: null,
+				form: emptyExternalAuthForm,
+				submitting: false,
+				testResult: null,
+			};
+		case "set_form_field":
+			return {
+				...state,
+				form: { ...state.form, [action.key]: action.value },
+				testResult: null,
+			};
+		case "set_provider_kind":
+			return {
+				...state,
+				form: {
+					...state.form,
+					authorizationUrl: "",
+					issuerUrl: "",
+					providerKind: action.kind,
+					scopes: action.scopes,
+					tokenUrl: "",
+					userinfoUrl: "",
+				},
+				testResult: null,
+			};
+		case "set_create_step":
+			return {
+				...state,
+				createStep: Math.max(0, Math.min(2, action.value)),
+				createStepTouched: false,
+			};
+		case "set_create_step_touched":
+			return { ...state, createStepTouched: action.value };
+		case "set_submitting":
+			return { ...state, submitting: action.value };
+		case "set_testing_draft":
+			return { ...state, testingDraft: action.value };
+		case "set_testing_id":
+			return { ...state, testingId: action.value };
+		case "set_test_result":
+			return { ...state, testResult: action.value };
+		case "set_deleting_provider":
+			return { ...state, deletingProvider: action.value };
+		case "set_created_provider":
+			return { ...state, createdProvider: action.value };
+		case "provider_updated":
+			return {
+				...state,
+				providers: state.providers.map((provider) =>
+					provider.id === action.value.id ? action.value : provider,
+				),
+			};
+	}
+}
+
 export default function AdminExternalAuthPage() {
-	const [id, setId] = useState("");
-	const [displayName, setDisplayName] = useState("");
-	const [clientId, setClientId] = useState("");
-	const [clientSecret, setClientSecret] = useState("");
-	const [slug, setSlug] = useState("");
-	const [key, setKey] = useState("");
-	const [kind, setKind] = useState<ExternalAuthKind>("oidc");
-	const [enabled, setEnabled] = useState("true");
-	const [issuerUrl, setIssuerUrl] = useState("");
-	const [authorizeUrl, setAuthorizeUrl] = useState("");
-	const [tokenUrl, setTokenUrl] = useState("");
-	const [userinfoUrl, setUserinfoUrl] = useState("");
-	const [scopes, setScopes] = useState("openid profile email");
-	const task = useAsyncTask<unknown>();
-	const listTask = useAsyncTask<AdminExternalAuthProviderPage>();
-	const adminExternalOps = apiCatalog.filter(
-		(item) => item.route === "/admin/external-auth",
+	const { t } = useTranslation();
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	usePageTitle(t("admin.externalAuth.title"));
+
+	const [offset, setOffset] = useState(() =>
+		parseOffsetSearchParam(searchParams.get("offset")),
 	);
-	const numericId = Number(id);
-	const hasId = Number.isFinite(numericId) && numericId > 0;
+	const [pageSize, setPageSize] = useState<
+		(typeof EXTERNAL_AUTH_PAGE_SIZE_OPTIONS)[number]
+	>(() =>
+		parsePageSizeSearchParam(
+			searchParams.get("pageSize"),
+			EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
+			DEFAULT_EXTERNAL_AUTH_PAGE_SIZE,
+		),
+	);
+	const [state, dispatch] = useReducer(reducer, undefined, initialState);
+	const previousCreateStepRef = useRef(0);
+	const stepAnimationRef = useRef<"idle" | "forward" | "backward">("idle");
+	const selectedKind =
+		state.providerKinds.find((kind) => kind.kind === state.form.providerKind) ??
+		state.providerKinds[0] ??
+		null;
+	const currentPage = Math.floor(offset / pageSize) + 1;
+	const totalPages = Math.max(1, Math.ceil(state.total / pageSize));
+	const pageSizeOptions = EXTERNAL_AUTH_PAGE_SIZE_OPTIONS.map((size) => ({
+		label: t("admin.pagination.pageSizeOption", { count: size }),
+		value: String(size),
+	}));
+	const createSteps: ExternalAuthCreateStep[] = useMemo(
+		() => [
+			{
+				title: t("admin.externalAuth.steps.type.title"),
+				description: t("admin.externalAuth.steps.type.description"),
+			},
+			{
+				title: t("admin.externalAuth.steps.connection.title"),
+				description: t("admin.externalAuth.steps.connection.description"),
+			},
+			{
+				title: t("admin.externalAuth.steps.review.title"),
+				description: t("admin.externalAuth.steps.review.description"),
+			},
+		],
+		[t],
+	);
+
+	if (state.createStep !== previousCreateStepRef.current) {
+		stepAnimationRef.current =
+			state.createStep > previousCreateStepRef.current ? "forward" : "backward";
+		previousCreateStepRef.current = state.createStep;
+	}
 
 	useEffect(() => {
-		void listTask.run(() => adminExternalAuthService.list());
-	}, [listTask.run]);
+		const nextOffset = parseOffsetSearchParam(searchParams.get("offset"));
+		const nextPageSize = parsePageSizeSearchParam(
+			searchParams.get("pageSize"),
+			EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
+			DEFAULT_EXTERNAL_AUTH_PAGE_SIZE,
+		);
+		setOffset(nextOffset);
+		setPageSize(nextPageSize);
+	}, [searchParams]);
 
-	function createBody(): CreateExternalAuthProviderRequest {
-		return compactRecord({
-			display_name: displayName,
-			client_id: clientId,
-			client_secret: emptyToNull(clientSecret),
-			slug: emptyToNull(slug),
-			key: emptyToNull(key),
-			kind,
-			provider_kind: kind,
-			enabled: enabled === "true",
-			issuer_url: emptyToNull(issuerUrl),
-			authorize_url: emptyToNull(authorizeUrl),
-			authorization_url: emptyToNull(authorizeUrl),
-			token_url: emptyToNull(tokenUrl),
-			userinfo_url: emptyToNull(userinfoUrl),
-			scopes: emptyToNull(scopes),
+	useEffect(() => {
+		const next = new URLSearchParams(searchParams);
+		if (offset > 0) next.set("offset", String(offset));
+		else next.delete("offset");
+		if (pageSize !== DEFAULT_EXTERNAL_AUTH_PAGE_SIZE) {
+			next.set("pageSize", String(pageSize));
+		} else {
+			next.delete("pageSize");
+		}
+		if (next.toString() !== searchParams.toString()) {
+			setSearchParams(next, { replace: true });
+		}
+	}, [offset, pageSize, searchParams, setSearchParams]);
+
+	const loadProviders = useCallback(async () => {
+		try {
+			dispatch({ type: "set_loading", value: true });
+			const [providerKinds, page] = await Promise.all([
+				adminExternalAuthService.kinds(),
+				adminExternalAuthService.list({ limit: pageSize, offset }),
+			]);
+			if (page.items.length === 0 && page.total > 0 && offset > 0) {
+				setOffset(
+					Math.max(0, Math.floor((page.total - 1) / pageSize) * pageSize),
+				);
+				return;
+			}
+			dispatch({
+				type: "loaded",
+				providerKinds,
+				providers: page.items,
+				total: page.total,
+			});
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "set_loading", value: false });
+		}
+	}, [offset, pageSize]);
+
+	useEffect(() => {
+		void loadProviders();
+	}, [loadProviders]);
+
+	const openCreate = useCallback(() => {
+		const firstKind = state.providerKinds[0];
+		dispatch({
+			type: "open_create",
+			form: {
+				...emptyExternalAuthForm,
+				providerKind: firstKind?.kind ?? "oidc",
+				scopes: defaultScopesForKind(firstKind),
+			},
+		});
+	}, [state.providerKinds]);
+
+	function openEdit(provider: AdminExternalAuthProviderInfo) {
+		dispatch({
+			type: "open_edit",
+			form: formFromProvider(provider),
+			provider,
 		});
 	}
 
-	function updateBody(): UpdateExternalAuthProviderRequest {
-		return compactRecord({
-			display_name: emptyToUndefined(displayName),
-			client_id: emptyToUndefined(clientId),
-			client_secret: emptyToUndefined(clientSecret),
-			slug: emptyToUndefined(slug),
-			key: emptyToUndefined(key),
+	function setField<K extends keyof ExternalAuthProviderFormData>(
+		key: K,
+		value: ExternalAuthProviderFormData[K],
+	) {
+		dispatch({ type: "set_form_field", key, value });
+	}
+
+	function setProviderKind(kind: ExternalAuthKind) {
+		const descriptor = state.providerKinds.find((item) => item.kind === kind);
+		dispatch({
+			type: "set_provider_kind",
 			kind,
-			provider_kind: kind,
-			enabled: enabled === "true",
-			issuer_url: emptyToUndefined(issuerUrl),
-			authorize_url: emptyToUndefined(authorizeUrl),
-			authorization_url: emptyToUndefined(authorizeUrl),
-			token_url: emptyToUndefined(tokenUrl),
-			userinfo_url: emptyToUndefined(userinfoUrl),
-			scopes: emptyToUndefined(scopes),
+			scopes: defaultScopesForKind(descriptor),
 		});
 	}
 
-	function testBody(): ExternalAuthProviderTestParamsRequest {
-		return compactRecord({
-			client_id: clientId,
-			client_secret: emptyToNull(clientSecret),
-			kind,
-			provider_kind: kind,
-			issuer_url: emptyToNull(issuerUrl),
-			authorize_url: emptyToNull(authorizeUrl),
-			authorization_url: emptyToNull(authorizeUrl),
-			token_url: emptyToNull(tokenUrl),
-			userinfo_url: emptyToNull(userinfoUrl),
-			scopes: emptyToNull(scopes),
-		});
+	function goCreateNext() {
+		dispatch({ type: "set_create_step_touched", value: true });
+		if (
+			state.createStep === 1 &&
+			requiredFieldsMissing(state.form, selectedKind)
+		) {
+			return;
+		}
+		dispatch({ type: "set_create_step", value: state.createStep + 1 });
 	}
+
+	function copyCallback(value: string) {
+		void navigator.clipboard
+			.writeText(value)
+			.then(() => toast.success(t("common.copied")))
+			.catch(() => toast.error(t("errors.unexpected_error")));
+	}
+
+	async function testDraft() {
+		try {
+			dispatch({ type: "set_testing_draft", value: true });
+			const result = await adminExternalAuthService.testParams(
+				testParamsPayload(state.form, selectedKind),
+			);
+			dispatch({ type: "set_test_result", value: formatTestResult(t, result) });
+			toast.success(t("admin.externalAuth.testComplete"));
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "set_testing_draft", value: false });
+		}
+	}
+
+	async function testProvider(provider: AdminExternalAuthProviderInfo) {
+		try {
+			dispatch({ type: "set_testing_id", value: provider.id });
+			const result = await adminExternalAuthService.test(provider.id);
+			toast.success(formatTestResult(t, result));
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "set_testing_id", value: null });
+		}
+	}
+
+	async function submitProvider() {
+		if (requiredFieldsMissing(state.form, selectedKind)) {
+			dispatch({ type: "set_create_step_touched", value: true });
+			return;
+		}
+		try {
+			dispatch({ type: "set_submitting", value: true });
+			if (state.editingProvider) {
+				const updated = await adminExternalAuthService.update(
+					state.editingProvider.id,
+					updatePayload(state.form, selectedKind),
+				);
+				dispatch({ type: "provider_updated", value: updated });
+				dispatch({ type: "close_dialog" });
+				toast.success(t("admin.externalAuth.updated"));
+				return;
+			}
+			const created = await adminExternalAuthService.create(
+				createPayload(state.form, selectedKind),
+			);
+			dispatch({ type: "close_dialog" });
+			dispatch({ type: "set_created_provider", value: created });
+			toast.success(t("admin.externalAuth.created"));
+			await loadProviders();
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "set_submitting", value: false });
+		}
+	}
+
+	async function deleteProvider() {
+		const provider = state.deletingProvider;
+		if (!provider) return;
+		try {
+			await adminExternalAuthService.delete(provider.id);
+			dispatch({ type: "set_deleting_provider", value: null });
+			toast.success(t("admin.externalAuth.deleted"));
+			await loadProviders();
+		} catch (error) {
+			handleApiError(error);
+		}
+	}
+
+	const emptyIcon = useMemo(() => <Icon name="Globe" className="size-5" />, []);
+	const emptyAction = useMemo(
+		() => (
+			<Button type="button" size="sm" onClick={openCreate}>
+				<Icon name="Plus" className="mr-2 size-4" />
+				{t("admin.externalAuth.create")}
+			</Button>
+		),
+		[openCreate, t],
+	);
+	const headerRow = useMemo(() => <ExternalAuthProvidersTableHeader />, []);
+	const pagination = useMemo(
+		() => (
+			<AdminOffsetPagination
+				total={state.total}
+				currentPage={currentPage}
+				totalPages={totalPages}
+				pageSize={String(pageSize)}
+				pageSizeOptions={pageSizeOptions}
+				prevDisabled={offset === 0}
+				nextDisabled={offset + pageSize >= state.total}
+				onPrevious={() =>
+					setOffset((current) => Math.max(0, current - pageSize))
+				}
+				onNext={() => setOffset((current) => current + pageSize)}
+				onPageSizeChange={(value) => {
+					const next = parsePageSizeOption(
+						value,
+						EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
+					);
+					if (next == null) return;
+					setPageSize(next);
+					setOffset(0);
+				}}
+			/>
+		),
+		[currentPage, offset, pageSize, pageSizeOptions, state.total, totalPages],
+	);
 
 	return (
-		<PageShell
-			title="Admin External Auth"
-			description="Provider kind discovery, provider CRUD, parameter testing, and saved-provider testing."
-		>
-			<div className="grid gap-4 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
-				<Card>
-					<CardHeader className="border-b border-border/60 pb-4">
-						<CardTitle className="flex items-center gap-2">
-							<Icon name="SignIn" className="size-4" />
-							Provider editor
-						</CardTitle>
-						<CardDescription>
-							Use test params before creating or patching providers.
-						</CardDescription>
-					</CardHeader>
-					<CardContent className="grid gap-3">
-						<div className="grid gap-3 sm:grid-cols-2">
-							<TextField label="Provider ID" value={id} onChange={setId} />
-							<NativeSelectField
-								label="Kind"
-								value={kind}
-								onChange={(next) => setKind(next as ExternalAuthKind)}
-								options={[
-									{ label: "OIDC", value: "oidc" },
-									{ label: "OAuth2", value: "oauth2" },
-								]}
+		<AdminPageShell>
+			<AdminPageHeader
+				icon="SignIn"
+				title={t("admin.externalAuth.title")}
+				description={t("admin.externalAuth.description")}
+				actions={
+					<>
+						<Button type="button" size="sm" onClick={openCreate}>
+							<Icon name="Plus" className="mr-2 size-4" />
+							{t("admin.externalAuth.create")}
+						</Button>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={state.loading}
+							onClick={() => void loadProviders()}
+						>
+							<Icon
+								name={state.loading ? "Spinner" : "ArrowsClockwise"}
+								className={cn("mr-2 size-4", state.loading && "animate-spin")}
 							/>
-							<TextField
-								label="Display name"
-								value={displayName}
-								onChange={setDisplayName}
-							/>
-							<TextField label="Slug" value={slug} onChange={setSlug} />
-							<TextField label="Key" value={key} onChange={setKey} />
-							<NativeSelectField
-								label="Enabled"
-								value={enabled}
-								onChange={setEnabled}
-								options={[
-									{ label: "true", value: "true" },
-									{ label: "false", value: "false" },
-								]}
-							/>
-						</div>
-						<TextField
-							label="Client ID"
-							value={clientId}
-							onChange={setClientId}
-						/>
-						<TextField
-							label="Client Secret"
-							type="password"
-							value={clientSecret}
-							onChange={setClientSecret}
-						/>
-						<TextField
-							label="Issuer URL"
-							value={issuerUrl}
-							onChange={setIssuerUrl}
-						/>
-						<TextField
-							label="Authorize URL"
-							value={authorizeUrl}
-							onChange={setAuthorizeUrl}
-						/>
-						<div className="grid gap-3 sm:grid-cols-2">
-							<TextField
-								label="Token URL"
-								value={tokenUrl}
-								onChange={setTokenUrl}
-							/>
-							<TextField
-								label="Userinfo URL"
-								value={userinfoUrl}
-								onChange={setUserinfoUrl}
-							/>
-						</div>
-						<TextareaField
-							label="Scopes"
-							value={scopes}
-							onChange={setScopes}
-							rows={2}
-						/>
-						<div className="flex flex-wrap gap-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() =>
-									void task.run(() => adminExternalAuthService.kinds())
-								}
-							>
-								<Icon name="ListChecks" className="size-4" />
-								Kinds
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() =>
-									void listTask.run(() => adminExternalAuthService.list())
-								}
-							>
-								<Icon name="ArrowsClockwise" className="size-4" />
-								List
-							</Button>
-							<Button
-								type="button"
-								disabled={!hasId}
-								onClick={() =>
-									void task.run(() => adminExternalAuthService.get(numericId))
-								}
-							>
-								<Icon name="MagnifyingGlass" className="size-4" />
-								Get
-							</Button>
-							<Button
-								type="button"
-								onClick={() =>
-									void task.run(() =>
-										adminExternalAuthService.testParams(testBody()),
-									)
-								}
-							>
-								<Icon name="Play" className="size-4" />
-								Test params
-							</Button>
-							<Button
-								type="button"
-								disabled={!displayName || !clientId}
-								onClick={() =>
-									void task.run(() =>
-										adminExternalAuthService.create(createBody()),
-									)
-								}
-							>
-								<Icon name="Plus" className="size-4" />
-								Create
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								disabled={!hasId}
-								onClick={() =>
-									void task.run(() =>
-										adminExternalAuthService.update(numericId, updateBody()),
-									)
-								}
-							>
-								<Icon name="PencilSimple" className="size-4" />
-								Update
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								disabled={!hasId}
-								onClick={() =>
-									void task.run(() => adminExternalAuthService.test(numericId))
-								}
-							>
-								<Icon name="Gauge" className="size-4" />
-								Test saved
-							</Button>
-							<Button
-								type="button"
-								variant="destructive"
-								disabled={!hasId}
-								onClick={() =>
-									void task.run(() =>
-										adminExternalAuthService.delete(numericId),
-									)
-								}
-							>
-								<Icon name="Trash" className="size-4" />
-								Delete
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-				<JsonPanel
-					title="Provider result"
-					value={task.result}
-					error={task.error}
-					loading={task.loading}
-				/>
-			</div>
+							{t("common.refresh")}
+						</Button>
+					</>
+				}
+			/>
 
-			<Card>
-				<CardHeader className="border-b border-border/60 pb-4">
-					<CardTitle>Configured providers</CardTitle>
-				</CardHeader>
-				<CardContent>
-					{listTask.error ? (
-						<JsonPanel title="List error" value={null} error={listTask.error} />
-					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>ID</TableHead>
-									<TableHead>Display</TableHead>
-									<TableHead>Kind</TableHead>
-									<TableHead>Slug</TableHead>
-									<TableHead>Enabled</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{(listTask.result?.items ?? []).map((item) => (
-									<TableRow key={item.id}>
-										<TableCell>{item.id}</TableCell>
-										<TableCell>{item.display_name}</TableCell>
-										<TableCell>{item.kind}</TableCell>
-										<TableCell className="font-mono text-xs">
-											{item.slug}
-										</TableCell>
-										<TableCell>{String(item.enabled)}</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					)}
-				</CardContent>
-			</Card>
+			<AdminTableList
+				loading={state.loading}
+				items={state.providers}
+				columns={4}
+				rows={6}
+				emptyIcon={emptyIcon}
+				emptyTitle={t("admin.externalAuth.emptyTitle")}
+				emptyDescription={t("admin.externalAuth.emptyDescription")}
+				emptyAction={emptyAction}
+				headerRow={headerRow}
+				pagination={pagination}
+				renderRow={(provider) => (
+					<ExternalAuthProvidersTableRow
+						key={provider.id}
+						provider={provider}
+						providerKinds={state.providerKinds}
+						deletingId={state.deletingProvider?.id ?? null}
+						testingId={state.testingId}
+						onEdit={openEdit}
+						onCopyCallbackUrl={copyCallback}
+						onTestProvider={(item) => void testProvider(item)}
+						onRequestDelete={(item) =>
+							dispatch({ type: "set_deleting_provider", value: item })
+						}
+					/>
+				)}
+			/>
 
-			<div className="space-y-3">
-				<SectionTitle
-					title="Admin External Auth API coverage"
-					description="Every admin external-auth operation is represented here."
-				/>
-				<div className="grid gap-3 lg:grid-cols-2">
-					{adminExternalOps.map((item) => (
-						<EndpointCard
-							key={item.operationId}
-							title={item.operationId}
-							method={item.method}
-							path={item.path}
-							description={item.description}
-							destructive={item.destructive}
-						/>
-					))}
-				</div>
-			</div>
-		</PageShell>
+			<ExternalAuthProviderDialog
+				createStep={state.createStep}
+				createStepDirection={stepAnimationRef.current}
+				createStepTouched={state.createStepTouched}
+				createSteps={createSteps}
+				form={state.form}
+				mode={state.editingProvider ? "edit" : "create"}
+				open={state.dialogOpen}
+				provider={state.editingProvider}
+				providerKinds={state.providerKinds}
+				submitting={state.submitting}
+				testResult={state.testResult}
+				testing={state.testingDraft}
+				onCopyCallbackUrl={copyCallback}
+				onCreateBack={() =>
+					dispatch({ type: "set_create_step", value: state.createStep - 1 })
+				}
+				onCreateNext={goCreateNext}
+				onCreateStepChange={(value) =>
+					dispatch({ type: "set_create_step", value })
+				}
+				onFieldChange={setField}
+				onOpenChange={(open) => {
+					if (!open) dispatch({ type: "close_dialog" });
+				}}
+				onProviderKindChange={setProviderKind}
+				onSubmit={() => void submitProvider()}
+				onTestConnection={() => void testDraft()}
+			/>
+
+			<ConfirmDialog
+				open={Boolean(state.deletingProvider)}
+				onOpenChange={(open) => {
+					if (!open) {
+						dispatch({ type: "set_deleting_provider", value: null });
+					}
+				}}
+				title={t("admin.externalAuth.deleteTitle", {
+					name: state.deletingProvider?.display_name ?? "",
+				})}
+				description={t("admin.externalAuth.deleteDescription")}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("common.delete")}
+				variant="destructive"
+				onConfirm={() => void deleteProvider()}
+			/>
+
+			<ConfirmDialog
+				open={Boolean(state.createdProvider)}
+				onOpenChange={(open) => {
+					if (!open) {
+						dispatch({ type: "set_created_provider", value: null });
+					}
+				}}
+				title={t("admin.externalAuth.callbackTitle")}
+				description={
+					state.createdProvider ? callbackUrl(state.createdProvider) : undefined
+				}
+				cancelLabel={t("common.close")}
+				confirmLabel={t("admin.externalAuth.copyCallback")}
+				onConfirm={() => {
+					if (state.createdProvider) {
+						copyCallback(callbackUrl(state.createdProvider));
+					}
+				}}
+			/>
+		</AdminPageShell>
 	);
 }

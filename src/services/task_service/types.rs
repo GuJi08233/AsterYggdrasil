@@ -48,6 +48,9 @@ pub enum TaskPresentationCode {
     RuntimeTaskMailOutboxDispatch,
     RuntimeTaskSystemHealthCheck,
     RuntimeTaskTaskCleanup,
+    RuntimeTaskYggdrasilStorageConsistencyCheck,
+    RuntimeTaskYggdrasilTokenCleanup,
+    RuntimeTaskYggdrasilTextureCleanup,
     StatusTextFailed,
     StatusTextQuiet,
     StatusTextSucceeded,
@@ -355,13 +358,13 @@ mod tests {
         let mut params = BTreeMap::new();
         params.insert("task".to_string(), serde_json::json!("cleanup"));
         let message = TaskPresentationMessage {
-            code: TaskPresentationCode::RuntimeTaskTaskCleanup,
+            code: TaskPresentationCode::RuntimeTaskYggdrasilTextureCleanup,
             params,
         };
         assert_eq!(
             serde_json::to_value(&message).unwrap(),
             serde_json::json!({
-                "code": "runtime_task_task_cleanup",
+                "code": "runtime_task_yggdrasil_texture_cleanup",
                 "params": { "task": "cleanup" },
             })
         );

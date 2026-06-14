@@ -14,6 +14,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use crate::api::error_code::AsterErrorCode;
 use crate::api::response::ApiResponse;
 use crate::config::RateLimitTier;
+use crate::utils::net;
 
 /// IP-based key extractor，429 响应返回 ApiResponse JSON 格式。
 ///
@@ -27,35 +28,17 @@ pub struct AsterIpKeyExtractor {
 
 impl AsterIpKeyExtractor {
     pub fn new(trusted_proxies: &[String]) -> Self {
-        let trusted = trusted_proxies
-            .iter()
-            .filter_map(|s| {
-                s.parse::<IpNet>()
-                    .or_else(|_| s.parse::<IpAddr>().map(IpNet::from))
-                    .map_err(|e| tracing::warn!("invalid trusted_proxy entry '{s}': {e}"))
-                    .ok()
-            })
-            .collect();
+        let trusted = net::parse_trusted_proxies(trusted_proxies);
         Self { trusted }
     }
 
+    #[cfg(test)]
     fn is_trusted(&self, ip: IpAddr) -> bool {
-        self.trusted.iter().any(|net| net.contains(&ip))
+        net::is_trusted_proxy(ip, &self.trusted)
     }
 
     fn real_ip(&self, req: &ServiceRequest, peer: IpAddr) -> IpAddr {
-        if !self.trusted.is_empty() && self.is_trusted(peer) {
-            let ip = req
-                .headers()
-                .get("x-forwarded-for")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| s.split(',').next())
-                .and_then(|p| p.trim().parse::<IpAddr>().ok());
-            if let Some(ip) = ip {
-                return ip;
-            }
-        }
-        peer
+        net::real_ip_from_trusted(req.headers(), peer, &self.trusted)
     }
 }
 

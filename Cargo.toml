@@ -1,7 +1,7 @@
 [package]
 name = "aster_yggdrasil"
-version = "0.0.0-alpha.1"
-description = "A reusable Rust + React service foundation for Aster projects."
+version = "0.1.0-alpha.1"
+description = "Self-hosted Minecraft skin site and Yggdrasil authentication server."
 authors = [
     "AptS-1547 <apts-1547@esaps.net>",
     "AptS-1548 <apts-1548@esaps.net>",
@@ -67,6 +67,7 @@ jemalloc-profiling = ["jemalloc-stats", "tikv-jemallocator/profiling"]
 
 [dependencies]
 actix-web = { version = "4.13.0", features = ["compress-brotli", "compress-gzip"] }
+actix-multipart = "0.7.2"
 actix-governor = "0.10"
 api-docs-macros = { path = "api-docs-macros" }
 argon2 = "0.5.3"
@@ -81,20 +82,26 @@ futures = "0.3"
 governor = "0.10"
 hex = "0.4"
 http = "1"
+image = { version = "0.25.10", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 ipnet = "2.12.0"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-rustls-tls"] }
+md-5 = "0.11"
 migration = { version = "0.1.0", path = "migration" }
 moka = { version = "0.12.15", features = ["future"] }
 num_cpus = "1.17.0"
 parking_lot = "0.12"
+openidconnect = "4.0.1"
 prometheus = { version = "0.14", optional = true, default-features = false }
 rand = { version = "0.10.1", default-features = false, features = ["std", "std_rng", "thread_rng"] }
 redis = { version = "1.2.3", features = ["connection-manager", "tokio-comp", "tokio-rustls-comp"] }
+reqwest = { version = "0.13", features = ["stream", "json"] }
+rsa = { version = "0.10.0-rc.18", features = ["sha1"] }
 rust-embed = "8"
 sea-orm = { version = "2.0.0-rc.40", features = ["sqlx-mysql", "sqlx-postgres", "sqlx-sqlite", "macros", "runtime-tokio-rustls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+sha1 = "0.11"
 sha2 = "0.11"
 sysinfo = { version = "0.38", optional = true, default-features = false, features = ["system"] }
 tikv-jemallocator = { version = "0.7", optional = true }
@@ -112,13 +119,20 @@ url = "2"
 urlencoding = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
 validator = { version = "0.20", features = ["derive"] }
+webauthn-rs = { version = "0.6.1-dev", default-features = false, features = ["conditional-ui", "danger-allow-state-serialisation"] }
+webauthn-rs-proto = "0.6.1-dev"
 
 [build-dependencies]
 chrono = "0.4"
 
 [dev-dependencies]
+actix-http = "3"
 fs2 = "0.4"
+rand_08 = { package = "rand", version = "0.8" }
+getrandom = "0.4"
+ring = "0.17"
 testcontainers = { version = "0.27", features = ["reusable-containers"] }
+webauthn-authenticator-rs = { version = "0.6.1-dev", features = ["softpasskey"] }
 
 [lib]
 doctest = false

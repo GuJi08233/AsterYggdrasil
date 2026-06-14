@@ -1,0 +1,109 @@
+{
+	"admin": {
+		"tasks": {
+			"title": "Background Tasks",
+			"description": "Inspect server-side background work, retry failed jobs, and clean completed history.",
+			"loadErrorTitle": "Failed to load background tasks",
+			"emptyTitle": "No background tasks",
+			"emptyDescription": "The server has not written any background task records yet.",
+			"filteredEmptyTitle": "No matching tasks",
+			"filteredEmptyDescription": "Try another status filter.",
+			"retry": "Retry",
+			"retryQueued": "Task retry has been queued",
+			"filters": {
+				"allStatuses": "All statuses"
+			},
+			"source": {
+				"system": "System",
+				"userId": "User #{{id}}"
+			},
+			"table": {
+				"task": "Task",
+				"progress": "Progress",
+				"source": "Source",
+				"updated": "Time",
+				"detail": "Status detail"
+			},
+			"cleanup": {
+				"action": "Clean tasks",
+				"title": "Clean Completed Tasks",
+				"description": "Only finished task records older than the selected time will be removed.",
+				"finishedBefore": "Finished before",
+				"status": "Finished status",
+				"allCompletedStatuses": "All completed statuses",
+				"reset": "Reset conditions",
+				"submit": "Clean",
+				"success": "Cleaned {{count}} tasks",
+				"invalidDescription": "Choose a valid finished-before time first.",
+				"confirmDescription": "This will remove task records finished before {{finishedBefore}} with status {{status}}."
+			},
+			"detail": {
+				"source": "Source",
+				"createdAt": "Created",
+				"updatedAt": "Updated",
+				"startedAt": "Started",
+				"finishedAt": "Finished",
+				"attempts": "Attempts",
+				"currentState": "Current state",
+				"steps": "Steps",
+				"runtimeHealth": "Runtime Health",
+				"durationMs": "{{value}} ms"
+			},
+			"status": {
+				"pending": "Pending",
+				"processing": "Processing",
+				"retry": "Retrying",
+				"succeeded": "Succeeded",
+				"failed": "Failed",
+				"canceled": "Canceled"
+			},
+			"stepStatus": {
+				"pending": "Pending",
+				"active": "Active",
+				"succeeded": "Succeeded",
+				"failed": "Failed",
+				"skipped": "Skipped",
+				"canceled": "Canceled"
+			},
+			"kind": {
+				"system_runtime": "System runtime task"
+			},
+			"presentation": {
+				"runtime_task_audit_cleanup": "Audit log cleanup",
+				"runtime_task_auth_session_cleanup": "Auth session cleanup",
+				"runtime_task_background_task_dispatch": "Background task dispatch",
+				"runtime_task_external_auth_flow_cleanup": "External auth flow cleanup",
+				"runtime_task_mail_outbox_dispatch": "Mail outbox dispatch",
+				"runtime_task_system_health_check": "System health check",
+				"runtime_task_task_cleanup": "Task record cleanup",
+				"runtime_task_yggdrasil_storage_consistency_check": "Yggdrasil storage consistency check",
+				"runtime_task_yggdrasil_token_cleanup": "Yggdrasil token cleanup",
+				"runtime_task_yggdrasil_texture_cleanup": "Yggdrasil texture cleanup",
+				"status_text_failed": "Failed: {{error}}",
+				"status_text_quiet": "No changes",
+				"status_text_succeeded": "Succeeded",
+				"status_text_system_healthy": "System healthy",
+				"runtime_system_health_issue_detail": "Health issue: {{components}}",
+				"runtime_health_component_status": "{{component}} {{status}}"
+			},
+			"runtimeHealth": {
+				"status": {
+					"healthy": "Healthy",
+					"degraded": "Degraded",
+					"unhealthy": "Unhealthy"
+				},
+				"component": {
+					"database": "Database",
+					"cache": "Cache",
+					"mail": "Mail",
+					"background_tasks": "Background tasks",
+					"storage": "Texture storage",
+					"yggdrasil": "Yggdrasil"
+				}
+			},
+			"steps": {
+				"system_runtime": {}
+			}
+		}
+	}
+}

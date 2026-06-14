@@ -9,7 +9,10 @@ use actix_web::web;
 pub mod audit_logs;
 pub mod config;
 pub mod external_auth;
+pub mod profiles;
+pub mod system_info;
 pub mod tasks;
+pub mod users;
 
 pub use audit_logs::list_audit_logs;
 pub use config::{
@@ -21,7 +24,16 @@ pub use external_auth::{
     list_external_auth_provider_kinds, list_external_auth_providers, test_external_auth_provider,
     test_external_auth_provider_params, update_external_auth_provider,
 };
+pub use profiles::{
+    delete_minecraft_profile, delete_minecraft_profile_texture, delete_minecraft_textures_by_hash,
+    get_minecraft_profile, list_minecraft_profile_textures, list_minecraft_profiles,
+    list_user_minecraft_profiles,
+};
+pub use system_info::get_system_info;
 pub use tasks::{cleanup_tasks, list_tasks, retry_task};
+pub use users::{
+    create_user, get_user, get_user_avatar, list_users, revoke_user_sessions, update_user,
+};
 
 pub fn routes(
     rl: &RateLimitConfig,
@@ -36,6 +48,7 @@ pub fn routes(
                 web::scope("")
                     .wrap(RequireAdmin)
                     .route("/audit-logs", web::get().to(list_audit_logs))
+                    .route("/system-info", web::get().to(get_system_info))
                     .route("/config", web::get().to(list_config))
                     .route("/config/schema", web::get().to(config_schema))
                     .route(
@@ -52,6 +65,43 @@ pub fn routes(
                     .route("/tasks", web::get().to(list_tasks))
                     .route("/tasks/cleanup", web::post().to(cleanup_tasks))
                     .route("/tasks/{id}/retry", web::post().to(retry_task))
+                    .route("/users", web::get().to(list_users))
+                    .route("/users", web::post().to(create_user))
+                    .route("/users/{id}", web::get().to(get_user))
+                    .route("/users/{id}", web::patch().to(update_user))
+                    .route("/users/{id}/avatar/{size}", web::get().to(get_user_avatar))
+                    .route(
+                        "/users/{id}/sessions/revoke",
+                        web::post().to(revoke_user_sessions),
+                    )
+                    .route(
+                        "/users/{user_id}/minecraft-profiles",
+                        web::get().to(list_user_minecraft_profiles),
+                    )
+                    .route(
+                        "/minecraft-profiles",
+                        web::get().to(list_minecraft_profiles),
+                    )
+                    .route(
+                        "/minecraft-profiles/{uuid}",
+                        web::get().to(get_minecraft_profile),
+                    )
+                    .route(
+                        "/minecraft-profiles/{uuid}",
+                        web::delete().to(delete_minecraft_profile),
+                    )
+                    .route(
+                        "/minecraft-profiles/{uuid}/textures",
+                        web::get().to(list_minecraft_profile_textures),
+                    )
+                    .route(
+                        "/minecraft-profiles/{uuid}/textures/{texture_type}",
+                        web::delete().to(delete_minecraft_profile_texture),
+                    )
+                    .route(
+                        "/minecraft-textures/{hash}",
+                        web::delete().to(delete_minecraft_textures_by_hash),
+                    )
                     .route(
                         "/external-auth/provider-kinds",
                         web::get().to(list_external_auth_provider_kinds),

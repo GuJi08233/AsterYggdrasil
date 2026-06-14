@@ -1,105 +1,99 @@
 # AsterYggdrasil
 
-AsterYggdrasil 是 Aster 系列项目复用的 Rust + React 服务地基。它不是一个具体产品，而是开新服务前应该复制的底座：HTTP 服务、认证、运行时配置、邮件投递、审计日志、后台任务、管理员 API、OpenAPI 生成、内嵌前端资源和部署默认值。
+用 Rust 写的自托管 Minecraft 身份基础设施：皮肤站、玩家档案服务，以及兼容 Yggdrasil/authlib-injector 的认证服务器。它面向需要自己控制账号、角色、材质和启动器登录链路的私有 Minecraft 部署。
 
-这个仓库聚焦跨服务通用的运行时能力。具体业务域应该由下游项目基于这层地基继续添加。
+项目是一个 MIT 协议的 Rust + React 单体服务：默认 SQLite，可兼容 MySQL/PostgreSQL；带运行时配置、审计日志、cache 驱动的启动器会话、管理员 API 和内嵌前端资源。
 
 - English README: [README.md](README.md)
 - 公开文档: [docs/index.md](docs/index.md)
 - 开发者文档: [developer-docs/README.md](developer-docs/README.md)
+- Docker 说明: [docs/deployment/docker.md](docs/deployment/docker.md)
 - 配置示例: [config.example.toml](config.example.toml)
 - 前端面板: [frontend-panel/](frontend-panel/)
 
-## 包含什么
+## AsterYggdrasil 是什么？
 
-### 后端地基
+AsterYggdrasil 是一个自托管 Minecraft 皮肤站和认证服务器。它实现项目自己的账号系统、外部登录地基、Minecraft 玩家档案、Yggdrasil 启动器认证、session join 检查、运行时功能开关，以及运营私有 Minecraft 身份服务需要的审计能力。
 
-- Actix Web 服务，支持内嵌前端资源。
-- SeaORM entities、repositories、migrations、数据库重试、事务和读写句柄。
-- 稳定 API 响应 envelope，以及公开的 `AsterErrorCode` 错误码。
-- 本地认证：首个管理员初始化、注册、登录、刷新、登出、当前用户和会话管理。
-- 外部认证 provider 脚手架，用于 OIDC/OAuth2 一类登录流程。
-- 管理员 API：运行时配置、审计日志、外部认证 provider、后台任务。
-- `system_config` 运行时配置，和静态 `config.toml` 分离。
-- 邮件投递：SMTP 运行时配置、模板变量、持久化 outbox、测试邮件和邮件审计。
-- memory/noop/Redis cache backend，统一挂在 cache trait 后面。
-- request id、安全响应头、运行时 CORS、CSRF helper、请求 metrics、IP 限流 middleware。
-- 健康检查、readiness，以及可选 Prometheus metrics。
+它不是云盘、私有云或通用 SaaS 模板。当前 React 面板仍然可以当成 Vite、service 生成和 shadcn/ui 接线方式的技术参考，但产品域已经明确是 Minecraft/Yggdrasil：用户、玩家档案、皮肤、披风、启动器登录、sessionserver 兼容、密钥、cache 和管理后台。
 
-### 运行时地基
+当前 `0.0.0-alpha` 仍是早期产品线。后端地基已经比较完整，但 Minecraft 材质系统和最终前端体验还在继续落地。
 
-- 通过 `server.start_mode` 区分 primary/follower 启动模式。
-- HTTP、后台任务、审计 flush、数据库连接的优雅退出。
-- 异步缓冲审计写入，并提供稳定的 audit presentation 给前端展示。
-- 后台任务记录、dispatch、lease/heartbeat、重试分类、清理和稳定 task presentation。
-- primary-only 周期任务：
-  - background task dispatcher
-  - system health check
-  - auth session cleanup
-  - external auth flow cleanup
-  - mail outbox dispatch
-  - audit log cleanup
-  - task artifact cleanup
+## 适合什么场景
 
-Follower 模式会保留公共运行时初始化，但跳过 primary-only 的 dispatch、邮件 outbox 投递和 cleanup loop。
+AsterYggdrasil 适合这些需求：
 
-### 前端地基
+- 想要一个自托管服务来管理 Minecraft 账号、玩家档案和启动器认证
+- 需要兼容 Yggdrasil/authlib-injector 协议端点
+- 默认用 SQLite 起步，后续按需要切到 PostgreSQL 或 MySQL
+- 需要本地账号认证，也需要外部认证 provider 地基
+- 功能开关要存进 `system_config`，可以运行时调整
+- join/hasJoined 临时会话应该放 cache，而不是写成持久数据库状态
+- profile 创建、认证和 session 写操作需要结构化审计日志
+- 希望 Rust 代码边界清楚：DTO validate、service/repository、migration、OpenAPI 和测试都摆在明面上
 
-- `frontend-panel/` 下的 React + Vite + TypeScript 管理面板。
-- 基于 OpenAPI 生成的类型化 service 层。
-- 管理员页面：配置、审计日志、外部认证 provider、后台任务。邮件 SMTP、模板和测试邮件属于运行时配置入口。
-- audit/task presentation 格式化，前端不需要解析 raw details 或 task payload。
-- Vitest + jsdom 单测、Biome 检查、Vite 生产构建。
+AsterYggdrasil 目前不适合这些需求：
 
-## 明确不包含什么
+- 给任意公网客户端替代官方 online-mode 的通用 Minecraft 账号服务
+- 完整游戏服务器管理面板
+- 文件存储、WebDAV、WOPI、团队分享或云盘系统
+- 现在就要一个完成度很高的视觉化皮肤市场
+- 多主集群、自动故障切换或企业合规保证
+- 希望别人托管一切、自己不承担部署和数据责任的 SaaS
 
-AsterYggdrasil 把具体业务模块留给下游服务：
+## 设计重点
 
-- 文件存储
-- 上传流程
-- 团队或分享
-- 回收站或压缩包
-- 缩略图或媒体处理
-- WebDAV 或 WOPI
-- 存储策略或远程节点
-- 普通用户任务 API
+- **协议兼容优先** - Yggdrasil/authlib-injector 端点返回协议原生响应体和状态码，不套项目 API envelope。
+- **产品边界清楚** - Minecraft profile、texture、Yggdrasil token 和 launcher session 是一等领域概念，旧云盘概念不要混进来。
+- **运行时可控** - 角色名登录、材质上传等功能开关存在 `system_config`，运营时不需要改 `config.toml`。
+- **Token 安全** - Yggdrasil access token 入库前会 hash；client token、selected profile、过期、撤销和用户活跃 token 上限都在 token repo/service 层处理。
+- **该用 cache 就用 cache** - join 临时记录通过共享 cache 系统保存短 TTL，不作为持久数据库状态。
+- **结构化错误** - 项目 API 使用 `AsterError` 和稳定 `AsterErrorCode`；Yggdrasil API 有单独的结构化协议错误映射。
+- **审计可展示** - 安全相关写操作使用 `audit_service::log_with_details(...)`，并提供 admin 前端可直接展示的 presentation metadata。
+- **方便二开** - Actix Web、SeaORM、React、shadcn/ui、DTO validate、migration 和测试都保持显式、可读。
 
-这个模板里的后台任务只面向管理员和系统运行时。不要假设普通用户可以看到任务记录。如果具体产品需要用户任务 API，请在该产品仓库里单独设计可见性模型。
+## 快速开始
 
-AsterYggdrasil 也不引入第二套公开 API subcode。客户端可见错误应该使用明确命名的 `AsterErrorCode`。
+### 使用 Docker 运行
 
-## 仓库结构
-
-```text
-src/                         Rust 后端
-src/api/                     路由、DTO、OpenAPI 注册、middleware、响应 envelope
-src/cache/                   Cache trait 和 memory/noop/Redis 实现
-src/config/                  静态配置、运行时配置定义、normalizer
-src/db/                      数据库连接、重试、事务、repository
-src/entities/                SeaORM entity model
-src/metrics/                 metrics feature 下的 Prometheus 实现
-src/runtime/                 App state、启动、关闭、日志、后台任务 loop
-src/services/                auth、external auth、config、mail、audit、task、health、examples
-src/types/                   共享 domain enum 和 DB wrapper type
-src/utils/                   crypto、ID、path、number、email、RAII helper
-migration/                   SeaORM migration crate
-api-docs-macros/             OpenAPI helper macro crate
-frontend-panel/              React 管理面板
-developer-docs/              开发者文档和扩展说明
-tests/                       集成测试和 OpenAPI 导出测试
-```
-
-## 从源码快速启动
-
-需要：
-
-- [rust-toolchain.toml](rust-toolchain.toml) 指定的 Rust toolchain
-- Bun
-- 默认使用 SQLite
-
-先构建前端资源，再启动服务：
+本地 HTTP 试用时，先准备可写数据目录，再启动服务：
 
 ```bash
+mkdir -p ./data
+
+docker run -d \
+  --name asteryggdrasil \
+  -p 3000:3000 \
+  -e ASTER__SERVER__HOST=0.0.0.0 \
+  -e ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true \
+  -e "ASTER__DATABASE__URL=sqlite:///data/asteryggdrasil.db?mode=rwc" \
+  -v "$(pwd)/data:/data" \
+  ghcr.io/astercommunity/asteryggdrasil:latest
+```
+
+打开：
+
+```text
+http://127.0.0.1:3000
+```
+
+`ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true` 只适合本地或内网 HTTP 测试。正式环境请放到 HTTPS 后面，并保持安全 Cookie 开启。
+
+也可以直接使用仓库里的 Compose 文件：
+
+```bash
+mkdir -p ./data
+docker compose up -d
+```
+
+部署说明见 [docs/deployment/docker.md](docs/deployment/docker.md)。
+
+### 从源码运行
+
+```bash
+git clone https://github.com/AsterCommunity/AsterYggdrasil.git
+cd AsterYggdrasil
+
 cd frontend-panel
 bun install
 bun run build
@@ -108,20 +102,13 @@ cd ..
 cargo run
 ```
 
-首次启动时，AsterYggdrasil 会：
+首次启动时，AsterYggdrasil 会自动：
 
-- 如果缺失则创建 `data/config.toml`
-- 把默认相对路径解析到 `data/` 下
-- 创建默认 SQLite 数据库
-- 执行 migrations
-- 把默认运行时配置写入 `system_config`
+- 如果缺失则生成 `data/config.toml`
+- 使用默认数据库地址时创建 SQLite 数据库
+- 执行全部数据库迁移
+- 初始化写入 `system_config` 的内置运行时配置项
 - 在 `127.0.0.1:3000` 启动 HTTP 服务
-
-打开：
-
-```text
-http://127.0.0.1:3000
-```
 
 创建首个管理员：
 
@@ -131,52 +118,85 @@ curl -X POST http://127.0.0.1:3000/api/v1/auth/setup \
   -d '{"username":"admin","email":"admin@example.com","password":"change-me-please"}'
 ```
 
-如果只是本地 HTTP cookie 测试，可以在首次启动前这样跑：
+## 生产部署提醒
 
-```bash
-ASTER__AUTH__BOOTSTRAP_INSECURE_COOKIES=true cargo run
-```
+- 不要直接把 `:3000` 暴露到公网。请放在反向代理后面，由代理处理 HTTPS、上传限制、真实客户端 IP 和安全响应头。
+- 在把 launcher metadata 发给用户前，先配置稳定的公开访问地址。
+- 正式环境必须使用强 `auth.jwt_secret` 和安全 Cookie 配置。
+- 提前规划数据库、配置、上传材质 blob 和外部身份 provider 密钥的备份。
+- 如果配置 Redis，要监控 Redis。cache disabled 或 Redis 不可用时可以退回 memory cache，但 join session 会变成节点本地状态。
+- Yggdrasil 签名密钥属于敏感运维材料。开启严格 authlib-injector 客户端前，要先测试公钥导出和 texture property 签名。
 
-真实部署请放到 HTTPS 后面，并保持 secure cookie 开启。
+## 核心能力
 
-## Docker
+### 账号与登录
 
-使用 Compose：
+- 首个管理员初始化、注册、登录、刷新、登出、当前用户和会话管理
+- Argon2 密码 hash
+- 外部认证 provider 管理和回调地基
+- 注册/认证相关运行时开关通过 `system_config` 管理
+- 项目 API 使用稳定 `AsterErrorCode`
 
-```bash
-mkdir -p ./data
-docker compose up -d
-```
+### Minecraft 玩家档案
 
-本地构建并运行：
+- 单独的 Minecraft profile 表，绑定到用户
+- 32 位 unsigned Minecraft UUID
+- 玩家名校验：3-16 位 ASCII 字母、数字或下划线
+- 当前用户 profile 列表和创建接口：`/api/v1/profiles/minecraft`
+- 角色名登录由运行时配置控制
 
-```bash
-docker build -t asteryggdrasil:local .
-docker run --rm -p 3000:3000 -v "$(pwd)/data:/data" asteryggdrasil:local
-```
+### Yggdrasil 协议 API
 
-容器期望 `/data` 是可写运行时目录。
+- 服务 metadata：`GET /`
+- authserver 端点：
+  - `POST /authserver/authenticate`
+  - `POST /authserver/refresh`
+  - `POST /authserver/validate`
+  - `POST /authserver/invalidate`
+  - `POST /authserver/signout`
+- sessionserver 端点：
+  - `POST /sessionserver/session/minecraft/join`
+  - `GET /sessionserver/session/minecraft/hasJoined`
+  - `GET /sessionserver/session/minecraft/profile/{uuid}`
+- 批量 profile 查询：
+  - `POST /api/profiles/minecraft`
+- 协议原生错误体，保证 launcher 兼容
+- access token hash 入库、撤销、过期、refresh 轮换和按用户裁剪活跃 token
 
-## 生成新项目
+### 材质系统
 
-AsterYggdrasil 可以作为 `cargo-generate` starter repository 使用：
+- Minecraft texture 领域模型正在以独立方式接入，不复用旧文件存储概念
+- skin/cape 上传能力由 Yggdrasil 运行时配置控制
+- texture storage 走专门的材质存储抽象
+- 后续会继续补 MIME/尺寸校验、公开读取 Cache-Control 和签名 texture property
 
-```bash
-cargo install cargo-generate
-cargo generate --git https://github.com/AsterCommunity/AsterYggdrasil --name my-service
-cd my-service
-./init.sh
-```
+### 管理与运维
 
-模板配置会过滤本地构建和运行产物，比如 `target/`、`data/`、`tmp/`、前端 `node_modules/`、`dist/` 和生成的 OpenAPI 输出。
-
-生成后的项目会暂时保留 `aster_yggdrasil` 这类源码标识，直到执行初始化脚本。这样做是为了让 AsterYggdrasil 本仓库仍然是一个可以直接编译的普通 Rust 项目，而不是只能被模板引擎处理的源码。`./init.sh --help` 可以查看非交互参数；剩余的产品品牌化细节按 [developer-docs/zh-CN/README.md](developer-docs/zh-CN/README.md) 里的清单处理。
-
-初始化后建议用 `cargo generate-lockfile` 和 `cd frontend-panel && bun install` 重新生成 lockfile。
+- 基于 `system_config` 的管理员运行时配置 API
+- 带 presentation metadata 的审计日志查询 API
+- 后台任务记录、dispatch、retry、cleanup、lease/heartbeat 和 runtime task presentation
+- 邮件运行时配置、持久 outbox、测试邮件和邮件审计
+- 健康检查接口：`/health`、`/health/ready`，以及可选 `/health/metrics`
+- memory 和 Redis cache 实现，统一挂在 cache trait 后面
+- primary/follower 启动模式，用来区分 primary-only 周期任务和公共运行时初始化
 
 ## 重要接口
 
 ```text
+GET  /
+
+POST /authserver/authenticate
+POST /authserver/refresh
+POST /authserver/validate
+POST /authserver/invalidate
+POST /authserver/signout
+
+POST /sessionserver/session/minecraft/join
+GET  /sessionserver/session/minecraft/hasJoined
+GET  /sessionserver/session/minecraft/profile/{uuid}
+
+POST /api/profiles/minecraft
+
 GET  /health
 GET  /health/ready
 GET  /health/metrics                    # 需要 --features metrics
@@ -191,14 +211,8 @@ POST /api/v1/auth/logout
 GET  /api/v1/auth/me
 GET  /api/v1/auth/sessions
 
-GET  /api/v1/external-auth/providers
-POST /api/v1/external-auth/{provider}/start
-GET  /api/v1/external-auth/{provider}/callback
-
-GET  /api/v1/auth/external-auth/providers
-GET  /api/v1/auth/external-auth/{kind}/providers
-POST /api/v1/auth/external-auth/{kind}/{provider}/start
-GET  /api/v1/auth/external-auth/{kind}/{provider}/callback
+GET  /api/v1/profiles/minecraft
+POST /api/v1/profiles/minecraft
 
 GET    /api/v1/admin/config
 GET    /api/v1/admin/config/schema
@@ -246,73 +260,101 @@ ASTER__AUTH__JWT_SECRET='replace-with-a-long-random-secret'
 
 完整静态配置见 [config.example.toml](config.example.toml)。
 
-运行时配置存在 `system_config`，通过 Admin Config API/UI 修改。需要不改 `config.toml` 就能热调整的值放运行时配置；数据库 URL、监听地址、密钥这类启动关键值放静态配置。
+运行时配置存在 `system_config`，通过 Admin Config API/UI 修改。功能开关和无需改 `config.toml` 就要热调整的值放运行时配置；数据库 URL、监听地址、密钥这类启动关键值放静态配置。
 
-邮件投递也是运行时配置：SMTP 主机、端口、加密、用户名密码、发件人、邮件模板和 `mail_outbox_dispatch_interval_secs` 都通过 Admin Config API/UI 管理。管理员测试邮件走 `POST /api/v1/admin/config/mail/action`，outbox 由 primary 节点的 `mail-outbox-dispatch` 周期任务投递。详细说明见 [docs/guide/mail.md](docs/guide/mail.md)。
+当前 Yggdrasil 运行时配置包括：
 
-## 开发命令
+- `yggdrasil_server_name`
+- `yggdrasil_allow_profile_name_login`
+- `yggdrasil_allow_skin_upload`
+- `yggdrasil_allow_cape_upload`
+- `yggdrasil_token_ttl_days`
+- `yggdrasil_max_active_tokens`
+- `yggdrasil_skin_domains`
+- `yggdrasil_signature_public_key`
 
-后端：
+## 开发
+
+### 环境要求
+
+- Rust `1.94.0+`
+- Bun
+- Node.js，用于前端工具链
+- 默认 SQLite
+
+### 常用命令
 
 ```bash
+# 后端
 cargo fmt
-cargo check --bins
-cargo check --features openapi
-cargo clippy --tests -- -D warnings
+cargo check
 cargo test
+cargo test --lib
+cargo test --test test_yggdrasil
+cargo test --test test_audit
+cargo test --test test_cache
+cargo test --test test_config
+cargo test --features openapi --test generate_openapi
+cargo test --features metrics
 cargo run
-```
 
-前端：
-
-```bash
+# 前端
 cd frontend-panel
 bun install
+bun run dev
+bun run build
 bun run check
 bun run test
-bun run build
-bun run dev
+bun run test:e2e
 ```
 
-OpenAPI 和前端生成类型：
+### 前端说明
 
-```bash
-cargo test --features openapi generate_openapi
-cd frontend-panel
-bun run generate-api
-```
+- 当前 `frontend-panel/` 仍然是模板/demo 级 UI。
+- 技术栈可以保留：React、Vite、TypeScript、Tailwind CSS、shadcn/ui、Biome、Vitest、Playwright。
+- 做真实产品前端时，不要继承旧页面结构、视觉风格或信息架构。
+- 新 UI 应围绕登录/注册、玩家档案、材质上传和预览、authlib-injector 接入、管理员配置、用户和审计日志来设计。
+- 禁止 TypeScript `enum`，请使用 `as const` 对象。
+- 类型导入必须使用 `import type`。
 
-## Feature
+## 项目结构
 
 ```text
-server               默认服务构建
-cli                  预留 CLI feature
-metrics              Prometheus metrics 和 system metrics
-openapi              OpenAPI schema 和 debug API docs 支持
-full                 server + cli + metrics + openapi
-jemalloc             使用 jemalloc allocator
-jemalloc-stats       jemalloc stats 支持
-jemalloc-profiling   jemalloc profiling 支持
+src/                         Rust 后端
+src/api/                     路由、DTO、OpenAPI 注册、middleware、响应 envelope
+src/cache/                   Cache trait 和 memory/Redis 实现
+src/config/                  静态配置、运行时配置定义、normalizer
+src/db/                      数据库连接、重试、事务、repository
+src/entities/                SeaORM entity model
+src/metrics/                 metrics feature 下的 Prometheus 实现
+src/runtime/                 App state、启动、关闭、日志、后台任务 loop
+src/services/                auth、external auth、config、mail、audit、task、health、Yggdrasil
+src/texture_storage/         Minecraft 材质存储抽象
+src/types/                   共享 domain enum 和 DB wrapper type
+src/utils/                   crypto、ID、path、number、email、RAII helper
+migration/                   SeaORM migration crate
+api-docs-macros/             OpenAPI helper macro crate
+frontend-panel/              React 管理面板，目前仍是 demo 级
+developer-docs/              开发者文档
+docs/                        用户/部署文档站
+tests/                       集成测试和 OpenAPI 导出测试
+tmp/authlib-injector/wiki/   本地 clone 的 authlib-injector/Yggdrasil 参考 wiki
 ```
 
-## 模板扩展规则
+## 测试覆盖重点
 
-从 AsterYggdrasil 开产品时：
+这轮新增/扩展的 Yggdrasil 测试覆盖：
 
-1. 业务 entity 放进 `src/entities/`，schema 变更加到 `migration/`。
-2. DB 访问放进 `src/db/repository/`。
-3. 业务行为放进 `src/services/`。
-4. HTTP contract 放进 `src/api/dto/`，路由放到 `src/api/routes/`。
-5. 新路径和 schema 要注册到 `src/api/openapi.rs`。
-6. 管理员操作和安全相关状态变更要接 audit。
-7. 新 task kind 必须先明确 owner、retry 模型和可见性模型。
-8. 新邮件模板、邮件 payload 或 outbox 语义要同步 runtime config、OpenAPI、audit presentation 和前端生成类型。
-9. 地基模块保持通用，产品工作流留在产品仓库。
-
-## 参考实现
-
-如果想看更完整的产品扩展示例，可以参考 AsterDrive。它适合用来理解 module boundary、task integration、audit 覆盖和运维界面怎么落地，但不要把它当成应该复制进模板的模块清单。
+- authenticate、validate、refresh、invalidate、signout 完整流程
+- 无 profile、单 profile、多 profile 的 selectedProfile 行为
+- profile-name login 运行时配置
+- DTO validate 和协议错误体格式
+- 项目 profile API 的 validate 和 envelope 格式
+- join/hasJoined cache 会话，包括 memory fallback
+- 批量 profile 查询边界
+- token hash 入库和活跃 token 裁剪
+- profile/auth/session 写操作的 audit 记录和 presentation code
 
 ## License
 
-MIT。见 [LICENSE](LICENSE)。
+MIT. See [LICENSE](LICENSE).

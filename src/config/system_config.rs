@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::config::RuntimeConfig;
 use crate::config::audit;
 use crate::config::auth_runtime;
+use crate::config::avatar;
 use crate::config::bool_like::parse_bool_like;
 use crate::config::branding;
 use crate::config::cors;
@@ -14,6 +15,7 @@ use crate::config::local_email_policy;
 use crate::config::mail;
 use crate::config::operations;
 use crate::config::site_url;
+use crate::config::yggdrasil;
 use crate::entities::system_config;
 use crate::errors::{AsterError, Result};
 use crate::types::{SystemConfigSource, SystemConfigValueType};
@@ -120,6 +122,8 @@ where
         | local_email_policy::AUTH_LOCAL_EMAIL_BLOCKLIST_KEY => {
             local_email_policy::normalize_local_email_policy_config_value(key, value)
         }
+        avatar::AVATAR_DIR_KEY => avatar::normalize_avatar_dir_config_value(value),
+        avatar::GRAVATAR_BASE_URL_KEY => avatar::normalize_gravatar_base_url_config_value(value),
         mail::MAIL_SMTP_HOST_KEY => mail::normalize_smtp_host_config_value(value),
         mail::MAIL_SMTP_PORT_KEY => mail::normalize_smtp_port_config_value(value),
         mail::MAIL_FROM_ADDRESS_KEY => mail::normalize_mail_address_config_value(value),
@@ -176,6 +180,16 @@ where
         }
         cors::CORS_MAX_AGE_SECS_KEY => cors::normalize_max_age_config_value(value),
         site_url::PUBLIC_SITE_URL_KEY => site_url::normalize_public_site_url_config_value(value),
+        yggdrasil::YGGDRASIL_PUBLIC_BASE_URL_KEY
+        | yggdrasil::YGGDRASIL_SKIN_DOMAINS_KEY
+        | yggdrasil::YGGDRASIL_TOKEN_TTL_DAYS_KEY
+        | yggdrasil::YGGDRASIL_MAX_ACTIVE_TOKENS_KEY
+        | yggdrasil::YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY
+        | yggdrasil::YGGDRASIL_MAX_TEXTURE_PIXELS_KEY
+        | yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY
+        | yggdrasil::YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY => {
+            yggdrasil::normalize_yggdrasil_config_value(key, value)
+        }
         branding::BRANDING_TITLE_KEY => branding::normalize_title_config_value(value),
         branding::BRANDING_DESCRIPTION_KEY => branding::normalize_description_config_value(value),
         branding::BRANDING_FAVICON_URL_KEY => branding::normalize_favicon_url_config_value(value),
@@ -210,6 +224,7 @@ pub fn apply_definition(mut config: system_config::Model) -> system_config::Mode
 mod tests {
     use super::{apply_definition, normalize_system_value, validate_value_type};
     use crate::config::definitions::{CONFIG_CATEGORY_SITE, PUBLIC_SITE_URL_KEY};
+    use crate::config::yggdrasil::{YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY};
     use crate::config::{audit, cors, operations};
     use crate::entities::system_config;
     use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
@@ -307,6 +322,22 @@ mod tests {
             err.message()
                 .contains("cors_allow_credentials cannot be true when cors_allowed_origins is '*'")
         );
+    }
+
+    #[test]
+    fn normalize_system_value_rejects_non_positive_yggdrasil_token_limits() {
+        let lookup = HashMap::new();
+
+        assert_eq!(
+            normalize_system_value(&lookup, YGGDRASIL_TOKEN_TTL_DAYS_KEY, "15").unwrap(),
+            "15"
+        );
+        assert_eq!(
+            normalize_system_value(&lookup, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, "2").unwrap(),
+            "2"
+        );
+        assert!(normalize_system_value(&lookup, YGGDRASIL_TOKEN_TTL_DAYS_KEY, "0").is_err());
+        assert!(normalize_system_value(&lookup, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, "1.5").is_err());
     }
 
     #[test]

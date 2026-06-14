@@ -1,126 +1,75 @@
-# Audit And Background Tasks
+# Audit and Background Tasks
 
-Audit logs and background tasks are core reusable runtime capabilities in AsterYggdrasil. The goal is not just to have tables. The goal is to let administrators understand what happened, why a task failed, and which operations need accountability.
+AsterYggdrasil writes audit logs for admin operations and important protocol actions. Periodic maintenance uses the runtime task record and presentation system instead of a separate worker stack.
 
-## Audit Logs
+## Audit Scope
 
-Audit logs record important operations:
+Yggdrasil-related audited actions include:
 
-- Server startup and shutdown.
-- User login.
-- Runtime config changes.
-- Admin config deletion.
-- Admin external auth provider maintenance.
-- Administrator test mail.
-- Successful mail send and final delivery failure.
-- Admin task cleanup.
-- Background task retry.
+- Creating and deleting Minecraft profiles.
+- Uploading and deleting textures.
+- authenticate, refresh, invalidate, signout.
+- join server.
+- Admin profile or texture deletion.
+- Yggdrasil signing key rotation config action.
 
-Admin API:
+Audit details are generated from structured types, and sensitive values are not written:
+
+- access tokens are not logged in plaintext.
+- client tokens are not treated as exposed credentials.
+- signing private keys never appear in audit details.
+- serverId is recorded as a hash.
+
+## Admin API
 
 ```text
 GET /api/v1/admin/audit-logs
-```
-
-Queries support pagination and filtering. The admin panel displays structured presentation data. Presentation matters because the frontend should not parse raw details or guess field meanings for every action.
-
-## Presentation
-
-Audit presentation uses stable message codes and parameters.
-
-Recommended shape:
-
-```json
-{
-  "code": "audit.config.updated",
-  "params": {
-    "key": "auth.registration_enabled"
-  }
-}
-```
-
-The frontend can localize display from code and params. The backend can still keep raw details for debugging and historical compatibility.
-
-When adding an audit action, add:
-
-- Stable action name.
-- Details structure.
-- Presentation mapping.
-- Admin query display coverage.
-- Unit or integration tests.
-
-Current mail-related presentation codes:
-
-| Action | Presentation code | Important params |
-| --- | --- | --- |
-| `mail_send` | `mail_sent` | `to_address`, `template_code`, `outbox_id` |
-| `mail_delivery_failed` | `mail_delivery_failed` | `to_address`, `template_code`, `outbox_id`, `attempt_count`, `error` |
-| `config_action_execute` | `config_action_executed` | `action`, `target_email` |
-
-When an administrator sends test mail, AsterYggdrasil records `config_action_execute`. A successful test also records `mail_send`; a failed test records `mail_delivery_failed`. Outbox background delivery also records mail audit on successful send or final failure.
-
-## Background Tasks
-
-The background task system persists system task state and supports dispatch, lease, heartbeat, retry, and cleanup.
-
-Admin API:
-
-```text
-GET  /api/v1/admin/tasks
+GET /api/v1/admin/tasks
 POST /api/v1/admin/tasks/cleanup
 POST /api/v1/admin/tasks/{id}/retry
 ```
 
-The template does not provide regular user task APIs. Admins can see system tasks, but that does not mean regular users should. If a downstream project needs a "my tasks" page, design product-specific visibility rules.
+Tasks and audit logs include presentation fields. Frontends should use stable presentation codes, titles, and details instead of parsing internal payloads to build display text.
 
-## Task State
+## Runtime Tasks
 
-Task records usually include:
+Primary nodes run periodic tasks:
 
-- display name or task kind
-- status
-- creator user id
-- payload
-- result
-- failure detail
-- retry metadata
-- timestamps
-- presentation
+```text
+background-task-dispatch
+mail-outbox-dispatch
+system-health-check
+auth-session-cleanup
+external-auth-flow-cleanup
+yggdrasil-token-cleanup
+audit-cleanup
+task-cleanup
+yggdrasil-storage-consistency-check
+yggdrasil-texture-cleanup
+```
 
-Presentation provides stable title, status message, and detail message. The frontend should not parse payload to infer titles, and failure detail should not be the only display source.
+Yggdrasil-specific tasks:
 
-## Cleanup Strategy
+- `yggdrasil-token-cleanup`: deletes expired or revoked tokens.
+- `yggdrasil-storage-consistency-check`: checks whether texture DB rows point to missing objects and whether object hashes match.
+- `yggdrasil-texture-cleanup`: deletes orphan objects with no DB references.
 
-AsterYggdrasil includes these maintenance tasks:
+## primary/follower
 
-- audit log cleanup
-- task artifact cleanup
-- auth session cleanup
-- external auth login flow cleanup
-- mail outbox dispatch
+Periodic maintenance should run only on primary nodes. Followers can serve requests, but should not duplicate tasks with external side effects or global cleanup semantics.
 
-Administrators can also trigger task cleanup through the Admin Task Cleanup API. That operation itself should be audited because it deletes historical task data.
+In multi-instance production deployments, make sure only one instance uses:
 
-`mail-outbox-dispatch` is an external-side-effect task and runs only on primary nodes. It claims due rows from `mail_outbox`, sends SMTP, and marks each row as `sent`, `retry`, or `failed`. If this task keeps failing, administrators should inspect both task failure details and `mail_delivery_failed` audit entries.
+```toml
+[server]
+start_mode = "primary"
+```
 
-Cleanup policy should consider:
+Other instances should use follower mode.
 
-- Whether succeeded and failed tasks use different retention periods.
-- Whether recent failures are kept for debugging.
-- Whether task artifacts are removed only after the task has stopped.
-- Whether cleanup actions write audit logs.
+## Operational Advice
 
-## New Task Checklist
-
-When adding a downstream background task:
-
-1. Define task kind and payload structure.
-2. Decide payload version compatibility.
-3. Implement the task handler.
-4. Define retry classification.
-5. Add task presentation.
-6. Add Admin UI fields if needed.
-7. Cover success, failure, retry, and cleanup in tests.
-8. Audit administrator-triggered task operations.
-
-The common failure mode is retrying a task with non-idempotent side effects. If the task calls external systems or mutates business data, design idempotency keys or compensation behavior.
+- Review failures from `yggdrasil-storage-consistency-check` regularly.
+- If consistency check reports missing objects, do not immediately run cleanup; first verify whether storage was manually deleted or unmounted.
+- If orphan cleanup deletes an unexpected number of objects, check whether profile or texture deletion was triggered in bulk.
+- After key rotation, if servers fail to verify textures properties, refresh metadata on the client or server side first.

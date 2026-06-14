@@ -1,32 +1,61 @@
-import { type FormEvent, useState } from "react";
-import { EndpointCard } from "@/components/panel/EndpointCard";
+import { type FormEvent, useReducer } from "react";
+import { useTranslation } from "react-i18next";
 import { NativeSelectField, TextField } from "@/components/panel/FormControls";
 import { JsonPanel } from "@/components/panel/JsonPanel";
-import { PageShell, SectionTitle } from "@/components/panel/PageShell";
+import { PageShell } from "@/components/panel/PageShell";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { Icon } from "@/components/ui/icon";
 import { useAsyncTask } from "@/hooks/useAsyncTask";
-import { apiCatalog } from "@/lib/apiCatalog";
+import { usePageTitle } from "@/hooks/usePageTitle";
 import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 
 type AuthMode = "login" | "register" | "setup";
 
+type AuthFormState = {
+	email: string;
+	identifier: string;
+	mode: AuthMode;
+	password: string;
+	username: string;
+};
+
+type AuthFormAction =
+	| { type: "email"; value: string }
+	| { type: "identifier"; value: string }
+	| { type: "mode"; value: AuthMode }
+	| { type: "password"; value: string }
+	| { type: "username"; value: string };
+
+const initialAuthFormState: AuthFormState = {
+	email: "admin@example.com",
+	identifier: "admin",
+	mode: "login",
+	password: "",
+	username: "admin",
+};
+
+function authFormReducer(
+	state: AuthFormState,
+	action: AuthFormAction,
+): AuthFormState {
+	return { ...state, [action.type]: action.value };
+}
+
 export default function AuthPage() {
-	const [mode, setMode] = useState<AuthMode>("login");
-	const [username, setUsername] = useState("admin");
-	const [email, setEmail] = useState("admin@example.com");
-	const [identifier, setIdentifier] = useState("admin");
-	const [password, setPassword] = useState("");
+	const { t } = useTranslation();
+	const [form, dispatch] = useReducer(authFormReducer, initialAuthFormState);
+
+	usePageTitle(t("admin.authConsolePage.title"));
+
+	const { email, identifier, mode, password, username } = form;
 	const task = useAsyncTask<unknown>();
 	const user = useAuthStore((state) => state.user);
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -36,7 +65,6 @@ export default function AuthPage() {
 	const refresh = useAuthStore((state) => state.refresh);
 	const logout = useAuthStore((state) => state.logout);
 	const clear = useAuthStore((state) => state.clear);
-	const authOps = apiCatalog.filter((item) => item.route === "/auth");
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -59,58 +87,69 @@ export default function AuthPage() {
 
 	return (
 		<PageShell
-			title="Auth"
-			description="Local setup, registration, login, cookie refresh, logout, current user, and session APIs."
+			title={t("admin.authConsolePage.title")}
+			description={t("admin.authConsolePage.description")}
 		>
 			<div className="grid gap-4 xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
 				<Card>
 					<CardHeader className="border-b border-border/60 pb-4">
 						<CardTitle className="flex items-center gap-2">
 							<Icon name="Key" className="size-4" />
-							Session control
+							{t("admin.authConsolePage.sessionControl")}
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<form className="grid gap-3" onSubmit={submit}>
 							<NativeSelectField
-								label="Mode"
+								label={t("admin.authConsolePage.mode")}
 								value={mode}
-								onChange={(value) => setMode(value as AuthMode)}
+								onChange={(value) =>
+									dispatch({ type: "mode", value: value as AuthMode })
+								}
 								options={[
-									{ label: "Login", value: "login" },
-									{ label: "Register", value: "register" },
-									{ label: "Setup first admin", value: "setup" },
+									{
+										label: t("admin.authConsolePage.modeLogin"),
+										value: "login",
+									},
+									{
+										label: t("admin.authConsolePage.modeRegister"),
+										value: "register",
+									},
+									{
+										label: t("admin.authConsolePage.modeSetup"),
+										value: "setup",
+									},
 								]}
 							/>
 							{mode === "login" ? (
 								<TextField
-									label="Identifier"
+									label={t("login.identifier")}
 									value={identifier}
-									onChange={setIdentifier}
+									onChange={(value) => dispatch({ type: "identifier", value })}
 									required
 								/>
 							) : (
 								<>
 									<TextField
-										label="Username"
+										label={t("login.username")}
 										value={username}
-										onChange={setUsername}
+										onChange={(value) => dispatch({ type: "username", value })}
 										required
 									/>
 									<TextField
-										label="Email"
+										label={t("login.email")}
 										type="email"
 										value={email}
-										onChange={setEmail}
+										onChange={(value) => dispatch({ type: "email", value })}
 										required
 									/>
 								</>
 							)}
 							<TextField
-								label="Password"
+								label={t("login.password")}
 								type="password"
 								value={password}
-								onChange={setPassword}
+								onChange={(value) => dispatch({ type: "password", value })}
 								required
 							/>
 							<div className="flex flex-wrap gap-2">
@@ -119,7 +158,7 @@ export default function AuthPage() {
 										name={task.loading ? "Spinner" : "SignIn"}
 										className={task.loading ? "size-4 animate-spin" : "size-4"}
 									/>
-									Submit
+									{t("admin.authConsolePage.submit")}
 								</Button>
 								<Button
 									type="button"
@@ -127,7 +166,7 @@ export default function AuthPage() {
 									onClick={() => void task.run(() => authService.check())}
 								>
 									<Icon name="Eye" className="size-4" />
-									Check
+									{t("admin.authConsolePage.check")}
 								</Button>
 								<Button
 									type="button"
@@ -144,7 +183,7 @@ export default function AuthPage() {
 									}
 								>
 									<Icon name="ArrowsClockwise" className="size-4" />
-									Refresh
+									{t("common.refresh")}
 								</Button>
 								<Button
 									type="button"
@@ -158,11 +197,11 @@ export default function AuthPage() {
 									}
 								>
 									<Icon name="SignOut" className="size-4" />
-									Logout
+									{t("nav.logout")}
 								</Button>
 								<Button type="button" variant="ghost" onClick={clear}>
 									<Icon name="X" className="size-4" />
-									Clear local
+									{t("admin.authConsolePage.clearLocal")}
 								</Button>
 							</div>
 						</form>
@@ -171,70 +210,65 @@ export default function AuthPage() {
 
 				<div className="grid gap-4">
 					<JsonPanel
-						title="Auth result"
+						title={t("admin.authConsolePage.resultTitle")}
 						value={task.result}
 						error={task.error}
 						loading={task.loading}
 					/>
 					<Card size="sm">
 						<CardHeader>
-							<CardTitle>Current cookie session</CardTitle>
+							<CardTitle>{t("admin.authConsolePage.currentSession")}</CardTitle>
 						</CardHeader>
 						<CardContent className="grid gap-2 text-sm">
-							<div>User: {user?.username ?? "-"}</div>
-							<div>Role: {user?.role ?? "-"}</div>
-							<div>Authenticated: {isAuthenticated ? "yes" : "no"}</div>
-							<div>Credential storage: HttpOnly cookies</div>
+							<div>
+								{t("admin.authConsolePage.user")}: {user?.username ?? "-"}
+							</div>
+							<div>
+								{t("dashboard.role")}: {user?.role ?? "-"}
+							</div>
+							<div>
+								{t("admin.authConsolePage.authenticated")}:{" "}
+								{isAuthenticated
+									? t("admin.common.enabled")
+									: t("common.missing")}
+							</div>
+							<div>{t("admin.authConsolePage.credentialStorage")}</div>
 						</CardContent>
 					</Card>
 				</div>
 			</div>
 
-			<div className="grid gap-3 lg:grid-cols-2">
-				<EndpointCard
-					title="get_current_user"
-					method="GET"
-					path="/api/v1/auth/me"
-					actionLabel="Load me"
-					onAction={() => void task.run(() => authService.me())}
-				/>
-				<EndpointCard
-					title="list_auth_sessions"
-					method="GET"
-					path="/api/v1/auth/sessions"
-					actionLabel="Load sessions"
-					onAction={() => void task.run(() => authService.sessions())}
-				/>
-			</div>
-
-			<div className="space-y-3">
-				<SectionTitle
-					title="Auth API coverage"
-					description="All local auth endpoints have direct controls on this page; browser credentials are sent with cookies."
-				/>
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Operation</TableHead>
-							<TableHead>Method</TableHead>
-							<TableHead>Path</TableHead>
-							<TableHead>Access</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{authOps.map((item) => (
-							<TableRow key={item.operationId}>
-								<TableCell className="font-mono text-xs">
-									{item.operationId}
-								</TableCell>
-								<TableCell>{item.method}</TableCell>
-								<TableCell className="font-mono text-xs">{item.path}</TableCell>
-								<TableCell>{item.access}</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</div>
+			<Card>
+				<CardHeader className="border-b border-border/60 pb-4">
+					<CardTitle className="flex items-center gap-2">
+						<Icon name="Wrench" className="size-4" />
+						{t("admin.authConsolePage.utilitiesTitle")}
+					</CardTitle>
+					<CardDescription>
+						{t("admin.authConsolePage.utilitiesDescription")}
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="flex flex-wrap gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() => void task.run(() => authService.me({ force: true }))}
+					>
+						<Icon name="User" className="size-4" />
+						{t("admin.authConsolePage.loadMe")}
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={() =>
+							void task.run(() => authService.sessions({ force: true }))
+						}
+					>
+						<Icon name="Key" className="size-4" />
+						{t("admin.authConsolePage.loadSessions")}
+					</Button>
+				</CardContent>
+			</Card>
 		</PageShell>
 	);
 }

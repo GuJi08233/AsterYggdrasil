@@ -3,6 +3,10 @@
 mod common;
 pub mod dto;
 pub mod error_code;
+pub mod api_error_code {
+    pub use super::error_code::AsterErrorCode as ApiErrorCode;
+    pub use super::error_code::*;
+}
 pub mod middleware;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 pub mod openapi;
@@ -11,9 +15,12 @@ pub mod request_auth;
 pub mod response;
 pub mod routes;
 
+use crate::config::yggdrasil::DEFAULT_YGGDRASIL_API_ROOT;
 use actix_web::web;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(web::scope(DEFAULT_YGGDRASIL_API_ROOT).configure(routes::yggdrasil::configure));
+
     cfg.service(web::scope("/api/v1").configure(routes::configure_api))
         .service(routes::health::routes());
 

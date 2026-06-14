@@ -45,7 +45,7 @@ RUN apk add --no-cache ca-certificates sqlite-libs wget && \
 
 LABEL maintainer="AptS:1547 <apts-1547@esaps.net>"
 LABEL org.opencontainers.image.title="AsterYggdrasil"
-LABEL org.opencontainers.image.description="Reusable Rust + React service foundation for Aster projects"
+LABEL org.opencontainers.image.description="Self-hosted Minecraft skin site and Yggdrasil authentication server."
 LABEL org.opencontainers.image.source="https://github.com/AsterCommunity/AsterYggdrasil"
 LABEL org.opencontainers.image.license="MIT"
 

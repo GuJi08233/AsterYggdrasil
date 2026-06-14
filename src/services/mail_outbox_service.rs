@@ -52,10 +52,17 @@ pub async fn enqueue<C: ConnectionTrait>(
     payload: MailTemplatePayload,
 ) -> Result<mail_outbox::Model> {
     let now = Utc::now();
+    let template_code = payload.template_code();
+    tracing::debug!(
+        template_code = %template_code.as_str(),
+        to_address = to_address,
+        has_to_name = to_name.is_some(),
+        "enqueueing mail outbox row"
+    );
     mail_outbox_repo::create(
         db,
         mail_outbox::ActiveModel {
-            template_code: Set(payload.template_code()),
+            template_code: Set(template_code),
             to_address: Set(to_address.to_string()),
             to_name: Set(to_name.map(str::to_string)),
             payload_json: Set(payload.to_stored()?),
@@ -71,6 +78,13 @@ pub async fn enqueue<C: ConnectionTrait>(
         },
     )
     .await
+    .inspect(|row| {
+        tracing::debug!(
+            mail_outbox_id = row.id,
+            template_code = %row.template_code.as_str(),
+            "enqueued mail outbox row"
+        );
+    })
 }
 
 pub async fn dispatch_due(state: &impl MailRuntimeState) -> Result<DispatchStats> {
@@ -92,14 +106,31 @@ pub async fn dispatch_due_with(
     let due =
         mail_outbox_repo::list_claimable(db, now, stale_before, MAIL_OUTBOX_BATCH_SIZE).await?;
     let mut stats = DispatchStats::default();
+    tracing::debug!(
+        batch_size = MAIL_OUTBOX_BATCH_SIZE,
+        due_count = due.len(),
+        stale_before = %stale_before,
+        "dispatching due mail outbox rows"
+    );
 
     for row in due {
         let claimed_at = Utc::now();
         if !mail_outbox_repo::try_claim(db, row.id, claimed_at, stale_before).await? {
+            tracing::debug!(
+                mail_outbox_id = row.id,
+                template_code = %row.template_code.as_str(),
+                "mail outbox claim skipped because row was already claimed"
+            );
             continue;
         }
 
         stats.claimed += 1;
+        tracing::debug!(
+            mail_outbox_id = row.id,
+            template_code = %row.template_code.as_str(),
+            attempt_count = row.attempt_count,
+            "claimed mail outbox row"
+        );
         let mut claimed_row = row;
         claimed_row.status = MailOutboxStatus::Processing;
         claimed_row.processing_started_at = Some(claimed_at);
@@ -107,6 +138,11 @@ pub async fn dispatch_due_with(
 
         match deliver_one(runtime_config, mail_sender, &claimed_row).await {
             Ok(subject) => {
+                tracing::debug!(
+                    mail_outbox_id = claimed_row.id,
+                    template_code = %claimed_row.template_code.as_str(),
+                    "mail outbox SMTP delivery succeeded"
+                );
                 // SMTP 成功。mark_sent 必须尽一切努力落库——否则 row 会以 Processing 状态
                 // 在 `MAIL_OUTBOX_PROCESSING_STALE_SECS` 后被另一个 worker 再次 claim，
                 // 导致**收件人收到重复邮件**。退避重试把"瞬时 DB 抖动 → 双发"的概率
@@ -139,6 +175,10 @@ pub async fn dispatch_due_with(
                             to = %claimed_row.to_address,
                             "mark_sent affected 0 rows after successful delivery; state will be rechecked"
                         );
+                        tracing::debug!(
+                            mail_outbox_id = claimed_row.id,
+                            "mail outbox mark_sent returned 0 rows after delivery"
+                        );
                     }
                     Err(e) => {
                         tracing::error!(
@@ -149,6 +189,11 @@ pub async fn dispatch_due_with(
                             error = %e,
                             "CRITICAL: SMTP delivery succeeded but mark_sent failed after all retries; \
                              row remains Processing and may be re-claimed, causing duplicate delivery"
+                        );
+                        tracing::debug!(
+                            mail_outbox_id = claimed_row.id,
+                            error = %e,
+                            "mail outbox mark_sent exhausted retries"
                         );
                     }
                 }
@@ -185,6 +230,11 @@ pub async fn dispatch_due_with(
                         )
                         .await;
                     }
+                    tracing::debug!(
+                        mail_outbox_id = claimed_row.id,
+                        attempt_count,
+                        "mail outbox delivery permanently failed"
+                    );
                     tracing::warn!(
                         mail_outbox_id = claimed_row.id,
                         template_code = %claimed_row.template_code.as_str(),
@@ -206,6 +256,12 @@ pub async fn dispatch_due_with(
                     {
                         stats.retried += 1;
                     }
+                    tracing::debug!(
+                        mail_outbox_id = claimed_row.id,
+                        attempt_count,
+                        retry_at = %retry_at,
+                        "mail outbox delivery scheduled for retry"
+                    );
                     tracing::warn!(
                         mail_outbox_id = claimed_row.id,
                         template_code = %claimed_row.template_code.as_str(),
@@ -220,6 +276,13 @@ pub async fn dispatch_due_with(
         }
     }
 
+    tracing::debug!(
+        claimed = stats.claimed,
+        sent = stats.sent,
+        retried = stats.retried,
+        failed = stats.failed,
+        "finished dispatching due mail outbox rows"
+    );
     Ok(stats)
 }
 
@@ -238,16 +301,25 @@ pub async fn drain_with(
     mail_sender: &Arc<dyn MailSender>,
 ) -> Result<DispatchStats> {
     let mut total = DispatchStats::default();
+    tracing::debug!("draining mail outbox");
 
     for _ in 0..MAIL_OUTBOX_DRAIN_MAX_ROUNDS {
         let stats = dispatch_due_with(db, runtime_config, mail_sender).await?;
         let claimed = stats.claimed;
         total.merge(stats);
         if claimed == 0 {
+            tracing::debug!("mail outbox drain finished because no rows were claimed");
             break;
         }
     }
 
+    tracing::debug!(
+        claimed = total.claimed,
+        sent = total.sent,
+        retried = total.retried,
+        failed = total.failed,
+        "mail outbox drain completed"
+    );
     Ok(total)
 }
 
@@ -258,6 +330,11 @@ async fn deliver_one(
 ) -> Result<String> {
     let rendered = mail_template::render(runtime_config, row.template_code, &row.payload_json)?;
     let subject = rendered.subject.clone();
+    tracing::debug!(
+        mail_outbox_id = row.id,
+        template_code = %row.template_code.as_str(),
+        "delivering one mail outbox row"
+    );
     mail_service::send_rendered_with(
         runtime_config,
         mail_sender,
@@ -268,6 +345,11 @@ async fn deliver_one(
         rendered,
     )
     .await?;
+    tracing::debug!(
+        mail_outbox_id = row.id,
+        template_code = %row.template_code.as_str(),
+        "delivered one mail outbox row"
+    );
     Ok(subject)
 }
 
@@ -288,12 +370,21 @@ fn retry_delay_secs(attempt_count: i32) -> i64 {
 /// `Err(...)` = 最终仍失败，调用方应当打印 critical 日志。
 async fn mark_sent_with_retry(db: &DatabaseConnection, id: i64) -> Result<bool> {
     let mut last_err: Option<crate::errors::AsterError> = None;
+    tracing::debug!(mail_outbox_id = id, "marking mail outbox row as sent");
     for (i, delay_ms) in MARK_SENT_RETRY_DELAYS_MS.iter().enumerate() {
         if *delay_ms > 0 {
             tokio::time::sleep(std::time::Duration::from_millis(*delay_ms)).await;
         }
         match mail_outbox_repo::mark_sent(db, id, Utc::now()).await {
-            Ok(updated) => return Ok(updated),
+            Ok(updated) => {
+                tracing::debug!(
+                    mail_outbox_id = id,
+                    attempt = i + 1,
+                    updated,
+                    "marked mail outbox row as sent"
+                );
+                return Ok(updated);
+            }
             Err(err) => {
                 tracing::warn!(
                     mail_outbox_id = id,
@@ -304,6 +395,10 @@ async fn mark_sent_with_retry(db: &DatabaseConnection, id: i64) -> Result<bool> 
             }
         }
     }
+    tracing::debug!(
+        mail_outbox_id = id,
+        "mail outbox mark_sent retries exhausted"
+    );
     Err(last_err.unwrap_or_else(|| {
         crate::errors::AsterError::internal_error(
             "mark_sent retries exhausted without error context",

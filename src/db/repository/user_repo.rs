@@ -1,12 +1,24 @@
 //! User repository.
 
-use crate::entities::user::{self, Entity as User};
+use crate::api::pagination::{AdminUserSortBy, OffsetPage, SortOrder, load_offset_page};
+use crate::db::repository::search_query;
+use crate::entities::{
+    auth_session, minecraft_profile,
+    user::{self, Entity as User},
+};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{UserRole, UserStatus};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Set, sea_query::Expr,
 };
+
+#[derive(Debug, Clone, Default)]
+pub struct AdminUserFilters {
+    pub keyword: Option<String>,
+    pub role: Option<UserRole>,
+    pub status: Option<UserStatus>,
+}
 
 pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
     User::find()
@@ -51,6 +63,174 @@ pub async fn find_by_identifier<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
+pub async fn find_by_email<C: ConnectionTrait>(db: &C, email: &str) -> Result<Option<user::Model>> {
+    User::find()
+        .filter(user::Column::Email.eq(email))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_username<C: ConnectionTrait>(
+    db: &C,
+    username: &str,
+) -> Result<Option<user::Model>> {
+    User::find()
+        .filter(user::Column::Username.eq(username))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_public_uuid<C: ConnectionTrait>(
+    db: &C,
+    public_uuid: &str,
+) -> Result<Option<user::Model>> {
+    User::find()
+        .filter(user::Column::PublicUuid.eq(public_uuid))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn list_admin_paginated<C: ConnectionTrait>(
+    db: &C,
+    filters: AdminUserFilters,
+    sort_by: AdminUserSortBy,
+    sort_order: SortOrder,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<user::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let query = apply_admin_filters(User::find(), &filters);
+        let total = query
+            .clone()
+            .count(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        let query = apply_admin_sort(query, sort_by, sort_order);
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        Ok((items, total))
+    })
+    .await
+}
+
+fn apply_admin_filters(
+    mut query: sea_orm::Select<User>,
+    filters: &AdminUserFilters,
+) -> sea_orm::Select<User> {
+    if let Some(role) = filters.role {
+        query = query.filter(user::Column::Role.eq(role));
+    }
+    if let Some(status) = filters.status {
+        query = query.filter(user::Column::Status.eq(status));
+    }
+    if let Some(keyword) = filters
+        .keyword
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        query = query.filter(
+            search_query::lower_like_condition(user::Column::Username, keyword).or(
+                search_query::lower_like_condition(user::Column::Email, keyword),
+            ),
+        );
+    }
+    query
+}
+
+fn apply_admin_sort(
+    query: sea_orm::Select<User>,
+    sort_by: AdminUserSortBy,
+    sort_order: SortOrder,
+) -> sea_orm::Select<User> {
+    let column = match sort_by {
+        AdminUserSortBy::Id => user::Column::Id,
+        AdminUserSortBy::Username => user::Column::Username,
+        AdminUserSortBy::Email => user::Column::Email,
+        AdminUserSortBy::Role => user::Column::Role,
+        AdminUserSortBy::Status => user::Column::Status,
+        AdminUserSortBy::CreatedAt => user::Column::CreatedAt,
+        AdminUserSortBy::UpdatedAt => user::Column::UpdatedAt,
+    };
+    match sort_order {
+        SortOrder::Asc => query.order_by_asc(column),
+        SortOrder::Desc => query.order_by_desc(column),
+    }
+}
+
+pub async fn count_profiles_by_user_ids<C: ConnectionTrait>(
+    db: &C,
+    user_ids: &[i64],
+) -> Result<std::collections::HashMap<i64, u64>> {
+    if user_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let rows = minecraft_profile::Entity::find()
+        .select_only()
+        .column(minecraft_profile::Column::UserId)
+        .column_as(minecraft_profile::Column::Id.count(), "profile_count")
+        .filter(minecraft_profile::Column::UserId.is_in(user_ids.iter().copied()))
+        .group_by(minecraft_profile::Column::UserId)
+        .into_tuple::<(i64, i64)>()
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+
+    rows.into_iter()
+        .map(|(user_id, count)| {
+            crate::utils::numbers::i64_to_u64(count, "profile count").map(|count| (user_id, count))
+        })
+        .collect()
+}
+
+pub async fn count_active_sessions_by_user_ids<C: ConnectionTrait>(
+    db: &C,
+    user_ids: &[i64],
+) -> Result<std::collections::HashMap<i64, u64>> {
+    if user_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let now = chrono::Utc::now();
+    let rows = auth_session::Entity::find()
+        .select_only()
+        .column(auth_session::Column::UserId)
+        .column_as(auth_session::Column::Id.count(), "session_count")
+        .filter(auth_session::Column::UserId.is_in(user_ids.iter().copied()))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .filter(auth_session::Column::RefreshExpiresAt.gt(now))
+        .group_by(auth_session::Column::UserId)
+        .into_tuple::<(i64, i64)>()
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+
+    rows.into_iter()
+        .map(|(user_id, count)| {
+            crate::utils::numbers::i64_to_u64(count, "active session count")
+                .map(|count| (user_id, count))
+        })
+        .collect()
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AdminUpdateUserInput {
+    pub username: Option<String>,
+    pub email: Option<String>,
+    pub password_hash: Option<String>,
+    pub role: Option<UserRole>,
+    pub status: Option<UserStatus>,
+    pub bump_session_version: bool,
+}
+
 pub async fn create<C: ConnectionTrait>(
     db: &C,
     username: &str,
@@ -59,7 +239,9 @@ pub async fn create<C: ConnectionTrait>(
     role: UserRole,
 ) -> Result<user::Model> {
     let now = chrono::Utc::now();
+    let public_uuid = unique_public_uuid(db).await?;
     user::ActiveModel {
+        public_uuid: Set(public_uuid),
         username: Set(username.to_string()),
         email: Set(email.to_string()),
         password_hash: Set(password_hash.to_string()),
@@ -74,6 +256,65 @@ pub async fn create<C: ConnectionTrait>(
     .insert(db)
     .await
     .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn unique_public_uuid<C: ConnectionTrait>(db: &C) -> Result<String> {
+    crate::utils::id::new_best_effort_uuid("user public UUID", |candidate| {
+        let public_uuid = candidate.simple().to_string();
+        async move {
+            find_by_public_uuid(db, &public_uuid)
+                .await
+                .map(|user| user.is_some())
+        }
+    })
+    .await
+    .map(|uuid| uuid.simple().to_string())
+}
+
+pub async fn update_admin<C: ConnectionTrait>(
+    db: &C,
+    id: i64,
+    input: AdminUpdateUserInput,
+) -> Result<user::Model> {
+    let existing = find_by_id(db, id).await?;
+    let mut active: user::ActiveModel = existing.into();
+    if let Some(username) = input.username {
+        active.username = Set(username);
+    }
+    if let Some(email) = input.email {
+        active.email = Set(email);
+    }
+    if let Some(password_hash) = input.password_hash {
+        active.password_hash = Set(password_hash);
+    }
+    if let Some(role) = input.role {
+        active.role = Set(role);
+    }
+    if let Some(status) = input.status {
+        active.status = Set(status);
+    }
+    if input.bump_session_version {
+        active.session_version = Set(active.session_version.unwrap() + 1);
+    }
+    active.updated_at = Set(chrono::Utc::now());
+    active
+        .update(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn revoke_sessions_for_user<C: ConnectionTrait>(db: &C, user_id: i64) -> Result<u64> {
+    let result = auth_session::Entity::update_many()
+        .col_expr(
+            auth_session::Column::RevokedAt,
+            Expr::value(Some(chrono::Utc::now())),
+        )
+        .filter(auth_session::Column::UserId.eq(user_id))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .exec(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(result.rows_affected)
 }
 
 pub async fn bump_session_version<C: ConnectionTrait>(db: &C, user_id: i64) -> Result<()> {
@@ -92,6 +333,7 @@ pub async fn bump_session_version<C: ConnectionTrait>(db: &C, user_id: i64) -> R
 mod tests {
     use super::{
         bump_session_version, count_all, create, find_by_id, find_by_identifier, find_by_ids,
+        find_by_public_uuid,
     };
     use crate::config::DatabaseConfig;
     use crate::types::{UserRole, UserStatus};
@@ -134,6 +376,12 @@ mod tests {
         assert_eq!(user.role, UserRole::Admin);
         assert_eq!(user.status, UserStatus::Active);
         assert_eq!(user.session_version, 1);
+        assert_eq!(user.public_uuid.len(), 32);
+        assert!(
+            user.public_uuid
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        );
         assert!(user.email_verified_at.is_some());
 
         assert_eq!(
@@ -150,6 +398,14 @@ mod tests {
         );
         assert_eq!(
             find_by_identifier(&db, "repo-user@example.com")
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            user.id
+        );
+        assert_eq!(
+            find_by_public_uuid(&db, &user.public_uuid)
                 .await
                 .unwrap()
                 .unwrap()

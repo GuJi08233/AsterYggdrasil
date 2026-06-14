@@ -6,14 +6,15 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
-use crate::api::pagination::{AdminAuditLogSortBy, AdminTaskSortBy, SortOrder};
+use crate::api::pagination::{AdminAuditLogSortBy, AdminTaskSortBy, AdminUserSortBy, SortOrder};
 use crate::services::config_service::{ConfigActionType, SystemConfigValue};
 use crate::services::external_auth_service::{
     CreateExternalAuthProviderInput, ExternalAuthProviderTestParamsInput,
     UpdateExternalAuthProviderInput,
 };
 use crate::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, ExternalAuthKind, SystemConfigVisibility,
+    BackgroundTaskKind, BackgroundTaskStatus, ExternalAuthKind, ExternalAuthProviderOptions,
+    NullablePatch, SystemConfigVisibility, UserRole, UserStatus,
 };
 
 #[derive(Debug, Deserialize)]
@@ -84,6 +85,57 @@ pub struct AdminAuditLogSortQuery {
     pub sort_order: Option<SortOrder>,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(IntoParams, ToSchema)
+)]
+pub struct AdminUserListQuery {
+    #[validate(length(max = 96, message = "keyword must not exceed 96 characters"))]
+    pub keyword: Option<String>,
+    pub role: Option<UserRole>,
+    pub status: Option<UserStatus>,
+    pub sort_by: Option<AdminUserSortBy>,
+    pub sort_order: Option<SortOrder>,
+}
+
+impl AdminUserListQuery {
+    pub fn sort_by(&self) -> AdminUserSortBy {
+        self.sort_by.unwrap_or_default()
+    }
+
+    pub fn sort_order(&self) -> SortOrder {
+        self.sort_order.unwrap_or(SortOrder::Desc)
+    }
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct CreateAdminUserReq {
+    #[validate(custom(function = "crate::api::dto::validation::validate_non_blank"))]
+    #[validate(length(min = 4, max = 64, message = "username must be 4-64 characters"))]
+    pub username: String,
+    #[validate(email(message = "email must be a valid email address"))]
+    pub email: String,
+    #[validate(length(min = 8, max = 256, message = "password must be 8-256 characters"))]
+    pub password: String,
+    pub role: Option<UserRole>,
+    pub status: Option<UserStatus>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct UpdateAdminUserReq {
+    #[validate(length(min = 4, max = 64, message = "username must be 4-64 characters"))]
+    pub username: Option<String>,
+    #[validate(email(message = "email must be a valid email address"))]
+    pub email: Option<String>,
+    #[validate(length(min = 8, max = 256, message = "password must be 8-256 characters"))]
+    pub password: Option<String>,
+    pub role: Option<UserRole>,
+    pub status: Option<UserStatus>,
+}
+
 impl AdminAuditLogSortQuery {
     pub fn sort_by(&self) -> AdminAuditLogSortBy {
         self.sort_by.unwrap_or(AdminAuditLogSortBy::CreatedAt)
@@ -95,17 +147,32 @@ impl AdminAuditLogSortQuery {
 }
 
 #[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(IntoParams, ToSchema)
+)]
+pub struct AdminMinecraftProfileListQuery {
+    pub user_id: Option<i64>,
+    #[validate(custom(
+        function = "crate::api::dto::validation::validate_optional_minecraft_profile_name"
+    ))]
+    pub name: Option<String>,
+    #[validate(custom(function = "crate::api::dto::validation::validate_optional_unsigned_uuid"))]
+    pub uuid: Option<String>,
+    #[validate(length(max = 64, message = "query must not exceed 64 characters"))]
+    pub query: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct CreateExternalAuthProviderReq {
-    #[validate(length(max = 96, message = "key must not exceed 96 bytes"))]
-    pub key: Option<String>,
-    #[validate(length(max = 96, message = "slug must not exceed 96 bytes"))]
-    pub slug: Option<String>,
-    pub kind: Option<ExternalAuthKind>,
-    pub provider_kind: Option<ExternalAuthKind>,
+    pub provider_kind: ExternalAuthKind,
     #[validate(custom(function = "crate::api::dto::validation::validate_non_blank"))]
     #[validate(length(max = 128, message = "display_name must not exceed 128 bytes"))]
     pub display_name: String,
+    pub icon_url: Option<String>,
+    pub options: Option<ExternalAuthProviderOptions>,
     pub issuer_url: Option<String>,
     pub authorization_url: Option<String>,
     pub authorize_url: Option<String>,
@@ -117,69 +184,121 @@ pub struct CreateExternalAuthProviderReq {
     pub client_secret: Option<String>,
     pub scopes: Option<String>,
     pub enabled: Option<bool>,
+    pub auto_provision_enabled: Option<bool>,
+    pub auto_link_verified_email_enabled: Option<bool>,
+    pub require_email_verified: Option<bool>,
+    pub subject_claim: Option<String>,
+    pub username_claim: Option<String>,
+    pub display_name_claim: Option<String>,
+    pub email_claim: Option<String>,
+    pub email_verified_claim: Option<String>,
+    pub groups_claim: Option<String>,
+    pub avatar_url_claim: Option<String>,
+    pub allowed_domains: Option<Vec<String>>,
 }
 
 impl From<CreateExternalAuthProviderReq> for CreateExternalAuthProviderInput {
     fn from(value: CreateExternalAuthProviderReq) -> Self {
         Self {
-            key: value.key,
-            slug: value.slug,
-            kind: value.kind,
             provider_kind: value.provider_kind,
             display_name: value.display_name,
+            icon_url: value.icon_url,
+            options: value.options,
             issuer_url: value.issuer_url,
-            authorization_url: value.authorization_url,
-            authorize_url: value.authorize_url,
+            authorization_url: value.authorization_url.or(value.authorize_url),
             token_url: value.token_url,
             userinfo_url: value.userinfo_url,
             client_id: value.client_id,
             client_secret: value.client_secret,
             scopes: value.scopes,
             enabled: value.enabled,
+            auto_provision_enabled: value.auto_provision_enabled,
+            auto_link_verified_email_enabled: value.auto_link_verified_email_enabled,
+            require_email_verified: value.require_email_verified,
+            subject_claim: value.subject_claim,
+            username_claim: value.username_claim,
+            display_name_claim: value.display_name_claim,
+            email_claim: value.email_claim,
+            email_verified_claim: value.email_verified_claim,
+            groups_claim: value.groups_claim,
+            avatar_url_claim: value.avatar_url_claim,
+            allowed_domains: value.allowed_domains,
         }
     }
 }
 
 #[derive(Debug, Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct UpdateExternalAuthProviderReq {
-    #[validate(length(max = 96, message = "key must not exceed 96 bytes"))]
-    pub key: Option<String>,
-    #[validate(length(max = 96, message = "slug must not exceed 96 bytes"))]
-    pub slug: Option<String>,
-    pub kind: Option<ExternalAuthKind>,
-    pub provider_kind: Option<ExternalAuthKind>,
     #[validate(length(max = 128, message = "display_name must not exceed 128 bytes"))]
     pub display_name: Option<String>,
-    pub issuer_url: Option<String>,
-    pub authorization_url: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub icon_url: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub issuer_url: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub authorization_url: Option<NullablePatch<String>>,
     pub authorize_url: Option<String>,
-    pub token_url: Option<String>,
-    pub userinfo_url: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub token_url: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub userinfo_url: Option<NullablePatch<String>>,
+    pub options: Option<ExternalAuthProviderOptions>,
     #[validate(length(max = 255, message = "client_id must not exceed 255 bytes"))]
     pub client_id: Option<String>,
-    pub client_secret: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub client_secret: Option<NullablePatch<String>>,
     pub scopes: Option<String>,
     pub enabled: Option<bool>,
+    pub auto_provision_enabled: Option<bool>,
+    pub auto_link_verified_email_enabled: Option<bool>,
+    pub require_email_verified: Option<bool>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub subject_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub username_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub display_name_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub email_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub email_verified_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub groups_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
+    pub avatar_url_claim: Option<NullablePatch<String>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<Vec<String>>))]
+    pub allowed_domains: Option<NullablePatch<Vec<String>>>,
 }
 
 impl From<UpdateExternalAuthProviderReq> for UpdateExternalAuthProviderInput {
     fn from(value: UpdateExternalAuthProviderReq) -> Self {
         Self {
-            key: value.key,
-            slug: value.slug,
-            kind: value.kind,
-            provider_kind: value.provider_kind,
             display_name: value.display_name,
+            icon_url: value.icon_url,
             issuer_url: value.issuer_url,
-            authorization_url: value.authorization_url,
-            authorize_url: value.authorize_url,
+            authorization_url: value
+                .authorization_url
+                .or_else(|| value.authorize_url.map(NullablePatch::Value)),
             token_url: value.token_url,
             userinfo_url: value.userinfo_url,
+            options: value.options,
             client_id: value.client_id,
             client_secret: value.client_secret,
             scopes: value.scopes,
             enabled: value.enabled,
+            auto_provision_enabled: value.auto_provision_enabled,
+            auto_link_verified_email_enabled: value.auto_link_verified_email_enabled,
+            require_email_verified: value.require_email_verified,
+            subject_claim: value.subject_claim,
+            username_claim: value.username_claim,
+            display_name_claim: value.display_name_claim,
+            email_claim: value.email_claim,
+            email_verified_claim: value.email_verified_claim,
+            groups_claim: value.groups_claim,
+            avatar_url_claim: value.avatar_url_claim,
+            allowed_domains: value.allowed_domains,
         }
     }
 }
@@ -189,6 +308,7 @@ impl From<UpdateExternalAuthProviderReq> for UpdateExternalAuthProviderInput {
 pub struct ExternalAuthProviderTestParamsReq {
     pub kind: Option<ExternalAuthKind>,
     pub provider_kind: Option<ExternalAuthKind>,
+    pub options: Option<ExternalAuthProviderOptions>,
     pub issuer_url: Option<String>,
     pub authorization_url: Option<String>,
     pub authorize_url: Option<String>,
@@ -204,11 +324,13 @@ pub struct ExternalAuthProviderTestParamsReq {
 impl From<ExternalAuthProviderTestParamsReq> for ExternalAuthProviderTestParamsInput {
     fn from(value: ExternalAuthProviderTestParamsReq) -> Self {
         Self {
-            kind: value.kind,
-            provider_kind: value.provider_kind,
+            provider_kind: value
+                .provider_kind
+                .or(value.kind)
+                .unwrap_or(ExternalAuthKind::Oidc),
+            options: value.options,
             issuer_url: value.issuer_url,
-            authorization_url: value.authorization_url,
-            authorize_url: value.authorize_url,
+            authorization_url: value.authorization_url.or(value.authorize_url),
             token_url: value.token_url,
             userinfo_url: value.userinfo_url,
             client_id: value.client_id,

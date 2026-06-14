@@ -64,6 +64,23 @@ fn summary_message(
             copy_string_param(details, &mut params, "key");
             copy_string_param(details, &mut params, "slug");
         }
+        AuditAction::MinecraftProfileCreate
+        | AuditAction::MinecraftProfileDelete
+        | AuditAction::MinecraftTextureUpload
+        | AuditAction::MinecraftTextureBind
+        | AuditAction::MinecraftTextureDelete
+        | AuditAction::YggdrasilAuthenticate
+        | AuditAction::YggdrasilRefreshToken
+        | AuditAction::YggdrasilInvalidateToken
+        | AuditAction::YggdrasilSignout
+        | AuditAction::YggdrasilJoinServer => {
+            copy_string_param(details, &mut params, "profile_name");
+            copy_string_param(details, &mut params, "profile_uuid");
+            copy_string_param(details, &mut params, "texture_type");
+            copy_string_param(details, &mut params, "texture_hash");
+            copy_string_param(details, &mut params, "selected_profile_name");
+            copy_string_param(details, &mut params, "selected_profile_uuid");
+        }
         _ => {}
     }
 
@@ -174,6 +191,75 @@ fn detail_message(
             copy_param(details, &mut params, "issuer_url");
             copy_param(details, &mut params, "enabled");
             Some(message("external_auth_provider_tested", params))
+        }
+        AuditAction::MinecraftProfileCreate => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            Some(message("minecraft_profile_created", params))
+        }
+        AuditAction::MinecraftProfileDelete => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            copy_param(details, &mut params, "deleted_texture_count");
+            copy_param(details, &mut params, "revoked_token_count");
+            Some(message("minecraft_profile_deleted", params))
+        }
+        AuditAction::MinecraftTextureUpload => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            copy_param(details, &mut params, "texture_type");
+            copy_param(details, &mut params, "texture_hash");
+            copy_param(details, &mut params, "texture_model");
+            copy_param(details, &mut params, "width");
+            copy_param(details, &mut params, "height");
+            copy_param(details, &mut params, "file_size");
+            Some(message("minecraft_texture_uploaded", params))
+        }
+        AuditAction::MinecraftTextureBind => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            copy_param(details, &mut params, "texture_type");
+            copy_param(details, &mut params, "texture_hash");
+            copy_param(details, &mut params, "texture_model");
+            copy_param(details, &mut params, "width");
+            copy_param(details, &mut params, "height");
+            copy_param(details, &mut params, "file_size");
+            Some(message("minecraft_texture_bound", params))
+        }
+        AuditAction::MinecraftTextureDelete => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            copy_param(details, &mut params, "texture_type");
+            copy_param(details, &mut params, "texture_hash");
+            Some(message("minecraft_texture_deleted", params))
+        }
+        AuditAction::YggdrasilAuthenticate => {
+            copy_param(details, &mut params, "identifier");
+            copy_param(details, &mut params, "selected_profile_uuid");
+            copy_param(details, &mut params, "selected_profile_name");
+            copy_param(details, &mut params, "available_profile_count");
+            Some(message("yggdrasil_authenticated", params))
+        }
+        AuditAction::YggdrasilRefreshToken => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            Some(message("yggdrasil_token_refreshed", params))
+        }
+        AuditAction::YggdrasilInvalidateToken => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            Some(message("yggdrasil_token_invalidated", params))
+        }
+        AuditAction::YggdrasilSignout => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            Some(message("yggdrasil_signed_out", params))
+        }
+        AuditAction::YggdrasilJoinServer => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "profile_name");
+            copy_param(details, &mut params, "server_id_hash");
+            Some(message("yggdrasil_joined_server", params))
         }
         _ => None,
     }

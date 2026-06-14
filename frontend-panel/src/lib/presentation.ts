@@ -17,6 +17,10 @@ const TASK_TITLE_LABELS = {
 	runtime_task_mail_outbox_dispatch: "Mail outbox dispatch",
 	runtime_task_system_health_check: "System health check",
 	runtime_task_task_cleanup: "Task artifact cleanup",
+	runtime_task_yggdrasil_storage_consistency_check:
+		"Yggdrasil storage consistency check",
+	runtime_task_yggdrasil_texture_cleanup: "Yggdrasil texture cleanup",
+	runtime_task_yggdrasil_token_cleanup: "Yggdrasil token cleanup",
 	status_text_failed: "Failed",
 	status_text_quiet: "No changes",
 	status_text_succeeded: "Succeeded",
@@ -52,6 +56,11 @@ const AUDIT_ACTION_LABELS = {
 	external_auth_provider_update: "External auth provider updated",
 	mail_delivery_failed: "Email delivery failed",
 	mail_send: "Email sent",
+	minecraft_profile_create: "Minecraft profile created",
+	minecraft_profile_delete: "Minecraft profile deleted",
+	minecraft_texture_bind: "Minecraft texture bound",
+	minecraft_texture_delete: "Minecraft texture deleted",
+	minecraft_texture_upload: "Minecraft texture uploaded",
 	server_shutdown: "Server stopped",
 	server_start: "Server started",
 	system_setup: "System setup",
@@ -62,11 +71,20 @@ const AUDIT_ACTION_LABELS = {
 	user_external_auth_unlink: "External auth unlinked",
 	user_login: "User login",
 	user_logout: "User logout",
+	user_passkey_delete: "Passkey deleted",
+	user_passkey_login: "Passkey login",
+	user_passkey_register: "Passkey registered",
+	user_passkey_rename: "Passkey renamed",
 	user_refresh_token: "Session refreshed",
 	user_register: "User registered",
 	user_revoke_other_sessions: "Other sessions revoked",
 	user_revoke_session: "Session revoked",
 	user_update_profile: "Profile updated",
+	yggdrasil_authenticate: "Yggdrasil login",
+	yggdrasil_invalidate_token: "Yggdrasil token invalidated",
+	yggdrasil_join_server: "Yggdrasil server join",
+	yggdrasil_refresh_token: "Yggdrasil token refreshed",
+	yggdrasil_signout: "Yggdrasil signout",
 } as const satisfies Record<AuditAction, string>;
 
 const AUDIT_ENTITY_LABELS = {
@@ -75,11 +93,16 @@ const AUDIT_ENTITY_LABELS = {
 	external_auth_identity: "External auth identity",
 	external_auth_provider: "External auth provider",
 	mail: "Mail",
+	minecraft_profile: "Minecraft profile",
+	minecraft_texture: "Minecraft texture",
+	passkey: "Passkey",
 	server: "Server",
 	system: "System",
 	system_config: "System config",
 	task: "Task",
 	user: "User",
+	yggdrasil_session: "Yggdrasil session",
+	yggdrasil_token: "Yggdrasil token",
 } as const satisfies Record<AuditEntityType | "server", string>;
 
 const AUDIT_DETAIL_LABELS = {
@@ -89,6 +112,7 @@ const AUDIT_DETAIL_LABELS = {
 	external_auth_provider_tested: "Provider connection tested",
 	mail_delivery_failed: "Email delivery failed",
 	mail_sent: "Email sent",
+	minecraft_texture_bound: "Minecraft texture bound",
 	task_retry_scheduled: "Retry queued",
 	tasks_cleanup_finished: "Cleanup finished",
 	user_login_identifier: "Login identifier",
@@ -116,7 +140,10 @@ function valueText(value: unknown): string {
 		return String(value);
 	}
 	if (Array.isArray(value)) {
-		const values: string[] = value.map(valueText).filter(Boolean);
+		const values = value.flatMap((item) => {
+			const text = valueText(item);
+			return text ? [text] : [];
+		});
 		return values.length > 0 ? values.join(", ") : "";
 	}
 	if (isRecord(value)) {
@@ -365,6 +392,19 @@ function formatAuditDetailMessage(
 				["error", "Error"],
 			]);
 			return compactJoin([AUDIT_DETAIL_LABELS.mail_delivery_failed, values]);
+		}
+		case "minecraft_texture_bound": {
+			const values = formatKeyValues(params, [
+				["profile_name", "Profile"],
+				["profile_uuid", "Profile UUID"],
+				["texture_type", "Type"],
+				["texture_model", "Model"],
+				["texture_hash", "Hash"],
+				["width", "Width"],
+				["height", "Height"],
+				["file_size", "File size"],
+			]);
+			return compactJoin([AUDIT_DETAIL_LABELS.minecraft_texture_bound, values]);
 		}
 		case "tasks_cleanup_finished": {
 			const removed = paramText(params, "removed");

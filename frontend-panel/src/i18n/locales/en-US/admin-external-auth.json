@@ -1,0 +1,115 @@
+{
+	"admin": {
+		"externalAuth": {
+			"title": "External Auth",
+			"description": "Manage OAuth2 / OIDC providers used for site account login. Test the connection before exposing it to users.",
+			"create": "Add provider",
+			"created": "Provider created",
+			"updated": "Provider updated",
+			"deleted": "Provider deleted",
+			"emptyTitle": "No external auth providers",
+			"emptyDescription": "Add an OIDC identity source so users can sign in with external accounts.",
+			"displayName": "Display name",
+			"key": "Key",
+			"keyHint": "Generated when saved. Used by login entry and redirect URI paths, and cannot be changed manually.",
+			"generatedKey": "Generated after save",
+			"iconUrl": "Login icon URL",
+			"iconUrlHint": "Optional. Use an HTTPS URL or a same-origin path starting with /. Empty or failed images fall back to the default icon for this provider type.",
+			"defaultIcon": "Use default icon",
+			"clientId": "Client ID",
+			"clientSecret": "Client Secret",
+			"issuerUrl": "Issuer URL",
+			"authorizationUrl": "Authorization URL",
+			"tokenUrl": "Token URL",
+			"userinfoUrl": "Userinfo URL",
+			"scopes": "Scopes",
+			"callbackUrl": "Callback URL",
+			"kindLabel": "Provider type",
+			"primaryEndpoint": "Primary endpoint",
+			"status": "Status",
+			"enabled": "Enabled",
+			"disabled": "Disabled",
+			"enabledDesc": "Disabled providers disappear from the login page. Existing account links are not deleted.",
+			"secretHint": "Leave blank if the provider does not require a secret.",
+			"secretKeepPlaceholder": "Leave blank to keep current secret",
+			"secretKeepHint": "A secret is configured. Saving an empty value keeps the current secret.",
+			"test": "Test connection",
+			"testHint": "The test reads discovery metadata or validates manual endpoints.",
+			"testComplete": "Connection test completed",
+			"testSuccess": "Connection test passed, {{count}} checks succeeded",
+			"testPartial": "Connection test completed, {{failed}} of {{total}} checks failed",
+			"copyCallback": "Copy callback URL",
+			"callbackTitle": "Provider created, copy callback URL",
+			"delete": "Delete provider",
+			"deleteTitle": "Delete {{name}}?",
+			"deleteDescription": "Users will no longer be able to start new logins with this provider. Local accounts are not deleted.",
+			"progress": "Step {{current}} / {{total}}",
+			"kind": {
+				"generic_oauth2": "Generic OAuth2",
+				"github": "GitHub",
+				"google": "Google",
+				"microsoft": "Microsoft",
+				"oidc": "OpenID Connect",
+				"qq": "QQ"
+			},
+			"kindDesc": {
+				"generic_oauth2": "Manually configure authorization, token, and userinfo endpoints for non-standard OAuth2 services.",
+				"github": "Use a GitHub OAuth App and read the verified primary email from the user emails API.",
+				"google": "Use Google OpenID Connect with fixed issuer and standard email verification semantics.",
+				"microsoft": "Use Microsoft or Entra ID sign-in with issuer handling controlled by the Microsoft provider.",
+				"oidc": "Reads authorization endpoints from issuer discovery metadata. Best for standard OIDC services.",
+				"qq": "Use QQ Connect OAuth2 with fixed token, openid, and userinfo endpoints."
+			},
+			"fixedConnection": {
+				"title": "Fixed connection parameters",
+				"github": {
+					"description": "GitHub uses fixed OAuth endpoints and default scopes. Enter only the OAuth App Client ID and Client Secret here.",
+					"summary": "GitHub fixed OAuth endpoints"
+				},
+				"google": {
+					"description": "Google uses a fixed OpenID Connect issuer. The frontend does not allow issuer or manual endpoint overrides.",
+					"summary": "Google fixed OIDC issuer"
+				},
+				"microsoft": {
+					"description": "Microsoft derives the issuer from fixed identity platform rules. Do not configure custom authorization, token, or userinfo endpoints here.",
+					"summary": "Microsoft identity platform"
+				},
+				"qq": {
+					"description": "QQ uses fixed OAuth2, openid, userinfo endpoints, and default scopes. Enter only the QQ Connect app credentials here.",
+					"summary": "QQ Connect fixed endpoints"
+				}
+			},
+			"steps": {
+				"type": {
+					"title": "Choose type",
+					"description": "Pick OIDC, generic OAuth2, or a dedicated platform based on the identity source."
+				},
+				"connection": {
+					"title": "Connection",
+					"description": "Enter client credentials and endpoints, then test before saving."
+				},
+				"review": {
+					"title": "Review",
+					"description": "Decide whether this provider should be available immediately."
+				}
+			},
+			"dialog": {
+				"createTitle": "Add external auth provider",
+				"editTitle": "Edit external auth provider",
+				"description": "These settings affect the login page and account linking flow.",
+				"connectionTitle": "Identity source",
+				"connectionDesc": "OIDC uses an issuer URL. Generic OAuth2 uses manual endpoints. GitHub, Google, Microsoft, and QQ use fixed connection parameters.",
+				"accessTitle": "Availability",
+				"summaryTitle": "Summary"
+			},
+			"table": {
+				"provider": "Provider",
+				"endpoint": "Primary endpoint",
+				"status": "Status",
+				"actions": "Actions",
+				"noEndpoint": "No endpoint configured",
+				"updatedAt": "Updated {{value}}"
+			}
+		}
+	}
+}

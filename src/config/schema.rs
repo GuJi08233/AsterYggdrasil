@@ -14,6 +14,8 @@ pub struct Config {
     #[serde(default)]
     pub cache: CacheConfig,
     #[serde(default)]
+    pub texture_storage: TextureStorageConfig,
+    #[serde(default)]
     pub logging: LoggingConfig,
     #[serde(default)]
     pub network_trust: NetworkTrustConfig,
@@ -190,6 +192,52 @@ impl CacheConfig {
     fn default_ttl() -> u64 {
         3600
     }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct TextureStorageConfig {
+    #[serde(default = "TextureStorageConfig::default_backend")]
+    pub backend: String,
+    #[serde(default = "TextureStorageConfig::default_local_root")]
+    pub local_root: String,
+    #[serde(default)]
+    pub s3: S3TextureStorageConfig,
+}
+
+impl Default for TextureStorageConfig {
+    fn default() -> Self {
+        Self {
+            backend: Self::default_backend(),
+            local_root: Self::default_local_root(),
+            s3: S3TextureStorageConfig::default(),
+        }
+    }
+}
+
+impl TextureStorageConfig {
+    fn default_backend() -> String {
+        "local".to_string()
+    }
+
+    fn default_local_root() -> String {
+        "textures".to_string()
+    }
+}
+
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+pub struct S3TextureStorageConfig {
+    #[serde(default)]
+    pub endpoint: String,
+    #[serde(default)]
+    pub region: String,
+    #[serde(default)]
+    pub bucket: String,
+    #[serde(default)]
+    pub access_key_id: String,
+    #[serde(default)]
+    pub secret_access_key: String,
+    #[serde(default)]
+    pub force_path_style: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

@@ -1,113 +1,104 @@
 # Docker 部署
 
-AsterYggdrasil 提供 Dockerfile、Compose 配置和 GitHub Actions 镜像发布工作流。默认运行状态保存在 `/data`，容器镜像本身不应该保存运行时数据。
+这一页描述 AsterYggdrasil 作为皮肤站和 Yggdrasil 认证服务器的生产部署关注点。
 
-## Docker Compose
+## 持久化目录
 
-本地最小启动：
+容器内运行状态应挂载到 `/data`。至少需要持久化：
 
-```bash
-mkdir -p ./data
-docker compose up -d
+- `config.toml`
+- SQLite 数据库或外部数据库连接配置。
+- local texture storage 目录。
+- 运行时临时目录和日志目录，如果配置启用。
+
+示例静态配置：
+
+```toml
+[server]
+host = "0.0.0.0"
+port = 3000
+start_mode = "primary"
+temp_dir = ".tmp"
+
+[database]
+url = "sqlite://asteryggdrasil.db?mode=rwc"
+
+[texture_storage]
+backend = "local"
+local_root = "textures"
+
+[cache]
+enabled = true
+backend = "memory"
 ```
 
-查看日志：
-
-```bash
-docker compose logs -f
-```
-
-停止：
-
-```bash
-docker compose down
-```
-
-`./data` 会挂载到容器内 `/data`。数据库、配置文件和运行时状态都应该保存在这个目录。
-
-## 本地构建
-
-```bash
-docker build -t asteryggdrasil:local .
-docker run --rm -p 3000:3000 -v "$(pwd)/data:/data" asteryggdrasil:local
-```
-
-如果要覆盖配置：
-
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  -v "$(pwd)/data:/data" \
-  -e ASTER__SERVER__HOST=0.0.0.0 \
-  -e ASTER__SERVER__PORT=3000 \
-  -e ASTER__DATABASE__URL='sqlite:///data/asteryggdrasil.db?mode=rwc' \
-  -e ASTER__AUTH__JWT_SECRET='replace-with-a-long-random-secret' \
-  asteryggdrasil:local
-```
-
-生产环境不要使用示例 secret。JWT 和 MFA secret 应该来自 secret manager 或受保护的部署变量。
+如果 `config.toml` 位于 `/data/config.toml`，`local_root = "textures"` 会解析为 `/data/textures`。
 
 ## 反向代理
 
-生产部署建议放到 HTTPS 反向代理后面。代理至少要处理：
-
-- TLS termination。
-- `X-Forwarded-For`、`X-Forwarded-Proto` 等转发头。
-- 请求体大小限制。
-- 超时。
-- 访问日志。
-
-AsterYggdrasil 侧要配置 trusted proxies，避免错误信任客户端伪造的转发头。
-
-## 健康检查
-
-容器编排系统可以使用：
+生产环境通常通过 Nginx、Caddy 或 Traefik 暴露 HTTPS。必须保证外部访问路径和运行时配置一致：
 
 ```text
-GET /health
-GET /health/ready
+https://skin.example.com/api/yggdrasil
 ```
 
-`/health` 表示进程存活，`/health/ready` 表示服务是否准备好接收请求。数据库不可用、迁移失败或 runtime 未就绪时，readiness 不应通过。
+对应运行时配置：
 
-## 镜像发布
+```json
+yggdrasil_public_base_url = ["https://skin.example.com/api/yggdrasil"]
+yggdrasil_skin_domains = ["skin.example.com"]
+```
 
-`.github/workflows/docker-image.yml` 默认发布到 GHCR：
+authlib-injector 会检查材质 URL host 是否在 `skinDomains` 中。public base URL 和 skinDomains 不一致时，启动器或服务端可能拒绝材质。
+
+## ALI
+
+站点首页会返回：
 
 ```text
-ghcr.io/astercommunity/asteryggdrasil
+X-Authlib-Injector-API-Location: /api/yggdrasil/
 ```
 
-tag push 会构建 amd64 和 arm64 镜像，并创建 multi-arch manifest。默认不会发布 Docker Hub。
+反向代理不要删除这个响应头。这样用户可以在启动器里填站点根地址，由启动器自动发现 Yggdrasil API。
 
-如果确实需要同时发布 Docker Hub，手动运行 workflow，并勾选 `publish_dockerhub`。同时需要配置：
+## trusted proxies
+
+如果服务在反向代理后面运行，需要配置可信代理，避免信任客户端伪造的 forwarded headers。
+
+```toml
+[network_trust]
+trusted_proxies = ["127.0.0.1"]
+```
+
+实际值应填写代理到应用之间的来源地址或网段。
+
+## 多实例
+
+周期维护任务应该只在一个 primary 节点运行：
+
+```toml
+[server]
+start_mode = "primary"
+```
+
+其他实例使用 follower 模式，避免重复执行清理、邮件 outbox、后台任务 dispatch 等全局任务。
+
+## 签名 key
+
+首次启动会确保 Yggdrasil 签名私钥和公钥存在。生产环境应通过管理端 config action 轮换 key，而不是直接编辑私钥：
 
 ```text
-DOCKERHUB_USERNAME
-DOCKERHUB_TOKEN
+POST /api/v1/admin/config/yggdrasil/action
 ```
 
-这个 opt-in 设计是为了避免模板项目在没有明确配置时把镜像推到错误的 Docker Hub namespace。
+轮换后，客户端和服务端可能需要重新获取 metadata。
 
-## Primary 和 Follower
+## 备份
 
-单实例部署使用默认值：
+至少备份：
 
-```bash
-ASTER__SERVER__START_MODE=primary
-```
+- 数据库。
+- `/data/textures`。
+- `data/config.toml` 或对应 secret/config 管理记录。
 
-多节点部署时，只应该让需要执行全局维护任务的节点使用 primary。Follower 节点可以接收 HTTP 请求，但会跳过 dispatcher 和 cleanup loop。
-
-## 数据备份
-
-默认 SQLite 部署至少备份：
-
-```text
-data/config.toml
-data/asteryggdrasil.db
-data/asteryggdrasil.db-shm
-data/asteryggdrasil.db-wal
-```
-
-如果使用 PostgreSQL 或 MySQL，按数据库自身策略备份，同时仍要保留 `data/config.toml` 和其他运行时文件。
+数据库和 texture storage 必须作为一组备份。只恢复其中一个会导致 storage consistency check 报 missing object 或 orphan object。

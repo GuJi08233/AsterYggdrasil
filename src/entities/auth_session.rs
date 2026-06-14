@@ -10,20 +10,21 @@ use utoipa::ToSchema;
 #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(as = AuthSessionModel))]
 #[sea_orm(table_name = "auth_sessions")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i64,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub user_id: i64,
-    #[sea_orm(unique)]
-    pub refresh_token_hash: String,
-    pub session_version: i64,
+    pub current_refresh_jti: String,
+    pub previous_refresh_jti: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub refresh_expires_at: DateTimeUtc,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
-    pub expires_at: DateTimeUtc,
+    pub created_at: DateTimeUtc,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub last_seen_at: DateTimeUtc,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub revoked_at: Option<DateTimeUtc>,
-    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
-    pub created_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

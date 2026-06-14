@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility};
+use crate::types::{MinecraftTextureModel, MinecraftTextureType};
+use crate::types::{UserRole, UserStatus};
 
 #[derive(Serialize)]
 pub struct ConfigUpdateDetails<'a> {
@@ -56,6 +58,102 @@ pub struct LoginAuditDetails<'a> {
 }
 
 #[derive(Serialize)]
+pub struct AuthSessionAuditDetails<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub removed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_current: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct PasskeyAuditDetails<'a> {
+    pub passkey_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup_eligible: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backed_up: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sign_count: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+pub struct UserAuditDetails<'a> {
+    pub username: &'a str,
+    pub email: &'a str,
+    pub role: UserRole,
+    pub status: UserStatus,
+    pub profile_count: u64,
+    pub active_session_count: u64,
+}
+
+#[derive(Serialize)]
+pub struct UserSessionRevokeAuditDetails {
+    pub removed: u64,
+}
+
+#[derive(Serialize)]
+pub struct MinecraftProfileAuditDetails<'a> {
+    pub profile_uuid: &'a str,
+    pub profile_name: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deleted_texture_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_token_count: Option<u64>,
+}
+
+#[derive(Serialize)]
+pub struct MinecraftTextureAuditDetails<'a> {
+    pub profile_uuid: &'a str,
+    pub profile_name: &'a str,
+    pub texture_type: MinecraftTextureType,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub texture_hash: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub texture_model: Option<MinecraftTextureModel>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_size: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct YggdrasilAuthenticateAuditDetails<'a> {
+    pub identifier: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_profile_uuid: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_profile_name: Option<&'a str>,
+    pub available_profile_count: usize,
+}
+
+#[derive(Serialize)]
+pub struct YggdrasilTokenAuditDetails<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_uuid: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile_name: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+pub struct YggdrasilJoinAuditDetails<'a> {
+    pub profile_uuid: &'a str,
+    pub profile_name: &'a str,
+    pub server_id_hash: &'a str,
+}
+
+#[derive(Serialize)]
 pub struct ExternalAuthProviderTestParamsAuditDetails<'a> {
     pub provider: &'a str,
     pub key: &'a str,
@@ -76,9 +174,12 @@ pub fn details<T: Serialize>(value: T) -> Option<serde_json::Value> {
 mod tests {
     use super::{
         AdminTaskCleanupAuditDetails, ConfigActionDetails, ConfigUpdateDetails, LoginAuditDetails,
-        MailAuditDetails, TaskRetryAuditDetails, details,
+        MailAuditDetails, TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
+        details,
     };
-    use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility};
+    use crate::types::{
+        BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility, UserRole, UserStatus,
+    };
     use chrono::Utc;
 
     #[test]
@@ -202,6 +303,34 @@ mod tests {
             })
             .unwrap(),
             serde_json::json!({ "identifier": "admin@example.com" })
+        );
+    }
+
+    #[test]
+    fn details_serializes_user_audit_shapes() {
+        assert_eq!(
+            details(UserAuditDetails {
+                username: "alex",
+                email: "alex@example.com",
+                role: UserRole::Admin,
+                status: UserStatus::Active,
+                profile_count: 2,
+                active_session_count: 3,
+            })
+            .unwrap(),
+            serde_json::json!({
+                "username": "alex",
+                "email": "alex@example.com",
+                "role": "admin",
+                "status": "active",
+                "profile_count": 2,
+                "active_session_count": 3,
+            })
+        );
+
+        assert_eq!(
+            details(UserSessionRevokeAuditDetails { removed: 4 }).unwrap(),
+            serde_json::json!({ "removed": 4 })
         );
     }
 }

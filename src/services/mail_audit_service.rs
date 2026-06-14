@@ -1,7 +1,7 @@
 use sea_orm::DatabaseConnection;
 
 use crate::config::RuntimeConfig;
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::audit_service::{self, AuditContext};
 
 const MAIL_ENTITY_NAME: &str = "mail";
@@ -21,7 +21,10 @@ pub struct MailAuditInput<'a> {
     pub error: Option<&'a str>,
 }
 
-pub async fn log_send(state: &impl SharedRuntimeState, input: MailAuditInput<'_>) {
+pub async fn log_send(
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    input: MailAuditInput<'_>,
+) {
     let ctx = AuditContext {
         user_id: input.actor_user_id,
         ip_address: input.ip_address.map(str::to_string),
@@ -52,11 +55,13 @@ pub async fn log_send_with_db(
     audit_service::log_with_db_and_config(
         db,
         runtime_config,
-        &ctx,
-        audit_service::AuditAction::MailSend,
-        audit_service::AuditEntityType::Mail,
-        input.outbox_id,
-        Some(MAIL_ENTITY_NAME),
+        audit_service::AuditLogInput {
+            ctx: &ctx,
+            action: audit_service::AuditAction::MailSend,
+            entity_type: audit_service::AuditEntityType::Mail,
+            entity_id: input.outbox_id,
+            entity_name: Some(MAIL_ENTITY_NAME),
+        },
         || mail_details(input),
     )
     .await;
@@ -75,11 +80,13 @@ pub async fn log_delivery_failed_with_db(
     audit_service::log_with_db_and_config(
         db,
         runtime_config,
-        &ctx,
-        audit_service::AuditAction::MailDeliveryFailed,
-        audit_service::AuditEntityType::Mail,
-        input.outbox_id,
-        Some(MAIL_ENTITY_NAME),
+        audit_service::AuditLogInput {
+            ctx: &ctx,
+            action: audit_service::AuditAction::MailDeliveryFailed,
+            entity_type: audit_service::AuditEntityType::Mail,
+            entity_id: input.outbox_id,
+            entity_name: Some(MAIL_ENTITY_NAME),
+        },
         || mail_details(input),
     )
     .await;

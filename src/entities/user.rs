@@ -14,6 +14,8 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
     #[sea_orm(unique)]
+    pub public_uuid: String,
+    #[sea_orm(unique)]
     pub username: String,
     #[sea_orm(unique)]
     pub email: String,
@@ -36,6 +38,14 @@ pub enum Relation {
     AuthSessions,
     #[sea_orm(has_many = "super::external_auth_identity::Entity")]
     ExternalAuthIdentities,
+    #[sea_orm(has_many = "super::minecraft_profile::Entity")]
+    MinecraftProfiles,
+    #[sea_orm(has_many = "super::passkey::Entity")]
+    Passkeys,
+    #[sea_orm(has_one = "super::user_profile::Entity")]
+    UserProfile,
+    #[sea_orm(has_many = "super::yggdrasil_token::Entity")]
+    YggdrasilTokens,
 }
 
 impl Related<super::auth_session::Entity> for Entity {
@@ -47,6 +57,30 @@ impl Related<super::auth_session::Entity> for Entity {
 impl Related<super::external_auth_identity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ExternalAuthIdentities.def()
+    }
+}
+
+impl Related<super::minecraft_profile::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MinecraftProfiles.def()
+    }
+}
+
+impl Related<super::passkey::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Passkeys.def()
+    }
+}
+
+impl Related<super::user_profile::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserProfile.def()
+    }
+}
+
+impl Related<super::yggdrasil_token::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::YggdrasilTokens.def()
     }
 }
 

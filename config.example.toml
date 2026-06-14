@@ -28,6 +28,18 @@ backend = "memory"
 redis_url = ""
 default_ttl = 3600
 
+[texture_storage]
+backend = "local"
+local_root = "textures"
+
+[texture_storage.s3]
+endpoint = ""
+region = ""
+bucket = ""
+access_key_id = ""
+secret_access_key = ""
+force_path_style = false
+
 [logging]
 level = "info"
 format = "text"

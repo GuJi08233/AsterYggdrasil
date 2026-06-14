@@ -10,7 +10,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     process::Command,
-    sync::OnceLock,
+    sync::{Mutex, OnceLock},
 };
 
 const TEST_DATABASE_BACKEND_ENV: &str = "ASTER_TEST_DATABASE_BACKEND";
@@ -778,9 +778,10 @@ pub async fn setup_with_memory_cache() -> AppState {
 
     AppState {
         db_handles: base.db_handles,
-        config: base.config,
+        config: base.config.clone(),
         runtime_config: base.runtime_config,
         cache,
+        texture_storage: base.texture_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
         background_task_dispatch_wakeup:
@@ -928,6 +929,9 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
     aster_yggdrasil::services::system_config_service::ensure_defaults(&writer)
         .await
         .expect("system config defaults should seed");
+    aster_yggdrasil::services::yggdrasil_signature::ensure_signature_key(&writer)
+        .await
+        .expect("yggdrasil signature key should initialize");
 
     let test_dir = format!("/tmp/asteryggdrasil-test-{}", uuid::Uuid::new_v4());
     let temp_dir = format!("{test_dir}/temp");
@@ -960,6 +964,9 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         .expect("runtime config should reload");
 
     let cache = aster_yggdrasil::cache::create_cache(&config.cache).await;
+    let texture_storage =
+        aster_yggdrasil::texture_storage::create_texture_storage(&config.texture_storage)
+            .expect("texture storage should initialize");
     let db_handles = aster_yggdrasil::db::connect_reader_for_writer_with_metrics(
         &db_cfg,
         writer,
@@ -973,6 +980,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         config,
         runtime_config,
         cache,
+        texture_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
         background_task_dispatch_wakeup:
@@ -987,18 +995,22 @@ pub fn bearer_header(access_token: impl AsRef<str>) -> (&'static str, String) {
 
 #[allow(dead_code)]
 pub fn access_cookie_header(access_token: impl AsRef<str>) -> String {
-    format!("aster_access={}", access_token.as_ref())
+    let access_token = access_token.as_ref();
+    format!(
+        "aster_access={access_token}; aster_csrf={}",
+        csrf_token_for(access_token)
+    )
 }
 
 #[allow(dead_code)]
 pub fn refresh_cookie_header(
     refresh_token: impl AsRef<str>,
-    csrf_token: impl AsRef<str>,
+    _csrf_token: impl AsRef<str>,
 ) -> String {
+    let refresh_token = refresh_token.as_ref();
     format!(
-        "aster_refresh={}; aster_csrf={}",
-        refresh_token.as_ref(),
-        csrf_token.as_ref()
+        "aster_refresh={refresh_token}; aster_csrf={}",
+        csrf_token_for(refresh_token)
     )
 }
 
@@ -1006,13 +1018,13 @@ pub fn refresh_cookie_header(
 pub fn access_and_refresh_cookie_header(
     access_token: impl AsRef<str>,
     refresh_token: impl AsRef<str>,
-    csrf_token: impl AsRef<str>,
+    _csrf_token: impl AsRef<str>,
 ) -> String {
+    let access_token = access_token.as_ref();
+    let refresh_token = refresh_token.as_ref();
     format!(
-        "aster_access={}; aster_refresh={}; aster_csrf={}",
-        access_token.as_ref(),
-        refresh_token.as_ref(),
-        csrf_token.as_ref()
+        "aster_access={access_token}; aster_refresh={refresh_token}; aster_csrf={}",
+        csrf_token_for(access_token)
     )
 }
 
@@ -1021,9 +1033,38 @@ pub fn csrf_header(csrf_token: impl AsRef<str>) -> (&'static str, String) {
     ("X-CSRF-Token", csrf_token.as_ref().to_string())
 }
 
+fn csrf_tokens_by_session() -> &'static Mutex<HashMap<String, String>> {
+    static TOKENS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+    TOKENS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn remember_csrf_token(session_token: &str, csrf_token: &str) {
+    csrf_tokens_by_session()
+        .lock()
+        .expect("csrf token map should lock")
+        .insert(session_token.to_string(), csrf_token.to_string());
+}
+
+#[allow(dead_code)]
+pub fn csrf_token_for(session_token: impl AsRef<str>) -> String {
+    let token = session_token.as_ref();
+    csrf_tokens_by_session()
+        .lock()
+        .expect("csrf token map should lock")
+        .get(token)
+        .cloned()
+        .unwrap_or_else(|| panic!("missing csrf token for session token: {token}"))
+}
+
+#[allow(dead_code)]
+pub fn csrf_header_for(session_token: impl AsRef<str>) -> (&'static str, String) {
+    csrf_header(csrf_token_for(session_token))
+}
+
 #[allow(dead_code)]
 pub fn extract_cookie<B>(resp: &actix_web::dev::ServiceResponse<B>, name: &str) -> Option<String> {
-    resp.headers()
+    let value = resp
+        .headers()
         .get_all(actix_web::http::header::SET_COOKIE)
         .filter_map(|value| value.to_str().ok())
         .find_map(|raw| {
@@ -1031,7 +1072,65 @@ pub fn extract_cookie<B>(resp: &actix_web::dev::ServiceResponse<B>, name: &str) 
                 .next()
                 .and_then(|pair| pair.strip_prefix(&format!("{name}=")))
                 .map(str::to_string)
-        })
+        })?;
+
+    if matches!(name, "aster_access" | "aster_refresh")
+        && let Some(csrf_token) = resp
+            .headers()
+            .get_all(actix_web::http::header::SET_COOKIE)
+            .filter_map(|value| value.to_str().ok())
+            .find_map(|raw| {
+                raw.split(';')
+                    .next()
+                    .and_then(|pair| pair.strip_prefix("aster_csrf="))
+                    .map(str::to_string)
+            })
+    {
+        remember_csrf_token(&value, &csrf_token);
+    }
+
+    Some(value)
+}
+
+#[allow(dead_code)]
+pub async fn flush_mail_outbox(state: &AppState) {
+    flush_mail_outbox_with(state.writer_db(), &state.runtime_config, &state.mail_sender).await;
+}
+
+#[allow(dead_code)]
+pub async fn flush_mail_outbox_with(
+    db: &sea_orm::DatabaseConnection,
+    runtime_config: &std::sync::Arc<aster_yggdrasil::config::RuntimeConfig>,
+    mail_sender: &std::sync::Arc<dyn aster_yggdrasil::services::mail_service::MailSender>,
+) {
+    aster_yggdrasil::services::mail_outbox_service::drain_with(db, runtime_config, mail_sender)
+        .await
+        .expect("mail outbox drain should succeed");
+}
+
+#[allow(dead_code)]
+fn extract_token_from_content(content: &str, marker: &str) -> Option<String> {
+    let (_, suffix) = content.split_once(marker)?;
+    let encoded: String = suffix
+        .chars()
+        .take_while(|ch| !matches!(ch, '"' | '\'' | '<' | '>' | '&' | ' ' | '\r' | '\n'))
+        .collect();
+    if encoded.is_empty() {
+        return None;
+    }
+
+    urlencoding::decode(&encoded)
+        .ok()
+        .map(|value| value.into_owned())
+}
+
+#[allow(dead_code)]
+pub fn extract_token_from_mail_message(
+    message: &aster_yggdrasil::services::mail_service::MailMessage,
+    marker: &str,
+) -> Option<String> {
+    extract_token_from_content(&message.text_body, marker)
+        .or_else(|| extract_token_from_content(&message.html_body, marker))
 }
 
 #[allow(dead_code)]
@@ -1074,10 +1173,15 @@ macro_rules! create_test_app {
                 .app_data(web::JsonConfig::default().limit(1024 * 1024))
                 .app_data(web::Data::new(metrics))
                 .app_data(web::Data::new(state))
+                .service(
+                    web::scope(aster_yggdrasil::config::yggdrasil::DEFAULT_YGGDRASIL_API_ROOT)
+                        .configure(aster_yggdrasil::api::routes::yggdrasil::configure),
+                )
                 .service(aster_yggdrasil::api::routes::health::routes())
                 .service(
                     web::scope("/api/v1").configure(aster_yggdrasil::api::routes::configure_api),
-                ),
+                )
+                .service(aster_yggdrasil::api::routes::frontend::routes()),
         )
         .await
     }};
@@ -1176,5 +1280,64 @@ macro_rules! login_user {
         let body: Value = test::read_body_json(resp).await;
         assert!(body["data"]["expires_in"].is_number());
         access_token
+    }};
+}
+
+#[macro_export]
+macro_rules! register_and_login {
+    ($app:expr) => {{
+        use actix_web::test;
+
+        let req = test::TestRequest::post()
+            .uri("/api/v1/auth/register")
+            .peer_addr("127.0.0.1:12345".parse().unwrap())
+            .set_json(serde_json::json!({
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "password123"
+            }))
+            .to_request();
+        let resp = test::call_service(&$app, req).await;
+        assert_eq!(resp.status(), 200, "register should return 200");
+
+        let req = test::TestRequest::post()
+            .uri("/api/v1/auth/login")
+            .peer_addr("127.0.0.1:12345".parse().unwrap())
+            .set_json(serde_json::json!({
+                "identifier": "testuser",
+                "password": "password123"
+            }))
+            .to_request();
+        let resp = test::call_service(&$app, req).await;
+        assert_eq!(resp.status(), 200, "login should return 200");
+        let access =
+            common::extract_cookie(&resp, "aster_access").expect("access cookie missing");
+        let refresh =
+            common::extract_cookie(&resp, "aster_refresh").expect("refresh cookie missing");
+        (access, refresh)
+    }};
+}
+
+#[macro_export]
+macro_rules! admin_create_user {
+    ($app:expr, $admin_token:expr, $username:expr, $email:expr, $password:expr) => {{
+        use actix_web::test;
+        use serde_json::Value;
+
+        let req = test::TestRequest::post()
+            .uri("/api/v1/admin/users")
+            .insert_header(("Cookie", common::access_cookie_header(&$admin_token)))
+            .insert_header(common::csrf_header_for(&$admin_token))
+            .peer_addr("127.0.0.1:12345".parse().unwrap())
+            .set_json(serde_json::json!({
+                "username": $username,
+                "email": $email,
+                "password": $password
+            }))
+            .to_request();
+        let resp = test::call_service(&$app, req).await;
+        assert_eq!(resp.status(), 201, "admin create user should return 201");
+        let body: Value = test::read_body_json(resp).await;
+        body["data"]["id"].as_i64().unwrap()
     }};
 }

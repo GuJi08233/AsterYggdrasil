@@ -1,0 +1,61 @@
+{
+	"brand": {
+		"name": "AsterYggdrasil",
+		"tagline": "Minecraft skin site and Yggdrasil authentication server"
+	},
+	"nav": {
+		"home": "Home",
+		"dashboard": "Dashboard",
+		"profiles": "Profiles",
+		"wardrobe": "Wardrobe",
+		"launcher": "Launcher",
+		"sessions": "Sessions",
+		"personalSettings": "Personal settings",
+		"admin": "Admin",
+		"yggdrasil": "Yggdrasil",
+		"config": "Config",
+		"audit": "Audit",
+		"tasks": "Tasks",
+		"login": "Login",
+		"logout": "Logout",
+		"developer": "Developer",
+		"apiCatalog": "API Catalog",
+		"diagnostics": "Diagnostics",
+		"authConsole": "Auth Console"
+	},
+	"common": {
+		"loading": "Loading",
+		"copy": "Copy {{label}}",
+		"copied": "Copied",
+		"offline": "offline",
+		"metadataReady": "metadata ready",
+		"configReady": "config ready",
+		"present": "present",
+		"missing": "missing",
+		"openWorkbench": "Open dashboard",
+		"backToHome": "Back to home",
+		"refresh": "Refresh",
+		"create": "Create",
+		"save": "Save",
+		"next": "Next",
+		"back": "Back",
+		"close": "Close",
+		"upload": "Upload",
+		"delete": "Delete",
+		"cancel": "Cancel",
+		"source": "Source",
+		"value": "Value",
+		"key": "Key",
+		"status": "Status",
+		"name": "Name",
+		"type": "Type",
+		"actions": "Actions",
+		"metadataLoadFailed": "Failed to load metadata",
+		"configLoadFailed": "Failed to load frontend config"
+	},
+	"footer": {
+		"description": "Self-hosted Minecraft identity, profile, and texture management.",
+		"navigation": "Navigation",
+		"copyright": "© {{year}} {{name}}. All rights reserved."
+	}
+}

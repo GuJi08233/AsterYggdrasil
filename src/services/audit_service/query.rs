@@ -9,10 +9,10 @@ use super::presentation::build_audit_presentation;
 use crate::api::pagination::{AdminAuditLogSortBy, OffsetPage, SortOrder, load_offset_page};
 use crate::db::repository::{audit_log_repo, user_repo};
 use crate::entities::audit_log;
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::AuditEntityType;
 
-async fn build_audit_entries<S: SharedRuntimeState>(
+async fn build_audit_entries<S: DatabaseRuntimeState>(
     state: &S,
     entries: Vec<audit_log::Model>,
 ) -> crate::errors::Result<Vec<AuditLogEntry>> {
@@ -67,7 +67,7 @@ async fn build_audit_entries<S: SharedRuntimeState>(
     Ok(items)
 }
 
-pub async fn query<S: SharedRuntimeState>(
+pub async fn query<S: DatabaseRuntimeState>(
     state: &S,
     filters: AuditLogFilters,
     limit: u64,
@@ -99,7 +99,10 @@ pub async fn query<S: SharedRuntimeState>(
     Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
 }
 
-pub async fn cleanup_expired<S: SharedRuntimeState>(state: &S) -> crate::errors::Result<u64> {
+pub async fn cleanup_expired<S>(state: &S) -> crate::errors::Result<u64>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
     let retention_days = state
         .runtime_config()
         .get_i64("audit_log_retention_days")

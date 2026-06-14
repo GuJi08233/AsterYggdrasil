@@ -1,10 +1,11 @@
 use crate::api::pagination::{OffsetPage, load_offset_page};
-use crate::config::definitions::ALL_CONFIGS;
+use crate::config::definitions::{ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY};
 use crate::config::system_config as shared_system_config;
+use crate::config::yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY;
 use crate::db::repository::system_config_repo;
 use crate::entities::system_config;
 use crate::errors::{AsterError, Result};
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::audit_service::{self, AuditContext};
 use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
 use sea_orm::ConnectionTrait;
@@ -116,6 +117,20 @@ pub struct SystemConfig {
     pub updated_by: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct SystemConfigUpdateResult {
+    pub config: SystemConfig,
+    pub warnings: Vec<SystemConfigWarning>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct SystemConfigWarning {
+    pub code: &'static str,
+    pub message: String,
+}
+
 impl From<system_config::Model> for SystemConfig {
     fn from(model: system_config::Model) -> Self {
         let value = if model.is_sensitive {
@@ -142,47 +157,76 @@ impl From<system_config::Model> for SystemConfig {
 }
 
 pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<()> {
+    tracing::debug!("ensuring default system configs");
     system_config_repo::ensure_defaults(db).await?;
+    tracing::debug!("ensured default system configs");
+    Ok(())
+}
+
+pub async fn bootstrap_insecure_cookies<C: ConnectionTrait>(
+    db: &C,
+    bootstrap_insecure_cookies: bool,
+) -> Result<()> {
+    if !bootstrap_insecure_cookies {
+        tracing::debug!("bootstrap insecure cookies skipped");
+        return Ok(());
+    }
+
+    tracing::debug!("bootstrapping insecure cookie config");
+    system_config_repo::ensure_system_value_if_missing(db, AUTH_COOKIE_SECURE_KEY, "false").await?;
     Ok(())
 }
 
 pub async fn list_paginated(
-    state: &impl SharedRuntimeState,
+    state: &impl DatabaseRuntimeState,
     limit: u64,
     offset: u64,
 ) -> Result<OffsetPage<SystemConfig>> {
+    tracing::debug!(limit, offset, "listing system configs");
     let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
         system_config_repo::find_paginated(state.reader_db(), limit, offset).await
     })
     .await?;
-    let items = page
+    let items: Vec<SystemConfig> = page
         .items
         .into_iter()
         .map(apply_system_config_definition)
         .map(Into::into)
         .collect();
+    tracing::debug!(
+        limit = page.limit,
+        offset = page.offset,
+        total = page.total,
+        count = items.len(),
+        "listed system configs"
+    );
     Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
 }
 
-pub async fn get_by_key(state: &impl SharedRuntimeState, key: &str) -> Result<SystemConfig> {
+pub async fn get_by_key(state: &impl DatabaseRuntimeState, key: &str) -> Result<SystemConfig> {
+    tracing::debug!(key, "loading system config by key");
     system_config_repo::find_by_key(state.reader_db(), key)
         .await?
         .map(apply_system_config_definition)
         .map(Into::into)
-        .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))
+        .ok_or_else(|| {
+            tracing::debug!(key, "system config not found");
+            AsterError::record_not_found(format!("config key '{key}'"))
+        })
 }
 
 pub async fn set(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     value: impl Into<SystemConfigValue>,
     updated_by: i64,
 ) -> Result<SystemConfig> {
+    tracing::debug!(key, "setting system config");
     set_with_visibility(state, key, value, None, updated_by).await
 }
 
 pub async fn set_with_visibility(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     value: impl Into<SystemConfigValue>,
     visibility: Option<SystemConfigVisibility>,
@@ -190,10 +234,21 @@ pub async fn set_with_visibility(
 ) -> Result<SystemConfig> {
     let value = value.into();
     let saved = save_config(state, key, &value, visibility, Some(updated_by)).await?;
+    tracing::debug!(
+        key,
+        value_type = %saved.value_type.as_str(),
+        source = ?saved.source,
+        visibility = ?saved.visibility,
+        "set system config"
+    );
     Ok(saved.into())
 }
 
-pub async fn delete(state: &impl SharedRuntimeState, key: &str) -> Result<()> {
+pub async fn delete(
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    key: &str,
+) -> Result<()> {
+    tracing::debug!(key, "deleting system config");
     system_config_repo::delete_by_key(state.writer_db(), key).await?;
     state.runtime_config().remove(key);
     tracing::debug!(key, "deleted runtime config");
@@ -201,12 +256,17 @@ pub async fn delete(state: &impl SharedRuntimeState, key: &str) -> Result<()> {
 }
 
 pub async fn delete_with_audit(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     audit_ctx: &AuditContext,
 ) -> Result<()> {
     let config = get_by_key(state, key).await?;
     delete(state, key).await?;
+    tracing::debug!(
+        key,
+        config_id = config.id,
+        "deleted system config with audit"
+    );
     audit_service::log(
         state,
         audit_ctx,
@@ -221,38 +281,60 @@ pub async fn delete_with_audit(
 }
 
 pub async fn set_with_audit(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     value: &SystemConfigValue,
     updated_by: i64,
     audit_ctx: &AuditContext,
 ) -> Result<SystemConfig> {
+    tracing::debug!(key, "setting system config with audit");
     set_with_audit_and_visibility(state, key, value, None, updated_by, audit_ctx).await
 }
 
 pub async fn set_with_audit_and_visibility(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     value: &SystemConfigValue,
     visibility: Option<SystemConfigVisibility>,
     updated_by: i64,
     audit_ctx: &AuditContext,
 ) -> Result<SystemConfig> {
+    tracing::debug!(key, "setting system config with audit and visibility");
+    Ok(
+        set_with_audit_and_visibility_result(state, key, value, visibility, updated_by, audit_ctx)
+            .await?
+            .config,
+    )
+}
+
+pub async fn set_with_audit_and_visibility_result(
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    key: &str,
+    value: &SystemConfigValue,
+    visibility: Option<SystemConfigVisibility>,
+    updated_by: i64,
+    audit_ctx: &AuditContext,
+) -> Result<SystemConfigUpdateResult> {
     let prior_visibility = system_config_repo::find_by_key(state.reader_db(), key)
         .await?
         .map(|config| config.visibility);
     let saved = save_config(state, key, value, visibility, Some(updated_by)).await?;
     audit_config_update(state, audit_ctx, &saved, prior_visibility).await;
-    Ok(saved.into())
+    let warnings = config_warnings_for_key(state.runtime_config(), key);
+    Ok(SystemConfigUpdateResult {
+        config: saved.into(),
+        warnings,
+    })
 }
 
 async fn save_config(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     key: &str,
     value: &SystemConfigValue,
     visibility: Option<SystemConfigVisibility>,
     updated_by: Option<i64>,
 ) -> Result<system_config::Model> {
+    validate_direct_config_update_target(key)?;
     validate_visibility_target(key, visibility)?;
     let value_type = ALL_CONFIGS
         .iter()
@@ -284,7 +366,7 @@ async fn save_config(
 }
 
 async fn audit_config_update(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     audit_ctx: &AuditContext,
     config: &system_config::Model,
     prior_visibility: Option<SystemConfigVisibility>,
@@ -322,22 +404,40 @@ fn validate_visibility_target(key: &str, visibility: Option<SystemConfigVisibili
     Ok(())
 }
 
+fn validate_direct_config_update_target(key: &str) -> Result<()> {
+    if key == YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY {
+        return Err(AsterError::validation_error(
+            "yggdrasil signature private key cannot be updated directly; use rotate_yggdrasil_signature_key config action",
+        ));
+    }
+    Ok(())
+}
+
 fn apply_system_config_definition(config: system_config::Model) -> system_config::Model {
     shared_system_config::apply_definition(config)
+}
+
+fn config_warnings_for_key(
+    _runtime_config: &crate::config::RuntimeConfig,
+    _key: &str,
+) -> Vec<SystemConfigWarning> {
+    Vec::new()
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        SystemConfigValue, delete, delete_with_audit, ensure_defaults, get_by_key, list_paginated,
-        set, set_with_audit, set_with_visibility,
+        SystemConfigValue, bootstrap_insecure_cookies, delete, delete_with_audit, ensure_defaults,
+        get_by_key, list_paginated, set, set_with_audit, set_with_visibility,
     };
     use crate::cache;
-    use crate::config::definitions::{ALL_CONFIGS, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY};
+    use crate::config::definitions::{
+        ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY,
+    };
     use crate::config::{CacheConfig, Config, DatabaseConfig, RuntimeConfig};
     use crate::db::repository::system_config_repo;
     use crate::db::{self, DbHandles};
-    use crate::runtime::{AppState, SharedRuntimeState};
+    use crate::runtime::AppState;
     use crate::services::audit_service::{AuditContext, flush_global_audit_log_manager};
     use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
     use std::sync::Arc;
@@ -373,12 +473,16 @@ mod tests {
             ..Default::default()
         });
         let cache = cache::create_cache(&config.cache).await;
+        let texture_storage =
+            crate::texture_storage::create_texture_storage(&config.texture_storage)
+                .expect("texture storage should initialize");
 
         AppState {
             db_handles: DbHandles::single(db),
             config,
             runtime_config,
             cache,
+            texture_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
@@ -519,6 +623,43 @@ mod tests {
 
         let missing = get_by_key(&state, "missing.config.key").await.unwrap_err();
         assert!(missing.message().contains("missing.config.key"));
+    }
+
+    #[tokio::test]
+    async fn bootstrap_insecure_cookies_seeds_cookie_secure_false_when_missing() {
+        let db_cfg = DatabaseConfig {
+            url: "sqlite::memory:".to_string(),
+            pool_size: 1,
+            retry_count: 0,
+        };
+        let db = db::connect_with_metrics(&db_cfg, crate::metrics_core::NoopMetrics::arc())
+            .await
+            .unwrap();
+        migration::Migrator::up(&db, None).await.unwrap();
+
+        bootstrap_insecure_cookies(&db, true).await.unwrap();
+
+        let config = system_config_repo::find_by_key(&db, AUTH_COOKIE_SECURE_KEY)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(config.value, "false");
+        assert_eq!(config.source, SystemConfigSource::System);
+    }
+
+    #[tokio::test]
+    async fn bootstrap_insecure_cookies_does_not_override_existing_cookie_secure() {
+        let state = build_test_state().await;
+
+        set(&state, AUTH_COOKIE_SECURE_KEY, "true", 42)
+            .await
+            .unwrap();
+        bootstrap_insecure_cookies(state.writer_db(), true)
+            .await
+            .unwrap();
+
+        let config = get_by_key(&state, AUTH_COOKIE_SECURE_KEY).await.unwrap();
+        assert_eq!(config.value, SystemConfigValue::String("true".to_string()));
     }
 
     #[tokio::test]

@@ -61,6 +61,10 @@ define_audit_actions! {
     UserRevokeOtherSessions => "user_revoke_other_sessions",
     UserChangePassword => "user_change_password",
     UserUpdateProfile => "user_update_profile",
+    UserPasskeyRegister => "user_passkey_register",
+    UserPasskeyRename => "user_passkey_rename",
+    UserPasskeyDelete => "user_passkey_delete",
+    UserPasskeyLogin => "user_passkey_login",
     AdminCreateUser => "admin_create_user",
     AdminUpdateUser => "admin_update_user",
     AdminDisableUser => "admin_disable_user",
@@ -80,6 +84,16 @@ define_audit_actions! {
     UserExternalAuthLogin => "user_external_auth_login",
     UserExternalAuthLink => "user_external_auth_link",
     UserExternalAuthUnlink => "user_external_auth_unlink",
+    MinecraftProfileCreate => "minecraft_profile_create",
+    MinecraftProfileDelete => "minecraft_profile_delete",
+    MinecraftTextureUpload => "minecraft_texture_upload",
+    MinecraftTextureBind => "minecraft_texture_bind",
+    MinecraftTextureDelete => "minecraft_texture_delete",
+    YggdrasilAuthenticate => "yggdrasil_authenticate",
+    YggdrasilRefreshToken => "yggdrasil_refresh_token",
+    YggdrasilInvalidateToken => "yggdrasil_invalidate_token",
+    YggdrasilSignout => "yggdrasil_signout",
+    YggdrasilJoinServer => "yggdrasil_join_server",
 }
 
 impl AsRef<str> for AuditAction {
@@ -104,7 +118,21 @@ impl AuditAction {
             | Self::UserRevokeSession
             | Self::UserRevokeOtherSessions
             | Self::UserChangePassword
-            | Self::UserUpdateProfile => "user",
+            | Self::UserUpdateProfile
+            | Self::UserPasskeyRegister
+            | Self::UserPasskeyRename
+            | Self::UserPasskeyDelete
+            | Self::UserPasskeyLogin
+            | Self::MinecraftProfileCreate
+            | Self::MinecraftProfileDelete
+            | Self::MinecraftTextureUpload
+            | Self::MinecraftTextureBind
+            | Self::MinecraftTextureDelete => "user",
+            Self::YggdrasilAuthenticate
+            | Self::YggdrasilRefreshToken
+            | Self::YggdrasilInvalidateToken
+            | Self::YggdrasilSignout
+            | Self::YggdrasilJoinServer => "yggdrasil",
             Self::AdminCreateUser
             | Self::AdminUpdateUser
             | Self::AdminDisableUser
@@ -138,11 +166,16 @@ pub enum AuditEntityType {
     SystemConfig,
     User,
     AuthSession,
+    Passkey,
     ExternalAuthProvider,
     ExternalAuthIdentity,
     ApiToken,
     Mail,
     Task,
+    MinecraftProfile,
+    MinecraftTexture,
+    YggdrasilToken,
+    YggdrasilSession,
 }
 
 impl AuditEntityType {
@@ -152,11 +185,16 @@ impl AuditEntityType {
             Self::SystemConfig => "system_config",
             Self::User => "user",
             Self::AuthSession => "auth_session",
+            Self::Passkey => "passkey",
             Self::ExternalAuthProvider => "external_auth_provider",
             Self::ExternalAuthIdentity => "external_auth_identity",
             Self::ApiToken => "api_token",
             Self::Mail => "mail",
             Self::Task => "task",
+            Self::MinecraftProfile => "minecraft_profile",
+            Self::MinecraftTexture => "minecraft_texture",
+            Self::YggdrasilToken => "yggdrasil_token",
+            Self::YggdrasilSession => "yggdrasil_session",
         }
     }
 
@@ -166,11 +204,16 @@ impl AuditEntityType {
             "system_config" => Some(Self::SystemConfig),
             "user" => Some(Self::User),
             "auth_session" => Some(Self::AuthSession),
+            "passkey" => Some(Self::Passkey),
             "external_auth_provider" => Some(Self::ExternalAuthProvider),
             "external_auth_identity" => Some(Self::ExternalAuthIdentity),
             "api_token" => Some(Self::ApiToken),
             "mail" => Some(Self::Mail),
             "task" => Some(Self::Task),
+            "minecraft_profile" => Some(Self::MinecraftProfile),
+            "minecraft_texture" => Some(Self::MinecraftTexture),
+            "yggdrasil_token" => Some(Self::YggdrasilToken),
+            "yggdrasil_session" => Some(Self::YggdrasilSession),
             _ => None,
         }
     }

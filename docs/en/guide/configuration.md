@@ -1,10 +1,11 @@
-# Configuration
+# Config and Keys
 
-AsterYggdrasil separates configuration into static config and runtime config. This split matters because not every setting can safely change online.
+AsterYggdrasil separates static config from runtime config.
+
+- Static config lives in `data/config.toml` and controls database, bind address, cache, texture storage, and startup-time settings.
+- Runtime config lives in the `system_config` table and controls Yggdrasil policy, public URLs, upload switches, token policy, and signing keys.
 
 ## Static Config
-
-Static config is loaded from `data/config.toml` by default. If the file does not exist, the first startup creates it.
 
 Example:
 
@@ -12,153 +13,125 @@ Example:
 [server]
 host = "127.0.0.1"
 port = 3000
-workers = 0
 temp_dir = ".tmp"
 start_mode = "primary"
 
 [database]
 url = "sqlite://asteryggdrasil.db?mode=rwc"
-pool_size = 10
-retry_count = 3
 
-[auth]
-jwt_secret = "replace-with-a-long-random-secret"
-mfa_secret_key = "replace-with-another-long-random-secret"
-bootstrap_insecure_cookies = false
+[cache]
+enabled = true
+backend = "memory"
+
+[texture_storage]
+backend = "local"
+local_root = "textures"
 ```
 
-The full example is in `config.example.toml` at the repository root.
+Relative paths resolve against the directory containing `data/config.toml`. The default `local_root = "textures"` resolves to `data/textures`.
 
-Static config is suitable for:
+## Yggdrasil Runtime Config
 
-- HTTP bind host and port.
-- Database URL, pool size, and retry count.
-- JWT and MFA secrets.
-- Node startup mode.
-- Cache backend and Redis URL.
-- Logging format and file path.
-- Initial rate limit and trusted proxy settings.
-
-## Environment Overrides
-
-Use `ASTER__...` environment variables to override static config. Nested keys use double underscores:
-
-```bash
-ASTER__SERVER__HOST=0.0.0.0
-ASTER__SERVER__PORT=3000
-ASTER__SERVER__START_MODE=primary
-ASTER__DATABASE__URL='sqlite:///data/asteryggdrasil.db?mode=rwc'
-ASTER__AUTH__JWT_SECRET='replace-with-a-long-random-secret'
-```
-
-In containers, keep secrets, database URLs, and bind settings in environment variables or a secret manager. Do not bake them into the image.
-
-## Path Resolution
-
-The default runtime directory is `data/`. When the config file lives at `data/config.toml`, relative paths resolve under `data/`.
-
-For example:
-
-```toml
-[database]
-url = "sqlite://asteryggdrasil.db?mode=rwc"
-
-[server]
-temp_dir = ".tmp"
-```
-
-resolves to paths like:
+Common keys:
 
 ```text
-data/asteryggdrasil.db
-data/.tmp
+yggdrasil_server_name
+yggdrasil_allow_profile_name_login
+yggdrasil_allow_skin_upload
+yggdrasil_allow_cape_upload
+yggdrasil_token_ttl_days
+yggdrasil_max_active_tokens
+yggdrasil_skin_domains
+yggdrasil_public_base_url
+yggdrasil_signature_public_key
+yggdrasil_signature_private_key
 ```
 
-This keeps local development and container volume mounts straightforward. In production, make sure `data/` or container `/data` is writable.
-
-## Runtime Config
-
-Runtime config is stored in the `system_config` table and managed through the Admin Config API or admin panel.
-
-Runtime config is suitable for:
-
-- Site name, public URL, and branding-related values.
-- CORS, registration policy, and local email policy.
-- SMTP, mail sender settings, mail templates, and outbox dispatch interval.
-- Audit retention and maintenance parameters.
-- Feature switches that do not require process restart.
-
-It is not suitable for:
-
-- Database URL.
-- Bind address and port.
-- JWT or MFA secrets.
-- Node mode.
-
-Those values usually require restart or must be known before startup.
-
-## Admin Config API
-
-Common endpoints:
+Admin Config API:
 
 ```text
 GET    /api/v1/admin/config
 GET    /api/v1/admin/config/schema
-GET    /api/v1/admin/config/{key}
 PUT    /api/v1/admin/config/{key}
 DELETE /api/v1/admin/config/{key}
+POST   /api/v1/admin/config/yggdrasil/action
 ```
 
-`/schema` returns runtime config schema data. The frontend can use it to render forms, validate input, and show descriptions.
+Config writes go through typed normalizers and validators. Do not bypass the service layer and write `system_config` directly.
 
-When adding a runtime config key, also add:
+## public base URL
 
-- Definition and default value.
-- Schema metadata.
-- Normalizer or validator.
-- Admin UI coverage.
-- Audit log for related operations.
-
-## Mail Configuration
-
-Mail delivery settings are runtime config too. They do not belong in `config.toml`. Common keys include:
-
-```text
-mail_smtp_host
-mail_smtp_port
-mail_security
-mail_smtp_username
-mail_smtp_password
-mail_from_address
-mail_from_name
-mail_outbox_dispatch_interval_secs
-```
-
-Mail templates use keys such as `mail_template_*_subject` and `mail_template_*_html`. Available template variables can be read from:
-
-```text
-GET /api/v1/admin/config/template-variables
-```
-
-Administrators can send test mail through a config action:
-
-```text
-POST /api/v1/admin/config/mail/action
-```
-
-Request body:
+For normal deployments, configure `public_site_url` first:
 
 ```json
-{
-  "action": "send_test_email",
-  "target_email": "ops@example.com"
-}
+["https://skin.example.com"]
 ```
 
-See [Mail Delivery](./mail.md) for details.
+When `yggdrasil_public_base_url` is not configured, the server derives the Yggdrasil API root and texture URLs from the first valid `public_site_url`:
 
-## Auditing Config Changes
+```text
+https://skin.example.com/api/yggdrasil/textures/{hash}
+```
 
-Admin config changes should create audit records. Details should keep the key, old value summary, new value summary, and change source. The presentation layer should provide stable frontend display data.
+`yggdrasil_public_base_url` is an advanced override. It is also a JSON string array:
 
-Do not make the frontend parse raw details strings. That gets brittle as the number of config keys grows.
+```json
+["https://skin.example.com/api/yggdrasil"]
+```
+
+When configured, the server uses the first valid http/https URL to build texture URLs. Base URLs may include a path:
+
+```text
+https://skin.example.com/api/yggdrasil/textures/{hash}
+```
+
+If neither `yggdrasil_public_base_url` nor `public_site_url` has a usable value, Yggdrasil profile texture responses return a configuration error. Protocol responses do not emit relative texture URLs.
+
+## skinDomains
+
+`yggdrasil_skin_domains` is also a JSON string array. It is an extra texture domain allowlist. authlib-injector validates that texture URL hosts are covered by metadata `skinDomains`.
+
+Rules can be:
+
+- Exact domains, such as `skin.example.com`.
+- Dot-prefixed domains, such as `.example.com`.
+
+Metadata responses automatically include Mojang's official domains `.minecraft.net` and `.mojang.com`, plus the current effective texture URL host. Configure `yggdrasil_skin_domains` only when allowing additional CDN or external texture domains.
+
+## Signing Keys
+
+authlib-injector requires the server to sign some profile properties:
+
+- `hasJoined` responses.
+- `profile/{uuid}?unsigned=false` responses.
+
+AsterYggdrasil signs with an RSA private key and exposes the public key in metadata.
+
+The private key cannot be changed through the normal config set API. Rotate it with the config action:
+
+```text
+POST /api/v1/admin/config/yggdrasil/action
+```
+
+Action type:
+
+```text
+rotate_yggdrasil_signature_key
+```
+
+After rotation:
+
+- Newly generated textures properties use the new private key.
+- Metadata derives and returns the new public key.
+- Existing tokens do not need to be reissued; signatures are generated when profile properties are built and are not stored in tokens.
+- If launchers or servers cached old metadata, verification may fail briefly until metadata is fetched again.
+
+## Sensitive Config
+
+`yggdrasil_signature_private_key` is sensitive:
+
+- It cannot be directly changed from the frontend.
+- It must not appear in normal API responses, audit details, or error messages.
+- It should be changed only through the rotate action.
+
+`yggdrasil_signature_public_key` mainly exists as a fallback when no private key is available. In normal operation, the public key derived from the private key is authoritative.

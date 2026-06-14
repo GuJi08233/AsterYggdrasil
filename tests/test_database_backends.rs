@@ -7,7 +7,6 @@ use actix_web::test;
 use aster_yggdrasil::config::definitions::BRANDING_TITLE_KEY;
 use aster_yggdrasil::db::repository::{background_task_repo, system_config_repo, user_repo};
 use aster_yggdrasil::entities::background_task;
-use aster_yggdrasil::runtime::SharedRuntimeState;
 use aster_yggdrasil::types::{
     BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
 };
@@ -228,7 +227,11 @@ async fn exercise_foundation_api_smoke(database_url: &str, backend: DbBackend) {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["status"], "ok");
+    assert_eq!(body["status"], "ok");
+    assert!(
+        body.get("data").is_none(),
+        "public health should use a minimal probe response"
+    );
 
     let req = test::TestRequest::get().uri("/health/ready").to_request();
     let resp = test::call_service(&app, req).await;
@@ -237,39 +240,6 @@ async fn exercise_foundation_api_smoke(database_url: &str, backend: DbBackend) {
     assert_eq!(body["data"]["status"], "ready");
 
     let token = setup_admin!(app);
-
-    let req = test::TestRequest::get()
-        .uri("/api/v1/system/info")
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["name"], "AsterYggdrasil");
-    assert_eq!(body["data"]["site_title"], "AsterYggdrasil");
-
-    let req = test::TestRequest::get()
-        .uri("/api/v1/examples/public")
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    assert_eq!(
-        body["data"]["message"],
-        "AsterYggdrasil public example API is working"
-    );
-
-    let req = test::TestRequest::get()
-        .uri("/api/v1/examples/protected")
-        .insert_header(common::bearer_header(&token))
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    assert_eq!(
-        body["data"]["message"],
-        "AsterYggdrasil protected example API is working"
-    );
-    assert_eq!(body["data"]["user"]["username"], "admin");
 
     let req = test::TestRequest::get()
         .uri("/api/v1/admin/config")

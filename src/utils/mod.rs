@@ -4,9 +4,12 @@ pub mod crypto;
 pub mod email;
 pub mod hash;
 pub mod id;
+pub mod net;
 pub mod numbers;
 pub mod paths;
 pub mod raii;
+
+pub const OUTBOUND_HTTP_USER_AGENT: &str = concat!("AsterYggdrasil/", env!("CARGO_PKG_VERSION"));
 
 pub fn truncate_utf8_to_max_bytes(value: &str, max_bytes: usize) -> String {
     if value.len() <= max_bytes {
@@ -18,6 +21,10 @@ pub fn truncate_utf8_to_max_bytes(value: &str, max_bytes: usize) -> String {
         end -= 1;
     }
     value[..end].to_string()
+}
+
+pub fn char_count(value: &str) -> usize {
+    value.chars().count()
 }
 
 pub async fn cleanup_temp_dir(path: &str) {

@@ -1,113 +1,104 @@
 # Docker Deployment
 
-AsterYggdrasil includes a Dockerfile, Compose configuration, and GitHub Actions image workflow. Runtime state lives under `/data`; container images should not store mutable runtime data.
+This page covers production deployment concerns for AsterYggdrasil as a Minecraft skin site and Yggdrasil authentication server.
 
-## Docker Compose
+## Persistent Data
 
-Minimal local start:
+Runtime state inside the container should be mounted at `/data`. Persist at least:
 
-```bash
-mkdir -p ./data
-docker compose up -d
+- `config.toml`
+- SQLite database, or external database connection config.
+- Local texture storage directory.
+- Runtime temp and log directories if enabled.
+
+Example static config:
+
+```toml
+[server]
+host = "0.0.0.0"
+port = 3000
+start_mode = "primary"
+temp_dir = ".tmp"
+
+[database]
+url = "sqlite://asteryggdrasil.db?mode=rwc"
+
+[texture_storage]
+backend = "local"
+local_root = "textures"
+
+[cache]
+enabled = true
+backend = "memory"
 ```
 
-Logs:
-
-```bash
-docker compose logs -f
-```
-
-Stop:
-
-```bash
-docker compose down
-```
-
-`./data` is mounted to container `/data`. Database files, config files, and runtime state should live there.
-
-## Local Build
-
-```bash
-docker build -t asteryggdrasil:local .
-docker run --rm -p 3000:3000 -v "$(pwd)/data:/data" asteryggdrasil:local
-```
-
-With config overrides:
-
-```bash
-docker run --rm \
-  -p 3000:3000 \
-  -v "$(pwd)/data:/data" \
-  -e ASTER__SERVER__HOST=0.0.0.0 \
-  -e ASTER__SERVER__PORT=3000 \
-  -e ASTER__DATABASE__URL='sqlite:///data/asteryggdrasil.db?mode=rwc' \
-  -e ASTER__AUTH__JWT_SECRET='replace-with-a-long-random-secret' \
-  asteryggdrasil:local
-```
-
-Do not use example secrets in production. JWT and MFA secrets should come from a secret manager or protected deployment variables.
+If `config.toml` lives at `/data/config.toml`, `local_root = "textures"` resolves to `/data/textures`.
 
 ## Reverse Proxy
 
-Production deployments should run behind an HTTPS reverse proxy. The proxy should handle:
-
-- TLS termination.
-- Forwarded headers such as `X-Forwarded-For` and `X-Forwarded-Proto`.
-- Request body size limits.
-- Timeouts.
-- Access logs.
-
-Configure trusted proxies on the AsterYggdrasil side so the service does not trust forged forwarded headers from clients.
-
-## Health Checks
-
-Container orchestrators can use:
+Production deployments usually expose HTTPS through Nginx, Caddy, or Traefik. Make sure the external path matches runtime config:
 
 ```text
-GET /health
-GET /health/ready
+https://skin.example.com/api/yggdrasil
 ```
 
-`/health` is process liveness. `/health/ready` means the service is ready to accept requests. Readiness should fail when the database is unavailable, migrations fail, or runtime is not ready.
+matching runtime config:
 
-## Image Publishing
+```json
+yggdrasil_public_base_url = ["https://skin.example.com/api/yggdrasil"]
+yggdrasil_skin_domains = ["skin.example.com"]
+```
 
-`.github/workflows/docker-image.yml` publishes to GHCR by default:
+authlib-injector verifies that texture URL hosts are covered by `skinDomains`. If public base URL and skinDomains do not match, launchers or servers may reject textures.
+
+## ALI
+
+The site homepage returns:
 
 ```text
-ghcr.io/astercommunity/asteryggdrasil
+X-Authlib-Injector-API-Location: /api/yggdrasil/
 ```
 
-Tag pushes build amd64 and arm64 images and create a multi-arch manifest. Docker Hub is not published by default.
+Do not strip this response header in the reverse proxy. It lets users enter the site root in launchers and have the launcher discover the Yggdrasil API automatically.
 
-To publish Docker Hub as well, run the workflow manually and enable `publish_dockerhub`. The repository must define:
+## trusted proxies
+
+When running behind a reverse proxy, configure trusted proxies so the service does not trust forged forwarded headers from clients.
+
+```toml
+[network_trust]
+trusted_proxies = ["127.0.0.1"]
+```
+
+Use the real source address or CIDR used between the proxy and the application.
+
+## Multiple Instances
+
+Periodic maintenance tasks should run on only one primary node:
+
+```toml
+[server]
+start_mode = "primary"
+```
+
+Other instances should use follower mode to avoid duplicate global cleanup, mail outbox, and background task dispatch work.
+
+## Signing Key
+
+Startup ensures the Yggdrasil signing private key and public key exist. In production, rotate keys through the admin config action instead of editing private key values directly:
 
 ```text
-DOCKERHUB_USERNAME
-DOCKERHUB_TOKEN
+POST /api/v1/admin/config/yggdrasil/action
 ```
 
-This opt-in keeps template projects from accidentally pushing images to the wrong Docker Hub namespace.
+After rotation, clients and servers may need to fetch metadata again.
 
-## Primary And Follower
+## Backup
 
-Single-instance deployments use the default:
+Back up at least:
 
-```bash
-ASTER__SERVER__START_MODE=primary
-```
+- Database.
+- `/data/textures`.
+- `data/config.toml` or equivalent secret/config records.
 
-In multi-node deployments, only nodes responsible for global maintenance should run as primary. Follower nodes can serve HTTP traffic but skip dispatcher and cleanup loops.
-
-## Backups
-
-For the default SQLite deployment, back up at least:
-
-```text
-data/config.toml
-data/asteryggdrasil.db
-data/asteryggdrasil.db-shm
-data/asteryggdrasil.db-wal
-```
-
-If using PostgreSQL or MySQL, follow that database's backup strategy and still keep `data/config.toml` plus other runtime files.
+Database and texture storage must be backed up as a set. Restoring only one side can produce missing-object or orphan-object reports from the storage consistency check.

@@ -180,6 +180,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/minecraft-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_minecraft_profiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/minecraft-profiles/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_minecraft_profile"];
+        put?: never;
+        post?: never;
+        delete: operations["admin_delete_minecraft_profile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/minecraft-profiles/{uuid}/textures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_minecraft_profile_textures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/minecraft-profiles/{uuid}/textures/{texture_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["admin_delete_minecraft_profile_texture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/minecraft-textures/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["admin_delete_minecraft_textures_by_hash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_admin_system_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/tasks": {
         parameters: {
             query?: never;
@@ -228,6 +324,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_users"];
+        put?: never;
+        post: operations["admin_create_user"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_user"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin_update_user"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/avatar/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_user_avatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/sessions/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_revoke_user_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/minecraft-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_user_minecraft_profiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/check": {
         parameters: {
             query?: never;
@@ -238,6 +414,86 @@ export interface paths {
         get: operations["check_auth_state"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/email-verification/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["auth_external_auth_confirm_email_verification"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/email-verification/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_external_auth_start_email_verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["auth_external_auth_list_links"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["auth_external_auth_delete_link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/password-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_external_auth_link_with_password"];
         delete?: never;
         options?: never;
         head?: never;
@@ -356,6 +612,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_passkeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/login/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finish_passkey_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/login/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start_passkey_login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/register/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["finish_passkey_registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/register/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start_passkey_registration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_passkey"];
+        options?: never;
+        head?: never;
+        patch: operations["rename_passkey"];
+        trace?: never;
+    };
+    "/api/v1/auth/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update_profile"];
+        trace?: never;
+    };
+    "/api/v1/auth/profile/avatar/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_avatar_source"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/profile/avatar/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_avatar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/profile/avatar/{size}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_self_avatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -404,6 +820,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sessions/others": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revoke_other_auth_sessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revoke_auth_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/setup": {
         parameters: {
             query?: never;
@@ -420,71 +868,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/examples/protected": {
+    "/api/v1/profiles/minecraft": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["protected_example"];
+        get: operations["list_current_user_minecraft_profiles"];
         put?: never;
-        post?: never;
+        post: operations["create_current_user_minecraft_profile"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/examples/public": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["public_example"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/external-auth/providers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list_external_auth_providers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/external-auth/{provider}/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["finish_external_auth_login"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/external-auth/{provider}/start": {
+    "/api/v1/profiles/minecraft/{uuid}": {
         parameters: {
             query?: never;
             header?: never;
@@ -493,21 +893,293 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["start_external_auth_login"];
-        delete?: never;
+        post?: never;
+        delete: operations["delete_current_user_minecraft_profile"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/system/info": {
+    "/api/v1/profiles/minecraft/{uuid}/textures": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["system_info"];
+        get: operations["list_current_user_minecraft_profile_textures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/minecraft/{uuid}/textures/{texture_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["bind_current_user_minecraft_profile_texture"];
+        post?: never;
+        delete: operations["unbind_current_user_minecraft_profile_texture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/frontend-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_public_frontend_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wardrobe/textures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_current_user_wardrobe_textures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wardrobe/textures/{texture_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_current_user_wardrobe_texture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wardrobe/textures/{texture_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload_current_user_wardrobe_texture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["yggdrasil_metadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/api/profiles/minecraft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_profiles_by_names"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/api/user/profile/{uuid}/{texture_type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["yggdrasil_upload_texture"];
+        post?: never;
+        delete: operations["yggdrasil_delete_texture"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/authserver/authenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_authenticate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/authserver/invalidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_invalidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/authserver/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/authserver/signout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_signout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/authserver/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_validate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/sessionserver/session/minecraft/hasJoined": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["yggdrasil_has_joined"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/sessionserver/session/minecraft/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["yggdrasil_join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/sessionserver/session/minecraft/profile/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["yggdrasil_profile_by_uuid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/textures/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["yggdrasil_texture_by_hash"];
         put?: never;
         post?: never;
         delete?: never;
@@ -554,13 +1226,13 @@ export interface components {
     schemas: {
         AccessClaims: {
             exp: number;
-            iat: number;
-            role: components["schemas"]["UserRole"];
+            jti?: string | null;
             /** Format: int64 */
             session_version: number;
+            sub: string;
+            token_type: components["schemas"]["TokenType"];
             /** Format: int64 */
-            sub: number;
-            username: string;
+            user_id: number;
         };
         /** @enum {string} */
         AdminAuditLogSortBy: "id" | "created_at" | "user_id" | "action" | "entity_type" | "entity_name" | "ip_address";
@@ -569,26 +1241,43 @@ export interface components {
             sort_order?: null | components["schemas"]["SortOrder"];
         };
         AdminExternalAuthProviderInfo: {
+            allowed_domains: string[];
             authorization_url?: string | null;
-            authorize_url?: string | null;
+            auto_link_verified_email_enabled: boolean;
+            auto_provision_enabled: boolean;
+            avatar_url_claim?: string | null;
             client_id: string;
             client_secret?: string | null;
             client_secret_configured: boolean;
             created_at: string;
             display_name: string;
+            display_name_claim?: string | null;
+            email_claim?: string | null;
+            email_verified_claim?: string | null;
             enabled: boolean;
+            groups_claim?: string | null;
+            icon_url?: string | null;
             /** Format: int64 */
             id: number;
             issuer_url?: string | null;
             key: string;
-            kind: components["schemas"]["ExternalAuthKind"];
-            protocol: string;
-            provider_kind: components["schemas"]["ExternalAuthKind"];
+            options: components["schemas"]["ExternalAuthProviderOptions"];
+            protocol: components["schemas"]["ExternalAuthProtocol"];
+            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+            require_email_verified: boolean;
             scopes: string;
-            slug: string;
+            subject_claim?: string | null;
             token_url?: string | null;
             updated_at: string;
             userinfo_url?: string | null;
+            username_claim?: string | null;
+        };
+        AdminMinecraftProfileListQuery: {
+            name?: string | null;
+            query?: string | null;
+            /** Format: int64 */
+            user_id?: number | null;
+            uuid?: string | null;
         };
         AdminTaskCleanupReq: {
             /** Format: date-time */
@@ -604,16 +1293,43 @@ export interface components {
         };
         /** @enum {string} */
         AdminTaskSortBy: "id" | "display_name" | "kind" | "status" | "progress" | "created_at" | "updated_at" | "started_at" | "finished_at";
+        AdminUserInfo: {
+            /** Format: int64 */
+            active_session_count: number;
+            created_at: string;
+            email: string;
+            email_verified_at?: string | null;
+            /** Format: int64 */
+            id: number;
+            profile: components["schemas"]["UserProfileInfo"];
+            /** Format: int64 */
+            profile_count: number;
+            role: components["schemas"]["UserRole"];
+            /** Format: int64 */
+            session_version: number;
+            status: components["schemas"]["UserStatus"];
+            updated_at: string;
+            username: string;
+        };
+        AdminUserListQuery: {
+            keyword?: string | null;
+            role?: null | components["schemas"]["UserRole"];
+            sort_by?: null | components["schemas"]["AdminUserSortBy"];
+            sort_order?: null | components["schemas"]["SortOrder"];
+            status?: null | components["schemas"]["UserStatus"];
+        };
+        /** @enum {string} */
+        AdminUserSortBy: "id" | "username" | "email" | "role" | "status" | "created_at" | "updated_at";
         ApiErrorInfo: {
             code: components["schemas"]["AsterErrorCode"];
             retryable?: boolean | null;
         };
         /** @enum {string} */
-        AsterErrorCode: "success" | "bad_request" | "not_found" | "internal_server_error" | "database.error" | "config.error" | "endpoint.not_found" | "rate_limited" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "forbidden" | "external_auth.error";
+        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.user_disabled" | "auth.pending_activation" | "auth.passkey_login_disabled" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
-        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_update_profile" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink";
+        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server";
         /** @enum {string} */
-        AuditEntityType: "system" | "system_config" | "user" | "auth_session" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task";
+        AuditEntityType: "system" | "system_config" | "user" | "auth_session" | "passkey" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task" | "minecraft_profile" | "minecraft_texture" | "yggdrasil_token" | "yggdrasil_session";
         AuditLogEntry: {
             action: components["schemas"]["AuditAction"];
             created_at: string;
@@ -675,16 +1391,25 @@ export interface components {
             status: components["schemas"]["UserStatus"];
             username: string;
         };
+        AuthSessionInfo: {
+            created_at: string;
+            id: string;
+            ip_address?: string | null;
+            is_current: boolean;
+            last_seen_at: string;
+            refresh_expires_at: string;
+            revoked: boolean;
+            user_agent?: string | null;
+        };
         AuthSessionModel: {
             created_at: string;
-            expires_at: string;
-            /** Format: int64 */
-            id: number;
+            current_refresh_jti: string;
+            id: string;
             ip_address?: string | null;
-            refresh_token_hash: string;
+            last_seen_at: string;
+            previous_refresh_jti?: string | null;
+            refresh_expires_at: string;
             revoked_at?: string | null;
-            /** Format: int64 */
-            session_version: number;
             user_agent?: string | null;
             /** Format: int64 */
             user_id: number;
@@ -697,10 +1422,20 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+            profile: components["schemas"]["UserProfileInfo"];
             role: components["schemas"]["UserRole"];
             status: components["schemas"]["UserStatus"];
             username: string;
         };
+        AvatarInfo: {
+            source: components["schemas"]["AvatarSource"];
+            url_1024?: string | null;
+            url_512?: string | null;
+            /** Format: int32 */
+            version: number;
+        };
+        /** @enum {string} */
+        AvatarSource: "none" | "gravatar" | "upload";
         /** @enum {string} */
         BackgroundTaskKind: "system_runtime";
         BackgroundTaskModel: {
@@ -740,11 +1475,15 @@ export interface components {
         };
         /** @enum {string} */
         BackgroundTaskStatus: "pending" | "processing" | "retry" | "succeeded" | "failed" | "canceled";
+        BindMinecraftTextureReq: {
+            /** Format: int64 */
+            texture_id: number;
+        };
         CheckResp: {
             initialized: boolean;
         };
         /** @enum {string} */
-        ConfigActionType: "send_test_email";
+        ConfigActionType: "send_test_email" | "rotate_yggdrasil_signature_key";
         ConfigSchemaItem: {
             category: string;
             description: string;
@@ -761,25 +1500,41 @@ export interface components {
             label_i18n_key: string;
             value: string;
         };
+        CreateAdminUserReq: {
+            email: string;
+            password: string;
+            role?: null | components["schemas"]["UserRole"];
+            status?: null | components["schemas"]["UserStatus"];
+            username: string;
+        };
         CreateExternalAuthProviderReq: {
+            allowed_domains?: string[] | null;
             authorization_url?: string | null;
             authorize_url?: string | null;
+            auto_link_verified_email_enabled?: boolean | null;
+            auto_provision_enabled?: boolean | null;
+            avatar_url_claim?: string | null;
             client_id: string;
             client_secret?: string | null;
             display_name: string;
+            display_name_claim?: string | null;
+            email_claim?: string | null;
+            email_verified_claim?: string | null;
             enabled?: boolean | null;
+            groups_claim?: string | null;
+            icon_url?: string | null;
             issuer_url?: string | null;
-            key?: string | null;
-            kind?: null | components["schemas"]["ExternalAuthKind"];
-            provider_kind?: null | components["schemas"]["ExternalAuthKind"];
+            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
+            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+            require_email_verified?: boolean | null;
             scopes?: string | null;
-            slug?: string | null;
+            subject_claim?: string | null;
             token_url?: string | null;
             userinfo_url?: string | null;
+            username_claim?: string | null;
         };
-        ExampleMessage: {
-            build_time: string;
-            message: string;
+        CreateMinecraftProfileReq: {
+            name: string;
         };
         ExecuteConfigActionReq: {
             action: components["schemas"]["ConfigActionType"];
@@ -790,42 +1545,48 @@ export interface components {
             value?: string | null;
         };
         ExternalAuthCallbackQuery: {
-            code: string;
-            state: string;
+            code?: string | null;
+            error?: string | null;
+            error_description?: string | null;
+            state?: string | null;
+        };
+        ExternalAuthEmailVerificationStartRequest: {
+            email: string;
+            flow_token: string;
         };
         ExternalAuthFinishLoginResponse: {
-            message: string;
-            state: string;
+            /** Format: int64 */
+            expires_in?: number | null;
+            flow_token?: string | null;
+            return_path?: string | null;
+            status: string;
+        };
+        ExternalAuthPasswordLinkRequest: {
+            flow_token: string;
+            identifier: string;
+            password: string;
         };
         /** @enum {string} */
-        ExternalAuthKind: "oidc" | "oauth2";
+        ExternalAuthProtocol: "oidc" | "oauth2";
+        /** @enum {string} */
+        ExternalAuthProviderKind: "oidc" | "generic_oauth2" | "github" | "google" | "microsoft" | "qq";
         ExternalAuthProviderKindInfo: {
             authorization_url_required: boolean;
             default_scopes: string;
             description: string;
             display_name: string;
             issuer_url_required: boolean;
-            kind: components["schemas"]["ExternalAuthKind"];
-            protocol: string;
+            kind: components["schemas"]["ExternalAuthProviderKind"];
+            manual_endpoint_configuration_supported: boolean;
+            protocol: components["schemas"]["ExternalAuthProtocol"];
             supports_discovery: boolean;
+            supports_email_verified_claim: boolean;
+            supports_pkce: boolean;
             token_url_required: boolean;
             userinfo_url_required: boolean;
         };
-        ExternalAuthProviderModel: {
-            authorize_url?: string | null;
-            client_id: string;
-            created_at: string;
-            display_name: string;
-            enabled: boolean;
-            /** Format: int64 */
-            id: number;
-            issuer_url?: string | null;
-            kind: components["schemas"]["ExternalAuthKind"];
-            scopes: string;
-            slug: string;
-            token_url?: string | null;
-            updated_at: string;
-            userinfo_url?: string | null;
+        ExternalAuthProviderOptions: {
+            microsoft?: null | components["schemas"]["MicrosoftExternalAuthProviderOptions"];
         };
         ExternalAuthProviderTestCheck: {
             message: string;
@@ -838,8 +1599,9 @@ export interface components {
             client_id: string;
             client_secret?: string | null;
             issuer_url?: string | null;
-            kind?: null | components["schemas"]["ExternalAuthKind"];
-            provider_kind?: null | components["schemas"]["ExternalAuthKind"];
+            kind?: null | components["schemas"]["ExternalAuthProviderKind"];
+            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
+            provider_kind?: null | components["schemas"]["ExternalAuthProviderKind"];
             scopes?: string | null;
             token_url?: string | null;
             userinfo_url?: string | null;
@@ -848,26 +1610,22 @@ export interface components {
             authorization_endpoint?: string | null;
             checks: components["schemas"]["ExternalAuthProviderTestCheck"][];
             issuer?: string | null;
+            jwks_key_count?: number | null;
             provider: string;
             token_endpoint?: string | null;
             userinfo_endpoint?: string | null;
         };
         ExternalAuthPublicProvider: {
             display_name: string;
+            icon_url?: string | null;
             key: string;
-            kind: components["schemas"]["ExternalAuthKind"];
-            slug: string;
+            kind: components["schemas"]["ExternalAuthProviderKind"];
         };
         ExternalAuthStartLoginResponse: {
             authorization_url: string;
-            authorize_url: string;
-            expires_at: string;
-            state: string;
         };
         HealthResponse: {
-            build_time: string;
             status: string;
-            version: string;
         };
         LimitOffsetQuery: {
             /** Format: int64 */
@@ -889,6 +1647,111 @@ export interface components {
         MailOutboxStatus: "pending" | "processing" | "retry" | "sent" | "failed";
         /** @enum {string} */
         MailTemplateCode: "register_activation" | "contact_change_confirmation" | "password_reset" | "password_reset_notice" | "contact_change_notice" | "external_auth_email_verification" | "login_email_code";
+        MicrosoftExternalAuthProviderOptions: {
+            tenant: string;
+        };
+        MinecraftProfileInfo: {
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            updated_at: string;
+            uploadable_textures: string;
+            /** Format: int64 */
+            user_id: number;
+            uuid: string;
+        };
+        MinecraftProfileModel: {
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            updated_at: string;
+            uploadable_textures: string;
+            /** Format: int64 */
+            user_id: number;
+            uuid: string;
+        };
+        MinecraftProfileTextureModelEntity: {
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            profile_id: number;
+            /** Format: int64 */
+            texture_id: number;
+            texture_type: components["schemas"]["MinecraftTextureType"];
+            updated_at: string;
+        };
+        MinecraftTextureMetadata: {
+            created_at: string;
+            /** Format: int64 */
+            file_size: number;
+            hash: string;
+            /** Format: int32 */
+            height: number;
+            /** Format: int64 */
+            id: number;
+            mime_type: string;
+            /** Format: int64 */
+            profile_id: number;
+            profile_name: string;
+            profile_uuid: string;
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            texture_type: components["schemas"]["MinecraftTextureType"];
+            updated_at: string;
+            url: string;
+            visibility: components["schemas"]["MinecraftTextureVisibility"];
+            /** Format: int32 */
+            width: number;
+        };
+        /** @enum {string} */
+        MinecraftTextureModel: "default" | "slim";
+        MinecraftTextureModelEntity: {
+            created_at: string;
+            /** Format: int64 */
+            file_size: number;
+            hash: string;
+            /** Format: int32 */
+            height: number;
+            /** Format: int64 */
+            id: number;
+            is_wardrobe_item: boolean;
+            mime_type: string;
+            storage_key: string;
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            texture_type: components["schemas"]["MinecraftTextureType"];
+            updated_at: string;
+            /** Format: int64 */
+            user_id: number;
+            visibility: components["schemas"]["MinecraftTextureVisibility"];
+            /** Format: int32 */
+            width: number;
+        };
+        /** @enum {string} */
+        MinecraftTextureType: "skin" | "cape";
+        /** @enum {string} */
+        MinecraftTextureVisibility: "private" | "public";
+        MinecraftWardrobeTextureMetadata: {
+            created_at: string;
+            /** Format: int64 */
+            file_size: number;
+            hash: string;
+            /** Format: int32 */
+            height: number;
+            /** Format: int64 */
+            id: number;
+            mime_type: string;
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            texture_type: components["schemas"]["MinecraftTextureType"];
+            updated_at: string;
+            url: string;
+            visibility: components["schemas"]["MinecraftTextureVisibility"];
+            /** Format: int32 */
+            width: number;
+        };
         Model: {
             /** Format: int32 */
             attempt_count: number;
@@ -908,26 +1771,62 @@ export interface components {
         };
         OffsetPage_AdminExternalAuthProviderInfo: {
             items: {
+                allowed_domains: string[];
                 authorization_url?: string | null;
-                authorize_url?: string | null;
+                auto_link_verified_email_enabled: boolean;
+                auto_provision_enabled: boolean;
+                avatar_url_claim?: string | null;
                 client_id: string;
                 client_secret?: string | null;
                 client_secret_configured: boolean;
                 created_at: string;
                 display_name: string;
+                display_name_claim?: string | null;
+                email_claim?: string | null;
+                email_verified_claim?: string | null;
                 enabled: boolean;
+                groups_claim?: string | null;
+                icon_url?: string | null;
                 /** Format: int64 */
                 id: number;
                 issuer_url?: string | null;
                 key: string;
-                kind: components["schemas"]["ExternalAuthKind"];
-                protocol: string;
-                provider_kind: components["schemas"]["ExternalAuthKind"];
+                options: components["schemas"]["ExternalAuthProviderOptions"];
+                protocol: components["schemas"]["ExternalAuthProtocol"];
+                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                require_email_verified: boolean;
                 scopes: string;
-                slug: string;
+                subject_claim?: string | null;
                 token_url?: string | null;
                 updated_at: string;
                 userinfo_url?: string | null;
+                username_claim?: string | null;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_AdminUserInfo: {
+            items: {
+                /** Format: int64 */
+                active_session_count: number;
+                created_at: string;
+                email: string;
+                email_verified_at?: string | null;
+                /** Format: int64 */
+                id: number;
+                profile: components["schemas"]["UserProfileInfo"];
+                /** Format: int64 */
+                profile_count: number;
+                role: components["schemas"]["UserRole"];
+                /** Format: int64 */
+                session_version: number;
+                status: components["schemas"]["UserStatus"];
+                updated_at: string;
+                username: string;
             }[];
             /** Format: int64 */
             limit: number;
@@ -953,6 +1852,26 @@ export interface components {
                 user_agent?: string | null;
                 /** Format: int64 */
                 user_id: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_MinecraftProfileInfo: {
+            items: {
+                created_at: string;
+                /** Format: int64 */
+                id: number;
+                name: string;
+                texture_model: components["schemas"]["MinecraftTextureModel"];
+                updated_at: string;
+                uploadable_textures: string;
+                /** Format: int64 */
+                user_id: number;
+                uuid: string;
             }[];
             /** Format: int64 */
             limit: number;
@@ -1027,9 +1946,69 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
-        ProtectedExampleMessage: {
-            message: string;
-            user: components["schemas"]["AuthUserInfo"];
+        PasskeyInfo: {
+            backed_up: boolean;
+            backup_eligible: boolean;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            last_used_at?: string | null;
+            name: string;
+            /** Format: int64 */
+            sign_count: number;
+            transports?: string[] | null;
+            updated_at: string;
+        };
+        PasskeyLoginFinishReq: {
+            credential: unknown;
+            flow_id: string;
+        };
+        PasskeyLoginStartReq: {
+            conditional?: boolean | null;
+            identifier?: string | null;
+        };
+        PasskeyLoginStartResp: {
+            flow_id: string;
+            public_key: unknown;
+        };
+        PasskeyRegisterFinishReq: {
+            credential: unknown;
+            flow_id: string;
+            name?: string | null;
+        };
+        PasskeyRegisterStartReq: {
+            name?: string | null;
+        };
+        PasskeyRegisterStartResp: {
+            flow_id: string;
+            public_key: unknown;
+        };
+        PatchPasskeyReq: {
+            name: string;
+        };
+        PublicBranding: {
+            allow_user_registration: boolean;
+            description: string;
+            favicon_url: string;
+            passkey_login_enabled: boolean;
+            site_urls: string[];
+            title: string;
+            wordmark_dark_url: string;
+            wordmark_light_url: string;
+        };
+        PublicFrontendConfig: {
+            branding: components["schemas"]["PublicBranding"];
+            /** Format: int32 */
+            version: number;
+            yggdrasil: components["schemas"]["PublicYggdrasilConfig"];
+        };
+        PublicYggdrasilConfig: {
+            allow_cape_upload: boolean;
+            allow_profile_name_login: boolean;
+            allow_skin_upload: boolean;
+            public_base_urls: string[];
+            server_name: string;
+            skin_domains: string[];
         };
         RefreshReq: {
             refresh_token: string;
@@ -1070,12 +2049,14 @@ export interface components {
         SetupReq: {
             email: string;
             password: string;
+            public_site_url?: string | null;
             username: string;
         };
         /** @enum {string} */
         SortOrder: "asc" | "desc";
         StartExternalAuthReq: {
-            redirect_uri: string;
+            redirect_uri?: string | null;
+            return_path?: string | null;
         };
         SystemConfig: {
             category: string;
@@ -1113,15 +2094,21 @@ export interface components {
         };
         /** @enum {string} */
         SystemConfigSource: "system" | "custom";
+        SystemConfigUpdateResult: {
+            config: components["schemas"]["SystemConfig"];
+            warnings: components["schemas"]["SystemConfigWarning"][];
+        };
         SystemConfigValue: string | string[];
         /** @enum {string} */
         SystemConfigValueType: "string" | "multiline" | "string_array" | "string_enum_set" | "number" | "boolean";
         /** @enum {string} */
         SystemConfigVisibility: "private" | "public" | "authenticated";
-        SystemInfo: {
+        SystemConfigWarning: {
+            code: string;
+            message: string;
+        };
+        SystemInfoResponse: {
             build_time: string;
-            name: string;
-            site_title: string;
             version: string;
         };
         TaskCreatorSummary: {
@@ -1172,7 +2159,7 @@ export interface components {
             title?: null | components["schemas"]["TaskPresentationMessage"];
         };
         /** @enum {string} */
-        TaskPresentationCode: "runtime_system_health_issue_detail" | "runtime_task_audit_cleanup" | "runtime_task_auth_session_cleanup" | "runtime_task_background_task_dispatch" | "runtime_task_external_auth_flow_cleanup" | "runtime_task_mail_outbox_dispatch" | "runtime_task_system_health_check" | "runtime_task_task_cleanup" | "status_text_failed" | "status_text_quiet" | "status_text_succeeded" | "status_text_system_healthy";
+        TaskPresentationCode: "runtime_system_health_issue_detail" | "runtime_task_audit_cleanup" | "runtime_task_auth_session_cleanup" | "runtime_task_background_task_dispatch" | "runtime_task_external_auth_flow_cleanup" | "runtime_task_mail_outbox_dispatch" | "runtime_task_system_health_check" | "runtime_task_task_cleanup" | "runtime_task_yggdrasil_storage_consistency_check" | "runtime_task_yggdrasil_token_cleanup" | "runtime_task_yggdrasil_texture_cleanup" | "status_text_failed" | "status_text_quiet" | "status_text_succeeded" | "status_text_system_healthy";
         TaskPresentationMessage: {
             code: components["schemas"]["TaskPresentationCode"];
             params?: {
@@ -1208,21 +2195,45 @@ export interface components {
             label_i18n_key: string;
             token: string;
         };
+        /** @enum {string} */
+        TokenType: "access" | "refresh";
+        UpdateAdminUserReq: {
+            email?: string | null;
+            password?: string | null;
+            role?: null | components["schemas"]["UserRole"];
+            status?: null | components["schemas"]["UserStatus"];
+            username?: string | null;
+        };
+        UpdateAvatarSourceReq: {
+            source: components["schemas"]["AvatarSource"];
+        };
         UpdateExternalAuthProviderReq: {
+            allowed_domains?: string[] | null;
             authorization_url?: string | null;
             authorize_url?: string | null;
+            auto_link_verified_email_enabled?: boolean | null;
+            auto_provision_enabled?: boolean | null;
+            avatar_url_claim?: string | null;
             client_id?: string | null;
             client_secret?: string | null;
             display_name?: string | null;
+            display_name_claim?: string | null;
+            email_claim?: string | null;
+            email_verified_claim?: string | null;
             enabled?: boolean | null;
+            groups_claim?: string | null;
+            icon_url?: string | null;
             issuer_url?: string | null;
-            key?: string | null;
-            kind?: null | components["schemas"]["ExternalAuthKind"];
-            provider_kind?: null | components["schemas"]["ExternalAuthKind"];
+            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
+            require_email_verified?: boolean | null;
             scopes?: string | null;
-            slug?: string | null;
+            subject_claim?: string | null;
             token_url?: string | null;
             userinfo_url?: string | null;
+            username_claim?: string | null;
+        };
+        UpdateProfileReq: {
+            display_name?: string | null;
         };
         UserModel: {
             created_at: string;
@@ -1230,6 +2241,7 @@ export interface components {
             email_verified_at?: string | null;
             /** Format: int64 */
             id: number;
+            public_uuid: string;
             role: components["schemas"]["UserRole"];
             /** Format: int64 */
             session_version: number;
@@ -1237,10 +2249,96 @@ export interface components {
             updated_at: string;
             username: string;
         };
+        UserProfileInfo: {
+            avatar: components["schemas"]["AvatarInfo"];
+            display_name?: string | null;
+        };
         /** @enum {string} */
         UserRole: "admin" | "user";
         /** @enum {string} */
         UserStatus: "active" | "disabled";
+        YggdrasilAgentReq: {
+            name: string;
+            /** Format: int32 */
+            version: number;
+        };
+        YggdrasilAuthenticateReq: {
+            agent?: null | components["schemas"]["YggdrasilAgentReq"];
+            clientToken?: string | null;
+            password: string;
+            requestUser?: boolean;
+            username: string;
+        };
+        YggdrasilAuthenticateResp: {
+            accessToken: string;
+            availableProfiles: components["schemas"]["YggdrasilProfile"][];
+            clientToken: string;
+            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
+            user?: null | components["schemas"]["YggdrasilUser"];
+        };
+        YggdrasilErrorBody: {
+            cause?: string | null;
+            error: string;
+            errorMessage: string;
+        };
+        YggdrasilHasJoinedQuery: {
+            ip?: string | null;
+            serverId: string;
+            username: string;
+        };
+        YggdrasilJoinReq: {
+            accessToken: string;
+            selectedProfile: string;
+            serverId: string;
+        };
+        YggdrasilMeta: {
+            "feature.non_email_login": boolean;
+            implementationName: string;
+            implementationVersion: string;
+            serverName: string;
+        };
+        YggdrasilMetaResp: {
+            meta: components["schemas"]["YggdrasilMeta"];
+            signaturePublickey: string;
+            skinDomains: string[];
+        };
+        YggdrasilProfile: {
+            id: string;
+            name: string;
+            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+        };
+        YggdrasilProfileProperty: {
+            name: string;
+            signature?: string | null;
+            value: string;
+        };
+        YggdrasilProfileQuery: {
+            unsigned?: boolean | null;
+        };
+        YggdrasilRefreshReq: {
+            accessToken: string;
+            clientToken?: string | null;
+            requestUser?: boolean;
+            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
+        };
+        YggdrasilRefreshResp: {
+            accessToken: string;
+            clientToken: string;
+            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
+            user?: null | components["schemas"]["YggdrasilUser"];
+        };
+        YggdrasilSignoutReq: {
+            password: string;
+            username: string;
+        };
+        YggdrasilTokenReq: {
+            accessToken: string;
+            clientToken?: string | null;
+        };
+        YggdrasilUser: {
+            id: string;
+            properties: components["schemas"]["YggdrasilProfileProperty"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -1573,21 +2671,8 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            category: string;
-                            description: string;
-                            /** Format: int64 */
-                            id: number;
-                            is_sensitive: boolean;
-                            key: string;
-                            namespace: string;
-                            requires_restart: boolean;
-                            source: components["schemas"]["SystemConfigSource"];
-                            updated_at: string;
-                            /** Format: int64 */
-                            updated_by?: number | null;
-                            value: components["schemas"]["SystemConfigValue"];
-                            value_type: components["schemas"]["SystemConfigValueType"];
-                            visibility: components["schemas"]["SystemConfigVisibility"];
+                            config: components["schemas"]["SystemConfig"];
+                            warnings: components["schemas"]["SystemConfigWarning"][];
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -1752,9 +2837,12 @@ export interface operations {
                             description: string;
                             display_name: string;
                             issuer_url_required: boolean;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            protocol: string;
+                            kind: components["schemas"]["ExternalAuthProviderKind"];
+                            manual_endpoint_configuration_supported: boolean;
+                            protocol: components["schemas"]["ExternalAuthProtocol"];
                             supports_discovery: boolean;
+                            supports_email_verified_claim: boolean;
+                            supports_pkce: boolean;
                             token_url_required: boolean;
                             userinfo_url_required: boolean;
                         }[];
@@ -1801,26 +2889,36 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             items: {
+                                allowed_domains: string[];
                                 authorization_url?: string | null;
-                                authorize_url?: string | null;
+                                auto_link_verified_email_enabled: boolean;
+                                auto_provision_enabled: boolean;
+                                avatar_url_claim?: string | null;
                                 client_id: string;
                                 client_secret?: string | null;
                                 client_secret_configured: boolean;
                                 created_at: string;
                                 display_name: string;
+                                display_name_claim?: string | null;
+                                email_claim?: string | null;
+                                email_verified_claim?: string | null;
                                 enabled: boolean;
+                                groups_claim?: string | null;
+                                icon_url?: string | null;
                                 /** Format: int64 */
                                 id: number;
                                 issuer_url?: string | null;
                                 key: string;
-                                kind: components["schemas"]["ExternalAuthKind"];
-                                protocol: string;
-                                provider_kind: components["schemas"]["ExternalAuthKind"];
+                                options: components["schemas"]["ExternalAuthProviderOptions"];
+                                protocol: components["schemas"]["ExternalAuthProtocol"];
+                                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                                require_email_verified: boolean;
                                 scopes: string;
-                                slug: string;
+                                subject_claim?: string | null;
                                 token_url?: string | null;
                                 updated_at: string;
                                 userinfo_url?: string | null;
+                                username_claim?: string | null;
                             }[];
                             /** Format: int64 */
                             limit: number;
@@ -1872,26 +2970,36 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
+                            allowed_domains: string[];
                             authorization_url?: string | null;
-                            authorize_url?: string | null;
+                            auto_link_verified_email_enabled: boolean;
+                            auto_provision_enabled: boolean;
+                            avatar_url_claim?: string | null;
                             client_id: string;
                             client_secret?: string | null;
                             client_secret_configured: boolean;
                             created_at: string;
                             display_name: string;
+                            display_name_claim?: string | null;
+                            email_claim?: string | null;
+                            email_verified_claim?: string | null;
                             enabled: boolean;
+                            groups_claim?: string | null;
+                            icon_url?: string | null;
                             /** Format: int64 */
                             id: number;
                             issuer_url?: string | null;
                             key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            protocol: string;
-                            provider_kind: components["schemas"]["ExternalAuthKind"];
+                            options: components["schemas"]["ExternalAuthProviderOptions"];
+                            protocol: components["schemas"]["ExternalAuthProtocol"];
+                            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                            require_email_verified: boolean;
                             scopes: string;
-                            slug: string;
+                            subject_claim?: string | null;
                             token_url?: string | null;
                             updated_at: string;
                             userinfo_url?: string | null;
+                            username_claim?: string | null;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -1946,6 +3054,7 @@ export interface operations {
                             authorization_endpoint?: string | null;
                             checks: components["schemas"]["ExternalAuthProviderTestCheck"][];
                             issuer?: string | null;
+                            jwks_key_count?: number | null;
                             provider: string;
                             token_endpoint?: string | null;
                             userinfo_endpoint?: string | null;
@@ -1999,26 +3108,36 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
+                            allowed_domains: string[];
                             authorization_url?: string | null;
-                            authorize_url?: string | null;
+                            auto_link_verified_email_enabled: boolean;
+                            auto_provision_enabled: boolean;
+                            avatar_url_claim?: string | null;
                             client_id: string;
                             client_secret?: string | null;
                             client_secret_configured: boolean;
                             created_at: string;
                             display_name: string;
+                            display_name_claim?: string | null;
+                            email_claim?: string | null;
+                            email_verified_claim?: string | null;
                             enabled: boolean;
+                            groups_claim?: string | null;
+                            icon_url?: string | null;
                             /** Format: int64 */
                             id: number;
                             issuer_url?: string | null;
                             key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            protocol: string;
-                            provider_kind: components["schemas"]["ExternalAuthKind"];
+                            options: components["schemas"]["ExternalAuthProviderOptions"];
+                            protocol: components["schemas"]["ExternalAuthProtocol"];
+                            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                            require_email_verified: boolean;
                             scopes: string;
-                            slug: string;
+                            subject_claim?: string | null;
                             token_url?: string | null;
                             updated_at: string;
                             userinfo_url?: string | null;
+                            username_claim?: string | null;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2115,26 +3234,36 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
+                            allowed_domains: string[];
                             authorization_url?: string | null;
-                            authorize_url?: string | null;
+                            auto_link_verified_email_enabled: boolean;
+                            auto_provision_enabled: boolean;
+                            avatar_url_claim?: string | null;
                             client_id: string;
                             client_secret?: string | null;
                             client_secret_configured: boolean;
                             created_at: string;
                             display_name: string;
+                            display_name_claim?: string | null;
+                            email_claim?: string | null;
+                            email_verified_claim?: string | null;
                             enabled: boolean;
+                            groups_claim?: string | null;
+                            icon_url?: string | null;
                             /** Format: int64 */
                             id: number;
                             issuer_url?: string | null;
                             key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            protocol: string;
-                            provider_kind: components["schemas"]["ExternalAuthKind"];
+                            options: components["schemas"]["ExternalAuthProviderOptions"];
+                            protocol: components["schemas"]["ExternalAuthProtocol"];
+                            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                            require_email_verified: boolean;
                             scopes: string;
-                            slug: string;
+                            subject_claim?: string | null;
                             token_url?: string | null;
                             updated_at: string;
                             userinfo_url?: string | null;
+                            username_claim?: string | null;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2195,6 +3324,7 @@ export interface operations {
                             authorization_endpoint?: string | null;
                             checks: components["schemas"]["ExternalAuthProviderTestCheck"][];
                             issuer?: string | null;
+                            jwks_key_count?: number | null;
                             provider: string;
                             token_endpoint?: string | null;
                             userinfo_endpoint?: string | null;
@@ -2227,6 +3357,392 @@ export interface operations {
             };
             /** @description External auth provider not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_minecraft_profiles: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+                user_id?: number | null;
+                name?: string | null;
+                uuid?: string | null;
+                query?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profiles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                created_at: string;
+                                /** Format: int64 */
+                                id: number;
+                                name: string;
+                                texture_model: components["schemas"]["MinecraftTextureModel"];
+                                updated_at: string;
+                                uploadable_textures: string;
+                                /** Format: int64 */
+                                user_id: number;
+                                uuid: string;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_minecraft_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            id: number;
+                            name: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            updated_at: string;
+                            uploadable_textures: string;
+                            /** Format: int64 */
+                            user_id: number;
+                            uuid: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_delete_minecraft_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_minecraft_profile_textures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile textures */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            mime_type: string;
+                            /** Format: int64 */
+                            profile_id: number;
+                            profile_name: string;
+                            profile_uuid: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_delete_minecraft_profile_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture deleted or already absent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_delete_minecraft_textures_by_hash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture SHA-256 hash */
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Textures deleted or already absent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_admin_system_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin system information */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            build_time: string;
+                            version: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2461,6 +3977,437 @@ export interface operations {
             };
         };
     };
+    admin_list_users: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+                keyword?: string | null;
+                role?: null | components["schemas"]["UserRole"];
+                status?: null | components["schemas"]["UserStatus"];
+                sort_by?: null | components["schemas"]["AdminUserSortBy"];
+                sort_order?: null | components["schemas"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                /** Format: int64 */
+                                active_session_count: number;
+                                created_at: string;
+                                email: string;
+                                email_verified_at?: string | null;
+                                /** Format: int64 */
+                                id: number;
+                                profile: components["schemas"]["UserProfileInfo"];
+                                /** Format: int64 */
+                                profile_count: number;
+                                role: components["schemas"]["UserRole"];
+                                /** Format: int64 */
+                                session_version: number;
+                                status: components["schemas"]["UserStatus"];
+                                updated_at: string;
+                                username: string;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_create_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAdminUserReq"];
+            };
+        };
+        responses: {
+            /** @description User created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            active_session_count: number;
+                            created_at: string;
+                            email: string;
+                            email_verified_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            profile: components["schemas"]["UserProfileInfo"];
+                            /** Format: int64 */
+                            profile_count: number;
+                            role: components["schemas"]["UserRole"];
+                            /** Format: int64 */
+                            session_version: number;
+                            status: components["schemas"]["UserStatus"];
+                            updated_at: string;
+                            username: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            active_session_count: number;
+                            created_at: string;
+                            email: string;
+                            email_verified_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            profile: components["schemas"]["UserProfileInfo"];
+                            /** Format: int64 */
+                            profile_count: number;
+                            role: components["schemas"]["UserRole"];
+                            /** Format: int64 */
+                            session_version: number;
+                            status: components["schemas"]["UserStatus"];
+                            updated_at: string;
+                            username: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_update_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAdminUserReq"];
+            };
+        };
+        responses: {
+            /** @description User updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            active_session_count: number;
+                            created_at: string;
+                            email: string;
+                            email_verified_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            profile: components["schemas"]["UserProfileInfo"];
+                            /** Format: int64 */
+                            profile_count: number;
+                            role: components["schemas"]["UserRole"];
+                            /** Format: int64 */
+                            session_version: number;
+                            status: components["schemas"]["UserStatus"];
+                            updated_at: string;
+                            username: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_user_avatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+                /** @description Avatar size (512 or 1024) */
+                size: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Avatar image (WebP) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Avatar not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_revoke_user_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User sessions revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            removed: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_user_minecraft_profiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profiles owned by the user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            id: string;
+                            name: string;
+                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     check_auth_state: {
         parameters: {
             query?: never;
@@ -2488,6 +4435,203 @@ export interface operations {
             };
         };
     };
+    auth_external_auth_confirm_email_verification: {
+        parameters: {
+            query?: {
+                token?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External auth email verification completed and redirected */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_start_email_verification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalAuthEmailVerificationStartRequest"];
+            };
+        };
+        responses: {
+            /** @description External auth email verification email queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            message: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid flow or email */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description External auth linking or registration is not allowed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_list_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Linked external auth identities */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name_snapshot?: string | null;
+                            email_snapshot?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            issuer: string;
+                            last_login_at?: string | null;
+                            provider_display_name: string;
+                            provider_icon_url?: string | null;
+                            /** Format: int64 */
+                            provider_id: number;
+                            provider_key: string;
+                            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                            subject: string;
+                            updated_at: string;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_delete_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description External auth identity link ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External auth identity unlinked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description External auth identity link not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_link_with_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalAuthPasswordLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description External auth identity linked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            expires_in?: number | null;
+                            flow_token?: string | null;
+                            return_path?: string | null;
+                            status: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid flow or request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_external_auth_list_providers: {
         parameters: {
             query?: never;
@@ -2507,9 +4651,9 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             display_name: string;
+                            icon_url?: string | null;
                             key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            slug: string;
+                            kind: components["schemas"]["ExternalAuthProviderKind"];
                         }[];
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2524,7 +4668,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description External auth provider kind */
-                kind: components["schemas"]["ExternalAuthKind"];
+                kind: components["schemas"]["ExternalAuthProviderKind"];
             };
             cookie?: never;
         };
@@ -2540,9 +4684,9 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             display_name: string;
+                            icon_url?: string | null;
                             key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            slug: string;
+                            kind: components["schemas"]["ExternalAuthProviderKind"];
                         }[];
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2560,14 +4704,16 @@ export interface operations {
     };
     auth_external_auth_finish_login: {
         parameters: {
-            query: {
-                state: string;
-                code: string;
+            query?: {
+                state?: string | null;
+                code?: string | null;
+                error?: string | null;
+                error_description?: string | null;
             };
             header?: never;
             path: {
                 /** @description External auth provider kind */
-                kind: components["schemas"]["ExternalAuthKind"];
+                kind: components["schemas"]["ExternalAuthProviderKind"];
                 /** @description External auth provider slug */
                 provider: string;
             };
@@ -2575,32 +4721,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description External auth callback accepted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code: components["schemas"]["AsterErrorCode"];
-                        data?: {
-                            message: string;
-                            state: string;
-                        };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
-                        msg: string;
-                    };
-                };
-            };
-            /** @description Invalid callback or expired state */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Provider not found */
-            404: {
+            /** @description External auth callback completed and redirected */
+            302: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2614,7 +4736,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description External auth provider kind */
-                kind: components["schemas"]["ExternalAuthKind"];
+                kind: components["schemas"]["ExternalAuthProviderKind"];
                 /** @description External auth provider slug */
                 provider: string;
             };
@@ -2636,9 +4758,6 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             authorization_url: string;
-                            authorize_url: string;
-                            expires_at: string;
-                            state: string;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2759,6 +4878,7 @@ export interface operations {
                             email: string;
                             /** Format: int64 */
                             id: number;
+                            profile: components["schemas"]["UserProfileInfo"];
                             role: components["schemas"]["UserRole"];
                             status: components["schemas"]["UserStatus"];
                             username: string;
@@ -2777,6 +4897,496 @@ export interface operations {
             };
             /** @description User is disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_passkeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registered passkeys for current user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            backed_up: boolean;
+                            backup_eligible: boolean;
+                            created_at: string;
+                            /** Format: int64 */
+                            id: number;
+                            last_used_at?: string | null;
+                            name: string;
+                            /** Format: int64 */
+                            sign_count: number;
+                            transports?: string[] | null;
+                            updated_at: string;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    finish_passkey_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyLoginFinishReq"];
+            };
+        };
+        responses: {
+            /** @description Passkey login successful, tokens set in HttpOnly cookies */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            expires_in: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    start_passkey_login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyLoginStartReq"];
+            };
+        };
+        responses: {
+            /** @description Passkey login challenge */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            flow_id: string;
+                            public_key: unknown;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    finish_passkey_registration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegisterFinishReq"];
+            };
+        };
+        responses: {
+            /** @description Passkey registered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            backed_up: boolean;
+                            backup_eligible: boolean;
+                            created_at: string;
+                            /** Format: int64 */
+                            id: number;
+                            last_used_at?: string | null;
+                            name: string;
+                            /** Format: int64 */
+                            sign_count: number;
+                            transports?: string[] | null;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid passkey registration */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    start_passkey_registration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegisterStartReq"];
+            };
+        };
+        responses: {
+            /** @description Passkey registration challenge */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            flow_id: string;
+                            public_key: unknown;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_passkey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Passkey ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Passkey deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Passkey not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rename_passkey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Passkey ID */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchPasskeyReq"];
+            };
+        };
+        responses: {
+            /** @description Passkey renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            backed_up: boolean;
+                            backup_eligible: boolean;
+                            created_at: string;
+                            /** Format: int64 */
+                            id: number;
+                            last_used_at?: string | null;
+                            name: string;
+                            /** Format: int64 */
+                            sign_count: number;
+                            transports?: string[] | null;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid passkey name */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Passkey not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileReq"];
+            };
+        };
+        responses: {
+            /** @description Profile updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            avatar: components["schemas"]["AvatarInfo"];
+                            display_name?: string | null;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_avatar_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAvatarSourceReq"];
+            };
+        };
+        responses: {
+            /** @description Avatar source updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            avatar: components["schemas"]["AvatarInfo"];
+                            display_name?: string | null;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid avatar source */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_avatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Avatar image to upload */
+        requestBody: {
+            content: {
+                "multipart/form-data": string;
+            };
+        };
+        responses: {
+            /** @description Avatar uploaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            avatar: components["schemas"]["AvatarInfo"];
+                            display_name?: string | null;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid image upload */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_self_avatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Avatar size (512 or 1024) */
+                size: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Avatar image (WebP) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Avatar not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2888,17 +5498,13 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             created_at: string;
-                            expires_at: string;
-                            /** Format: int64 */
-                            id: number;
+                            id: string;
                             ip_address?: string | null;
-                            refresh_token_hash: string;
-                            revoked_at?: string | null;
-                            /** Format: int64 */
-                            session_version: number;
+                            is_current: boolean;
+                            last_seen_at: string;
+                            refresh_expires_at: string;
+                            revoked: boolean;
                             user_agent?: string | null;
-                            /** Format: int64 */
-                            user_id: number;
                         }[];
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -2914,6 +5520,90 @@ export interface operations {
             };
             /** @description User is disabled */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_other_auth_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Other login devices revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            removed: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revoke_auth_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Session ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Login device revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2960,7 +5650,7 @@ export interface operations {
             };
         };
     };
-    protected_example: {
+    list_current_user_minecraft_profiles: {
         parameters: {
             query?: never;
             header?: never;
@@ -2969,7 +5659,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Protected example response */
+            /** @description Current user's Minecraft profiles */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2978,112 +5668,17 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            message: string;
-                            user: components["schemas"]["AuthUserInfo"];
-                        };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
-                        msg: string;
-                    };
-                };
-            };
-            /** @description Missing or invalid bearer token */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description User is disabled */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    public_example: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Public example response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code: components["schemas"]["AsterErrorCode"];
-                        data?: {
-                            build_time: string;
-                            message: string;
-                        };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
-                        msg: string;
-                    };
-                };
-            };
-        };
-    };
-    list_external_auth_providers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Enabled external auth providers */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        code: components["schemas"]["AsterErrorCode"];
-                        data?: {
-                            display_name: string;
-                            key: string;
-                            kind: components["schemas"]["ExternalAuthKind"];
-                            slug: string;
+                            id: string;
+                            name: string;
+                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
                         }[];
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
                 };
             };
-        };
-    };
-    finish_external_auth_login: {
-        parameters: {
-            query: {
-                state: string;
-                code: string;
-            };
-            header?: never;
-            path: {
-                /** @description External auth provider slug */
-                provider: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description External auth callback accepted */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid callback or expired state */
-            400: {
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3091,23 +5686,20 @@ export interface operations {
             };
         };
     };
-    start_external_auth_login: {
+    create_current_user_minecraft_profile: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /** @description External auth provider slug */
-                provider: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["StartExternalAuthReq"];
+                "application/json": components["schemas"]["CreateMinecraftProfileReq"];
             };
         };
         responses: {
-            /** @description External auth authorization start response */
+            /** @description Created Minecraft profile */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3116,24 +5708,65 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            authorization_url: string;
-                            authorize_url: string;
-                            expires_at: string;
-                            state: string;
+                            id: string;
+                            name: string;
+                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
                 };
             };
-            /** @description Provider is misconfigured or request is invalid */
+            /** @description Invalid profile name or duplicate profile */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Provider not found */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_current_user_minecraft_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3142,16 +5775,19 @@ export interface operations {
             };
         };
     };
-    system_info: {
+    list_current_user_minecraft_profile_textures: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description System information */
+            /** @description Current user's Minecraft profile textures */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3160,15 +5796,888 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            build_time: string;
-                            name: string;
-                            site_title: string;
-                            version: string;
+                            created_at: string;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            mime_type: string;
+                            /** Format: int64 */
+                            profile_id: number;
+                            profile_name: string;
+                            profile_uuid: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bind_current_user_minecraft_profile_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BindMinecraftTextureReq"];
+            };
+        };
+        responses: {
+            /** @description Minecraft profile texture bound */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            mime_type: string;
+                            /** Format: int64 */
+                            profile_id: number;
+                            profile_name: string;
+                            profile_uuid: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
                 };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture slot is not uploadable */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile or wardrobe texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unbind_current_user_minecraft_profile_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile texture unbound or already absent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture slot is not uploadable */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_public_frontend_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Public frontend bootstrap config */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            branding: components["schemas"]["PublicBranding"];
+                            /** Format: int32 */
+                            version: number;
+                            yggdrasil: components["schemas"]["PublicYggdrasilConfig"];
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+        };
+    };
+    list_current_user_wardrobe_textures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's wardrobe textures */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            mime_type: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_current_user_wardrobe_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wardrobe texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Wardrobe texture deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid wardrobe texture ID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wardrobe texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    upload_current_user_wardrobe_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        /** @description Multipart form with PNG file field and optional model field */
+        requestBody: {
+            content: {
+                "multipart/form-data": string;
+            };
+        };
+        responses: {
+            /** @description Wardrobe texture uploaded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            mime_type: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid upload or texture */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    yggdrasil_metadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description authlib-injector Yggdrasil service metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilMetaResp"];
+                };
+            };
+        };
+    };
+    yggdrasil_profiles_by_names: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": string[];
+            };
+        };
+        responses: {
+            /** @description Profiles matching the requested Minecraft names */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilProfile"][];
+                };
+            };
+            /** @description Invalid profile name or too many names */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_upload_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        /** @description Multipart form with PNG file field and optional model field */
+        requestBody: {
+            content: {
+                "multipart/form-data": string;
+            };
+        };
+        responses: {
+            /** @description Texture uploaded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid upload or texture */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Forbidden profile */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_delete_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+                /** @description Texture type: skin or cape */
+                texture_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture deleted or already absent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Forbidden profile */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_authenticate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilAuthenticateReq"];
+            };
+        };
+        responses: {
+            /** @description Yggdrasil access token and available profiles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilAuthenticateResp"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid credentials or forbidden profile */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_invalidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilTokenReq"];
+            };
+        };
+        responses: {
+            /** @description Token invalidated or already unusable */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilRefreshReq"];
+            };
+        };
+        responses: {
+            /** @description Refreshed Yggdrasil access token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilRefreshResp"];
+                };
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid or forbidden token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_signout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilSignoutReq"];
+            };
+        };
+        responses: {
+            /** @description All tokens for the account were revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid credentials */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_validate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilTokenReq"];
+            };
+        };
+        responses: {
+            /** @description Token is valid */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_has_joined: {
+        parameters: {
+            query: {
+                /** @description Minecraft profile name */
+                username: string;
+                /** @description Server ID hash from the join request */
+                serverId: string;
+                /** @description Optional client IP address */
+                ip?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Joined profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilProfile"];
+                };
+            };
+            /** @description No matching join record */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_join: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["YggdrasilJoinReq"];
+            };
+        };
+        responses: {
+            /** @description Join server record accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+            /** @description Invalid token or forbidden profile */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_profile_by_uuid: {
+        parameters: {
+            query?: {
+                /** @description Whether to omit texture signatures */
+                unsigned?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilProfile"];
+                };
+            };
+            /** @description Profile not found */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid UUID or query parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    yggdrasil_texture_by_hash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture SHA-256 hash */
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture PNG bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -3188,14 +6697,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code: components["schemas"]["AsterErrorCode"];
-                        data?: {
-                            build_time: string;
-                            status: string;
-                            version: string;
-                        };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
-                        msg: string;
+                        status: string;
                     };
                 };
             };
@@ -3219,9 +6721,7 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            build_time: string;
                             status: string;
-                            version: string;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;

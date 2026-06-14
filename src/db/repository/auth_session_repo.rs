@@ -2,41 +2,39 @@
 
 use crate::entities::auth_session::{self, Entity as AuthSession};
 use crate::errors::{AsterError, MapAsterErr, Result};
+use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder,
+    sea_query::Expr,
 };
 
 pub async fn create<C: ConnectionTrait>(
     db: &C,
-    user_id: i64,
-    refresh_token_hash: &str,
-    session_version: i64,
-    expires_at: chrono::DateTime<chrono::Utc>,
-    user_agent: Option<String>,
-    ip_address: Option<String>,
+    model: auth_session::ActiveModel,
 ) -> Result<auth_session::Model> {
-    auth_session::ActiveModel {
-        user_id: Set(user_id),
-        refresh_token_hash: Set(refresh_token_hash.to_string()),
-        session_version: Set(session_version),
-        user_agent: Set(user_agent),
-        ip_address: Set(ip_address),
-        expires_at: Set(expires_at),
-        created_at: Set(chrono::Utc::now()),
-        ..Default::default()
-    }
-    .insert(db)
-    .await
-    .map_aster_err(AsterError::database_operation)
+    model
+        .insert(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn find_active_by_refresh_hash<C: ConnectionTrait>(
+pub async fn find_by_refresh_jti<C: ConnectionTrait>(
     db: &C,
-    hash: &str,
+    refresh_jti: &str,
 ) -> Result<Option<auth_session::Model>> {
     AuthSession::find()
-        .filter(auth_session::Column::RefreshTokenHash.eq(hash))
-        .filter(auth_session::Column::RevokedAt.is_null())
+        .filter(auth_session::Column::CurrentRefreshJti.eq(refresh_jti))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_previous_refresh_jti<C: ConnectionTrait>(
+    db: &C,
+    refresh_jti: &str,
+) -> Result<Option<auth_session::Model>> {
+    AuthSession::find()
+        .filter(auth_session::Column::PreviousRefreshJti.eq(refresh_jti))
         .one(db)
         .await
         .map_aster_err(AsterError::database_operation)
@@ -48,23 +46,124 @@ pub async fn list_by_user<C: ConnectionTrait>(
 ) -> Result<Vec<auth_session::Model>> {
     AuthSession::find()
         .filter(auth_session::Column::UserId.eq(user_id))
-        .order_by_desc(auth_session::Column::CreatedAt)
+        .order_by_desc(auth_session::Column::LastSeenAt)
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn revoke_by_refresh_hash<C: ConnectionTrait>(db: &C, hash: &str) -> Result<bool> {
-    let Some(session) = find_active_by_refresh_hash(db, hash).await? else {
-        return Ok(false);
-    };
-    let mut active: auth_session::ActiveModel = session.into();
-    active.revoked_at = Set(Some(chrono::Utc::now()));
-    active
-        .update(db)
+pub async fn list_active_for_user<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+) -> Result<Vec<auth_session::Model>> {
+    AuthSession::find()
+        .filter(auth_session::Column::UserId.eq(user_id))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .filter(auth_session::Column::RefreshExpiresAt.gt(Utc::now()))
+        .order_by_desc(auth_session::Column::LastSeenAt)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_id_for_user<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    id: &str,
+) -> Result<Option<auth_session::Model>> {
+    AuthSession::find()
+        .filter(auth_session::Column::UserId.eq(user_id))
+        .filter(auth_session::Column::Id.eq(id))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn rotate_refresh<C: ConnectionTrait>(
+    db: &C,
+    current_refresh_jti: &str,
+    next_refresh_jti: &str,
+    refresh_expires_at: chrono::DateTime<Utc>,
+    ip_address: Option<&str>,
+    user_agent: Option<&str>,
+    last_seen_at: chrono::DateTime<Utc>,
+) -> Result<bool> {
+    let result = AuthSession::update_many()
+        .col_expr(
+            auth_session::Column::CurrentRefreshJti,
+            Expr::value(next_refresh_jti.to_string()),
+        )
+        .col_expr(
+            auth_session::Column::PreviousRefreshJti,
+            Expr::value(Some(current_refresh_jti.to_string())),
+        )
+        .col_expr(
+            auth_session::Column::RefreshExpiresAt,
+            Expr::value(refresh_expires_at),
+        )
+        .col_expr(
+            auth_session::Column::IpAddress,
+            Expr::value(ip_address.map(str::to_string)),
+        )
+        .col_expr(
+            auth_session::Column::UserAgent,
+            Expr::value(user_agent.map(str::to_string)),
+        )
+        .col_expr(auth_session::Column::LastSeenAt, Expr::value(last_seen_at))
+        .filter(auth_session::Column::CurrentRefreshJti.eq(current_refresh_jti))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .exec(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    Ok(true)
+    Ok(result.rows_affected == 1)
+}
+
+pub async fn revoke_by_id_for_user<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    id: &str,
+    now: chrono::DateTime<Utc>,
+) -> Result<bool> {
+    let result = AuthSession::update_many()
+        .col_expr(auth_session::Column::RevokedAt, Expr::value(Some(now)))
+        .filter(auth_session::Column::UserId.eq(user_id))
+        .filter(auth_session::Column::Id.eq(id))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .exec(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(result.rows_affected == 1)
+}
+
+pub async fn revoke_by_refresh_jti<C: ConnectionTrait>(db: &C, refresh_jti: &str) -> Result<bool> {
+    let result = AuthSession::update_many()
+        .col_expr(
+            auth_session::Column::RevokedAt,
+            Expr::value(Some(chrono::Utc::now())),
+        )
+        .filter(auth_session::Column::CurrentRefreshJti.eq(refresh_jti))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .exec(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(result.rows_affected == 1)
+}
+
+pub async fn revoke_all_for_user_except_id<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    keep_session_id: &str,
+    now: chrono::DateTime<Utc>,
+) -> Result<u64> {
+    let result = AuthSession::update_many()
+        .col_expr(auth_session::Column::RevokedAt, Expr::value(Some(now)))
+        .filter(auth_session::Column::UserId.eq(user_id))
+        .filter(auth_session::Column::Id.ne(keep_session_id))
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .exec(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(result.rows_affected)
 }
 
 pub async fn delete_expired<C: ConnectionTrait>(
@@ -72,7 +171,7 @@ pub async fn delete_expired<C: ConnectionTrait>(
     now: chrono::DateTime<chrono::Utc>,
 ) -> Result<u64> {
     let result = AuthSession::delete_many()
-        .filter(auth_session::Column::ExpiresAt.lt(now))
+        .filter(auth_session::Column::RefreshExpiresAt.lt(now))
         .exec(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
@@ -82,12 +181,15 @@ pub async fn delete_expired<C: ConnectionTrait>(
 #[cfg(test)]
 mod tests {
     use super::{
-        create, delete_expired, find_active_by_refresh_hash, list_by_user, revoke_by_refresh_hash,
+        create, delete_expired, find_by_previous_refresh_jti, find_by_refresh_jti, list_by_user,
+        revoke_by_refresh_jti, rotate_refresh,
     };
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
+    use crate::entities::auth_session;
     use crate::types::UserRole;
     use chrono::{Duration, Utc};
+    use sea_orm::{ActiveValue::Set, EntityTrait};
 
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
@@ -119,34 +221,77 @@ mod tests {
         .id
     }
 
+    fn session_model(
+        id: &str,
+        user_id: i64,
+        refresh_jti: &str,
+        expires_at: chrono::DateTime<Utc>,
+    ) -> auth_session::ActiveModel {
+        let now = Utc::now();
+        auth_session::ActiveModel {
+            id: Set(id.to_string()),
+            user_id: Set(user_id),
+            current_refresh_jti: Set(refresh_jti.to_string()),
+            previous_refresh_jti: Set(None),
+            refresh_expires_at: Set(expires_at),
+            user_agent: Set(Some("Firefox".to_string())),
+            ip_address: Set(Some("127.0.0.1".to_string())),
+            created_at: Set(now),
+            last_seen_at: Set(now),
+            revoked_at: Set(None),
+        }
+    }
+
     #[tokio::test]
-    async fn create_find_list_and_revoke_session_by_refresh_hash() {
+    async fn create_find_rotate_list_and_revoke_session_by_refresh_jti() {
         let db = build_test_db().await;
         let user_id = insert_user(&db, "flow").await;
         let expires_at = Utc::now() + Duration::hours(1);
 
         let first = create(
             &db,
-            user_id,
-            "refresh-hash-one",
-            1,
-            expires_at,
-            Some("Firefox".to_string()),
-            Some("127.0.0.1".to_string()),
+            session_model("session-one", user_id, "jti-one", expires_at),
         )
         .await
         .unwrap();
-        let second = create(&db, user_id, "refresh-hash-two", 2, expires_at, None, None)
-            .await
-            .unwrap();
+        let second = create(
+            &db,
+            session_model("session-two", user_id, "jti-two", expires_at),
+        )
+        .await
+        .unwrap();
 
-        let active = find_active_by_refresh_hash(&db, "refresh-hash-one")
-            .await
-            .unwrap()
-            .unwrap();
+        let active = find_by_refresh_jti(&db, "jti-one").await.unwrap().unwrap();
         assert_eq!(active.id, first.id);
         assert_eq!(active.user_agent.as_deref(), Some("Firefox"));
         assert_eq!(active.ip_address.as_deref(), Some("127.0.0.1"));
+
+        assert!(
+            rotate_refresh(
+                &db,
+                "jti-one",
+                "jti-three",
+                expires_at,
+                Some("127.0.0.2"),
+                Some("Safari"),
+                Utc::now(),
+            )
+            .await
+            .unwrap()
+        );
+        assert!(find_by_refresh_jti(&db, "jti-one").await.unwrap().is_none());
+        assert!(
+            find_by_previous_refresh_jti(&db, "jti-one")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            find_by_refresh_jti(&db, "jti-three")
+                .await
+                .unwrap()
+                .is_some()
+        );
 
         let sessions = list_by_user(&db, user_id).await.unwrap();
         let session_ids = sessions
@@ -157,27 +302,9 @@ mod tests {
         assert!(session_ids.contains(&first.id));
         assert!(session_ids.contains(&second.id));
 
-        assert!(
-            revoke_by_refresh_hash(&db, "refresh-hash-one")
-                .await
-                .unwrap()
-        );
-        assert!(
-            find_active_by_refresh_hash(&db, "refresh-hash-one")
-                .await
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            !revoke_by_refresh_hash(&db, "refresh-hash-one")
-                .await
-                .unwrap()
-        );
-        assert!(
-            !revoke_by_refresh_hash(&db, "missing-refresh-hash")
-                .await
-                .unwrap()
-        );
+        assert!(revoke_by_refresh_jti(&db, "jti-three").await.unwrap());
+        assert!(!revoke_by_refresh_jti(&db, "jti-three").await.unwrap());
+        assert!(!revoke_by_refresh_jti(&db, "missing-jti").await.unwrap());
 
         db.close().await.unwrap();
     }
@@ -189,23 +316,23 @@ mod tests {
         let now = Utc::now();
         let expired = create(
             &db,
-            user_id,
-            "expired-refresh-hash",
-            1,
-            now - Duration::seconds(1),
-            None,
-            None,
+            session_model(
+                "expired-session",
+                user_id,
+                "expired-jti",
+                now - Duration::seconds(1),
+            ),
         )
         .await
         .unwrap();
         let active = create(
             &db,
-            user_id,
-            "active-refresh-hash",
-            1,
-            now + Duration::hours(1),
-            None,
-            None,
+            session_model(
+                "active-session",
+                user_id,
+                "active-jti",
+                now + Duration::hours(1),
+            ),
         )
         .await
         .unwrap();
@@ -217,16 +344,18 @@ mod tests {
                 .into_iter()
                 .map(|session| session.id)
                 .collect::<Vec<_>>(),
-            vec![active.id]
+            vec![active.id.clone()]
         );
         assert!(
-            find_active_by_refresh_hash(&db, &expired.refresh_token_hash)
+            auth_session::Entity::find_by_id(expired.id)
+                .one(&db)
                 .await
                 .unwrap()
                 .is_none()
         );
         assert!(
-            find_active_by_refresh_hash(&db, &active.refresh_token_hash)
+            auth_session::Entity::find_by_id(active.id)
+                .one(&db)
                 .await
                 .unwrap()
                 .is_some()

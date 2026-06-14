@@ -5,7 +5,7 @@ mod common;
 
 use actix_web::test;
 use aster_yggdrasil::entities::background_task;
-use aster_yggdrasil::runtime::{AppState, SharedRuntimeState};
+use aster_yggdrasil::runtime::AppState;
 use aster_yggdrasil::types::{
     BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
 };

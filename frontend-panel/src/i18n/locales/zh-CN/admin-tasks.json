@@ -1,0 +1,109 @@
+{
+	"admin": {
+		"tasks": {
+			"title": "后台任务",
+			"description": "查看服务端后台工作、重试失败任务，并清理已经结束的历史记录。",
+			"loadErrorTitle": "后台任务加载失败",
+			"emptyTitle": "暂无后台任务",
+			"emptyDescription": "服务端还没有写入后台任务记录。",
+			"filteredEmptyTitle": "没有匹配的任务",
+			"filteredEmptyDescription": "换一个状态筛选再看。",
+			"retry": "重试",
+			"retryQueued": "任务已加入重试队列",
+			"filters": {
+				"allStatuses": "全部状态"
+			},
+			"source": {
+				"system": "系统",
+				"userId": "用户 #{{id}}"
+			},
+			"table": {
+				"task": "任务",
+				"progress": "进度",
+				"source": "来源",
+				"updated": "时间",
+				"detail": "状态详情"
+			},
+			"cleanup": {
+				"action": "清理任务",
+				"title": "清理已完成任务",
+				"description": "只会删除已结束且早于指定时间的任务记录。",
+				"finishedBefore": "结束早于",
+				"status": "结束状态",
+				"allCompletedStatuses": "全部已结束状态",
+				"reset": "重置条件",
+				"submit": "清理",
+				"success": "已清理 {{count}} 条任务",
+				"invalidDescription": "先选择一个有效的结束时间。",
+				"confirmDescription": "将清理结束早于 {{finishedBefore}}、状态为 {{status}} 的任务记录。"
+			},
+			"detail": {
+				"source": "来源",
+				"createdAt": "创建时间",
+				"updatedAt": "更新时间",
+				"startedAt": "开始时间",
+				"finishedAt": "结束时间",
+				"attempts": "尝试次数",
+				"currentState": "当前状态",
+				"steps": "执行步骤",
+				"runtimeHealth": "运行时健康检查",
+				"durationMs": "耗时 {{value}} ms"
+			},
+			"status": {
+				"pending": "等待中",
+				"processing": "处理中",
+				"retry": "等待重试",
+				"succeeded": "成功",
+				"failed": "失败",
+				"canceled": "已取消"
+			},
+			"stepStatus": {
+				"pending": "等待中",
+				"active": "执行中",
+				"succeeded": "成功",
+				"failed": "失败",
+				"skipped": "已跳过",
+				"canceled": "已取消"
+			},
+			"kind": {
+				"system_runtime": "系统运行时任务"
+			},
+			"presentation": {
+				"runtime_task_audit_cleanup": "审计日志清理",
+				"runtime_task_auth_session_cleanup": "认证会话清理",
+				"runtime_task_background_task_dispatch": "后台任务调度",
+				"runtime_task_external_auth_flow_cleanup": "外部认证流程清理",
+				"runtime_task_mail_outbox_dispatch": "邮件队列投递",
+				"runtime_task_system_health_check": "系统健康检查",
+				"runtime_task_task_cleanup": "任务记录清理",
+				"runtime_task_yggdrasil_storage_consistency_check": "Yggdrasil 存储一致性检查",
+				"runtime_task_yggdrasil_token_cleanup": "Yggdrasil token 清理",
+				"runtime_task_yggdrasil_texture_cleanup": "Yggdrasil 材质清理",
+				"status_text_failed": "失败：{{error}}",
+				"status_text_quiet": "无变化",
+				"status_text_succeeded": "已完成",
+				"status_text_system_healthy": "系统健康",
+				"runtime_system_health_issue_detail": "健康检查异常：{{components}}",
+				"runtime_health_component_status": "{{component}} {{status}}"
+			},
+			"runtimeHealth": {
+				"status": {
+					"healthy": "健康",
+					"degraded": "降级",
+					"unhealthy": "异常"
+				},
+				"component": {
+					"database": "数据库",
+					"cache": "缓存",
+					"mail": "邮件",
+					"background_tasks": "后台任务",
+					"storage": "材质存储",
+					"yggdrasil": "Yggdrasil"
+				}
+			},
+			"steps": {
+				"system_runtime": {}
+			}
+		}
+	}
+}

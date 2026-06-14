@@ -8,7 +8,7 @@ use aster_yggdrasil::config::definitions::BRANDING_TITLE_KEY;
 use aster_yggdrasil::db::repository::mail_outbox_repo;
 use aster_yggdrasil::entities::{audit_log, background_task, mail_outbox};
 use aster_yggdrasil::errors::{AsterError, Result as AsterResult};
-use aster_yggdrasil::runtime::{AppState, SharedRuntimeState};
+use aster_yggdrasil::runtime::AppState;
 use aster_yggdrasil::services::{
     audit_service, mail_outbox_service,
     mail_service::{MailMessage, MailSender},

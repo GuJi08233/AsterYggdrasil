@@ -12,7 +12,7 @@ use super::context::AuditContext;
 use crate::config::RuntimeConfig;
 use crate::db::repository::audit_log_repo;
 use crate::entities::audit_log;
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::{AuditAction, AuditEntityType};
 
 const AUDIT_LOG_QUEUE_CAPACITY: usize = 4096;
@@ -271,12 +271,21 @@ async fn write_audit_batch(db: &DatabaseConnection, batch: &mut Vec<audit_log::A
     }
 }
 
-pub fn should_record<S: SharedRuntimeState>(state: &S, action: AuditAction) -> bool {
+pub fn should_record<S: RuntimeConfigRuntimeState>(state: &S, action: AuditAction) -> bool {
     state.runtime_config().should_record_audit_action(action)
 }
 
 pub fn should_record_with_config(runtime_config: &RuntimeConfig, action: AuditAction) -> bool {
     runtime_config.should_record_audit_action(action)
+}
+
+#[derive(Clone, Copy)]
+pub struct AuditLogInput<'a> {
+    pub ctx: &'a AuditContext,
+    pub action: AuditAction,
+    pub entity_type: AuditEntityType,
+    pub entity_id: Option<i64>,
+    pub entity_name: Option<&'a str>,
 }
 
 fn audit_model(
@@ -301,7 +310,7 @@ fn audit_model(
     }
 }
 
-async fn record_prechecked<S: SharedRuntimeState>(
+async fn record_prechecked<S: DatabaseRuntimeState>(
     state: &S,
     ctx: &AuditContext,
     action: AuditAction,
@@ -332,7 +341,7 @@ async fn record_prechecked_with_db(
     write_audit_model(db, model).await;
 }
 
-pub async fn log<S: SharedRuntimeState>(
+pub async fn log<S>(
     state: &S,
     ctx: &AuditContext,
     action: AuditAction,
@@ -340,7 +349,9 @@ pub async fn log<S: SharedRuntimeState>(
     entity_id: Option<i64>,
     entity_name: Option<&str>,
     details: Option<serde_json::Value>,
-) {
+) where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
     if !should_record(state, action) {
         return;
     }
@@ -360,27 +371,24 @@ pub async fn log<S: SharedRuntimeState>(
 pub async fn log_with_db_and_config<F>(
     db: &DatabaseConnection,
     runtime_config: &RuntimeConfig,
-    ctx: &AuditContext,
-    action: AuditAction,
-    entity_type: AuditEntityType,
-    entity_id: Option<i64>,
-    entity_name: Option<&str>,
+    input: AuditLogInput<'_>,
     details: F,
 ) where
     F: FnOnce() -> Option<serde_json::Value>,
 {
-    if !should_record_with_config(runtime_config, action) {
+    if !should_record_with_config(runtime_config, input.action) {
         return;
     }
 
+    let details = details();
     record_prechecked_with_db(
         db,
-        ctx,
-        action,
-        entity_type,
-        entity_id,
-        entity_name,
-        details(),
+        input.ctx,
+        input.action,
+        input.entity_type,
+        input.entity_id,
+        input.entity_name,
+        details,
     )
     .await;
 }
@@ -394,7 +402,7 @@ pub async fn log_with_details<S, F>(
     entity_name: Option<&str>,
     details: F,
 ) where
-    S: SharedRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
     F: FnOnce() -> Option<serde_json::Value>,
 {
     if !should_record(state, action) {

@@ -6,13 +6,21 @@
 pub mod admin;
 pub mod auth;
 pub mod external_auth;
+pub mod textures;
 pub(crate) mod validation;
+pub mod yggdrasil;
 
 pub use admin::{
-    AdminAuditLogSortQuery, AdminTaskCleanupReq, AdminTaskListQuery, CreateExternalAuthProviderReq,
+    AdminAuditLogSortQuery, AdminMinecraftProfileListQuery, AdminTaskCleanupReq,
+    AdminTaskListQuery, AdminUserListQuery, CreateAdminUserReq, CreateExternalAuthProviderReq,
     ExecuteConfigActionReq, ExecuteConfigActionResp, ExternalAuthProviderTestParamsReq,
-    RemovedCountResponse, SetConfigReq, UpdateExternalAuthProviderReq,
+    RemovedCountResponse, SetConfigReq, UpdateAdminUserReq, UpdateExternalAuthProviderReq,
 };
-pub use auth::{CheckResp, LoginReq, LogoutReq, LogoutResp, RefreshReq, RegisterReq, SetupReq};
+pub use auth::{
+    CheckResp, LoginReq, LogoutReq, LogoutResp, PasskeyLoginFinishReq, PasskeyLoginStartReq,
+    PasskeyRegisterFinishReq, PasskeyRegisterStartReq, PatchPasskeyReq, RefreshReq, RegisterReq,
+    SetupReq, UpdateAvatarSourceReq, UpdateProfileReq,
+};
 pub use external_auth::{ExternalAuthCallbackQuery, StartExternalAuthReq};
+pub use textures::BindMinecraftTextureReq;
 pub(crate) use validation::validate_request;

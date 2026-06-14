@@ -2,6 +2,7 @@
 
 pub mod audit;
 pub mod auth_runtime;
+pub mod avatar;
 pub mod bool_like;
 pub mod branding;
 pub mod cors;
@@ -15,11 +16,13 @@ mod runtime_config;
 mod schema;
 pub mod site_url;
 pub mod system_config;
+pub mod yggdrasil;
 
 pub use runtime_config::RuntimeConfig;
 pub use schema::{
     AuthConfig, CacheConfig, Config, DatabaseConfig, LoggingConfig, NetworkTrustConfig,
-    RateLimitConfig, RateLimitTier, ServerConfig, ServerFollowerConfig,
+    RateLimitConfig, RateLimitTier, S3TextureStorageConfig, ServerConfig, ServerFollowerConfig,
+    TextureStorageConfig,
 };
 
 use std::sync::Arc;

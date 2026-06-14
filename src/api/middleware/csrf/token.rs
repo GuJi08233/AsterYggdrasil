@@ -19,17 +19,17 @@ pub fn ensure_double_submit_token(req: &HttpRequest) -> Result<()> {
     let cookie_token = req
         .cookie(CSRF_COOKIE)
         .map(|cookie| cookie.value().to_string())
-        .ok_or_else(|| AsterError::auth_forbidden("missing CSRF cookie"))?;
+        .ok_or_else(|| AsterError::auth_csrf_missing("missing CSRF cookie"))?;
     let header_token = req
         .headers()
         .get(header::HeaderName::from_static("x-csrf-token"))
         .and_then(|value| value.to_str().ok())
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AsterError::auth_forbidden("missing X-CSRF-Token header"))?;
+        .ok_or_else(|| AsterError::auth_csrf_missing("missing X-CSRF-Token header"))?;
 
     if header_token != cookie_token {
-        return Err(AsterError::auth_forbidden("invalid CSRF token"));
+        return Err(AsterError::auth_csrf_invalid("invalid CSRF token"));
     }
 
     Ok(())

@@ -10,6 +10,13 @@ pub type Result<T> = std::result::Result<T, AsterError>;
 
 #[derive(Debug, Clone)]
 pub enum AsterError {
+    Public {
+        internal_code: &'static str,
+        status: StatusCode,
+        code: AsterErrorCode,
+        message: String,
+        retryable: Option<bool>,
+    },
     DatabaseConnection(String),
     DatabaseOperation(String),
     ConfigError(String),
@@ -28,6 +35,75 @@ pub enum AsterError {
 impl AsterError {
     pub fn database_connection(message: impl Into<String>) -> Self {
         Self::DatabaseConnection(message.into())
+    }
+
+    pub fn public_error(
+        status: StatusCode,
+        code: AsterErrorCode,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Public {
+            internal_code: "E100",
+            status,
+            code,
+            message: message.into(),
+            retryable: None,
+        }
+    }
+
+    pub fn public_error_with_retryable(
+        status: StatusCode,
+        code: AsterErrorCode,
+        message: impl Into<String>,
+        retryable: Option<bool>,
+    ) -> Self {
+        Self::Public {
+            internal_code: "E100",
+            status,
+            code,
+            message: message.into(),
+            retryable,
+        }
+    }
+
+    pub fn validation_error_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error(StatusCode::BAD_REQUEST, code, message)
+    }
+
+    pub fn validation_failed(message: impl Into<String>) -> Self {
+        Self::validation_error_code(AsterErrorCode::ValidationFailed, message)
+    }
+
+    pub fn record_not_found_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error(StatusCode::NOT_FOUND, code, message)
+    }
+
+    pub fn auth_forbidden_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error(StatusCode::FORBIDDEN, code, message)
+    }
+
+    pub fn auth_unauthorized_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error(StatusCode::UNAUTHORIZED, code, message)
+    }
+
+    pub fn auth_admin_required(message: impl Into<String>) -> Self {
+        Self::auth_forbidden_code(AsterErrorCode::AuthAdminRequired, message)
+    }
+
+    pub fn auth_csrf_missing(message: impl Into<String>) -> Self {
+        Self::auth_forbidden_code(AsterErrorCode::AuthCsrfMissing, message)
+    }
+
+    pub fn auth_csrf_invalid(message: impl Into<String>) -> Self {
+        Self::auth_forbidden_code(AsterErrorCode::AuthCsrfInvalid, message)
+    }
+
+    pub fn internal_error_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error(StatusCode::INTERNAL_SERVER_ERROR, code, message)
+    }
+
+    pub fn service_unavailable_code(code: AsterErrorCode, message: impl Into<String>) -> Self {
+        Self::public_error_with_retryable(StatusCode::SERVICE_UNAVAILABLE, code, message, None)
     }
 
     pub fn database_operation(message: impl Into<String>) -> Self {
@@ -58,6 +134,14 @@ impl AsterError {
         Self::AuthForbidden(message.into())
     }
 
+    pub fn auth_pending_activation(message: impl Into<String>) -> Self {
+        Self::auth_forbidden_code(AsterErrorCode::AuthPendingActivation, message)
+    }
+
+    pub fn contact_verification_invalid(message: impl Into<String>) -> Self {
+        Self::validation_error_code(AsterErrorCode::ContactVerificationInvalid, message)
+    }
+
     pub fn record_not_found(message: impl Into<String>) -> Self {
         Self::RecordNotFound(message.into())
     }
@@ -80,6 +164,7 @@ impl AsterError {
 
     pub fn code(&self) -> &'static str {
         match self {
+            Self::Public { internal_code, .. } => internal_code,
             Self::DatabaseConnection(_) => "E001",
             Self::DatabaseOperation(_) => "E002",
             Self::ConfigError(_) => "E003",
@@ -98,6 +183,7 @@ impl AsterError {
 
     pub fn api_error_code(&self) -> AsterErrorCode {
         match self {
+            Self::Public { code, .. } => *code,
             Self::DatabaseConnection(_) | Self::DatabaseOperation(_) => {
                 AsterErrorCode::DatabaseError
             }
@@ -115,8 +201,16 @@ impl AsterError {
         }
     }
 
+    pub fn api_error_code_override(&self) -> Option<AsterErrorCode> {
+        match self {
+            Self::Public { code, .. } => Some(*code),
+            _ => None,
+        }
+    }
+
     pub fn retryable(&self) -> Option<bool> {
         match self {
+            Self::Public { retryable, .. } => *retryable,
             Self::DatabaseConnection(_) | Self::DatabaseOperation(_) => Some(true),
             Self::MailDeliveryFailed(_) => Some(true),
             Self::MailNotConfigured(_) => Some(false),
@@ -126,6 +220,7 @@ impl AsterError {
 
     pub fn message(&self) -> &str {
         match self {
+            Self::Public { message, .. } => message,
             Self::DatabaseConnection(message)
             | Self::DatabaseOperation(message)
             | Self::ConfigError(message)
@@ -144,6 +239,7 @@ impl AsterError {
 
     pub fn status_code(&self) -> StatusCode {
         match self {
+            Self::Public { status, .. } => *status,
             Self::ValidationError(_) => StatusCode::BAD_REQUEST,
             Self::AuthInvalidCredentials(_)
             | Self::AuthTokenInvalid(_)
@@ -269,6 +365,14 @@ impl<T, E: std::fmt::Display + 'static> MapAsterErr<T> for std::result::Result<T
 
 pub fn display_error(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+pub fn validation_error_with_code(code: AsterErrorCode, message: impl Into<String>) -> AsterError {
+    AsterError::validation_error_code(code, message)
+}
+
+pub fn auth_forbidden_with_code(code: AsterErrorCode, message: impl Into<String>) -> AsterError {
+    AsterError::auth_forbidden_code(code, message)
 }
 
 #[cfg(test)]

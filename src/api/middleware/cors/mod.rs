@@ -124,7 +124,11 @@ fn is_preflight_request(req: &ServiceRequest) -> bool {
 fn is_cors_exempt_path(path: &str) -> bool {
     matches!(
         path,
-        "/" | "/index.html" | "/favicon.svg" | "/manifest.webmanifest" | "/sw.js"
+        "/" | "/index.html"
+            | "/favicon.svg"
+            | "/manifest.webmanifest"
+            | "/registerSW.js"
+            | "/sw.js"
     ) || path.starts_with("/workbox-")
         || path.starts_with("/assets/")
         || path.starts_with("/static/")

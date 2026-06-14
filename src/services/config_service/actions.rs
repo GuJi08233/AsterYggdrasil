@@ -1,28 +1,34 @@
 use crate::config::mail;
-use crate::db::repository::user_repo;
+use crate::config::yggdrasil::{
+    YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY,
+};
+use crate::db::repository::{system_config_repo, user_repo};
 use crate::errors::{AsterError, Result};
 use crate::runtime::MailRuntimeState;
 use crate::services::{
     audit_service::{self, AuditContext},
-    mail_audit_service, mail_service,
+    mail_audit_service, mail_service, yggdrasil_signature,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
 pub const MAIL_CONFIG_ACTION_KEY: &str = "mail";
+pub const YGGDRASIL_CONFIG_ACTION_KEY: &str = "yggdrasil";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub enum ConfigActionType {
     SendTestEmail,
+    RotateYggdrasilSignatureKey,
 }
 
 impl ConfigActionType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::SendTestEmail => "send_test_email",
+            Self::RotateYggdrasilSignatureKey => "rotate_yggdrasil_signature_key",
         }
     }
 }
@@ -47,12 +53,26 @@ pub async fn execute_action_with_audit(
     input: ExecuteConfigActionInput<'_>,
     audit_ctx: &AuditContext,
 ) -> Result<ConfigActionResult> {
+    tracing::debug!(
+        key = input.key,
+        action = %input.action.as_str(),
+        actor_user_id = input.actor_user_id,
+        has_target_email = input.target_email.is_some(),
+        "executing config action"
+    );
     let action_result = match input.key {
         MAIL_CONFIG_ACTION_KEY => execute_mail_action(state, input, audit_ctx).await,
+        YGGDRASIL_CONFIG_ACTION_KEY => execute_yggdrasil_action(state, input).await,
         key => Err(AsterError::record_not_found(format!(
             "config action target '{key}'"
         ))),
     }?;
+    tracing::debug!(
+        key = input.key,
+        action = %input.action.as_str(),
+        target_email = action_result.target_email.as_deref().unwrap_or(""),
+        "config action executed"
+    );
     audit_service::log_with_details(
         state,
         audit_ctx,
@@ -140,22 +160,83 @@ async fn execute_mail_action(
             }
             result?;
 
+            tracing::debug!(
+                actor_user_id = input.actor_user_id,
+                target_email = %normalized_target,
+                "config mail test email completed"
+            );
             Ok(ConfigActionResult {
                 message: format!("Test email sent to {normalized_target}"),
                 target_email: Some(normalized_target),
                 value: None,
             })
         }
+        ConfigActionType::RotateYggdrasilSignatureKey => Err(AsterError::validation_error(
+            "rotate_yggdrasil_signature_key is only supported by yggdrasil config actions",
+        )),
+    }
+}
+
+async fn execute_yggdrasil_action(
+    state: &impl MailRuntimeState,
+    input: ExecuteConfigActionInput<'_>,
+) -> Result<ConfigActionResult> {
+    match input.action {
+        ConfigActionType::RotateYggdrasilSignatureKey => {
+            tracing::debug!(
+                actor_user_id = input.actor_user_id,
+                "rotating yggdrasil signature key"
+            );
+            let private_key = yggdrasil_signature::generate_private_key_pem(4096)?;
+            let public_key =
+                yggdrasil_signature::public_key_pem_from_private_key_pem(&private_key)?;
+            let private_saved = system_config_repo::upsert_with_options(
+                state.writer_db(),
+                YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
+                &private_key,
+                None,
+                Some(input.actor_user_id),
+            )
+            .await?;
+            let public_saved = system_config_repo::upsert_with_options(
+                state.writer_db(),
+                YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY,
+                &public_key,
+                None,
+                Some(input.actor_user_id),
+            )
+            .await?;
+            state.runtime_config().apply(private_saved);
+            state.runtime_config().apply(public_saved);
+            tracing::debug!(
+                actor_user_id = input.actor_user_id,
+                "yggdrasil signature key rotated"
+            );
+
+            Ok(ConfigActionResult {
+                message: "Yggdrasil signature key rotated; new profile and hasJoined texture properties will be signed with the new key".to_string(),
+                target_email: None,
+                value: None,
+            })
+        }
+        ConfigActionType::SendTestEmail => Err(AsterError::validation_error(
+            "send_test_email is only supported by mail config actions",
+        )),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ConfigActionType, MAIL_CONFIG_ACTION_KEY};
+    use super::{ConfigActionType, MAIL_CONFIG_ACTION_KEY, YGGDRASIL_CONFIG_ACTION_KEY};
 
     #[test]
     fn config_action_type_exposes_stable_wire_value() {
         assert_eq!(ConfigActionType::SendTestEmail.as_str(), "send_test_email");
+        assert_eq!(
+            ConfigActionType::RotateYggdrasilSignatureKey.as_str(),
+            "rotate_yggdrasil_signature_key"
+        );
         assert_eq!(MAIL_CONFIG_ACTION_KEY, "mail");
+        assert_eq!(YGGDRASIL_CONFIG_ACTION_KEY, "yggdrasil");
     }
 }

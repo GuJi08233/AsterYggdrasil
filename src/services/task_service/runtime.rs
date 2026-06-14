@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use crate::db::repository::background_task_repo;
 use crate::entities::background_task;
 use crate::errors::Result;
-use crate::runtime::SharedRuntimeState;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::{BackgroundTaskStatus, StoredTaskPayload};
 
 use super::spec::{self, SystemRuntimeTask};
@@ -27,7 +27,7 @@ pub(crate) fn system_runtime_payload_json(
 }
 
 pub(crate) async fn find_latest_system_runtime_by_task_name(
-    state: &impl SharedRuntimeState,
+    state: &impl DatabaseRuntimeState,
     task_name: SystemRuntimeTaskKind,
 ) -> Result<Option<background_task::Model>> {
     let payload_json = system_runtime_payload_json(task_name)?;
@@ -44,6 +44,9 @@ pub enum SystemRuntimeTaskKind {
     MailOutboxDispatch,
     AuditCleanup,
     TaskCleanup,
+    YggdrasilTokenCleanup,
+    YggdrasilStorageConsistencyCheck,
+    YggdrasilTextureCleanup,
 }
 
 impl SystemRuntimeTaskKind {
@@ -56,6 +59,9 @@ impl SystemRuntimeTaskKind {
             Self::MailOutboxDispatch => "mail-outbox-dispatch",
             Self::AuditCleanup => "audit-cleanup",
             Self::TaskCleanup => "task-cleanup",
+            Self::YggdrasilTokenCleanup => "yggdrasil-token-cleanup",
+            Self::YggdrasilStorageConsistencyCheck => "yggdrasil-storage-consistency-check",
+            Self::YggdrasilTextureCleanup => "yggdrasil-texture-cleanup",
         }
     }
 
@@ -68,6 +74,9 @@ impl SystemRuntimeTaskKind {
             Self::MailOutboxDispatch => "Mail outbox dispatch",
             Self::AuditCleanup => "Audit log cleanup",
             Self::TaskCleanup => "Task artifact cleanup",
+            Self::YggdrasilTokenCleanup => "Yggdrasil token cleanup",
+            Self::YggdrasilStorageConsistencyCheck => "Yggdrasil storage consistency check",
+            Self::YggdrasilTextureCleanup => "Yggdrasil texture cleanup",
         }
     }
 
@@ -82,6 +91,13 @@ impl SystemRuntimeTaskKind {
             Self::MailOutboxDispatch => TaskPresentationCode::RuntimeTaskMailOutboxDispatch,
             Self::AuditCleanup => TaskPresentationCode::RuntimeTaskAuditCleanup,
             Self::TaskCleanup => TaskPresentationCode::RuntimeTaskTaskCleanup,
+            Self::YggdrasilTokenCleanup => TaskPresentationCode::RuntimeTaskYggdrasilTokenCleanup,
+            Self::YggdrasilStorageConsistencyCheck => {
+                TaskPresentationCode::RuntimeTaskYggdrasilStorageConsistencyCheck
+            }
+            Self::YggdrasilTextureCleanup => {
+                TaskPresentationCode::RuntimeTaskYggdrasilTextureCleanup
+            }
         }
     }
 
@@ -94,6 +110,9 @@ impl SystemRuntimeTaskKind {
             "mail-outbox-dispatch" => Some(Self::MailOutboxDispatch),
             "audit-cleanup" => Some(Self::AuditCleanup),
             "task-cleanup" => Some(Self::TaskCleanup),
+            "yggdrasil-token-cleanup" => Some(Self::YggdrasilTokenCleanup),
+            "yggdrasil-storage-consistency-check" => Some(Self::YggdrasilStorageConsistencyCheck),
+            "yggdrasil-texture-cleanup" => Some(Self::YggdrasilTextureCleanup),
             _ => None,
         }
     }
@@ -197,7 +216,7 @@ impl RuntimeTaskRunOutcome {
 }
 
 pub async fn record_runtime_task_run(
-    state: &impl SharedRuntimeState,
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     task_name: SystemRuntimeTaskKind,
     started_at: DateTime<Utc>,
     finished_at: DateTime<Utc>,
@@ -332,12 +351,16 @@ mod tests {
             ..Default::default()
         });
         let cache = crate::cache::create_cache(&config.cache).await;
+        let texture_storage =
+            crate::texture_storage::create_texture_storage(&config.texture_storage)
+                .expect("texture storage should initialize");
 
         crate::runtime::AppState {
             db_handles: crate::db::DbHandles::single(db),
             config,
             runtime_config,
             cache,
+            texture_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             background_task_dispatch_wakeup:
@@ -378,6 +401,22 @@ mod tests {
         assert_eq!(
             SystemRuntimeTaskKind::AuditCleanup.presentation_code(),
             crate::services::task_service::types::TaskPresentationCode::RuntimeTaskAuditCleanup
+        );
+        assert_eq!(
+            SystemRuntimeTaskKind::YggdrasilTextureCleanup.as_str(),
+            "yggdrasil-texture-cleanup"
+        );
+        assert_eq!(
+            SystemRuntimeTaskKind::from_wire_value("yggdrasil-texture-cleanup"),
+            Some(SystemRuntimeTaskKind::YggdrasilTextureCleanup)
+        );
+        assert_eq!(
+            SystemRuntimeTaskKind::YggdrasilTokenCleanup.presentation_code(),
+            crate::services::task_service::types::TaskPresentationCode::RuntimeTaskYggdrasilTokenCleanup
+        );
+        assert_eq!(
+            SystemRuntimeTaskKind::from_wire_value("yggdrasil-storage-consistency-check"),
+            Some(SystemRuntimeTaskKind::YggdrasilStorageConsistencyCheck)
         );
     }
 

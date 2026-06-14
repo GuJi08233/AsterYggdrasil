@@ -98,7 +98,8 @@ export default defineConfig(({ command }) => {
 				manifest: {
 					name: "AsterYggdrasil",
 					short_name: "AsterYggdrasil",
-					description: "Reusable Rust and React service foundation",
+					description:
+						"Self-hosted Minecraft skin site and Yggdrasil authentication server.",
 					theme_color: "#0F172A",
 					background_color: "#ffffff",
 					display: "standalone",
@@ -163,8 +164,14 @@ export default defineConfig(({ command }) => {
 		},
 		server: {
 			proxy: {
-				"/api": "http://127.0.0.1:3000",
-				"/health": "http://127.0.0.1:3000",
+				"/api": {
+					target: "http://127.0.0.1:3300",
+					changeOrigin: false,
+				},
+				"/health": {
+					target: "http://127.0.0.1:3300",
+					changeOrigin: false,
+				},
 			},
 		},
 		build: {
@@ -218,6 +225,14 @@ export default defineConfig(({ command }) => {
 
 						if (packageName === "react-icons") {
 							return "vendor-react-icons";
+						}
+
+						if (
+							packageName === "skinview3d" ||
+							packageName === "three" ||
+							packageName === "@types/three"
+						) {
+							return "vendor-3d";
 						}
 
 						if (
