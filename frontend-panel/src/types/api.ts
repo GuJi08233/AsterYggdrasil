@@ -160,6 +160,8 @@ export type MinecraftWardrobeTextureMetadata =
 	components["schemas"]["MinecraftWardrobeTextureMetadata"];
 export type CreateMinecraftProfileRequest =
 	components["schemas"]["CreateMinecraftProfileReq"];
+export type RenameMinecraftProfileRequest =
+	components["schemas"]["RenameMinecraftProfileReq"];
 export type RefreshRequest = components["schemas"]["RefreshReq"];
 export type RegisterRequest = components["schemas"]["RegisterReq"];
 export type RemovedCountResponse =

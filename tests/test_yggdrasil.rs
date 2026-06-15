@@ -767,6 +767,211 @@ async fn minecraft_profile_duplicate_names_are_rejected_until_deleted() {
 }
 
 #[actix_web::test]
+async fn minecraft_profile_rename_updates_name_and_temporarily_invalidates_bound_tokens() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+    let profile_id = create_profile!(app, &access, "RenameOld");
+    let login = ygg_login!(app, "admin@example.com", "rename-client");
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{profile_id}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "RenameNew" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["id"], profile_id);
+    assert_eq!(body["data"]["name"], "RenameNew");
+
+    let token = yggdrasil_token::Entity::find()
+        .filter(
+            yggdrasil_token::Column::AccessTokenHash.eq(sha256_hex(login.access_token.as_bytes())),
+        )
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("renamed profile token row should exist");
+    assert!(token.revoked_at.is_none());
+    assert!(
+        token.temporarily_invalidated_at.is_some(),
+        "bound token should become temporarily invalid after profile rename"
+    );
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/validate")
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "clientToken": "rename-client"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_ygg_error(resp, 403, "ForbiddenOperationException", "Invalid token").await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/sessionserver/session/minecraft/join")
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "selectedProfile": profile_id,
+            "serverId": "rename-server"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_ygg_error(resp, 403, "ForbiddenOperationException", "Invalid token").await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/refresh")
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "clientToken": "rename-client"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["selectedProfile"]["id"], profile_id);
+    assert_eq!(body["selectedProfile"]["name"], "RenameNew");
+    let refreshed_access = body["accessToken"].as_str().unwrap().to_string();
+    validate_ygg_token_status!(app, &refreshed_access, "rename-client", 204);
+
+    audit_service::flush_global_audit_log_manager().await;
+    let rename_entry =
+        audit_entry(&state, audit_service::AuditAction::MinecraftProfileRename).await;
+    assert_eq!(rename_entry.entity_type, "minecraft_profile");
+    assert_eq!(rename_entry.entity_name.as_deref(), Some("RenameNew"));
+    let details: Value = serde_json::from_str(rename_entry.details.as_ref().unwrap())
+        .expect("profile rename audit details should be json");
+    assert_eq!(details["profile_uuid"], profile_id);
+    assert_eq!(details["old_profile_name"], "RenameOld");
+    assert_eq!(details["new_profile_name"], "RenameNew");
+    assert_eq!(details["temporarily_invalidated_token_count"], 1);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/admin/audit-logs?limit=20")
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let item = body["data"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["action"] == "minecraft_profile_rename")
+        .expect("profile rename audit entry should be listed");
+    assert_eq!(
+        item["presentation"]["detail"]["code"],
+        "minecraft_profile_renamed"
+    );
+}
+
+#[actix_web::test]
+async fn minecraft_profile_rename_rejects_invalid_duplicate_missing_and_foreign_profiles() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+    let first_profile = create_profile!(app, &access, "RenameOne");
+    let second_profile = create_profile!(app, &access, "RenameTwo");
+    let user_access = register_user!(
+        app,
+        "rename-user",
+        "rename-user@example.com",
+        "password1234"
+    );
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{first_profile}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "bad-name" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "bad_request");
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{first_profile}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "RenameTwo" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let req = test::TestRequest::put()
+        .uri("/api/v1/profiles/minecraft/not-a-uuid/name")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "RenameOk" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.uuid_invalid");
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{second_profile}/name"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({ "name": "StolenName" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.not_found");
+
+    let missing_uuid = "00000000000000000000000000000000";
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{missing_uuid}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "RenameOk" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.not_found");
+}
+
+#[actix_web::test]
+async fn minecraft_profile_rename_same_name_is_noop_for_tokens() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+    let profile_id = create_profile!(app, &access, "SameRename");
+    let login = ygg_login!(app, "admin@example.com", "same-rename-client");
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{profile_id}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "SameRename" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["id"], profile_id);
+    assert_eq!(body["data"]["name"], "SameRename");
+
+    let token = yggdrasil_token::Entity::find()
+        .filter(
+            yggdrasil_token::Column::AccessTokenHash.eq(sha256_hex(login.access_token.as_bytes())),
+        )
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("same-name rename token row should exist");
+    assert!(token.revoked_at.is_none());
+    assert!(token.temporarily_invalidated_at.is_none());
+    validate_ygg_token_status!(app, &login.access_token, "same-rename-client", 204);
+
+    audit_service::flush_global_audit_log_manager().await;
+    let rename_entry =
+        audit_entry(&state, audit_service::AuditAction::MinecraftProfileRename).await;
+    let details: Value = serde_json::from_str(rename_entry.details.as_ref().unwrap())
+        .expect("profile rename audit details should be json");
+    assert_eq!(details["temporarily_invalidated_token_count"], 0);
+}
+
+#[actix_web::test]
 async fn minecraft_profile_delete_unbinds_textures_keeps_wardrobe_revokes_tokens_and_writes_audit()
 {
     let state = setup_yggdrasil().await;
@@ -2482,6 +2687,74 @@ async fn admin_can_view_single_minecraft_profile_details() {
     assert_eq!(resp.status(), 404);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["code"], "minecraft_profile.not_found");
+}
+
+#[actix_web::test]
+async fn admin_can_rename_any_minecraft_profile_and_duplicate_names_are_rejected() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+    let first_profile = create_profile!(app, &access, "AdminRenameA");
+    let second_profile = create_profile!(app, &access, "AdminRenameB");
+    let login = ygg_login_selected!(
+        app,
+        "admin-rename-client",
+        first_profile.as_str(),
+        "AdminRenameA"
+    );
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/admin/minecraft-profiles/{first_profile}/name"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "AdminRenamed" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["uuid"], first_profile);
+    assert_eq!(body["data"]["name"], "AdminRenamed");
+
+    audit_service::flush_global_audit_log_manager().await;
+    let rename_entry =
+        audit_entry(&state, audit_service::AuditAction::MinecraftProfileRename).await;
+    assert_eq!(rename_entry.entity_name.as_deref(), Some("AdminRenamed"));
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/validate")
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "clientToken": "admin-rename-client"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_ygg_error(resp, 403, "ForbiddenOperationException", "Invalid token").await;
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/admin/minecraft-profiles/{first_profile}/name"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "AdminRenameB" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/admin/minecraft-profiles/{second_profile}/name"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "AdminRenameB" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["uuid"], second_profile);
+    assert_eq!(body["data"]["name"], "AdminRenameB");
 }
 
 #[actix_web::test]

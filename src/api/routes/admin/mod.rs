@@ -27,7 +27,7 @@ pub use external_auth::{
 pub use profiles::{
     delete_minecraft_profile, delete_minecraft_profile_texture, delete_minecraft_textures_by_hash,
     get_minecraft_profile, list_minecraft_profile_textures, list_minecraft_profiles,
-    list_user_minecraft_profiles,
+    list_user_minecraft_profiles, rename_minecraft_profile,
 };
 pub use system_info::get_system_info;
 pub use tasks::{cleanup_tasks, list_tasks, retry_task};
@@ -85,6 +85,10 @@ pub fn routes(
                     .route(
                         "/minecraft-profiles/{uuid}",
                         web::get().to(get_minecraft_profile),
+                    )
+                    .route(
+                        "/minecraft-profiles/{uuid}/name",
+                        web::put().to(rename_minecraft_profile),
                     )
                     .route(
                         "/minecraft-profiles/{uuid}",

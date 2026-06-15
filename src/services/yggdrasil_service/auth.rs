@@ -14,8 +14,8 @@ use super::error::{YggdrasilError, YggdrasilErrorKind};
 use super::login::{resolve_login_target, user_info};
 use super::profile_summary;
 use super::token::{
-    active_token, issue_token, refresh_token, revoke_all_for_user, revoke_by_access_token,
-    selected_profile_for_token,
+    active_token, issue_token, refresh_token, refreshable_token, revoke_all_for_user,
+    revoke_by_access_token, selected_profile_for_token,
 };
 
 pub async fn authenticate<S>(
@@ -167,7 +167,8 @@ where
         request_user = body.request_user,
         "starting yggdrasil token refresh"
     );
-    let existing = active_token(state, &body.access_token, body.client_token.as_deref()).await?;
+    let existing =
+        refreshable_token(state, &body.access_token, body.client_token.as_deref()).await?;
     let user = user_repo::find_by_id(state.reader_db(), existing.user_id)
         .await
         .map_err(YggdrasilError::from)?;

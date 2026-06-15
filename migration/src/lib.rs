@@ -8,6 +8,7 @@ mod m20260606_000001_foundation_schema;
 mod m20260615_000001_yggdrasil_profiles;
 mod m20260615_000002_minecraft_textures;
 mod m20260615_000003_passkeys;
+mod m20260616_000001_yggdrasil_token_temporary_invalidation;
 mod time;
 
 pub struct Migrator;
@@ -29,6 +30,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260615_000001_yggdrasil_profiles::Migration),
             Box::new(m20260615_000002_minecraft_textures::Migration),
             Box::new(m20260615_000003_passkeys::Migration),
+            Box::new(m20260616_000001_yggdrasil_token_temporary_invalidation::Migration),
         ]
     }
 }

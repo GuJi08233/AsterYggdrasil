@@ -11,6 +11,7 @@ import type {
 	OperationPath,
 	OperationQuery,
 	OperationRequestBody,
+	RenameMinecraftProfileRequest,
 	YggdrasilErrorBody,
 	YggdrasilMetadata,
 	YggdrasilProfile,
@@ -75,6 +76,14 @@ export const yggdrasilService = {
 			YggdrasilProfile,
 			OperationRequestBody<"create_current_user_minecraft_profile">
 		>("/profiles/minecraft", data),
+	renameProfile: (
+		uuid: YggdrasilProfileByUuidPath["uuid"],
+		data: RenameMinecraftProfileRequest,
+	) =>
+		api.put<
+			YggdrasilProfile,
+			OperationRequestBody<"rename_current_user_minecraft_profile">
+		>(`/profiles/minecraft/${uuid}/name`, data),
 	listProfileTextures: (uuid: YggdrasilProfileByUuidPath["uuid"]) =>
 		api.get<MinecraftTextureMetadata[]>(`/profiles/minecraft/${uuid}/textures`),
 	listWardrobeTextures: () =>

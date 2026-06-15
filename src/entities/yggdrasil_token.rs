@@ -16,6 +16,7 @@ pub struct Model {
     pub issued_at: DateTimeUtc,
     pub expires_at: DateTimeUtc,
     pub revoked_at: Option<DateTimeUtc>,
+    pub temporarily_invalidated_at: Option<DateTimeUtc>,
     pub user_agent: Option<String>,
     pub ip_address: Option<String>,
 }

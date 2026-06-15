@@ -5,6 +5,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -12,6 +13,14 @@ import { useProfilesPageState } from "@/components/app/profiles-page/useProfiles
 import { NativeSelectField, TextField } from "@/components/panel/FormControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +121,11 @@ export default function ProfilesPage() {
 	const capeTexture =
 		textures.find((texture) => texture.texture_type === "cape") ?? null;
 
+	const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+	const [renameUuid, setRenameUuid] = useState("");
+	const [renameName, setRenameName] = useState("");
+	const [renaming, setRenaming] = useState(false);
+
 	async function createProfile(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		dispatch({ type: "loading", value: true });
@@ -126,6 +140,33 @@ export default function ProfilesPage() {
 			toast.error(formatUnknownError(nextError));
 		} finally {
 			dispatch({ type: "loading", value: false });
+		}
+	}
+
+	function openRenameDialog(profile: { id: string; name: string }) {
+		setRenameUuid(profile.id);
+		setRenameName(profile.name);
+		setRenameDialogOpen(true);
+	}
+
+	async function renameProfile(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (!renameUuid || !renameName.trim()) return;
+		setRenaming(true);
+		try {
+			const renamed = await yggdrasilService.renameProfile(renameUuid, {
+				name: renameName.trim(),
+			});
+			setRenameDialogOpen(false);
+			setRenameUuid("");
+			setRenameName("");
+			await loadProfiles();
+			dispatch({ type: "selectedUuid", value: renamed.id });
+			toast.success(t("profiles.renameSuccess"));
+		} catch (nextError) {
+			toast.error(formatUnknownError(nextError));
+		} finally {
+			setRenaming(false);
 		}
 	}
 
@@ -262,25 +303,28 @@ export default function ProfilesPage() {
 							</div>
 						) : (
 							<div className="overflow-hidden rounded-lg border border-border/70">
-								<div className="grid grid-cols-[minmax(0,1fr)_132px_88px] border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium text-muted-foreground">
+								<div className="grid grid-cols-[minmax(0,1fr)_132px_88px_40px] border-b border-border/70 bg-muted/35 px-3 py-2 text-xs font-medium text-muted-foreground">
 									<span>{t("profiles.profileName")}</span>
 									<span>{t("profiles.textures")}</span>
 									<span className="text-right">{t("profiles.properties")}</span>
+									<span className="sr-only">{t("common.actions")}</span>
 								</div>
 								<div className="divide-y divide-border/70">
 									{filteredProfiles.map((profile) => (
-										<button
+										<div
 											key={profile.id}
-											type="button"
-											onClick={() =>
-												dispatch({ type: "selectedUuid", value: profile.id })
-											}
 											className={cn(
-												"grid w-full grid-cols-[minmax(0,1fr)_132px_88px] items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-accent/35",
+												"grid grid-cols-[minmax(0,1fr)_132px_88px_40px] items-center gap-3 px-3 py-3 transition-colors hover:bg-accent/35",
 												profile.id === selectedUuid && "bg-accent/45",
 											)}
 										>
-											<div className="min-w-0">
+											<button
+												type="button"
+												onClick={() =>
+													dispatch({ type: "selectedUuid", value: profile.id })
+												}
+												className="min-w-0 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+											>
 												<div className="flex min-w-0 items-center gap-2">
 													<span className="truncate font-medium">
 														{profile.name}
@@ -294,7 +338,7 @@ export default function ProfilesPage() {
 												<div className="mt-1 truncate font-mono text-xs text-muted-foreground">
 													{profile.id}
 												</div>
-											</div>
+											</button>
 											<TextureSummary
 												active={profile.id === selectedUuid}
 												textures={profile.id === selectedUuid ? textures : []}
@@ -305,7 +349,18 @@ export default function ProfilesPage() {
 													{profile.properties?.length ?? 0}
 												</Badge>
 											</div>
-										</button>
+											<Button
+												type="button"
+												size="icon"
+												variant="ghost"
+												aria-label={t("profiles.renameAction", {
+													name: profile.name,
+												})}
+												onClick={() => openRenameDialog(profile)}
+											>
+												<Icon name="PencilSimple" className="size-4" />
+											</Button>
+										</div>
 									))}
 								</div>
 							</div>
@@ -488,6 +543,48 @@ export default function ProfilesPage() {
 					</div>
 				</div>
 			</aside>
+			<Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+				<DialogContent className="sm:max-w-md">
+					<form className="grid gap-4" onSubmit={renameProfile}>
+						<DialogHeader>
+							<DialogTitle>{t("profiles.renameTitle")}</DialogTitle>
+							<DialogDescription>
+								{t("profiles.renameDescription")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="grid gap-2">
+							<Label htmlFor="profile-rename-name">
+								{t("profiles.profileName")}
+							</Label>
+							<Input
+								id="profile-rename-name"
+								value={renameName}
+								required
+								autoComplete="off"
+								onChange={(event) => setRenameName(event.currentTarget.value)}
+							/>
+						</div>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								disabled={renaming}
+								onClick={() => setRenameDialogOpen(false)}
+							>
+								{t("common.cancel")}
+							</Button>
+							<Button type="submit" disabled={renaming || !renameName.trim()}>
+								{renaming ? (
+									<Icon name="Spinner" className="mr-2 size-4 animate-spin" />
+								) : (
+									<Icon name="PencilSimple" className="mr-2 size-4" />
+								)}
+								{t("common.save")}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

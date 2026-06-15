@@ -617,6 +617,45 @@ describe("yggdrasilService", () => {
 		expect(request.data.get("file")).toBe(file);
 	});
 
+	it("renames current-user Minecraft profiles through the project API", async () => {
+		apiMock.put.mockResolvedValue({ id: "profile-uuid", name: "NewName" });
+		const { yggdrasilService } = await import("./yggdrasilService");
+
+		await expect(
+			yggdrasilService.renameProfile("profile-uuid", { name: "NewName" }),
+		).resolves.toEqual({ id: "profile-uuid", name: "NewName" });
+
+		expect(apiMock.put).toHaveBeenCalledWith(
+			"/profiles/minecraft/profile-uuid/name",
+			{ name: "NewName" },
+		);
+	});
+
+	it("renames admin Minecraft profiles through the admin API", async () => {
+		apiMock.put.mockResolvedValue({
+			created_at: "2026-06-15T00:00:00Z",
+			id: 7,
+			name: "AdminRenamed",
+			texture_model: "default",
+			updated_at: "2026-06-15T00:00:00Z",
+			uploadable_textures: "skin,cape",
+			user_id: 1,
+			uuid: "profile-uuid",
+		});
+		const { adminMinecraftProfileService } = await import("./adminService");
+
+		await expect(
+			adminMinecraftProfileService.rename("profile-uuid", {
+				name: "AdminRenamed",
+			}),
+		).resolves.toMatchObject({ name: "AdminRenamed", uuid: "profile-uuid" });
+
+		expect(apiMock.put).toHaveBeenCalledWith(
+			"/admin/minecraft-profiles/profile-uuid/name",
+			{ name: "AdminRenamed" },
+		);
+	});
+
 	it("uploads wardrobe textures as multipart FormData", async () => {
 		const file = new File(["png"], "skin.png", { type: "image/png" });
 		apiMock.post.mockResolvedValue({

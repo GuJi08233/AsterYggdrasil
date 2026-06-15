@@ -1,5 +1,6 @@
 //! Administrator Minecraft profile routes.
 
+use crate::api::dto::yggdrasil::RenameMinecraftProfileReq;
 use crate::api::dto::{AdminMinecraftProfileListQuery, validation::validate_request};
 use crate::api::error_code::AsterErrorCode;
 use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
@@ -168,6 +169,56 @@ pub async fn get_minecraft_profile(
         "admin loaded minecraft profile"
     );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::profile_info(&profile))))
+}
+
+#[api_docs_macros::path(
+    put,
+    path = "/api/v1/admin/minecraft-profiles/{uuid}/name",
+    tag = "admin",
+    operation_id = "admin_rename_minecraft_profile",
+    request_body = RenameMinecraftProfileReq,
+    params(("uuid" = String, Path, description = "Unsigned Minecraft profile UUID")),
+    responses(
+        (status = 200, description = "Renamed Minecraft profile", body = inline(ApiResponse<yggdrasil_service::MinecraftProfileInfo>)),
+        (status = 400, description = "Invalid profile UUID/name or duplicate profile"),
+        (status = 404, description = "Profile not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn rename_minecraft_profile(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<RenameMinecraftProfileReq>,
+) -> Result<HttpResponse> {
+    let uuid = path.into_inner();
+    tracing::debug!(
+        profile_uuid = %uuid,
+        new_profile_name_len = body.name.len(),
+        "admin renaming minecraft profile"
+    );
+    validate_request(&*body)?;
+    validate_profile_uuid(&uuid)?;
+    let profile = find_profile_by_uuid(state.get_ref(), &uuid).await?;
+    let renamed = yggdrasil_service::rename_profile(state.get_ref(), profile, &body.name).await?;
+
+    let ctx = audit_service::AuditContext::from_request(&req, current_admin_user_id(&req)?);
+    crate::api::routes::profiles::log_profile_rename_audit(state.get_ref(), &ctx, &renamed).await;
+
+    tracing::debug!(
+        profile_id = renamed.profile.id,
+        profile_uuid = %renamed.profile.uuid,
+        user_id = renamed.profile.user_id,
+        temporarily_invalidated_token_count = renamed.temporarily_invalidated_token_count,
+        "admin renamed minecraft profile"
+    );
+    Ok(
+        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::profile_info(
+            &renamed.profile,
+        ))),
+    )
 }
 
 #[api_docs_macros::path(

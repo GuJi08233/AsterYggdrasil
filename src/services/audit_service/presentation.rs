@@ -65,6 +65,7 @@ fn summary_message(
             copy_string_param(details, &mut params, "slug");
         }
         AuditAction::MinecraftProfileCreate
+        | AuditAction::MinecraftProfileRename
         | AuditAction::MinecraftProfileDelete
         | AuditAction::MinecraftTextureUpload
         | AuditAction::MinecraftTextureBind
@@ -76,6 +77,8 @@ fn summary_message(
         | AuditAction::YggdrasilJoinServer => {
             copy_string_param(details, &mut params, "profile_name");
             copy_string_param(details, &mut params, "profile_uuid");
+            copy_string_param(details, &mut params, "old_profile_name");
+            copy_string_param(details, &mut params, "new_profile_name");
             copy_string_param(details, &mut params, "texture_type");
             copy_string_param(details, &mut params, "texture_hash");
             copy_string_param(details, &mut params, "selected_profile_name");
@@ -196,6 +199,13 @@ fn detail_message(
             copy_param(details, &mut params, "profile_uuid");
             copy_param(details, &mut params, "profile_name");
             Some(message("minecraft_profile_created", params))
+        }
+        AuditAction::MinecraftProfileRename => {
+            copy_param(details, &mut params, "profile_uuid");
+            copy_param(details, &mut params, "old_profile_name");
+            copy_param(details, &mut params, "new_profile_name");
+            copy_param(details, &mut params, "temporarily_invalidated_token_count");
+            Some(message("minecraft_profile_renamed", params))
         }
         AuditAction::MinecraftProfileDelete => {
             copy_param(details, &mut params, "profile_uuid");

@@ -3,9 +3,9 @@
 use crate::api::dto::BindMinecraftTextureReq;
 use crate::api::dto::validate_request;
 use crate::api::dto::validation::validate_unsigned_uuid;
-use crate::api::dto::yggdrasil::CreateMinecraftProfileReq;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use crate::api::dto::yggdrasil::YggdrasilProfile;
+use crate::api::dto::yggdrasil::{CreateMinecraftProfileReq, RenameMinecraftProfileReq};
 use crate::api::error_code::AsterErrorCode;
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_profile_repo;
@@ -20,6 +20,10 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         web::scope("/profiles")
             .route("/minecraft", web::get().to(list_minecraft_profiles))
             .route("/minecraft", web::post().to(create_minecraft_profile))
+            .route(
+                "/minecraft/{uuid}/name",
+                web::put().to(rename_minecraft_profile),
+            )
             .route(
                 "/minecraft/{uuid}/textures",
                 web::get().to(list_minecraft_profile_textures),
@@ -322,6 +326,76 @@ pub async fn create_minecraft_profile(
 }
 
 #[api_docs_macros::path(
+    put,
+    path = "/api/v1/profiles/minecraft/{uuid}/name",
+    tag = "profiles",
+    operation_id = "rename_current_user_minecraft_profile",
+    request_body = RenameMinecraftProfileReq,
+    params(("uuid" = String, Path, description = "Unsigned Minecraft profile UUID")),
+    responses(
+        (status = 200, description = "Renamed Minecraft profile", body = inline(ApiResponse<YggdrasilProfile>)),
+        (status = 400, description = "Invalid profile UUID/name or duplicate profile"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Profile not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn rename_minecraft_profile(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    body: web::Json<RenameMinecraftProfileReq>,
+) -> Result<HttpResponse> {
+    tracing::debug!(
+        new_profile_name_len = body.name.len(),
+        "received current user minecraft profile rename request"
+    );
+    validate_request(&*body)?;
+    let uuid = path.into_inner();
+    if let Err(error) = validate_unsigned_uuid(&uuid) {
+        tracing::debug!(
+            profile_uuid = %uuid,
+            "minecraft profile rename rejected invalid profile uuid"
+        );
+        return Err(AsterError::validation_error_code(
+            AsterErrorCode::MinecraftProfileUuidInvalid,
+            error.message.unwrap_or_default(),
+        ));
+    }
+    let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let Some(renamed) =
+        yggdrasil_service::rename_profile_for_user(state.get_ref(), user.id, &uuid, &body.name)
+            .await?
+    else {
+        tracing::debug!(
+            user_id = user.id,
+            profile_uuid = %uuid,
+            "minecraft profile rename rejected missing profile"
+        );
+        return Err(AsterError::record_not_found_code(
+            AsterErrorCode::MinecraftProfileNotFound,
+            format!("minecraft profile '{uuid}'"),
+        ));
+    };
+
+    let ctx = audit_service::AuditContext::from_request(&req, user.id);
+    log_profile_rename_audit(state.get_ref(), &ctx, &renamed).await;
+
+    tracing::debug!(
+        user_id = user.id,
+        profile_id = renamed.profile.id,
+        profile_uuid = %renamed.profile.uuid,
+        temporarily_invalidated_token_count = renamed.temporarily_invalidated_token_count,
+        "current user minecraft profile renamed"
+    );
+    Ok(
+        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::profile_summary(
+            &renamed.profile,
+        ))),
+    )
+}
+
+#[api_docs_macros::path(
     get,
     path = "/api/v1/profiles/minecraft/{uuid}/textures",
     tag = "profiles",
@@ -461,6 +535,30 @@ pub(crate) async fn log_profile_delete_audit(
                 profile_name: &deleted.profile.name,
                 deleted_texture_count: Some(deleted.deleted_texture_count),
                 revoked_token_count: Some(deleted.revoked_token_count),
+            })
+        },
+    )
+    .await;
+}
+
+pub(crate) async fn log_profile_rename_audit(
+    state: &AppState,
+    ctx: &audit_service::AuditContext,
+    renamed: &yggdrasil_service::RenameMinecraftProfileResult,
+) {
+    audit_service::log_with_details(
+        state,
+        ctx,
+        audit_service::AuditAction::MinecraftProfileRename,
+        audit_service::AuditEntityType::MinecraftProfile,
+        Some(renamed.profile.id),
+        Some(&renamed.profile.name),
+        || {
+            audit_service::details(audit_service::MinecraftProfileRenameAuditDetails {
+                profile_uuid: &renamed.profile.uuid,
+                old_profile_name: &renamed.old_name,
+                new_profile_name: &renamed.profile.name,
+                temporarily_invalidated_token_count: renamed.temporarily_invalidated_token_count,
             })
         },
     )

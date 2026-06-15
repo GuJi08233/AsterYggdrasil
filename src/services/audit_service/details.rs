@@ -112,6 +112,14 @@ pub struct MinecraftProfileAuditDetails<'a> {
 }
 
 #[derive(Serialize)]
+pub struct MinecraftProfileRenameAuditDetails<'a> {
+    pub profile_uuid: &'a str,
+    pub old_profile_name: &'a str,
+    pub new_profile_name: &'a str,
+    pub temporarily_invalidated_token_count: u64,
+}
+
+#[derive(Serialize)]
 pub struct MinecraftTextureAuditDetails<'a> {
     pub profile_uuid: &'a str,
     pub profile_name: &'a str,

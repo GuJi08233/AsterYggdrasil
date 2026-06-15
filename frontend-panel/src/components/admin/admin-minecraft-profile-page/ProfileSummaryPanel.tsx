@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Separator } from "@/components/ui/separator";
 import { CopyField } from "@/components/yggdrasil/CopyField";
 import { InfoTile } from "./InfoTile";
@@ -13,12 +15,14 @@ export function ProfileSummaryPanel({
 	profile,
 	skinTexture,
 	uuid,
+	onRename,
 	onSelectTextureDelete,
 }: {
 	capeTexture: MinecraftTextureMetadata | null;
 	profile: AdminMinecraftProfileInfo | null;
 	skinTexture: MinecraftTextureMetadata | null;
 	uuid: string;
+	onRename: () => void;
 	onSelectTextureDelete: (texture: MinecraftTextureMetadata | null) => void;
 }) {
 	const { t } = useTranslation();
@@ -58,6 +62,17 @@ export function ProfileSummaryPanel({
 					value={profile?.name ?? "-"}
 					compact
 				/>
+				<div className="flex items-end">
+					<Button
+						type="button"
+						variant="outline"
+						disabled={!profile}
+						onClick={onRename}
+					>
+						<Icon name="PencilSimple" className="mr-2 size-4" />
+						{t("admin.minecraftProfilePage.renameAction")}
+					</Button>
+				</div>
 			</div>
 
 			<div className="grid gap-3 md:grid-cols-2">

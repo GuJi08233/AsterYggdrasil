@@ -23,6 +23,7 @@ import type {
 	OperationPath,
 	OperationRequestBody,
 	RemovedCountResponse,
+	RenameMinecraftProfileRequest,
 	SetConfigRequest,
 	SystemConfig,
 	SystemConfigPage,
@@ -105,6 +106,11 @@ export const adminTaskService = {
 export const adminMinecraftProfileService = {
 	get: (uuid: string) =>
 		api.get<AdminMinecraftProfileInfo>(`/admin/minecraft-profiles/${uuid}`),
+	rename: (uuid: string, data: RenameMinecraftProfileRequest) =>
+		api.put<
+			AdminMinecraftProfileInfo,
+			OperationRequestBody<"admin_rename_minecraft_profile">
+		>(`/admin/minecraft-profiles/${uuid}/name`, data),
 	listTextures: (uuid: string) =>
 		api.get<MinecraftTextureMetadata[]>(
 			`/admin/minecraft-profiles/${uuid}/textures`,

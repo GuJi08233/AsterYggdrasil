@@ -14,6 +14,13 @@ pub struct DeleteMinecraftProfileResult {
     pub revoked_token_count: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct RenameMinecraftProfileResult {
+    pub profile: minecraft_profile::Model,
+    pub old_name: String,
+    pub temporarily_invalidated_token_count: u64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
 pub struct MinecraftProfileInfo {
@@ -141,6 +148,90 @@ where
         deleted_texture_count: deleted_textures.len(),
         revoked_token_count,
     }))
+}
+
+pub async fn rename_profile_for_user<S>(
+    state: &S,
+    user_id: i64,
+    uuid: &str,
+    new_name: &str,
+) -> Result<Option<RenameMinecraftProfileResult>>
+where
+    S: DatabaseRuntimeState,
+{
+    tracing::debug!(
+        user_id,
+        profile_uuid = uuid,
+        new_name_len = new_name.len(),
+        "renaming minecraft profile for user"
+    );
+    validate_profile_name(new_name)?;
+    let Some(profile) =
+        minecraft_profile_repo::find_by_uuid_for_user(state.reader_db(), uuid, user_id).await?
+    else {
+        tracing::debug!(
+            user_id,
+            profile_uuid = uuid,
+            "minecraft profile rename skipped because profile was not found"
+        );
+        return Ok(None);
+    };
+    rename_profile(state, profile, new_name).await.map(Some)
+}
+
+pub async fn rename_profile<S>(
+    state: &S,
+    profile: minecraft_profile::Model,
+    new_name: &str,
+) -> Result<RenameMinecraftProfileResult>
+where
+    S: DatabaseRuntimeState,
+{
+    validate_profile_name(new_name)?;
+    if profile.name == new_name {
+        tracing::debug!(
+            profile_id = profile.id,
+            profile_uuid = %profile.uuid,
+            "minecraft profile rename no-op because name is unchanged"
+        );
+        return Ok(RenameMinecraftProfileResult {
+            old_name: profile.name.clone(),
+            profile,
+            temporarily_invalidated_token_count: 0,
+        });
+    }
+
+    let existing = minecraft_profile_repo::find_by_name(state.reader_db(), new_name).await?;
+    if existing.is_some_and(|existing| existing.id != profile.id) {
+        tracing::debug!(
+            profile_id = profile.id,
+            profile_uuid = %profile.uuid,
+            new_profile_name = new_name,
+            "minecraft profile rename rejected because name is taken"
+        );
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::MinecraftProfileNameTaken,
+            "profile name already exists",
+        ));
+    }
+
+    let old_name = profile.name.clone();
+    crate::db::transaction::with_transaction(state.writer_db(), async |txn| {
+        let updated = minecraft_profile_repo::update_name_by_id(txn, profile.id, new_name)
+            .await?
+            .ok_or_else(|| {
+                AsterError::record_not_found(format!("minecraft profile '{}'", profile.uuid))
+            })?;
+        let temporarily_invalidated_token_count =
+            yggdrasil_token_repo::temporarily_invalidate_all_for_selected_profile(txn, profile.id)
+                .await?;
+        Ok(RenameMinecraftProfileResult {
+            profile: updated,
+            old_name,
+            temporarily_invalidated_token_count,
+        })
+    })
+    .await
 }
 
 pub fn validate_profile_name(name: &str) -> Result<()> {

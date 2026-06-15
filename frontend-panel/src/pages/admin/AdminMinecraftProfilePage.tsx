@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import {
+	type FormEvent,
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,7 +19,17 @@ import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { AdminSurface } from "@/components/layout/AdminSurface";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MinecraftPreview } from "@/components/yggdrasil/MinecraftPreview";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -32,6 +48,9 @@ type PageState = {
 	textureToDelete: MinecraftTextureMetadata | null;
 	deletingProfile: boolean;
 	deletingTexture: boolean;
+	renameDialogOpen: boolean;
+	renameName: string;
+	renamingProfile: boolean;
 };
 
 type PageAction =
@@ -46,7 +65,10 @@ type PageAction =
 	| { type: "deleteDialogOpen"; value: boolean }
 	| { type: "textureToDelete"; value: MinecraftTextureMetadata | null }
 	| { type: "deletingProfile"; value: boolean }
-	| { type: "deletingTexture"; value: boolean };
+	| { type: "deletingTexture"; value: boolean }
+	| { type: "renameDialogOpen"; value: boolean }
+	| { type: "renameName"; value: string }
+	| { type: "renamingProfile"; value: boolean };
 
 const initialPageState: PageState = {
 	profile: null,
@@ -56,6 +78,9 @@ const initialPageState: PageState = {
 	textureToDelete: null,
 	deletingProfile: false,
 	deletingTexture: false,
+	renameDialogOpen: false,
+	renameName: "",
+	renamingProfile: false,
 };
 
 function pageReducer(state: PageState, action: PageAction): PageState {
@@ -81,6 +106,12 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 			return { ...state, deletingProfile: action.value };
 		case "deletingTexture":
 			return { ...state, deletingTexture: action.value };
+		case "renameDialogOpen":
+			return { ...state, renameDialogOpen: action.value };
+		case "renameName":
+			return { ...state, renameName: action.value };
+		case "renamingProfile":
+			return { ...state, renamingProfile: action.value };
 	}
 }
 
@@ -96,6 +127,9 @@ export default function AdminMinecraftProfilePage() {
 		deletingTexture,
 		loading,
 		profile,
+		renameDialogOpen,
+		renameName,
+		renamingProfile,
 		textureToDelete,
 		textures,
 	} = state;
@@ -145,6 +179,35 @@ export default function AdminMinecraftProfilePage() {
 		} finally {
 			dispatch({ type: "deletingProfile", value: false });
 			dispatch({ type: "deleteDialogOpen", value: false });
+		}
+	};
+
+	const openRenameDialog = () => {
+		if (!profile) return;
+		dispatch({ type: "renameName", value: profile.name });
+		dispatch({ type: "renameDialogOpen", value: true });
+	};
+
+	const handleRenameProfile = async (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		if (!uuid || !renameName.trim()) return;
+		dispatch({ type: "renamingProfile", value: true });
+		try {
+			const renamed = await adminMinecraftProfileService.rename(uuid, {
+				name: renameName.trim(),
+			});
+			dispatch({
+				type: "loadSuccess",
+				profile: renamed as AdminMinecraftProfileInfo,
+				textures,
+			});
+			dispatch({ type: "renameDialogOpen", value: false });
+			dispatch({ type: "renameName", value: "" });
+			toast.success(t("admin.minecraftProfilePage.renameSuccess"));
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "renamingProfile", value: false });
 		}
 	};
 
@@ -245,6 +308,7 @@ export default function AdminMinecraftProfilePage() {
 						profile={profile}
 						skinTexture={skinTexture}
 						uuid={uuid}
+						onRename={openRenameDialog}
 						onSelectTextureDelete={(texture) =>
 							dispatch({ type: "textureToDelete", value: texture })
 						}
@@ -289,6 +353,66 @@ export default function AdminMinecraftProfilePage() {
 				loading={deletingProfile}
 				onConfirm={() => void handleDeleteProfile()}
 			/>
+
+			<Dialog
+				open={renameDialogOpen}
+				onOpenChange={(open) =>
+					dispatch({ type: "renameDialogOpen", value: open })
+				}
+			>
+				<DialogContent className="sm:max-w-md">
+					<form className="grid gap-4" onSubmit={handleRenameProfile}>
+						<DialogHeader>
+							<DialogTitle>
+								{t("admin.minecraftProfilePage.renameTitle")}
+							</DialogTitle>
+							<DialogDescription>
+								{t("admin.minecraftProfilePage.renameDescription")}
+							</DialogDescription>
+						</DialogHeader>
+						<div className="grid gap-2">
+							<Label htmlFor="admin-profile-rename-name">
+								{t("admin.minecraftProfilePage.profileName")}
+							</Label>
+							<Input
+								id="admin-profile-rename-name"
+								value={renameName}
+								required
+								autoComplete="off"
+								onChange={(event) =>
+									dispatch({
+										type: "renameName",
+										value: event.currentTarget.value,
+									})
+								}
+							/>
+						</div>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								disabled={renamingProfile}
+								onClick={() =>
+									dispatch({ type: "renameDialogOpen", value: false })
+								}
+							>
+								{t("common.cancel")}
+							</Button>
+							<Button
+								type="submit"
+								disabled={renamingProfile || !renameName.trim()}
+							>
+								{renamingProfile ? (
+									<Icon name="Spinner" className="mr-2 size-4 animate-spin" />
+								) : (
+									<Icon name="PencilSimple" className="mr-2 size-4" />
+								)}
+								{t("common.save")}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 
 			<ConfirmDialog
 				open={textureToDelete != null}

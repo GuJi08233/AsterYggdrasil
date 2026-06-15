@@ -212,6 +212,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/minecraft-profiles/{uuid}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["admin_rename_minecraft_profile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/minecraft-profiles/{uuid}/textures": {
         parameters: {
             query?: never;
@@ -900,6 +916,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/minecraft/{uuid}/name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["rename_current_user_minecraft_profile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/profiles/minecraft/{uuid}/textures": {
         parameters: {
             query?: never;
@@ -1327,7 +1359,7 @@ export interface components {
         /** @enum {string} */
         AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.user_disabled" | "auth.pending_activation" | "auth.passkey_login_disabled" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
-        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server";
+        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server";
         /** @enum {string} */
         AuditEntityType: "system" | "system_config" | "user" | "auth_session" | "passkey" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task" | "minecraft_profile" | "minecraft_texture" | "yggdrasil_token" | "yggdrasil_session";
         AuditLogEntry: {
@@ -2021,6 +2053,9 @@ export interface components {
         RemovedCountResponse: {
             /** Format: int64 */
             removed: number;
+        };
+        RenameMinecraftProfileReq: {
+            name: string;
         };
         RuntimeSystemHealthComponent: {
             message: string;
@@ -3516,6 +3551,77 @@ export interface operations {
                 content?: never;
             };
             /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_rename_minecraft_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameMinecraftProfileReq"];
+            };
+        };
+        responses: {
+            /** @description Renamed Minecraft profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            /** Format: int64 */
+                            id: number;
+                            name: string;
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            updated_at: string;
+                            uploadable_textures: string;
+                            /** Format: int64 */
+                            user_id: number;
+                            uuid: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile UUID/name or duplicate profile */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -5753,6 +5859,63 @@ export interface operations {
                 content?: never;
             };
             /** @description Invalid profile UUID */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Profile not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    rename_current_user_minecraft_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unsigned Minecraft profile UUID */
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameMinecraftProfileReq"];
+            };
+        };
+        responses: {
+            /** @description Renamed Minecraft profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            id: string;
+                            name: string;
+                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid profile UUID/name or duplicate profile */
             400: {
                 headers: {
                     [name: string]: unknown;

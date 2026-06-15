@@ -58,6 +58,7 @@ const AUDIT_ACTION_LABELS = {
 	mail_send: "Email sent",
 	minecraft_profile_create: "Minecraft profile created",
 	minecraft_profile_delete: "Minecraft profile deleted",
+	minecraft_profile_rename: "Minecraft profile renamed",
 	minecraft_texture_bind: "Minecraft texture bound",
 	minecraft_texture_delete: "Minecraft texture deleted",
 	minecraft_texture_upload: "Minecraft texture uploaded",
@@ -112,6 +113,7 @@ const AUDIT_DETAIL_LABELS = {
 	external_auth_provider_tested: "Provider connection tested",
 	mail_delivery_failed: "Email delivery failed",
 	mail_sent: "Email sent",
+	minecraft_profile_renamed: "Minecraft profile renamed",
 	minecraft_texture_bound: "Minecraft texture bound",
 	task_retry_scheduled: "Retry queued",
 	tasks_cleanup_finished: "Cleanup finished",
@@ -405,6 +407,21 @@ function formatAuditDetailMessage(
 				["file_size", "File size"],
 			]);
 			return compactJoin([AUDIT_DETAIL_LABELS.minecraft_texture_bound, values]);
+		}
+		case "minecraft_profile_renamed": {
+			const values = formatKeyValues(params, [
+				["old_profile_name", "Old name"],
+				["new_profile_name", "New name"],
+				["profile_uuid", "Profile UUID"],
+				[
+					"temporarily_invalidated_token_count",
+					"Temporarily invalidated tokens",
+				],
+			]);
+			return compactJoin([
+				AUDIT_DETAIL_LABELS.minecraft_profile_renamed,
+				values,
+			]);
 		}
 		case "tasks_cleanup_finished": {
 			const removed = paramText(params, "removed");

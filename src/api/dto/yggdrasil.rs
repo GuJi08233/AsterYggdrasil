@@ -198,3 +198,10 @@ pub struct CreateMinecraftProfileReq {
     #[validate(custom(function = "crate::api::dto::validation::validate_minecraft_profile_name"))]
     pub name: String,
 }
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct RenameMinecraftProfileReq {
+    #[validate(custom(function = "crate::api::dto::validation::validate_minecraft_profile_name"))]
+    pub name: String,
+}

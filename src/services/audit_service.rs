@@ -13,10 +13,10 @@ pub use context::{AuditContext, AuditRequestInfo};
 pub use details::{
     AdminTaskCleanupAuditDetails, AuthSessionAuditDetails, ConfigActionDetails,
     ConfigUpdateDetails, ExternalAuthProviderTestParamsAuditDetails, LoginAuditDetails,
-    MailAuditDetails, MinecraftProfileAuditDetails, MinecraftTextureAuditDetails,
-    PasskeyAuditDetails, TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
-    YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails, YggdrasilTokenAuditDetails,
-    details,
+    MailAuditDetails, MinecraftProfileAuditDetails, MinecraftProfileRenameAuditDetails,
+    MinecraftTextureAuditDetails, PasskeyAuditDetails, TaskRetryAuditDetails, UserAuditDetails,
+    UserSessionRevokeAuditDetails, YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails,
+    YggdrasilTokenAuditDetails, details,
 };
 pub use filters::{AuditLogFilterQuery, AuditLogFilters};
 pub use manager::{

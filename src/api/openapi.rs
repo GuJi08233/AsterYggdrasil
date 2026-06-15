@@ -50,6 +50,7 @@ use utoipa::{Modify, OpenApi};
 
         crate::api::routes::profiles::list_minecraft_profiles,
         crate::api::routes::profiles::create_minecraft_profile,
+        crate::api::routes::profiles::rename_minecraft_profile,
         crate::api::routes::profiles::list_minecraft_profile_textures,
         crate::api::routes::profiles::bind_minecraft_profile_texture,
         crate::api::routes::profiles::unbind_minecraft_profile_texture,
@@ -94,6 +95,7 @@ use utoipa::{Modify, OpenApi};
         crate::api::routes::admin::users::get_user_avatar,
         crate::api::routes::admin::profiles::list_minecraft_profiles,
         crate::api::routes::admin::profiles::get_minecraft_profile,
+        crate::api::routes::admin::profiles::rename_minecraft_profile,
         crate::api::routes::admin::profiles::delete_minecraft_profile,
         crate::api::routes::admin::profiles::list_minecraft_profile_textures,
         crate::api::routes::admin::profiles::delete_minecraft_profile_texture,
@@ -148,6 +150,7 @@ use utoipa::{Modify, OpenApi};
             crate::api::dto::ExternalAuthProviderTestParamsReq,
             crate::api::dto::BindMinecraftTextureReq,
             crate::api::dto::yggdrasil::CreateMinecraftProfileReq,
+            crate::api::dto::yggdrasil::RenameMinecraftProfileReq,
             crate::api::dto::yggdrasil::YggdrasilAgentReq,
             crate::api::dto::yggdrasil::YggdrasilAuthenticateReq,
             crate::api::dto::yggdrasil::YggdrasilAuthenticateResp,

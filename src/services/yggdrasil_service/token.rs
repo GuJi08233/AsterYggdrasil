@@ -191,6 +191,23 @@ pub(super) async fn active_token<S: DatabaseRuntimeState>(
     access_token: &str,
     client_token: Option<&str>,
 ) -> std::result::Result<yggdrasil_token::Model, YggdrasilError> {
+    token_for_operation(state, access_token, client_token, false).await
+}
+
+pub(super) async fn refreshable_token<S: DatabaseRuntimeState>(
+    state: &S,
+    access_token: &str,
+    client_token: Option<&str>,
+) -> std::result::Result<yggdrasil_token::Model, YggdrasilError> {
+    token_for_operation(state, access_token, client_token, true).await
+}
+
+async fn token_for_operation<S: DatabaseRuntimeState>(
+    state: &S,
+    access_token: &str,
+    client_token: Option<&str>,
+    allow_temporarily_invalid: bool,
+) -> std::result::Result<yggdrasil_token::Model, YggdrasilError> {
     let Some(token) = yggdrasil_token_repo::find_by_access_hash(
         state.reader_db(),
         &sha256_hex(access_token.as_bytes()),
@@ -208,6 +225,14 @@ pub(super) async fn active_token<S: DatabaseRuntimeState>(
             revoked = token.revoked_at.is_some(),
             expired = token.expires_at <= Utc::now(),
             "yggdrasil token rejected because it is inactive"
+        );
+        return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
+    }
+    if token.temporarily_invalidated_at.is_some() && !allow_temporarily_invalid {
+        tracing::debug!(
+            token_id = token.id,
+            user_id = token.user_id,
+            "yggdrasil token rejected because it is temporarily invalid"
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
     }

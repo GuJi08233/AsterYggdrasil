@@ -31,6 +31,7 @@ pub async fn create<C: ConnectionTrait>(
         issued_at: Set(input.issued_at),
         expires_at: Set(input.expires_at),
         revoked_at: Set(None),
+        temporarily_invalidated_at: Set(None),
         user_agent: Set(input.user_agent),
         ip_address: Set(input.ip_address),
         ..Default::default()
@@ -98,6 +99,25 @@ pub async fn revoke_all_for_selected_profile<C: ConnectionTrait>(
         )
         .filter(yggdrasil_token::Column::SelectedProfileId.eq(selected_profile_id))
         .filter(yggdrasil_token::Column::RevokedAt.is_null())
+        .exec(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(result.rows_affected)
+}
+
+pub async fn temporarily_invalidate_all_for_selected_profile<C: ConnectionTrait>(
+    db: &C,
+    selected_profile_id: i64,
+) -> Result<u64> {
+    let now = Utc::now();
+    let result = YggdrasilToken::update_many()
+        .col_expr(
+            yggdrasil_token::Column::TemporarilyInvalidatedAt,
+            sea_orm::sea_query::Expr::value(now),
+        )
+        .filter(yggdrasil_token::Column::SelectedProfileId.eq(selected_profile_id))
+        .filter(yggdrasil_token::Column::RevokedAt.is_null())
+        .filter(yggdrasil_token::Column::TemporarilyInvalidatedAt.is_null())
         .exec(db)
         .await
         .map_aster_err(AsterError::database_operation)?;

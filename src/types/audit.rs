@@ -85,6 +85,7 @@ define_audit_actions! {
     UserExternalAuthLink => "user_external_auth_link",
     UserExternalAuthUnlink => "user_external_auth_unlink",
     MinecraftProfileCreate => "minecraft_profile_create",
+    MinecraftProfileRename => "minecraft_profile_rename",
     MinecraftProfileDelete => "minecraft_profile_delete",
     MinecraftTextureUpload => "minecraft_texture_upload",
     MinecraftTextureBind => "minecraft_texture_bind",
@@ -124,6 +125,7 @@ impl AuditAction {
             | Self::UserPasskeyDelete
             | Self::UserPasskeyLogin
             | Self::MinecraftProfileCreate
+            | Self::MinecraftProfileRename
             | Self::MinecraftProfileDelete
             | Self::MinecraftTextureUpload
             | Self::MinecraftTextureBind
