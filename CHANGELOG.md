@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-alpha.2] - 2026-06-16
+
+### Added
+
+- **Profile 重命名与 token 临时失效**：用户与管理员均可重命名 Minecraft profile（用户端 `PUT /api/v1/profiles/minecraft/{uuid}/name`，管理端 `PUT /api/v1/admin/minecraft-profiles/{uuid}/name`）。重命名时绑定该 profile 的 Yggdrasil token 进入临时失效态——阻止 `validate` / `join`，但允许 `refresh`（清除失效并签发带新名字的新 token），强制启动器在游戏前拉取更新后的 profile 元数据。名称唯一性校验（拒绝重复、同名视为 no-op），新增 `m20260616_000001` 迁移给 `yggdrasil_tokens` 加 `temporarily_invalidated_at` 列，记录 `MinecraftProfileRename` 审计事件（旧名 / 新名 / 失效 token 数）；前端用户 profile 页与管理员 profile 详情页加重命名对话框，配套中英 i18n 与审计展示。
+
+- **Yggdrasil 协议限流**：为 `authserver/authenticate` 与 `authserver/signout` 新增独立令牌桶限流（防暴力撞库）。基于 governor keyed 限流器，按规范化用户名（trim + 小写）分桶，`authenticate` 与 `signout` 各自独立桶互不影响；触发时返回 `429` + `Retry-After` 头，错误体遵循 authlib-injector 协议格式（`TooManyRequestsException`）。复用 `rate_limit.auth` 档位配置。
+
+### Fixed
+
+- **Yggdrasil 协议**：`uploadableTextures` profile property 此前硬编码 `signature: None`，违反 authlib-injector 规范。现在 `unsigned=false` 与 sessionserver `hasJoined` 服务端验证场景下，该 property 会与 textures property 一样经 RSA 私钥签名，服务端可完整验证全部 profile properties。
+
+### Changed
+
+- **限流默认开启**：`RateLimitConfig.enabled` 默认值由 `false` 改为 `true`，`config.example.toml` 同步。新部署默认对认证类请求启用限流；已有部署 `config.toml` 的显式值优先，不受影响。
+
+- **文档**：修正 `clientToken` 在 `invalidate` 中的行为描述 —— invalidate 按 Yggdrasil 规范只校验 `accessToken`，`clientToken` 不参与吊销判定（端点行为未变，仅修正此前误导性文档，中英同步）。
+- **文档**：`hasJoined` 与 `profile/{uuid}` 的签名表述由「textures property 签名」泛化为「profile properties 签名」，与新签名行为对齐（中英同步）。
+
+---
+
+**统计数据**：
+- 64 files changed, 2,108 insertions(+), 50 deletions(-)
+- 4 commits（3 功能 + 1 CI）
+- 新增 1 个数据库迁移（`m20260616_000001`）
+
 ## [v0.1.0-alpha.1] - 2026-06-16
 
 ### Release Highlights
@@ -174,5 +200,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AptS-1547/AsterDrive/compare/v0.1.0-alpha.1...HEAD
+[Unreleased]: https://github.com/AptS-1547/AsterDrive/compare/v0.1.0-alpha.2...HEAD
+[v0.1.0-alpha.2]: https://github.com/AptS-1547/AsterDrive/releases/tag/v0.1.0-alpha.1...v0.1.0-alpha.2
 [v0.1.0-alpha.1]: https://github.com/AptS-1547/AsterDrive/releases/tag/v0.1.0-alpha.1
