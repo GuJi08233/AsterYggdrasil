@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-alpha.3] - 2026-06-16
+
+### Added
+
+- **列表端点统一分页**：将 profiles、wardrobe、会话、passkey、外部认证 link / provider 等列表端点从裸数组改为 offset 分页响应。受影响端点返回 `OffsetPage<T>`（含 `items` / `limit` / `offset` / `total`）：`GET /profiles/minecraft`、`GET /wardrobe/textures`、`GET /auth/external-auth/providers`、`GET /auth/external-auth/links`、`GET /admin/users/{id}/minecraft-profiles`；auth_session / minecraft_texture / external_auth_identity / passkey 仓储新增 `list_by_user_paginated`，并补对应服务层分页包装。
+
+- **账户区 API 与工作台**：新增 `/account` 路由组。`GET /account/overview` 返回当前用户的 profile 数量与最近 5 条活动（审计日志）；`GET /account/audit-logs` 提供当前用户审计日志的分页 + 过滤（action / entity_type / entity_id / 时间范围）+ 排序查询，user_id 边界在服务端强制，不被前端覆盖。前端配套 `accountService`、`AccountOverviewPage` 工作台与 `AccountAuditPage`（`/account/audit`），中英 i18n 同步。
+
+- **前端导航与路由架构重构**：统一 shell —— `AccountShell` 与 `AdminShell` 合并为单一参数化 `AppShell`；路由守卫抽成独立组件 `AuthenticatedGate` / `GuestOnlyGate` / `AdminOnlyGate` / `InitGate`；用 `RouteAccessState` 取代静默 redirect，访问被拒时展示上下文提示而非无感跳转；所有路径集中到 `routePaths.ts` 并提供动态段助手。导航改为按账户 / 管理分区的 `ShellNavSection` 可折叠结构。主题切换改为双图标交叉淡入动画并补 `data-theme-surface`（AsterDrive 风格柔和过渡）；密码强度计改为红 / 琥珀 / 翠绿分档配色；移除 topbar 搜索栏并为大体积 chunk 配置 PWA precache 排除清单。
+
+### Changed
+
+- **路由与命名规范化（breaking）**：`/dashboard` → `/account`，`/dashboard/admin/*` → `/admin/*`；移除 `/auth`、`/dashboard/launcher`、legacy `/app/*` 等旧路由，不再保留自动重定向。页面命名统一：`ProfilesPage` → `MinecraftProfilesPage`、`WardrobePage` → `TextureWardrobePage` 等；通用组件从 `panel/` 命名空间迁到 `common/`；i18n 由 `dashboard.json` 拆出 `account.json`，并新增路由状态文案。
+
+- **列表响应格式（breaking）**：上述列表端点响应从裸数组变为 `{ items, limit, offset, total }` 分页对象，第三方 / 自定义客户端需适配。
+
+- **审计排序类型共享**：`AdminAuditLogSortBy` 重命名为 `AuditLogSortBy`，排序查询处理移入 `audit_service::filters`，用户与管理端共用同一套排序定义。
+
+### Removed
+
+- 移除面向开发者的旧概念页面：Yggdrasil 信息页、诊断面板（`ServiceDiagnosticsPanel` / `useServiceDiagnostics` / `diagnosticsService`）、API catalog（`EndpointCard` / `SectionTitle` / `AccessBadge`）、forge 引导（`FoundationSummary` / `ModuleRail`）、`ExternalAuthPage`、`AuthPage`、`AdminConfigPage`、`AdminYggdrasilPage`、`WorkbenchPage`，以及 `legacyRedirects`。
+
+---
+
+**统计数据**：
+- 148 files changed, 6,840 insertions(+), 4,050 deletions(-)
+- 2 commits（2 功能）
+- 无新增数据库迁移
+
 ## [v0.1.0-alpha.2] - 2026-06-16
 
 ### Added
@@ -200,6 +229,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AptS-1547/AsterDrive/compare/v0.1.0-alpha.2...HEAD
-[v0.1.0-alpha.2]: https://github.com/AptS-1547/AsterDrive/releases/tag/v0.1.0-alpha.1...v0.1.0-alpha.2
-[v0.1.0-alpha.1]: https://github.com/AptS-1547/AsterDrive/releases/tag/v0.1.0-alpha.1
+[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...HEAD
+[v0.1.0-alpha.3]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
+[v0.1.0-alpha.2]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
+[v0.1.0-alpha.1]: https://github.com/AsterCommunity/AsterYggdrasil/releases/tag/v0.1.0-alpha.1
