@@ -8,7 +8,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoginDevicesSection } from "@/components/settings/LoginDevicesSection";
-import PersonalSettingsPage from "@/pages/app/PersonalSettingsPage";
+import AccountSettingsPage from "@/pages/account/AccountSettingsPage";
 import InitPage from "@/pages/InitPage";
 import LoginPage from "@/pages/LoginPage";
 import PublicConnectPage from "@/pages/PublicConnectPage";
@@ -59,28 +59,6 @@ vi.mock("@/services/yggdrasilService", async (importOriginal) => {
 		},
 	};
 });
-
-vi.mock("@/hooks/useServiceDiagnostics", () => ({
-	useServiceDiagnostics: () => ({
-		loading: false,
-		updatedAt: "2026-06-07T00:00:00.000Z",
-		error: null,
-		refresh: vi.fn(),
-		endpoints: [
-			{
-				id: "health",
-				group: "Runtime",
-				label: "Process health",
-				method: "GET",
-				path: "/health",
-				icon: "Gauge",
-				status: "ok",
-				value: "ok",
-				detail: "v0.1.0",
-			},
-		],
-	}),
-}));
 
 describe("frontend entry routes", () => {
 	beforeEach(() => {
@@ -218,8 +196,6 @@ describe("frontend entry routes", () => {
 		expect(screen.getByText("Developer friendly")).toBeInTheDocument();
 		expect(screen.getByText("Skin ecosystem")).toBeInTheDocument();
 		expect(screen.getByText("Community driven")).toBeInTheDocument();
-		expect(screen.queryByText("API Root")).not.toBeInTheDocument();
-		expect(screen.queryByText("Launcher setup")).not.toBeInTheDocument();
 	});
 
 	it("renders the public entry through the shared public shell", async () => {
@@ -245,11 +221,7 @@ describe("frontend entry routes", () => {
 		expect(
 			document.querySelector('[data-slot="public-entry-backdrop-image"]'),
 		).toHaveClass("fixed", "inset-0", "bg-cover", "bg-center");
-		expect(screen.getByLabelText("Language")).toHaveClass(
-			"hidden",
-			"sm:inline-flex",
-			"h-10",
-		);
+		expect(screen.getByLabelText("Language")).toHaveClass("size-10");
 		expect(document.querySelector(".public-home-enter")).toBeInTheDocument();
 		expect(
 			document.querySelector(".app-route-transition"),
@@ -292,7 +264,7 @@ describe("frontend entry routes", () => {
 
 		expect(
 			await screen.findByRole("link", { name: /Enter console/ }),
-		).toHaveAttribute("href", "/dashboard");
+		).toHaveAttribute("href", "/account");
 		expect(screen.queryByText("Learn more")).not.toBeInTheDocument();
 		expect(screen.queryByText("Get started")).not.toBeInTheDocument();
 	});
@@ -411,7 +383,7 @@ describe("frontend entry routes", () => {
 		);
 	});
 
-	it("redirects public routes to init before initialization", async () => {
+	it("shows setup required state before initialization", async () => {
 		authServiceMock.check.mockResolvedValue({ initialized: false });
 		const router = createMemoryRouter(
 			[
@@ -431,33 +403,43 @@ describe("frontend entry routes", () => {
 
 		render(<RouterProvider router={router} />);
 
-		expect(await screen.findByText("init-route")).toBeInTheDocument();
+		expect(await screen.findByText("Setup required")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Start setup" })).toHaveAttribute(
+			"href",
+			"/init",
+		);
 		expect(screen.queryByText("register-route")).not.toBeInTheDocument();
+		expect(screen.queryByText("init-route")).not.toBeInTheDocument();
 	});
 
-	it("redirects protected dashboard routes to login when unauthenticated", async () => {
+	it("shows login required state for protected routes when unauthenticated", async () => {
 		const router = createMemoryRouter(
 			[
 				{
 					element: <ProtectedRoute />,
 					children: [
 						{
-							path: "/dashboard",
+							path: "/account",
 							element: <Outlet />,
 						},
 					],
 				},
 				{ path: "/login", element: <div>login-route</div> },
 			],
-			{ initialEntries: ["/dashboard"] },
+			{ initialEntries: ["/account"] },
 		);
 
 		render(<RouterProvider router={router} />);
 
-		expect(await screen.findByText("login-route")).toBeInTheDocument();
+		expect(await screen.findByText("Login required")).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "Go to login" })).toHaveAttribute(
+			"href",
+			"/login",
+		);
+		expect(screen.queryByText("login-route")).not.toBeInTheDocument();
 	});
 
-	it("redirects authenticated users away from the login route", async () => {
+	it("shows already signed in state on guest-only routes", async () => {
 		const user = {
 			id: 7,
 			username: "alex",
@@ -488,14 +470,18 @@ describe("frontend entry routes", () => {
 					element: <LoginGuard />,
 					children: [{ index: true, element: <div>register-route</div> }],
 				},
-				{ path: "/dashboard", element: <div>dashboard-route</div> },
+				{ path: "/account", element: <div>account-route</div> },
 			],
 			{ initialEntries: ["/register"] },
 		);
 
 		render(<RouterProvider router={router} />);
 
-		expect(await screen.findByText("dashboard-route")).toBeInTheDocument();
+		expect(await screen.findByText("Already signed in")).toBeInTheDocument();
+		expect(
+			screen.getByRole("link", { name: "Open workbench" }),
+		).toHaveAttribute("href", "/account");
+		expect(screen.queryByText("account-route")).not.toBeInTheDocument();
 		expect(screen.queryByText("login-route")).not.toBeInTheDocument();
 		expect(screen.queryByText("register-route")).not.toBeInTheDocument();
 	});
@@ -529,7 +515,7 @@ describe("frontend entry routes", () => {
 		expect(authServiceMock.me).not.toHaveBeenCalled();
 	});
 
-	it("places personal settings at the bottom of the user sidebar area without a divider", async () => {
+	it("renders account and admin sections in the shared app sidebar", async () => {
 		const user = {
 			id: 7,
 			username: "alex",
@@ -553,35 +539,97 @@ describe("frontend entry routes", () => {
 					element: <AppLayout />,
 					children: [
 						{
-							path: "/dashboard/admin/settings",
+							path: "/admin/settings",
 							element: <div>admin-settings-route</div>,
 						},
 					],
 				},
 			],
-			{ initialEntries: ["/dashboard/admin/settings"] },
+			{ initialEntries: ["/admin/settings"] },
 		);
 
 		render(<RouterProvider router={router} />);
 
 		expect(await screen.findByText("admin-settings-route")).toBeInTheDocument();
-		const sidebarNav = document.querySelector("aside nav");
+		const sidebarNav = document.querySelector(
+			'[data-slot="shell-desktop-sidebar"] nav',
+		);
 		expect(sidebarNav).toBeTruthy();
 		const sidebarLinks = within(sidebarNav as HTMLElement).getAllByRole("link");
-		expect(
-			sidebarLinks.map((link) => link.getAttribute("href")).slice(0, 5),
-		).toEqual([
-			"/dashboard",
-			"/dashboard/profiles",
-			"/dashboard/wardrobe",
-			"/dashboard/settings",
-			"/dashboard/admin/users",
+		expect(sidebarLinks.map((link) => link.getAttribute("href"))).toEqual([
+			"/account",
+			"/account/profiles",
+			"/account/wardrobe",
+			"/account/settings",
+			"/admin/users",
+			"/admin/external-auth",
+			"/admin/audit",
+			"/admin/tasks",
+			"/admin/settings",
+			"/admin/about",
 		]);
 		expect(
-			within(sidebarNav as HTMLElement).getByRole("link", {
-				name: "Personal settings",
-			}).parentElement,
-		).toBe(sidebarNav);
+			within(sidebarNav as HTMLElement).getByText("My space"),
+		).toBeVisible();
+		expect(
+			within(sidebarNav as HTMLElement).getByText("Administration"),
+		).toBeVisible();
+	});
+
+	it("opens the shared app navigation from the mobile topbar", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			role: "admin",
+			status: "active",
+		} as const;
+		useAuthStore.setState({
+			user,
+			checking: false,
+			error: null,
+			expiresAt: Date.now() + 60_000,
+			isAuthStale: false,
+			isAuthenticated: true,
+			isAdmin: true,
+		});
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout />,
+					children: [
+						{
+							path: "/account",
+							element: <div>account-route</div>,
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/account"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("account-route")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+		const drawer = document.querySelector('[data-slot="shell-mobile-drawer"]');
+		expect(drawer).toBeTruthy();
+		expect(drawer).toHaveClass("translate-x-0", "shadow-2xl");
+		expect(within(drawer as HTMLElement).getByText("My space")).toBeVisible();
+		expect(
+			within(drawer as HTMLElement).getByText("Administration"),
+		).toBeVisible();
+		expect(
+			within(drawer as HTMLElement).getByRole("link", { name: "Users" }),
+		).toHaveAttribute("href", "/admin/users");
+
+		fireEvent.click(
+			within(drawer as HTMLElement).getByRole("button", { name: "Close" }),
+		);
+
+		expect(drawer).toHaveClass("-translate-x-[calc(100%+1rem)]", "shadow-none");
 	});
 
 	it("shows home and personal settings actions in the admin user menu", async () => {
@@ -608,13 +656,13 @@ describe("frontend entry routes", () => {
 					element: <AppLayout />,
 					children: [
 						{
-							path: "/dashboard/admin/settings",
+							path: "/admin/settings",
 							element: <div>admin-settings-route</div>,
 						},
 					],
 				},
 			],
-			{ initialEntries: ["/dashboard/admin/settings"] },
+			{ initialEntries: ["/admin/settings"] },
 		);
 
 		render(<RouterProvider router={router} />);
@@ -633,7 +681,7 @@ describe("frontend entry routes", () => {
 			within(menu as HTMLElement).getByRole("menuitem", {
 				name: "Personal settings",
 			}),
-		).toHaveAttribute("href", "/dashboard/settings");
+		).toHaveAttribute("href", "/account/settings");
 		expect(
 			within(menu as HTMLElement).queryByRole("menuitem", {
 				name: "Admin",
@@ -641,6 +689,58 @@ describe("frontend entry routes", () => {
 		).not.toBeInTheDocument();
 		expect(
 			within(menu as HTMLElement).queryByRole("separator"),
+		).not.toBeInTheDocument();
+	});
+
+	it("shows a home action in the account user menu", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			role: "admin",
+			status: "active",
+		} as const;
+		useAuthStore.setState({
+			user,
+			checking: false,
+			error: null,
+			expiresAt: Date.now() + 60_000,
+			isAuthStale: false,
+			isAuthenticated: true,
+			isAdmin: true,
+		});
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout />,
+					children: [
+						{
+							path: "/account",
+							element: <div>account-route</div>,
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/account"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("account-route")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "alex" }));
+
+		const menu = document.querySelector('[data-slot="dropdown-menu-content"]');
+		expect(menu).toBeTruthy();
+		expect(
+			within(menu as HTMLElement).getByRole("menuitem", {
+				name: "Back to home",
+			}),
+		).toHaveAttribute("href", "/");
+		expect(
+			within(menu as HTMLElement).queryByRole("menuitem", {
+				name: "Personal settings",
+			}),
 		).not.toBeInTheDocument();
 	});
 
@@ -664,7 +764,7 @@ describe("frontend entry routes", () => {
 
 		render(
 			<MemoryRouter>
-				<PersonalSettingsPage />
+				<AccountSettingsPage />
 			</MemoryRouter>,
 		);
 

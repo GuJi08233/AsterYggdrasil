@@ -228,7 +228,7 @@
 			"externalAuth": "Third-party identity provider links."
 		},
 		"accountTitle": "Account profile",
-		"accountDescription": "These details appear in the dashboard, admin user list, and future public site surfaces.",
+		"accountDescription": "These details appear in the account workbench, admin user list, and future public site surfaces.",
 		"emptyValue": "Not set",
 		"username": "Username",
 		"email": "Email",

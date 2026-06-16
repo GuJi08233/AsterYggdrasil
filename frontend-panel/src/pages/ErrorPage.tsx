@@ -1,5 +1,5 @@
 import { isRouteErrorResponse, useRouteError } from "react-router-dom";
-import { PageShell } from "@/components/panel/PageShell";
+import { PageShell } from "@/components/common/PageShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { usePageTitle } from "@/hooks/usePageTitle";

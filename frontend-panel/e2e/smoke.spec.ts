@@ -12,11 +12,9 @@ test("serves the public Yggdrasil entry screen", async ({ page }) => {
 	await expect(page.getByText("Secure authentication")).toBeVisible();
 	await expect(page.getByText("Skin management")).toBeVisible();
 	await expect(page.getByText("Fast and stable")).toBeVisible();
-	await expect(page.getByText("API Root")).toHaveCount(0);
-	await expect(page.getByText("Drag URI")).toHaveCount(0);
 });
 
-test("shows login as a standalone route and protects dashboard", async ({
+test("shows login as a standalone route and protects account routes", async ({
 	page,
 }) => {
 	await page.goto("/login");
@@ -33,7 +31,7 @@ test("shows login as a standalone route and protects dashboard", async ({
 	await page.getByRole("link", { name: "Login" }).click();
 	await expect(page).toHaveURL(/\/login$/);
 
-	await page.goto("/dashboard");
+	await page.goto("/account");
 	await expect(page).toHaveURL(/\/login$/);
 	await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
 });

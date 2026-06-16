@@ -5,23 +5,18 @@
 	},
 	"nav": {
 		"home": "首页",
-		"dashboard": "工作台",
+		"account": "工作台",
 		"profiles": "角色档案",
 		"wardrobe": "衣柜",
 		"launcher": "启动器",
 		"sessions": "会话",
 		"personalSettings": "个人设置",
 		"admin": "管理",
-		"yggdrasil": "Yggdrasil",
 		"config": "配置",
 		"audit": "审计",
 		"tasks": "任务",
 		"login": "登录",
-		"logout": "退出",
-		"developer": "开发",
-		"apiCatalog": "API 目录",
-		"diagnostics": "诊断",
-		"authConsole": "认证控制台"
+		"logout": "退出"
 	},
 	"common": {
 		"loading": "加载中",
@@ -52,6 +47,33 @@
 		"actions": "操作",
 		"metadataLoadFailed": "metadata 加载失败",
 		"configLoadFailed": "前端配置加载失败"
+	},
+	"shell": {
+		"searchPlaceholder": "搜索玩家、UUID、会话或设置...",
+		"themeAction": "切换主题",
+		"openNavigation": "打开导航",
+		"navigationTitle": "应用导航",
+		"sections": {
+			"account": "我的空间",
+			"admin": "管理后台"
+		},
+		"routeState": {
+			"setupRequiredTitle": "需要初始化",
+			"setupRequiredDescription": "当前实例还没有完成初始化。请先创建第一个管理员账号，再打开其他页面。",
+			"setupRequiredAction": "开始初始化",
+			"setupCompleteTitle": "初始化已完成",
+			"setupCompleteDescription": "当前实例已经完成初始化，这个初始化入口不再可用。",
+			"setupCompleteAction": "前往登录",
+			"loginRequiredTitle": "需要登录",
+			"loginRequiredDescription": "请先登录，再打开工作台、角色档案、衣柜或管理工具。",
+			"loginRequiredAction": "前往登录",
+			"alreadySignedInTitle": "已登录",
+			"alreadySignedInDescription": "你已经登录。打开工作台继续管理角色档案和材质。",
+			"alreadySignedInAction": "打开工作台",
+			"adminRequiredTitle": "需要管理员权限",
+			"adminRequiredDescription": "这个区域需要管理员权限。账号、角色档案和材质操作请回到工作台处理。",
+			"adminRequiredAction": "返回工作台"
+		}
 	},
 	"footer": {
 		"description": "自建 Minecraft 身份、角色档案与材质管理。",

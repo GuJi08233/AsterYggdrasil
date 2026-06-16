@@ -6,6 +6,7 @@
 # 测试结果
 /coverage/
 /tests/performance/results/
+/textures
 /managed-ingress
 
 # 运行时生成

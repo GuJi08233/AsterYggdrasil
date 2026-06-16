@@ -1,22 +1,15 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { UserAvatarImage } from "@/components/common/UserAvatarImage";
+import { AuthUserMenu } from "@/components/common/AuthUserMenu";
 import { AppFooter } from "@/components/layout/AppFooter";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/buttonVariants";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
+import { accountPaths, publicPaths } from "@/routes/routePaths";
 import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 
@@ -69,19 +62,14 @@ const audienceKeys = [
 ] as const;
 
 export default function PublicConnectPage() {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const branding = useFrontendConfigStore((state) => state.branding);
 	const user = useAuthStore((state) => state.user);
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const isAdmin = useAuthStore((state) => state.isAdmin);
 	const hydrate = useAuthStore((state) => state.hydrate);
 	const logout = useAuthStore((state) => state.logout);
 	const serverName = branding.title || t("home.titleFallback");
 	const heroCopy = branding.description || t("home.heroCopy");
-	const language = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-	const languageLabel =
-		language === "zh-CN" ? t("login.languageZh") : t("login.languageEn");
-
 	usePageTitle(serverName);
 
 	useEffect(() => {
@@ -93,34 +81,26 @@ export default function PublicConnectPage() {
 			branding={branding}
 			title={serverName}
 			tagline={t("brand.tagline")}
-			language={language}
-			languageLabel={languageLabel}
-			languageAriaLabel={t("login.language")}
-			languageZhLabel={t("login.languageZh")}
-			languageEnLabel={t("login.languageEn")}
-			onLanguageChange={(next) => {
-				if (next) void i18n.changeLanguage(next);
-			}}
 			variant="home"
 			hideLanguageOnMobile
 			headerActions={
 				isAuthenticated && user ? (
-					<PublicUserMenu
-						username={user.username}
-						role={user.role}
-						isAdmin={isAdmin}
+					<AuthUserMenu
+						user={user}
+						scope="public"
+						className="border-black/10 bg-white/64 text-[#102118] shadow-lg shadow-black/12 backdrop-blur hover:bg-white/80 aria-expanded:bg-white/80 dark:border-white/14 dark:bg-white/8 dark:text-white dark:shadow-black/20 dark:hover:bg-white/14 dark:aria-expanded:bg-white/14"
 						onLogout={() => void logout()}
 					/>
 				) : (
 					<Link
-						to="/login"
+						to={publicPaths.login}
 						className={cn(
 							buttonVariants({ variant: "default", size: "sm" }),
-							"h-10 rounded-lg border-emerald-300/24 bg-emerald-500 px-4 text-white shadow-lg shadow-emerald-950/35 hover:bg-emerald-400",
+							"h-10 rounded-lg border-emerald-300/24 bg-emerald-500 px-3 text-white shadow-lg shadow-emerald-950/35 hover:bg-emerald-400 sm:px-4",
 						)}
 					>
 						<Icon name="SignIn" className="size-4" />
-						{t("home.loginRegister")}
+						<span className="hidden sm:inline">{t("home.loginRegister")}</span>
 					</Link>
 				)
 			}
@@ -146,7 +126,7 @@ export default function PublicConnectPage() {
 							<div className="mt-8 flex flex-wrap gap-3">
 								{isAuthenticated ? null : (
 									<Link
-										to="/login"
+										to={publicPaths.login}
 										className={cn(
 											buttonVariants({ size: "lg" }),
 											"h-12 min-w-44 rounded-lg border-emerald-300/28 bg-emerald-500 px-5 text-white shadow-xl shadow-emerald-950/40 hover:bg-emerald-400",
@@ -157,7 +137,7 @@ export default function PublicConnectPage() {
 									</Link>
 								)}
 								<Link
-									to="/dashboard"
+									to={accountPaths.home}
 									className={cn(
 										buttonVariants({ variant: "outline", size: "lg" }),
 										"h-12 min-w-40 rounded-lg border-black/12 bg-white/70 px-5 text-[#102118] backdrop-blur hover:border-black/18 hover:bg-white/85 dark:border-white/22 dark:bg-white/7 dark:text-white dark:hover:border-white/38 dark:hover:bg-white/13",
@@ -259,8 +239,8 @@ function AudienceTile({
 	description: string;
 }) {
 	return (
-		<div className="rounded-lg border border-black/10 bg-white/58 p-5 shadow-xl shadow-black/10 backdrop-blur-md transition-[transform,background-color,border-color] duration-200 hover:-translate-y-1 hover:border-emerald-700/18 hover:bg-white/76 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-black/18 dark:hover:border-emerald-300/24 dark:hover:bg-white/[0.085]">
-			<div className="mb-4 flex size-11 items-center justify-center rounded-md border border-emerald-700/16 bg-emerald-600/10 text-emerald-700 dark:border-emerald-300/16 dark:bg-emerald-400/12 dark:text-emerald-200">
+		<div className="group rounded-lg border border-black/10 bg-white/58 p-5 shadow-xl shadow-black/10 backdrop-blur-md transition-[transform,background-color,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-emerald-700/18 hover:bg-white/76 hover:shadow-2xl hover:shadow-emerald-950/12 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-black/18 dark:hover:border-emerald-300/24 dark:hover:bg-white/[0.085] dark:hover:shadow-black/24">
+			<div className="mb-4 flex size-11 items-center justify-center rounded-md border border-emerald-700/16 bg-emerald-600/10 text-emerald-700 transition-[transform,background-color,border-color,color] duration-300 ease-out group-hover:scale-105 group-hover:border-emerald-700/24 group-hover:bg-emerald-600/14 dark:border-emerald-300/16 dark:bg-emerald-400/12 dark:text-emerald-200 dark:group-hover:border-emerald-300/26 dark:group-hover:bg-emerald-400/16">
 				<Icon name={icon} className="size-6" />
 			</div>
 			<h3 className="text-base font-semibold text-[#102118] dark:text-white">
@@ -270,95 +250,5 @@ function AudienceTile({
 				{description}
 			</p>
 		</div>
-	);
-}
-
-function PublicUserMenu({
-	username,
-	role,
-	isAdmin,
-	onLogout,
-}: {
-	username: string;
-	role: string;
-	isAdmin: boolean;
-	onLogout: () => void;
-}) {
-	const { t } = useTranslation();
-	const userName = username.trim() || "User";
-
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						className="h-10 rounded-full border border-black/10 bg-white/64 px-1.5 pr-3 text-[#102118] shadow-lg shadow-black/12 backdrop-blur hover:bg-white/80 aria-expanded:bg-white/80 dark:border-white/14 dark:bg-white/8 dark:text-white dark:shadow-black/20 dark:hover:bg-white/14 dark:aria-expanded:bg-white/14"
-						aria-label={userName}
-					/>
-				}
-			>
-				<UserAvatarImage
-					name={userName}
-					size="sm"
-					className="size-7 rounded-xl bg-emerald-700/12 text-emerald-800 ring-emerald-700/20 dark:bg-white/12 dark:text-emerald-100 dark:ring-emerald-200/30"
-				/>
-				<span className="hidden max-w-28 truncate text-sm font-medium sm:block">
-					{userName}
-				</span>
-				<Icon
-					name="CaretDown"
-					className="size-3.5 text-emerald-800/80 dark:text-emerald-100/80"
-				/>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				align="end"
-				className="w-64 border-border/70 bg-popover/95 p-2 text-popover-foreground shadow-2xl shadow-black/40 backdrop-blur-md ring-white/10"
-			>
-				<div className="flex items-center gap-3 rounded-md bg-muted/35 px-3 py-2">
-					<UserAvatarImage
-						name={userName}
-						size="md"
-						className="rounded-xl bg-muted/70 text-muted-foreground ring-border/60"
-					/>
-					<div className="min-w-0">
-						<div className="truncate text-sm font-semibold text-popover-foreground">
-							{userName}
-						</div>
-						<div className="mt-0.5 text-xs text-muted-foreground">{role}</div>
-					</div>
-				</div>
-				<DropdownMenuSeparator className="mx-1 my-2 bg-border/70" />
-				<div className="mt-2 grid gap-1">
-					<DropdownMenuItem
-						render={<Link to="/dashboard" />}
-						className="flex min-h-9 items-center gap-2 rounded-md px-3 py-2 text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent"
-					>
-						<Icon name="Gauge" className="size-4 text-muted-foreground" />
-						{t("nav.dashboard")}
-					</DropdownMenuItem>
-					{isAdmin ? (
-						<DropdownMenuItem
-							render={<Link to="/dashboard/admin" />}
-							className="flex min-h-9 items-center gap-2 rounded-md px-3 py-2 text-sm text-popover-foreground transition-colors hover:bg-accent focus:bg-accent"
-						>
-							<Icon name="Shield" className="size-4 text-muted-foreground" />
-							{t("nav.admin")}
-						</DropdownMenuItem>
-					) : null}
-					<DropdownMenuItem
-						render={<button type="button" />}
-						variant="destructive"
-						className="flex min-h-9 items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-destructive/10 focus:bg-destructive/10"
-						onClick={onLogout}
-					>
-						<Icon name="SignOut" className="size-4" />
-						{t("nav.logout")}
-					</DropdownMenuItem>
-				</div>
-			</DropdownMenuContent>
-		</DropdownMenu>
 	);
 }

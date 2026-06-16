@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { adminPaths } from "@/routes/routePaths";
 import { adminUserService } from "@/services/adminService";
 import { useAuthStore } from "@/stores/authStore";
 import type { AdminUserInfo, UpdateAdminUserRequest } from "@/types/api";
@@ -34,7 +35,7 @@ export default function AdminUserDetailPage() {
 	usePageTitle(user?.username ?? t("admin.users.detailTitle"));
 
 	const backToUsers = useCallback(() => {
-		void navigate("/dashboard/admin/users");
+		void navigate(adminPaths.users);
 	}, [navigate]);
 
 	const loadUser = useCallback(async () => {

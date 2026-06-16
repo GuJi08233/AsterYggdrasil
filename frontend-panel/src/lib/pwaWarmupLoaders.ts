@@ -12,21 +12,21 @@ const loginRouteWarmupLoader = {
 
 const workbenchRouteWarmupLoader = {
 	key: "route:workbench",
-	label: "WorkbenchPage",
-	load: () => import("@/pages/app/WorkbenchPage"),
+	label: "AccountOverviewPage",
+	load: () => import("@/pages/account/AccountOverviewPage"),
 } satisfies WarmupLoaderEntry;
 
 export const loginSuccessPathWarmupLoaders = [
 	workbenchRouteWarmupLoader,
 	{
 		key: "route:profiles",
-		label: "ProfilesPage",
-		load: () => import("@/pages/app/ProfilesPage"),
+		label: "MinecraftProfilesPage",
+		load: () => import("@/pages/account/MinecraftProfilesPage"),
 	},
 	{
 		key: "route:wardrobe",
-		label: "WardrobePage",
-		load: () => import("@/pages/app/WardrobePage"),
+		label: "TextureWardrobePage",
+		load: () => import("@/pages/account/TextureWardrobePage"),
 	},
 ] satisfies WarmupLoaderEntry[];
 
@@ -45,18 +45,13 @@ export const userRouteWarmupLoaders = [
 	workbenchRouteWarmupLoader,
 	{
 		key: "route:profiles",
-		label: "ProfilesPage",
-		load: () => import("@/pages/app/ProfilesPage"),
+		label: "MinecraftProfilesPage",
+		load: () => import("@/pages/account/MinecraftProfilesPage"),
 	},
 	{
 		key: "route:wardrobe",
-		label: "WardrobePage",
-		load: () => import("@/pages/app/WardrobePage"),
-	},
-	{
-		key: "route:external-auth",
-		label: "ExternalAuthPage",
-		load: () => import("@/pages/ExternalAuthPage"),
+		label: "TextureWardrobePage",
+		load: () => import("@/pages/account/TextureWardrobePage"),
 	},
 ] satisfies WarmupLoaderEntry[];
 

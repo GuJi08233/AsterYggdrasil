@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { LoginEntryFooter } from "@/components/auth/LoginEntryFooter";
 import { LoginFormCard } from "@/components/auth/LoginFormCard";
@@ -13,6 +13,7 @@ import {
 	WebAuthnCancelledError,
 	WebAuthnUnsupportedError,
 } from "@/lib/webauthn";
+import { accountPaths } from "@/routes/routePaths";
 import { authService } from "@/services/authService";
 import { externalAuthService } from "@/services/externalAuthService";
 import { formatUnknownError } from "@/services/http";
@@ -103,7 +104,7 @@ const initialLoginFormState: LoginFormState = {
 };
 
 export default function LoginPage() {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const location = useLocation();
 	const [form, dispatch] = useReducer(loginFormReducer, initialLoginFormState);
 	const {
@@ -164,7 +165,7 @@ export default function LoginPage() {
 				await login(identifier, password);
 				toast.success(t("login.loginSuccess"));
 			}
-			navigate("/dashboard");
+			navigate(accountPaths.home);
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -179,7 +180,7 @@ export default function LoginPage() {
 				provider.kind,
 				provider.key,
 				{
-					return_path: "/dashboard",
+					return_path: accountPaths.home,
 				},
 			);
 			window.location.assign(response.authorization_url);
@@ -202,7 +203,7 @@ export default function LoginPage() {
 			const credential = await getPasskeyCredential(start.public_key);
 			await loginWithPasskey(start.flow_id, credential);
 			toast.success(t("login.loginSuccess"));
-			navigate("/dashboard");
+			navigate(accountPaths.home);
 		} catch (nextError) {
 			if (nextError instanceof WebAuthnUnsupportedError) {
 				toast.error(t("login.passkeyUnsupported"));
@@ -249,31 +250,16 @@ export default function LoginPage() {
 				(isRegister && !acceptedTerms)
 			: !identifier.trim() || !password);
 	const brandTitle = branding.title || t("brand.name");
-	const language = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-	const languageLabel =
-		language === "zh-CN" ? t("login.languageZh") : t("login.languageEn");
 	const visibleProviders = providers.slice(0, 3);
 	const showPasskeyLogin = !usesAccountCreationForm && passkeyLoginEnabled;
 
 	usePageTitle(cardTitle);
-
-	if (isRegister && !allowUserRegistration) {
-		return <Navigate to="/login" replace />;
-	}
 
 	return (
 		<PublicEntryShell
 			branding={branding}
 			title={brandTitle}
 			tagline={t("brand.tagline")}
-			language={language}
-			languageLabel={languageLabel}
-			languageAriaLabel={t("login.language")}
-			languageZhLabel={t("login.languageZh")}
-			languageEnLabel={t("login.languageEn")}
-			onLanguageChange={(next) => {
-				if (next) void i18n.changeLanguage(next);
-			}}
 			variant="auth"
 		>
 			<main className="app-route-transition mx-auto grid w-full max-w-[92rem] flex-1 items-center gap-8 px-4 py-8 sm:px-8 lg:px-12 xl:grid-cols-[minmax(560px,1fr)_minmax(430px,520px)]">

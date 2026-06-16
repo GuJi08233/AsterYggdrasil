@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useReducer } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { InitEntryFooter } from "@/components/auth/InitEntryFooter";
 import {
@@ -10,6 +10,7 @@ import {
 import { InitHero } from "@/components/auth/InitHero";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { accountPaths } from "@/routes/routePaths";
 import { formatUnknownError } from "@/services/http";
 import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
@@ -99,10 +100,9 @@ function initFormReducer(
 }
 
 export default function InitPage() {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const setup = useAuthStore((state) => state.setup);
 	const branding = useFrontendConfigStore((state) => state.branding);
-	const initialized = useInitStatusStore((state) => state.initialized);
 	const markInitialized = useInitStatusStore((state) => state.markInitialized);
 	const navigate = useNavigate();
 	const [form, dispatch] = useReducer(initFormReducer, undefined, () => ({
@@ -135,9 +135,6 @@ export default function InitPage() {
 		form.password !== form.confirmPassword ||
 		!publicUrlStatus.valid;
 	const brandTitle = branding.title || t("brand.name");
-	const language = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-	const languageLabel =
-		language === "zh-CN" ? t("login.languageZh") : t("login.languageEn");
 
 	usePageTitle(t("init.title"));
 
@@ -162,7 +159,7 @@ export default function InitPage() {
 			);
 			markInitialized();
 			toast.success(t("init.setupComplete"));
-			navigate("/dashboard", { replace: true });
+			navigate(accountPaths.home, { replace: true });
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -170,23 +167,11 @@ export default function InitPage() {
 		}
 	}
 
-	if (initialized === true) {
-		return <Navigate to="/login" replace />;
-	}
-
 	return (
 		<PublicEntryShell
 			branding={branding}
 			title={brandTitle}
 			tagline={t("brand.tagline")}
-			language={language}
-			languageLabel={languageLabel}
-			languageAriaLabel={t("login.language")}
-			languageZhLabel={t("login.languageZh")}
-			languageEnLabel={t("login.languageEn")}
-			onLanguageChange={(next) => {
-				if (next) void i18n.changeLanguage(next);
-			}}
 			variant="auth"
 		>
 			<main className="app-route-transition mx-auto grid w-full max-w-[92rem] flex-1 items-center gap-8 px-4 py-8 sm:px-8 lg:px-12 xl:grid-cols-[minmax(560px,1fr)_minmax(430px,520px)]">

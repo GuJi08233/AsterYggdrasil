@@ -61,15 +61,13 @@ const baseProfile = {
 
 function renderPage() {
 	return render(
-		<MemoryRouter
-			initialEntries={["/dashboard/admin/minecraft-profiles/profile-uuid"]}
-		>
+		<MemoryRouter initialEntries={["/admin/minecraft-profiles/profile-uuid"]}>
 			<Routes>
 				<Route
-					path="/dashboard/admin/minecraft-profiles/:uuid"
+					path="/admin/minecraft-profiles/:uuid"
 					element={<AdminMinecraftProfilePage />}
 				/>
-				<Route path="/dashboard/admin/users" element={<div>users page</div>} />
+				<Route path="/admin/users" element={<div>users page</div>} />
 			</Routes>
 		</MemoryRouter>,
 	);

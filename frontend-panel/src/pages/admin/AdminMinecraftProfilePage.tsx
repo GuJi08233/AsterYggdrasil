@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { MinecraftPreview } from "@/components/yggdrasil/MinecraftPreview";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { adminPaths } from "@/routes/routePaths";
 import { adminMinecraftProfileService } from "@/services/adminService";
 
 function parseUuid(value: string | undefined) {
@@ -173,7 +174,7 @@ export default function AdminMinecraftProfilePage() {
 		try {
 			await adminMinecraftProfileService.delete(uuid);
 			toast.success(t("admin.minecraftProfilePage.deleted"));
-			navigate("/dashboard/admin/users");
+			navigate(adminPaths.users);
 		} catch (error) {
 			handleApiError(error);
 		} finally {
@@ -242,7 +243,7 @@ export default function AdminMinecraftProfilePage() {
 					type="button"
 					variant="outline"
 					size="sm"
-					render={<Link to="/dashboard/admin/users" />}
+					render={<Link to={adminPaths.users} />}
 				>
 					<Icon name="ArrowLeft" className="mr-2 size-4" />
 					{t("admin.minecraftProfilePage.backToUsers")}

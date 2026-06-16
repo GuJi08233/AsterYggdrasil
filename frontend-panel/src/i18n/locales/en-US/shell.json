@@ -5,23 +5,18 @@
 	},
 	"nav": {
 		"home": "Home",
-		"dashboard": "Dashboard",
+		"account": "Workbench",
 		"profiles": "Profiles",
 		"wardrobe": "Wardrobe",
 		"launcher": "Launcher",
 		"sessions": "Sessions",
 		"personalSettings": "Personal settings",
 		"admin": "Admin",
-		"yggdrasil": "Yggdrasil",
 		"config": "Config",
 		"audit": "Audit",
 		"tasks": "Tasks",
 		"login": "Login",
-		"logout": "Logout",
-		"developer": "Developer",
-		"apiCatalog": "API Catalog",
-		"diagnostics": "Diagnostics",
-		"authConsole": "Auth Console"
+		"logout": "Logout"
 	},
 	"common": {
 		"loading": "Loading",
@@ -32,7 +27,7 @@
 		"configReady": "config ready",
 		"present": "present",
 		"missing": "missing",
-		"openWorkbench": "Open dashboard",
+		"openWorkbench": "Open workbench",
 		"backToHome": "Back to home",
 		"refresh": "Refresh",
 		"create": "Create",
@@ -52,6 +47,33 @@
 		"actions": "Actions",
 		"metadataLoadFailed": "Failed to load metadata",
 		"configLoadFailed": "Failed to load frontend config"
+	},
+	"shell": {
+		"searchPlaceholder": "Search players, UUIDs, sessions, or settings...",
+		"themeAction": "Toggle theme",
+		"openNavigation": "Open navigation",
+		"navigationTitle": "App navigation",
+		"sections": {
+			"account": "My space",
+			"admin": "Administration"
+		},
+		"routeState": {
+			"setupRequiredTitle": "Setup required",
+			"setupRequiredDescription": "This instance has not been initialized yet. Create the first administrator account before opening other pages.",
+			"setupRequiredAction": "Start setup",
+			"setupCompleteTitle": "Setup already complete",
+			"setupCompleteDescription": "This instance is already initialized. The setup entry is no longer available.",
+			"setupCompleteAction": "Go to login",
+			"loginRequiredTitle": "Login required",
+			"loginRequiredDescription": "Sign in before opening your workbench, profiles, wardrobe, or admin tools.",
+			"loginRequiredAction": "Go to login",
+			"alreadySignedInTitle": "Already signed in",
+			"alreadySignedInDescription": "You are already signed in. Open the workbench to continue managing profiles and textures.",
+			"alreadySignedInAction": "Open workbench",
+			"adminRequiredTitle": "Admin access required",
+			"adminRequiredDescription": "This area requires administrator access. Use the workbench for account, profile, and texture tasks.",
+			"adminRequiredAction": "Back to workbench"
+		}
 	},
 	"footer": {
 		"description": "Self-hosted Minecraft identity, profile, and texture management.",

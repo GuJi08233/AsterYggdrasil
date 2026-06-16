@@ -1,20 +1,20 @@
+import enAccount from "@/i18n/locales/en-US/account.json";
 import enAdmin from "@/i18n/locales/en-US/admin.json";
 import enAdminAudit from "@/i18n/locales/en-US/admin-audit.json";
 import enAdminExternalAuth from "@/i18n/locales/en-US/admin-external-auth.json";
 import enAdminTasks from "@/i18n/locales/en-US/admin-tasks.json";
 import enAdminUsers from "@/i18n/locales/en-US/admin-users.json";
-import enDashboard from "@/i18n/locales/en-US/dashboard.json";
 import enErrors from "@/i18n/locales/en-US/errors.json";
 import enPublic from "@/i18n/locales/en-US/public.json";
 import enPwa from "@/i18n/locales/en-US/pwa.json";
 import enSettings from "@/i18n/locales/en-US/settings.json";
 import enShell from "@/i18n/locales/en-US/shell.json";
+import zhAccount from "@/i18n/locales/zh-CN/account.json";
 import zhAdmin from "@/i18n/locales/zh-CN/admin.json";
 import zhAdminAudit from "@/i18n/locales/zh-CN/admin-audit.json";
 import zhAdminExternalAuth from "@/i18n/locales/zh-CN/admin-external-auth.json";
 import zhAdminTasks from "@/i18n/locales/zh-CN/admin-tasks.json";
 import zhAdminUsers from "@/i18n/locales/zh-CN/admin-users.json";
-import zhDashboard from "@/i18n/locales/zh-CN/dashboard.json";
 import zhErrors from "@/i18n/locales/zh-CN/errors.json";
 import zhPublic from "@/i18n/locales/zh-CN/public.json";
 import zhPwa from "@/i18n/locales/zh-CN/pwa.json";
@@ -24,7 +24,7 @@ import zhShell from "@/i18n/locales/zh-CN/shell.json";
 const enFrontend = {
 	...enShell,
 	...enPublic,
-	...enDashboard,
+	...enAccount,
 	...enErrors,
 	...enPwa,
 	...enAdmin,
@@ -41,7 +41,7 @@ const enFrontend = {
 const zhFrontend = {
 	...zhShell,
 	...zhPublic,
-	...zhDashboard,
+	...zhAccount,
 	...zhErrors,
 	...zhPwa,
 	...zhAdmin,

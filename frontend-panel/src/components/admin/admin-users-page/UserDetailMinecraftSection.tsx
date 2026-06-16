@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { adminMinecraftProfilePath } from "@/routes/routePaths";
 
 export type UserMinecraftProfileItem = {
 	id: string;
@@ -45,11 +46,7 @@ export function UserDetailMinecraftSection({
 								type="button"
 								variant="outline"
 								size="sm"
-								render={
-									<Link
-										to={`/dashboard/admin/minecraft-profiles/${profile.id}`}
-									/>
-								}
+								render={<Link to={adminMinecraftProfilePath(profile.id)} />}
 							>
 								<Icon name="ArrowRight" className="mr-2 size-4" />
 								{t("admin.users.openProfile")}

@@ -27,6 +27,7 @@ import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { parsePageSizeOption } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
+import { adminUserPath } from "@/routes/routePaths";
 import { adminUserService } from "@/services/adminService";
 import type { CreateAdminUserRequest, UserRole, UserStatus } from "@/types/api";
 
@@ -347,7 +348,7 @@ export default function AdminUsersPage() {
 						user={user}
 						revokingId={revokingId}
 						onEdit={(item) => {
-							void navigate(`/dashboard/admin/users/${item.id}`);
+							void navigate(adminUserPath(item.id));
 						}}
 						onRevokeSessions={(user) =>
 							dispatch({ type: "revokingUser", value: user })

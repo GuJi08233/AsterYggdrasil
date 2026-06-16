@@ -31,8 +31,8 @@ export function ThemeToggleButton({
 				className,
 			)}
 			onClick={toggle}
-			aria-label={t("dashboard.themeAction")}
-			title={t("dashboard.themeAction")}
+			aria-label={t("shell.themeAction")}
+			title={t("shell.themeAction")}
 		>
 			<Icon name={isDark ? "Sun" : "Moon"} className="size-4" />
 		</Button>

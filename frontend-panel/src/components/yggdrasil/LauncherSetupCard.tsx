@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { CopyField } from "@/components/yggdrasil/CopyField";
 import { cn } from "@/lib/utils";
+import { accountPaths } from "@/routes/routePaths";
 import {
 	yggdrasilAddServerUri,
 	yggdrasilApiRoot,
@@ -69,7 +70,7 @@ export function LauncherSetupCard({
 				</div>
 				{showProfileAction ? (
 					<Button
-						render={<Link to="/dashboard/profiles" />}
+						render={<Link to={accountPaths.profiles} />}
 						variant="outline"
 						className="shrink-0"
 					>

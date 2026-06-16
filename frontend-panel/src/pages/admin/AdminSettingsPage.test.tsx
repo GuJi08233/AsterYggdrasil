@@ -77,10 +77,10 @@ describe("AdminSettingsPage", () => {
 		const input = await screen.findByDisplayValue("https://example.com");
 		input.focus();
 		fireEvent.change(input, {
-			target: { value: "https://example.com/dashboard" },
+			target: { value: "https://example.com/account" },
 		});
 
-		expect(input).toHaveValue("https://example.com/dashboard");
+		expect(input).toHaveValue("https://example.com/account");
 		expect(document.activeElement).toBe(input);
 	});
 
@@ -94,19 +94,19 @@ describe("AdminSettingsPage", () => {
 		vi.mocked(adminConfigService.schema).mockResolvedValue([schema]);
 		vi.mocked(adminConfigService.set).mockResolvedValue({
 			...config,
-			value: ["https://example.com/dashboard"],
+			value: ["https://example.com/account"],
 		});
 
 		render(<AdminSettingsPage />);
 
 		const input = await screen.findByDisplayValue("https://example.com");
 		fireEvent.change(input, {
-			target: { value: "https://example.com/dashboard" },
+			target: { value: "https://example.com/account" },
 		});
 		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
 
 		expect(adminConfigService.set).toHaveBeenCalledWith("site.urls", {
-			value: ["https://example.com/dashboard"],
+			value: ["https://example.com/account"],
 		});
 	});
 

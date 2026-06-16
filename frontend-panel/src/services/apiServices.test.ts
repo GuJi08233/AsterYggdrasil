@@ -538,13 +538,13 @@ describe("externalAuthService", () => {
 		const { externalAuthService } = await import("./externalAuthService");
 
 		await externalAuthService.startAuthAlias("github", "github", {
-			return_path: "/dashboard",
+			return_path: "/account",
 		});
 
 		expect(apiMock.post).toHaveBeenCalledWith(
 			"/auth/external-auth/github/github/start",
 			{
-				return_path: "/dashboard",
+				return_path: "/account",
 			},
 		);
 	});
