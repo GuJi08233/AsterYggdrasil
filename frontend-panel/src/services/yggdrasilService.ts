@@ -7,14 +7,19 @@ import type {
 	MinecraftTextureModel,
 	MinecraftTextureType,
 	MinecraftWardrobeTextureMetadata,
+	MinecraftWardrobeTexturePage,
+	MinecraftWardrobeTextureQuery,
 	OperationJsonResponse,
 	OperationPath,
 	OperationQuery,
 	OperationRequestBody,
+	PublicYggdrasilConfig,
 	RenameMinecraftProfileRequest,
 	YggdrasilErrorBody,
 	YggdrasilMetadata,
 	YggdrasilProfile,
+	YggdrasilProfilePage,
+	YggdrasilProfileQuery,
 } from "@/types/api";
 
 type YggdrasilProfileByUuidQuery = OperationQuery<"yggdrasil_profile_by_uuid">;
@@ -39,16 +44,20 @@ export class YggdrasilProtocolError extends Error {
 	}
 }
 
-function normalizeRootUrl() {
+function normalizeRootUrl(base = config.rootBaseUrl || "/") {
 	if (typeof window === "undefined") {
-		return config.rootBaseUrl || "/";
+		return base;
 	}
-	const base = config.rootBaseUrl || "/";
 	return new URL(base, window.location.origin).toString();
 }
 
-export function yggdrasilApiRoot() {
-	return normalizeRootUrl();
+export function yggdrasilApiRoot(
+	yggdrasilConfig?: Pick<PublicYggdrasilConfig, "public_base_urls"> | null,
+) {
+	const configuredRoot = yggdrasilConfig?.public_base_urls
+		.find((url) => url.trim().length > 0)
+		?.trim();
+	return normalizeRootUrl(configuredRoot);
 }
 
 export function yggdrasilAddServerUri(apiRoot = yggdrasilApiRoot()) {
@@ -70,7 +79,10 @@ export const yggdrasilService = {
 		});
 		return response.data;
 	},
-	listProfiles: () => api.get<YggdrasilProfile[]>("/profiles/minecraft"),
+	listProfiles: (params: YggdrasilProfileQuery = {}) =>
+		api.get<YggdrasilProfilePage>(withQuery("/profiles/minecraft", params)),
+	listProfileItems: async (params: YggdrasilProfileQuery = {}) =>
+		(await yggdrasilService.listProfiles(params)).items,
 	createProfile: (data: CreateMinecraftProfileRequest) =>
 		api.post<
 			YggdrasilProfile,
@@ -86,8 +98,13 @@ export const yggdrasilService = {
 		>(`/profiles/minecraft/${uuid}/name`, data),
 	listProfileTextures: (uuid: YggdrasilProfileByUuidPath["uuid"]) =>
 		api.get<MinecraftTextureMetadata[]>(`/profiles/minecraft/${uuid}/textures`),
-	listWardrobeTextures: () =>
-		api.get<MinecraftWardrobeTextureMetadata[]>("/wardrobe/textures"),
+	listWardrobeTextures: (params: MinecraftWardrobeTextureQuery = {}) =>
+		api.get<MinecraftWardrobeTexturePage>(
+			withQuery("/wardrobe/textures", params),
+		),
+	listWardrobeTextureItems: async (
+		params: MinecraftWardrobeTextureQuery = {},
+	) => (await yggdrasilService.listWardrobeTextures(params)).items,
 	deleteWardrobeTexture: (textureId: number) =>
 		api.delete<void>(`/wardrobe/textures/${textureId}`),
 	async uploadWardrobeTexture(params: {

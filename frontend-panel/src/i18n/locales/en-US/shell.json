@@ -8,6 +8,7 @@
 		"account": "Workbench",
 		"profiles": "Profiles",
 		"wardrobe": "Wardrobe",
+		"accountAudit": "Activity",
 		"launcher": "Launcher",
 		"sessions": "Sessions",
 		"personalSettings": "Personal settings",
@@ -49,7 +50,6 @@
 		"configLoadFailed": "Failed to load frontend config"
 	},
 	"shell": {
-		"searchPlaceholder": "Search players, UUIDs, sessions, or settings...",
 		"themeAction": "Toggle theme",
 		"openNavigation": "Open navigation",
 		"navigationTitle": "App navigation",

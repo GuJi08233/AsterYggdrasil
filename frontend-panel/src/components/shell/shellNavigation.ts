@@ -37,6 +37,12 @@ export const accountNavItems: ShellNavItem[] = [
 		icon: "FileImage",
 		preload: () => import("@/pages/account/TextureWardrobePage"),
 	},
+	{
+		to: accountPaths.audit,
+		labelKey: "nav.accountAudit",
+		icon: "ClipboardText",
+		preload: () => import("@/pages/account/AccountAuditPage"),
+	},
 ];
 
 export const personalSettingsNavItem: ShellNavItem = {

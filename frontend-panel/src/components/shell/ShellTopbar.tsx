@@ -6,7 +6,6 @@ import { BrandMark } from "@/components/layout/BrandMark";
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
 import type { AppliedBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 import type { AuthUserInfo } from "@/types/api";
@@ -33,6 +32,7 @@ export function ShellTopbar({
 
 	return (
 		<header
+			data-theme-surface="chrome"
 			className={cn(
 				"sticky top-0 z-30 border-b backdrop-blur-xl",
 				isAdminScope
@@ -74,39 +74,23 @@ export function ShellTopbar({
 						</span>
 					</span>
 				</Button>
-				<Link
-					to="/"
-					className="group flex min-w-0 items-center gap-3 lg:hidden"
-				>
-					<BrandMark
-						branding={branding}
-						className="size-9 shrink-0 object-contain transition-transform group-hover:-translate-y-0.5"
-						wordmarkClassName="h-9 max-w-40"
-					/>
-					<span className="hidden min-w-0 sm:block">
-						<span className="block truncate text-sm font-semibold">
-							{branding.title || t("brand.name")}
+				{isAdminScope ? (
+					<Link
+						to="/"
+						className="group flex min-w-0 items-center gap-3 lg:hidden"
+					>
+						<BrandMark
+							branding={branding}
+							className="size-9 shrink-0 object-contain transition-transform group-hover:-translate-y-0.5"
+							wordmarkClassName="h-9 max-w-40"
+						/>
+						<span className="hidden min-w-0 sm:block">
+							<span className="block truncate text-sm font-semibold">
+								{branding.title || t("brand.name")}
+							</span>
 						</span>
-					</span>
-				</Link>
-				<div className="relative hidden min-w-0 flex-1 md:block">
-					<Icon
-						name="MagnifyingGlass"
-						className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-					/>
-					<Input
-						readOnly
-						value=""
-						placeholder={t("shell.searchPlaceholder")}
-						className={cn(
-							"h-10 rounded-xl border-border/55 pl-10 shadow-none",
-							isAdminScope ? "bg-card/65" : "bg-muted/45",
-						)}
-					/>
-					<span className="absolute top-1/2 right-3 -translate-y-1/2 rounded-md bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground shadow-xs">
-						⌘K
-					</span>
-				</div>
+					</Link>
+				) : null}
 				<div className="ml-auto flex items-center gap-2">
 					<ThemeToggleButton className="inline-flex" />
 					<LanguageMenu

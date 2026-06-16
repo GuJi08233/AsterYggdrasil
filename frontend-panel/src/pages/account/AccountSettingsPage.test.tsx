@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/stores/authStore";
-import type { AuthUserInfo } from "@/types/api";
+import type {
+	AuthSessionPage,
+	AuthUserInfo,
+	ExternalAuthLinkPage,
+} from "@/types/api";
 import AccountSettingsPage from "./AccountSettingsPage";
 
 const authServiceMock = vi.hoisted(() => ({
@@ -10,9 +14,15 @@ const authServiceMock = vi.hoisted(() => ({
 	revokeOtherSessions: vi.fn(),
 	revokeSession: vi.fn(),
 	sessions: vi.fn(),
+	sessionsPage: vi.fn(),
 	setAvatarSource: vi.fn(),
 	updateProfile: vi.fn(),
 	uploadAvatar: vi.fn(),
+}));
+
+const externalAuthServiceMock = vi.hoisted(() => ({
+	deleteLink: vi.fn(),
+	listLinksPage: vi.fn(),
 }));
 
 const toastMock = vi.hoisted(() => ({
@@ -22,6 +32,10 @@ const toastMock = vi.hoisted(() => ({
 
 vi.mock("@/services/authService", () => ({
 	authService: authServiceMock,
+}));
+
+vi.mock("@/services/externalAuthService", () => ({
+	externalAuthService: externalAuthServiceMock,
 }));
 
 vi.mock("sonner", () => ({
@@ -74,6 +88,20 @@ const baseUser: AuthUserInfo = {
 	},
 };
 
+const emptyAuthSessionPage: AuthSessionPage = {
+	items: [],
+	limit: 50,
+	offset: 0,
+	total: 0,
+};
+
+const emptyExternalAuthLinkPage: ExternalAuthLinkPage = {
+	items: [],
+	limit: 20,
+	offset: 0,
+	total: 0,
+};
+
 function renderPage(user: AuthUserInfo = baseUser) {
 	useAuthStore.setState({
 		user,
@@ -100,9 +128,14 @@ describe("AccountSettingsPage", () => {
 		authServiceMock.revokeOtherSessions.mockResolvedValue({ removed: 0 });
 		authServiceMock.revokeSession.mockResolvedValue(undefined);
 		authServiceMock.sessions.mockResolvedValue([]);
+		authServiceMock.sessionsPage.mockResolvedValue(emptyAuthSessionPage);
 		authServiceMock.updateProfile.mockResolvedValue(baseUser.profile);
 		authServiceMock.setAvatarSource.mockResolvedValue(baseUser.profile);
 		authServiceMock.uploadAvatar.mockResolvedValue(baseUser.profile);
+		externalAuthServiceMock.deleteLink.mockResolvedValue(undefined);
+		externalAuthServiceMock.listLinksPage.mockResolvedValue(
+			emptyExternalAuthLinkPage,
+		);
 	});
 
 	it("saves display name changes into the shared auth state", async () => {

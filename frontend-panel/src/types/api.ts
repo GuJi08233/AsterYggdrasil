@@ -85,8 +85,11 @@ export type PublicYggdrasilConfig =
 export type PublicFrontendConfig =
 	components["schemas"]["PublicFrontendConfig"];
 
-export type AdminAuditLogSortBy = components["schemas"]["AdminAuditLogSortBy"];
+export type AuditLogSortBy = components["schemas"]["AuditLogSortBy"];
 export type AdminAuditLogQuery = OperationQuery<"list_audit_logs">;
+export type AccountAuditLogQuery = OperationQuery<"list_account_audit_logs">;
+export type AccountAuditLogPage = OperationData<"list_account_audit_logs">;
+export type AccountOverview = OperationData<"get_account_overview">;
 export type AuditAction = components["schemas"]["AuditAction"];
 export type AuditEntityType = components["schemas"]["AuditEntityType"];
 export type AuditLogEntry = components["schemas"]["AuditLogEntry"];
@@ -137,8 +140,21 @@ export type ExternalAuthKind =
 	components["schemas"]["ExternalAuthProviderKind"];
 export type ExternalAuthPublicProvider =
 	components["schemas"]["ExternalAuthPublicProvider"];
-export type ExternalAuthLinkInfo =
-	OperationData<"auth_external_auth_list_links">[number];
+export type ExternalAuthPublicProviderQuery =
+	OperationQuery<"auth_external_auth_list_providers">;
+export type ExternalAuthPublicProviderPage =
+	OperationData<"auth_external_auth_list_providers">;
+export type ExternalAuthPublicProviderInfo =
+	ExternalAuthPublicProviderPage["items"][number];
+export type ExternalAuthPublicProviderByKindQuery =
+	OperationQuery<"auth_external_auth_list_providers_by_kind">;
+export type ExternalAuthPublicProviderByKindPage =
+	OperationData<"auth_external_auth_list_providers_by_kind">;
+export type ExternalAuthLinkQuery =
+	OperationQuery<"auth_external_auth_list_links">;
+export type ExternalAuthLinkPage =
+	OperationData<"auth_external_auth_list_links">;
+export type ExternalAuthLinkInfo = ExternalAuthLinkPage["items"][number];
 export type ExternalAuthStartLoginRequest =
 	components["schemas"]["StartExternalAuthReq"];
 export type ExternalAuthStartLoginResponse =
@@ -158,6 +174,10 @@ export type MinecraftTextureType =
 	components["schemas"]["MinecraftTextureType"];
 export type MinecraftWardrobeTextureMetadata =
 	components["schemas"]["MinecraftWardrobeTextureMetadata"];
+export type MinecraftWardrobeTextureQuery =
+	OperationQuery<"list_current_user_wardrobe_textures">;
+export type MinecraftWardrobeTexturePage =
+	OperationData<"list_current_user_wardrobe_textures">;
 export type CreateMinecraftProfileRequest =
 	components["schemas"]["CreateMinecraftProfileReq"];
 export type RenameMinecraftProfileRequest =
@@ -191,13 +211,33 @@ export type UpdateProfileRequest = components["schemas"]["UpdateProfileReq"];
 export type UserProfileInfo = components["schemas"]["UserProfileInfo"];
 export type UserRole = components["schemas"]["UserRole"];
 export type UserStatus = components["schemas"]["UserStatus"];
-export type AuthSessionInfo = OperationData<"list_auth_sessions">[number];
+export type AuthSessionQuery = OperationQuery<"list_auth_sessions">;
+export type AuthSessionPage = OperationData<"list_auth_sessions">;
+export type AuthSessionInfo = AuthSessionPage["items"][number];
+export type PasskeyQuery = OperationQuery<"list_passkeys">;
+export type PasskeyPage = OperationData<"list_passkeys">;
+export type PasskeyInfo = PasskeyPage["items"][number];
+export type PasskeyRegisterStartRequest =
+	OperationRequestBody<"start_passkey_registration">;
+export type PasskeyRegisterStartResponse =
+	OperationData<"start_passkey_registration">;
+export type PasskeyRegisterFinishRequest =
+	OperationRequestBody<"finish_passkey_registration">;
+export type PasskeyLoginStartRequest =
+	OperationRequestBody<"start_passkey_login">;
+export type PasskeyLoginStartResponse = OperationData<"start_passkey_login">;
+export type PatchPasskeyRequest = OperationRequestBody<"rename_passkey">;
 export type RevokeOtherAuthSessionsResponse =
 	OperationData<"revoke_other_auth_sessions">;
 export type YggdrasilErrorBody = components["schemas"]["YggdrasilErrorBody"];
 export type YggdrasilMetadata = OperationJsonResponse<"yggdrasil_metadata">;
-export type YggdrasilProfile =
-	OperationData<"list_current_user_minecraft_profiles">[number];
+export type YggdrasilProfileQuery =
+	OperationQuery<"list_current_user_minecraft_profiles">;
+export type YggdrasilProfilePage =
+	OperationData<"list_current_user_minecraft_profiles">;
+export type YggdrasilProfile = YggdrasilProfilePage["items"][number];
+export type AdminUserMinecraftProfileQuery =
+	OperationQuery<"admin_list_user_minecraft_profiles">;
 export type YggdrasilProfileProperty =
 	components["schemas"]["YggdrasilProfileProperty"];
 export type YggdrasilProfileByUuidQuery =

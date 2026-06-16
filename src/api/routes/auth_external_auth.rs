@@ -4,6 +4,9 @@ use crate::api::dto::{ExternalAuthCallbackQuery, StartExternalAuthReq, validate_
 use crate::api::error_code::AsterErrorCode;
 use crate::api::middleware::auth::JwtAuth;
 use crate::api::middleware::csrf::{self, RequestSourceMode};
+use crate::api::pagination::LimitOffsetQuery;
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::OffsetPage;
 use crate::api::response::ApiResponse;
 use crate::config::site_url;
 use crate::errors::{AsterError, Result};
@@ -51,12 +54,21 @@ fn parse_kind(value: &str) -> Result<ExternalAuthKind> {
     path = "/api/v1/auth/external-auth/providers",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_providers",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Enabled external auth providers", body = inline(ApiResponse<Vec<external_auth_service::ExternalAuthPublicProvider>>)),
+        (status = 200, description = "Enabled external auth providers", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthPublicProvider>>)),
     ),
 )]
-pub async fn list_providers(state: web::Data<AppState>) -> Result<HttpResponse> {
-    let providers = external_auth_service::list_public_providers(state.get_ref()).await?;
+pub async fn list_providers(
+    state: web::Data<AppState>,
+    page: web::Query<LimitOffsetQuery>,
+) -> Result<HttpResponse> {
+    let providers = external_auth_service::list_public_providers_paginated(
+        state.get_ref(),
+        page.limit_or(20, 100),
+        page.offset(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))
 }
 
@@ -65,19 +77,25 @@ pub async fn list_providers(state: web::Data<AppState>) -> Result<HttpResponse> 
     path = "/api/v1/auth/external-auth/{kind}/providers",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_providers_by_kind",
-    params(("kind" = ExternalAuthKind, Path, description = "External auth provider kind")),
+    params(("kind" = ExternalAuthKind, Path, description = "External auth provider kind"), LimitOffsetQuery),
     responses(
-        (status = 200, description = "Enabled external auth providers for kind", body = inline(ApiResponse<Vec<external_auth_service::ExternalAuthPublicProvider>>)),
+        (status = 200, description = "Enabled external auth providers for kind", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthPublicProvider>>)),
         (status = 404, description = "Provider kind not found"),
     ),
 )]
 pub async fn list_providers_by_kind(
     state: web::Data<AppState>,
     path: web::Path<String>,
+    page: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
     let kind = parse_kind(&path)?;
-    let providers =
-        external_auth_service::list_public_providers_by_kind(state.get_ref(), kind).await?;
+    let providers = external_auth_service::list_public_providers_by_kind_paginated(
+        state.get_ref(),
+        kind,
+        page.limit_or(20, 100),
+        page.offset(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))
 }
 
@@ -348,8 +366,9 @@ pub async fn link_with_password(
     path = "/api/v1/auth/external-auth/links",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_links",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Linked external auth identities", body = inline(ApiResponse<Vec<external_auth_service::ExternalAuthLinkInfo>>)),
+        (status = 200, description = "Linked external auth identities", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthLinkInfo>>)),
         (status = 401, description = "Not authenticated"),
     ),
     security(("bearer" = [])),
@@ -357,8 +376,15 @@ pub async fn link_with_password(
 pub async fn list_links(
     state: web::Data<AppState>,
     user: web::ReqData<AuthUserInfo>,
+    page: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
-    let links = external_auth_service::list_links(state.get_ref(), user.id).await?;
+    let links = external_auth_service::list_links_paginated(
+        state.get_ref(),
+        user.id,
+        page.limit_or(20, 100),
+        page.offset(),
+    )
+    .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(links)))
 }
 

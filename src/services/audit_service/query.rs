@@ -6,7 +6,7 @@ use super::filters::AuditLogFilters;
 use super::manager::flush_global_audit_log_manager;
 use super::models::{AuditLogEntry, AuditUserSummary};
 use super::presentation::build_audit_presentation;
-use crate::api::pagination::{AdminAuditLogSortBy, OffsetPage, SortOrder, load_offset_page};
+use crate::api::pagination::{AuditLogSortBy, OffsetPage, SortOrder, load_offset_page};
 use crate::db::repository::{audit_log_repo, user_repo};
 use crate::entities::audit_log;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
@@ -72,7 +72,7 @@ pub async fn query<S: DatabaseRuntimeState>(
     filters: AuditLogFilters,
     limit: u64,
     offset: u64,
-    sort_by: AdminAuditLogSortBy,
+    sort_by: AuditLogSortBy,
     sort_order: SortOrder,
 ) -> crate::errors::Result<OffsetPage<AuditLogEntry>> {
     flush_global_audit_log_manager().await;

@@ -19,13 +19,14 @@ use crate::types::{
     ExternalAuthProtocol, ExternalAuthProviderKind, ExternalAuthProviderOptions, NullablePatch,
 };
 
-pub use links::{cleanup_expired_flows, delete_link, list_links};
+pub use links::{cleanup_expired_flows, delete_link, list_links, list_links_paginated};
 pub use login::{finish_callback, start_login};
 pub use normalize::callback_redirect_uri;
 pub use password_link::link_with_password;
 pub use providers::{
     create_provider, delete_provider, get_admin_provider, list_admin_providers,
-    list_provider_kinds, list_public_providers, list_public_providers_by_kind, test_provider,
+    list_provider_kinds, list_public_providers, list_public_providers_by_kind,
+    list_public_providers_by_kind_paginated, list_public_providers_paginated, test_provider,
     test_provider_params, update_provider,
 };
 pub use verification::{confirm_email_verification, start_email_verification};

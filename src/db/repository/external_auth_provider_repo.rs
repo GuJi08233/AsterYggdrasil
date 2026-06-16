@@ -61,6 +61,25 @@ pub async fn find_enabled(db: &DatabaseConnection) -> Result<Vec<external_auth_p
         .map_err(AsterError::from)
 }
 
+pub async fn find_enabled_paginated(
+    db: &DatabaseConnection,
+    limit: u64,
+    offset: u64,
+    supported_kinds: impl IntoIterator<Item = ExternalAuthProviderKind>,
+) -> Result<(Vec<external_auth_provider::Model>, u64)> {
+    fetch_offset_page(
+        db,
+        ExternalAuthProvider::find()
+            .filter(external_auth_provider::Column::Enabled.eq(true))
+            .filter(external_auth_provider::Column::ProviderKind.is_in(supported_kinds))
+            .order_by_asc(external_auth_provider::Column::DisplayName)
+            .order_by_asc(external_auth_provider::Column::Id),
+        limit,
+        offset,
+    )
+    .await
+}
+
 pub async fn find_enabled_by_kind(
     db: &DatabaseConnection,
     kind: ExternalAuthProviderKind,
@@ -73,6 +92,25 @@ pub async fn find_enabled_by_kind(
         .all(db)
         .await
         .map_err(AsterError::from)
+}
+
+pub async fn find_enabled_by_kind_paginated(
+    db: &DatabaseConnection,
+    kind: ExternalAuthProviderKind,
+    limit: u64,
+    offset: u64,
+) -> Result<(Vec<external_auth_provider::Model>, u64)> {
+    fetch_offset_page(
+        db,
+        ExternalAuthProvider::find()
+            .filter(external_auth_provider::Column::Enabled.eq(true))
+            .filter(external_auth_provider::Column::ProviderKind.eq(kind))
+            .order_by_asc(external_auth_provider::Column::DisplayName)
+            .order_by_asc(external_auth_provider::Column::Id),
+        limit,
+        offset,
+    )
+    .await
 }
 
 pub async fn find_by_id(db: &DatabaseConnection, id: i64) -> Result<external_auth_provider::Model> {

@@ -124,9 +124,10 @@ async fn admin_external_auth_crud_redacts_secret_and_exposes_public_provider() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"][0]["key"], provider_key);
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["items"][0]["key"], provider_key);
     assert_eq!(
-        body["data"][0]["icon_url"],
+        body["data"]["items"][0]["icon_url"],
         "/static/external-auth/example.svg"
     );
 

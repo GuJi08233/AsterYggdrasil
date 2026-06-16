@@ -6,7 +6,7 @@ use sea_orm::{
     QueryOrder, QuerySelect, Select,
 };
 
-use crate::api::pagination::{AdminAuditLogSortBy, SortOrder};
+use crate::api::pagination::{AuditLogSortBy, SortOrder};
 use crate::db::repository::sort::{order_by_column_with_id, order_by_id};
 use crate::entities::audit_log::{self, Entity as AuditLog};
 use crate::errors::{AsterError, Result};
@@ -20,7 +20,7 @@ pub struct AuditLogQuery<'a> {
     pub before: Option<DateTime<Utc>>,
     pub limit: u64,
     pub offset: u64,
-    pub sort_by: AdminAuditLogSortBy,
+    pub sort_by: AuditLogSortBy,
     pub sort_order: SortOrder,
 }
 
@@ -49,7 +49,7 @@ pub async fn find_with_filters<C: ConnectionTrait>(
     db: &C,
     query: AuditLogQuery<'_>,
 ) -> Result<(Vec<audit_log::Model>, u64)> {
-    let mut q = apply_admin_audit_log_sort(AuditLog::find(), query.sort_by, query.sort_order);
+    let mut q = apply_audit_log_sort(AuditLog::find(), query.sort_by, query.sort_order);
 
     if let Some(user_id) = query.user_id {
         q = q.filter(audit_log::Column::UserId.eq(user_id));
@@ -99,44 +99,44 @@ pub async fn list_recent<C: ConnectionTrait>(
     Ok((items, total))
 }
 
-fn apply_admin_audit_log_sort(
+fn apply_audit_log_sort(
     query: Select<AuditLog>,
-    sort_by: AdminAuditLogSortBy,
+    sort_by: AuditLogSortBy,
     sort_order: SortOrder,
 ) -> Select<AuditLog> {
     match sort_by {
-        AdminAuditLogSortBy::Id => order_by_id(query, audit_log::Column::Id, sort_order),
-        AdminAuditLogSortBy::CreatedAt => order_by_column_with_id(
+        AuditLogSortBy::Id => order_by_id(query, audit_log::Column::Id, sort_order),
+        AuditLogSortBy::CreatedAt => order_by_column_with_id(
             query,
             audit_log::Column::CreatedAt,
             sort_order,
             audit_log::Column::Id,
         ),
-        AdminAuditLogSortBy::UserId => order_by_column_with_id(
+        AuditLogSortBy::UserId => order_by_column_with_id(
             query,
             audit_log::Column::UserId,
             sort_order,
             audit_log::Column::Id,
         ),
-        AdminAuditLogSortBy::Action => order_by_column_with_id(
+        AuditLogSortBy::Action => order_by_column_with_id(
             query,
             audit_log::Column::Action,
             sort_order,
             audit_log::Column::Id,
         ),
-        AdminAuditLogSortBy::EntityType => order_by_column_with_id(
+        AuditLogSortBy::EntityType => order_by_column_with_id(
             query,
             audit_log::Column::EntityType,
             sort_order,
             audit_log::Column::Id,
         ),
-        AdminAuditLogSortBy::EntityName => order_by_column_with_id(
+        AuditLogSortBy::EntityName => order_by_column_with_id(
             query,
             audit_log::Column::EntityName,
             sort_order,
             audit_log::Column::Id,
         ),
-        AdminAuditLogSortBy::IpAddress => order_by_column_with_id(
+        AuditLogSortBy::IpAddress => order_by_column_with_id(
             query,
             audit_log::Column::IpAddress,
             sort_order,
@@ -159,7 +159,7 @@ mod tests {
     use super::{
         AuditLogQuery, create, create_many, delete_before, find_with_filters, list_recent,
     };
-    use crate::api::pagination::{AdminAuditLogSortBy, SortOrder};
+    use crate::api::pagination::{AuditLogSortBy, SortOrder};
     use crate::config::DatabaseConfig;
     use crate::entities::audit_log;
     use crate::types::{AuditAction, AuditEntityType};
@@ -222,7 +222,7 @@ mod tests {
     fn unfiltered_query(
         limit: u64,
         offset: u64,
-        sort_by: AdminAuditLogSortBy,
+        sort_by: AuditLogSortBy,
         sort_order: SortOrder,
     ) -> AuditLogQuery<'static> {
         AuditLogQuery {
@@ -345,7 +345,7 @@ mod tests {
                 before: Some(base - Duration::seconds(15)),
                 limit: 10,
                 offset: 0,
-                sort_by: AdminAuditLogSortBy::CreatedAt,
+                sort_by: AuditLogSortBy::CreatedAt,
                 sort_order: SortOrder::Desc,
             },
         )
@@ -410,29 +410,23 @@ mod tests {
         .unwrap();
 
         for (sort_by, expected_ids) in [
-            (AdminAuditLogSortBy::Id, vec![first.id, second.id, third.id]),
+            (AuditLogSortBy::Id, vec![first.id, second.id, third.id]),
             (
-                AdminAuditLogSortBy::CreatedAt,
+                AuditLogSortBy::CreatedAt,
+                vec![second.id, third.id, first.id],
+            ),
+            (AuditLogSortBy::UserId, vec![second.id, first.id, third.id]),
+            (AuditLogSortBy::Action, vec![third.id, second.id, first.id]),
+            (
+                AuditLogSortBy::EntityType,
                 vec![second.id, third.id, first.id],
             ),
             (
-                AdminAuditLogSortBy::UserId,
-                vec![second.id, first.id, third.id],
-            ),
-            (
-                AdminAuditLogSortBy::Action,
-                vec![third.id, second.id, first.id],
-            ),
-            (
-                AdminAuditLogSortBy::EntityType,
+                AuditLogSortBy::EntityName,
                 vec![second.id, third.id, first.id],
             ),
             (
-                AdminAuditLogSortBy::EntityName,
-                vec![second.id, third.id, first.id],
-            ),
-            (
-                AdminAuditLogSortBy::IpAddress,
+                AuditLogSortBy::IpAddress,
                 vec![second.id, third.id, first.id],
             ),
         ] {
@@ -450,7 +444,7 @@ mod tests {
 
         let (desc_items, _) = find_with_filters(
             &db,
-            unfiltered_query(10, 0, AdminAuditLogSortBy::CreatedAt, SortOrder::Desc),
+            unfiltered_query(10, 0, AuditLogSortBy::CreatedAt, SortOrder::Desc),
         )
         .await
         .unwrap();

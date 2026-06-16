@@ -11,7 +11,7 @@ use aster_yggdrasil::db::repository::{
 };
 use aster_yggdrasil::entities::{auth_session, passkey};
 use aster_yggdrasil::services::auth_service::AccessClaims;
-use aster_yggdrasil::types::{TokenType, UserRole, UserStatus};
+use aster_yggdrasil::types::{StoredPasskeyCredential, TokenType, UserRole, UserStatus};
 use base64::Engine as _;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{DecodingKey, Validation};
@@ -696,8 +696,11 @@ async fn auth_passkey_register_login_and_replay_protection() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"].as_array().unwrap().len(), 1);
-    assert_eq!(body["data"][0]["name"], "Laptop");
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["limit"], 20);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
+    assert_eq!(body["data"]["items"][0]["name"], "Laptop");
 
     let (flow_id, challenge) = passkey_login_start(&app, Some("admin")).await;
     assert!(challenge.public_key.allow_credentials.is_empty());
@@ -863,7 +866,9 @@ async fn auth_sessions_mark_current_and_revoke_selected_session() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let sessions = body["data"]
+    assert_eq!(body["data"]["limit"], 50);
+    assert_eq!(body["data"]["offset"], 0);
+    let sessions = body["data"]["items"]
         .as_array()
         .expect("sessions response should be an array");
     assert_eq!(
@@ -909,6 +914,36 @@ async fn auth_sessions_mark_current_and_revoke_selected_session() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 401);
+}
+
+#[actix_web::test]
+async fn auth_sessions_list_clamps_limit_and_applies_offset() {
+    let state = common::setup().await;
+    let app = create_test_app!(state.clone());
+    let _ = setup_admin!(app);
+    let (_first_access, _first_refresh, _first_csrf) = login_session!(app, "admin", "password1234");
+    let (current_access, current_refresh, current_csrf) =
+        login_session!(app, "admin", "password1234");
+    let _ = login_session!(app, "admin", "password1234");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/sessions?limit=9999&offset=1")
+        .insert_header((
+            "Cookie",
+            common::access_and_refresh_cookie_header(
+                &current_access,
+                &current_refresh,
+                &current_csrf,
+            ),
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 1);
+    assert!(body["data"]["total"].as_u64().unwrap() >= 3);
+    assert!(body["data"]["items"].as_array().unwrap().len() >= 2);
 }
 
 #[actix_web::test]
@@ -961,6 +996,52 @@ async fn auth_sessions_revoke_others_keeps_current_session() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
+async fn passkeys_list_clamps_limit_and_applies_offset() {
+    let state = common::setup().await;
+    configure_passkey_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let _ = setup_admin!(app);
+    let (access, _refresh, csrf) = login_session!(app, "admin", "password1234");
+    let user_id = admin_user_id(state.writer_db()).await;
+    let now = Utc::now();
+    for index in 0..3 {
+        passkey::ActiveModel {
+            user_id: Set(user_id),
+            credential_id: Set(format!("credential-{index}")),
+            user_handle: Set(uuid::Uuid::new_v4().to_string()),
+            credential: Set(StoredPasskeyCredential("{}".to_string())),
+            name: Set(format!("Device {index}")),
+            transports: Set(None),
+            backup_eligible: Set(false),
+            backed_up: Set(false),
+            sign_count: Set(0),
+            created_at: Set(now + Duration::seconds(index)),
+            updated_at: Set(now + Duration::seconds(index)),
+            last_used_at: Set(None),
+            ..Default::default()
+        }
+        .insert(state.writer_db())
+        .await
+        .expect("passkey should insert");
+    }
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/passkeys?limit=9999&offset=1")
+        .insert_header(("Cookie", access_and_csrf_cookie_header(&access, &csrf)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 3);
+    let items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0]["name"], "Device 1");
+    assert_eq!(items[1]["name"], "Device 0");
 }
 
 #[actix_web::test]

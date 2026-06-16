@@ -701,6 +701,36 @@ where
         .collect())
 }
 
+pub async fn list_sessions_paginated<S>(
+    state: &S,
+    user_id: i64,
+    current_refresh_token: Option<&str>,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<AuthSessionInfo>>
+where
+    S: DatabaseRuntimeState + AppConfigRuntimeState,
+{
+    let current_refresh_jti = optional_refresh_jti_from_token(state, current_refresh_token);
+    let page = auth_session_repo::list_by_user_paginated(state.reader_db(), user_id, limit, offset)
+        .await?;
+    let items = page
+        .items
+        .into_iter()
+        .map(|session| AuthSessionInfo::from_model(session, current_refresh_jti.as_deref()))
+        .collect::<Vec<_>>();
+    tracing::debug!(
+        user_id,
+        returned = items.len(),
+        total = page.total,
+        limit = page.limit,
+        offset = page.offset,
+        has_current_refresh_token = current_refresh_jti.is_some(),
+        "listed auth sessions page"
+    );
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+}
+
 pub async fn cleanup_expired_auth_sessions<S: DatabaseRuntimeState>(state: &S) -> Result<u64> {
     auth_session_repo::delete_expired(state.writer_db(), Utc::now()).await
 }

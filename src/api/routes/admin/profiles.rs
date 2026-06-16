@@ -109,9 +109,9 @@ pub async fn list_minecraft_profiles(
     path = "/api/v1/admin/users/{user_id}/minecraft-profiles",
     tag = "admin",
     operation_id = "admin_list_user_minecraft_profiles",
-    params(("user_id" = i64, Path, description = "User ID")),
+    params(("user_id" = i64, Path, description = "User ID"), LimitOffsetQuery),
     responses(
-        (status = 200, description = "Minecraft profiles owned by the user", body = inline(ApiResponse<Vec<YggdrasilProfile>>)),
+        (status = 200, description = "Minecraft profiles owned by the user", body = inline(ApiResponse<OffsetPage<YggdrasilProfile>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
         (status = 404, description = "User not found"),
@@ -121,22 +121,46 @@ pub async fn list_minecraft_profiles(
 pub async fn list_user_minecraft_profiles(
     state: web::Data<AppState>,
     path: web::Path<i64>,
+    page: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
     let user_id = path.into_inner();
-    tracing::debug!(user_id, "admin listing user minecraft profiles");
+    let limit = page.limit_or(50, 100);
+    let offset = page.offset();
+    tracing::debug!(
+        user_id,
+        limit,
+        offset,
+        "admin listing user minecraft profiles"
+    );
     crate::db::repository::user_repo::find_by_id(state.get_ref().reader_db(), user_id).await?;
-    let profiles = minecraft_profile_repo::list_by_user(state.get_ref().reader_db(), user_id)
-        .await?
+    let page = minecraft_profile_repo::list_paginated(
+        state.get_ref().reader_db(),
+        minecraft_profile_repo::MinecraftProfileFilters {
+            user_id: Some(user_id),
+            ..Default::default()
+        },
+        limit,
+        offset,
+    )
+    .await?;
+    let profiles = page
+        .items
         .iter()
         .map(yggdrasil_service::profile_summary)
         .collect::<Vec<_>>();
     tracing::debug!(
         user_id,
-        count = profiles.len(),
+        returned = profiles.len(),
+        total = page.total,
         "admin listed user minecraft profiles"
     );
 
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(profiles)))
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+        profiles,
+        page.total,
+        page.limit,
+        page.offset,
+    ))))
 }
 
 #[api_docs_macros::path(

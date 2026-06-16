@@ -1,8 +1,8 @@
 import { create } from "zustand";
 
 const THEME_STORAGE_KEY = "asteryggdrasil-theme-mode";
-const THEME_SWITCHING_CLASS = "theme-switching";
-const THEME_SWITCHING_DURATION_MS = 220;
+const FALLBACK_THEME_TRANSITION_CLASS = "theme-switching";
+const FALLBACK_THEME_TRANSITION_DURATION_MS = 220;
 const THEME_COLOR_LIGHT = "#f8faf8";
 const THEME_COLOR_DARK = "#111827";
 
@@ -19,7 +19,7 @@ type ThemeState = {
 	setMode: (mode: ThemeMode) => void;
 };
 
-let themeSwitchingTimer: ReturnType<typeof setTimeout> | null = null;
+let fallbackThemeTransitionTimer: ReturnType<typeof setTimeout> | null = null;
 
 function isThemeMode(value: unknown): value is ThemeMode {
 	return value === THEME_MODES.light || value === THEME_MODES.dark;
@@ -80,29 +80,40 @@ function prefersReducedMotion() {
 	return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function clearThemeSwitchingClass() {
-	document.documentElement.classList.remove(THEME_SWITCHING_CLASS);
-	if (themeSwitchingTimer !== null) {
-		clearTimeout(themeSwitchingTimer);
-		themeSwitchingTimer = null;
+function clearFallbackThemeTransition() {
+	document.documentElement.classList.remove(FALLBACK_THEME_TRANSITION_CLASS);
+	if (fallbackThemeTransitionTimer !== null) {
+		clearTimeout(fallbackThemeTransitionTimer);
+		fallbackThemeTransitionTimer = null;
 	}
 }
 
-function applyThemeMode(mode: ThemeMode, options: { animate?: boolean } = {}) {
-	if (typeof document === "undefined") return;
-
-	if (!options.animate || prefersReducedMotion()) {
-		commitThemeMode(mode);
+function runThemeTransition(
+	updateCallback: () => void,
+	options: { animate?: boolean } = {},
+) {
+	if (
+		typeof document === "undefined" ||
+		!options.animate ||
+		prefersReducedMotion()
+	) {
+		updateCallback();
 		return;
 	}
 
 	const html = document.documentElement;
-	clearThemeSwitchingClass();
-	html.classList.add(THEME_SWITCHING_CLASS);
-	commitThemeMode(mode);
-	themeSwitchingTimer = setTimeout(() => {
-		clearThemeSwitchingClass();
-	}, THEME_SWITCHING_DURATION_MS);
+	clearFallbackThemeTransition();
+	html.classList.add(FALLBACK_THEME_TRANSITION_CLASS);
+	updateCallback();
+	fallbackThemeTransitionTimer = setTimeout(() => {
+		clearFallbackThemeTransition();
+	}, FALLBACK_THEME_TRANSITION_DURATION_MS);
+}
+
+function applyThemeMode(mode: ThemeMode, options: { animate?: boolean } = {}) {
+	runThemeTransition(() => {
+		commitThemeMode(mode);
+	}, options);
 }
 
 const initialThemeMode = readStoredThemeMode();

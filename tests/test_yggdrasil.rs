@@ -677,12 +677,29 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let items = body["data"].as_array().unwrap();
+    assert_eq!(body["data"]["total"], 2);
+    assert_eq!(body["data"]["limit"], 50);
+    assert_eq!(body["data"]["offset"], 0);
+    let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 2);
     assert_eq!(items[0]["id"], min_profile);
     assert_eq!(items[0]["name"], "Ab1");
     assert_eq!(items[1]["id"], max_profile);
     assert_eq!(items[1]["name"], "ABCDEFGHIJKLMNOP");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/profiles/minecraft?limit=9999&offset=1")
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 2);
+    let page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(page_items.len(), 1);
+    assert_eq!(page_items[0]["id"], max_profile);
 
     let req = test::TestRequest::get()
         .uri("/api/v1/auth/me")
@@ -700,10 +717,26 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let admin_items = body["data"].as_array().unwrap();
+    let admin_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(admin_items.len(), 2);
     assert_eq!(admin_items[0]["id"], min_profile);
     assert_eq!(admin_items[1]["id"], max_profile);
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/users/{user_id}/minecraft-profiles?limit=1&offset=1"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 2);
+    let admin_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(admin_page_items.len(), 1);
+    assert_eq!(admin_page_items[0]["id"], max_profile);
 
     let req = test::TestRequest::patch()
         .uri(&format!("/api/v1/profiles/minecraft/{min_profile}"))
@@ -720,7 +753,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let items = body["data"].as_array().unwrap();
+    let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items[0]["name"], "Ab1");
 }
 
@@ -1006,7 +1039,7 @@ async fn minecraft_profile_delete_unbinds_textures_keeps_wardrobe_revokes_tokens
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert!(body["data"].as_array().unwrap().is_empty());
+    assert!(body["data"]["items"].as_array().unwrap().is_empty());
 
     let req = test::TestRequest::get()
         .uri(&format!(
@@ -1029,7 +1062,10 @@ async fn minecraft_profile_delete_unbinds_textures_keeps_wardrobe_revokes_tokens
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let wardrobe_items = body["data"].as_array().unwrap();
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["limit"], 50);
+    assert_eq!(body["data"]["offset"], 0);
+    let wardrobe_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(wardrobe_items.len(), 1);
     assert_eq!(wardrobe_items[0]["hash"], texture_hash);
 
@@ -2312,7 +2348,7 @@ async fn yggdrasil_launcher_upload_registers_and_deduplicates_wardrobe_textures(
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let items = body["data"].as_array().unwrap();
+    let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 1);
     let wardrobe_id = items[0]["id"].as_i64().unwrap();
     let wardrobe_hash = items[0]["hash"].as_str().unwrap().to_string();
@@ -2346,7 +2382,7 @@ async fn yggdrasil_launcher_upload_registers_and_deduplicates_wardrobe_textures(
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let items = body["data"].as_array().unwrap();
+    let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["id"], wardrobe_id);
 
@@ -2451,7 +2487,7 @@ async fn launcher_upload_wardrobe_dedupe_keeps_model_and_user_boundaries() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let admin_body: Value = test::read_body_json(resp).await;
-    let admin_items = admin_body["data"].as_array().unwrap();
+    let admin_items = admin_body["data"]["items"].as_array().unwrap();
     assert_eq!(admin_items.len(), 2);
     assert!(
         admin_items
@@ -2467,13 +2503,25 @@ async fn launcher_upload_wardrobe_dedupe_keeps_model_and_user_boundaries() {
     assert!(admin_items.iter().all(|item| item["hash"] == shared_hash));
 
     let req = test::TestRequest::get()
+        .uri("/api/v1/wardrobe/textures?limit=1&offset=1")
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let page_body: Value = test::read_body_json(resp).await;
+    assert_eq!(page_body["data"]["limit"], 1);
+    assert_eq!(page_body["data"]["offset"], 1);
+    assert_eq!(page_body["data"]["total"], 2);
+    assert_eq!(page_body["data"]["items"].as_array().unwrap().len(), 1);
+
+    let req = test::TestRequest::get()
         .uri("/api/v1/wardrobe/textures")
         .insert_header(common::bearer_header(&user_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let user_body: Value = test::read_body_json(resp).await;
-    let user_items = user_body["data"].as_array().unwrap();
+    let user_items = user_body["data"]["items"].as_array().unwrap();
     assert_eq!(user_items.len(), 1);
     assert_eq!(user_items[0]["hash"], shared_hash);
     assert_eq!(user_items[0]["texture_model"], "default");
@@ -3649,9 +3697,9 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let list_body: Value = test::read_body_json(resp).await;
-    assert_eq!(list_body["data"].as_array().unwrap().len(), 1);
-    assert_eq!(list_body["data"][0]["id"], wardrobe_texture_id);
-    assert_eq!(list_body["data"][0]["visibility"], "private");
+    assert_eq!(list_body["data"]["items"].as_array().unwrap().len(), 1);
+    assert_eq!(list_body["data"]["items"][0]["id"], wardrobe_texture_id);
+    assert_eq!(list_body["data"]["items"][0]["visibility"], "private");
 
     let req = test::TestRequest::get()
         .uri(&format!("/api/yggdrasil/textures/{wardrobe_hash}"))
@@ -3744,7 +3792,7 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let list_body: Value = test::read_body_json(resp).await;
-    assert_eq!(list_body["data"].as_array().unwrap().len(), 0);
+    assert_eq!(list_body["data"]["items"].as_array().unwrap().len(), 0);
 
     let req = test::TestRequest::get()
         .uri(&format!(
@@ -3833,7 +3881,7 @@ async fn wardrobe_upload_accepts_public_visibility_and_rejects_unknown_values() 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let list_body: Value = test::read_body_json(resp).await;
-    let listed = list_body["data"]
+    let listed = list_body["data"]["items"]
         .as_array()
         .unwrap()
         .iter()

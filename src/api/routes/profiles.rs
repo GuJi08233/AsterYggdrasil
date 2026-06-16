@@ -7,6 +7,7 @@ use crate::api::dto::validation::validate_unsigned_uuid;
 use crate::api::dto::yggdrasil::YggdrasilProfile;
 use crate::api::dto::yggdrasil::{CreateMinecraftProfileReq, RenameMinecraftProfileReq};
 use crate::api::error_code::AsterErrorCode;
+use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_profile_repo;
 use crate::errors::{AsterError, Result};
@@ -244,8 +245,9 @@ pub async fn unbind_minecraft_profile_texture(
     path = "/api/v1/profiles/minecraft",
     tag = "profiles",
     operation_id = "list_current_user_minecraft_profiles",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Current user's Minecraft profiles", body = inline(ApiResponse<Vec<YggdrasilProfile>>)),
+        (status = 200, description = "Current user's Minecraft profiles", body = inline(ApiResponse<OffsetPage<YggdrasilProfile>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -253,20 +255,44 @@ pub async fn unbind_minecraft_profile_texture(
 pub async fn list_minecraft_profiles(
     state: web::Data<AppState>,
     req: HttpRequest,
+    page: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
-    tracing::debug!(user_id = user.id, "listing current user minecraft profiles");
-    let profiles = minecraft_profile_repo::list_by_user(state.get_ref().reader_db(), user.id)
-        .await?
+    let limit = page.limit_or(50, 100);
+    let offset = page.offset();
+    tracing::debug!(
+        user_id = user.id,
+        limit,
+        offset,
+        "listing current user minecraft profiles"
+    );
+    let page = minecraft_profile_repo::list_paginated(
+        state.get_ref().reader_db(),
+        minecraft_profile_repo::MinecraftProfileFilters {
+            user_id: Some(user.id),
+            ..Default::default()
+        },
+        limit,
+        offset,
+    )
+    .await?;
+    let profiles = page
+        .items
         .iter()
         .map(yggdrasil_service::profile_summary)
         .collect::<Vec<_>>();
     tracing::debug!(
         user_id = user.id,
-        count = profiles.len(),
+        returned = profiles.len(),
+        total = page.total,
         "listed current user minecraft profiles"
     );
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(profiles)))
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+        profiles,
+        page.total,
+        page.limit,
+        page.offset,
+    ))))
 }
 
 #[api_docs_macros::path(

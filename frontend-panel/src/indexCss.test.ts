@@ -20,4 +20,14 @@ describe("global stylesheet regressions", () => {
 		expect(css).not.toContain(".public-mc-hero::before");
 		expect(css).not.toContain("rgba(255, 255, 255, 0.05) 1px");
 	});
+
+	it("keeps AsterDrive-style theme surface transitions", () => {
+		expect(css).toContain("html.theme-switching");
+		expect(css).toContain("[data-theme-surface]");
+		expect(css).toContain('[data-theme-surface="public-backdrop"]');
+		expect(css).toContain("transition-duration: 160ms");
+		expect(css).toContain("transition-property: opacity");
+		expect(css).toContain("aster-view-transition-fade-in");
+		expect(css).toContain("aster-view-transition-fade-out");
+	});
 });

@@ -44,6 +44,7 @@ export function ShellSidebar({
 			<aside
 				id="shell-mobile-sidebar"
 				data-slot="shell-mobile-drawer"
+				data-theme-surface="chrome"
 				className={cn(
 					"fixed inset-y-0 left-0 z-50 grid h-dvh w-[min(22rem,calc(100vw-2.5rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden border-white/10 bg-[#0b271b] text-white transition-[translate,box-shadow] duration-200 ease-out will-change-transform lg:hidden motion-reduce:transition-none",
 					mobileOpen
@@ -75,6 +76,7 @@ export function ShellSidebar({
 			</aside>
 			<aside
 				data-slot="shell-desktop-sidebar"
+				data-theme-surface="chrome"
 				className="hidden border-white/10 bg-[#0b271b] text-white shadow-2xl shadow-emerald-950/20 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start lg:flex-col lg:overflow-y-auto"
 			>
 				<ShellSidebarBrand branding={branding} />
@@ -125,7 +127,10 @@ export function ShellSidebarBrand({
 	const { t } = useTranslation();
 
 	return (
-		<div className={cn("flex min-h-24 items-center gap-3 px-6", className)}>
+		<div
+			data-theme-surface="chrome"
+			className={cn("flex min-h-24 items-center gap-3 px-6", className)}
+		>
 			<Link to="/" className="group flex min-w-0 items-center gap-3">
 				<BrandMark
 					branding={branding}
@@ -196,10 +201,10 @@ export function ShellSidebarNavLink({
 			onClick={onNavigate}
 			className={({ isActive }) =>
 				cn(
-					"flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition-[background-color,color,transform] hover:-translate-y-px",
+					"flex min-h-11 items-center gap-3 rounded-lg px-4 text-sm font-semibold transition-[background-color,color,box-shadow]",
 					isActive
 						? "bg-white/12 text-white shadow-lg shadow-black/15"
-						: "text-emerald-50/82 hover:bg-white/8 hover:text-white",
+						: "text-emerald-50/82 hover:bg-white/8 hover:text-white hover:shadow-sm hover:shadow-black/10",
 				)
 			}
 		>

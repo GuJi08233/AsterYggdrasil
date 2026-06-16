@@ -99,6 +99,22 @@ function passkey(overrides: Partial<import("./authService").PasskeyInfo> = {}) {
 	} satisfies import("./authService").PasskeyInfo;
 }
 
+type OffsetPageFixture<T> = {
+	items: T[];
+	limit: number;
+	offset: number;
+	total: number;
+};
+
+function offsetPage<T>(
+	items: T[],
+	limit = 50,
+	offset = 0,
+	total = items.length,
+): OffsetPageFixture<T> {
+	return { items, limit, offset, total };
+}
+
 function externalAuthProvider(
 	overrides: Partial<import("@/types/api").ExternalAuthPublicProvider> = {},
 ) {
@@ -200,7 +216,7 @@ describe("authService", () => {
 	});
 
 	it("uses the passkey management endpoints with explicit request bodies", async () => {
-		apiMock.get.mockResolvedValue([]);
+		apiMock.get.mockResolvedValue(offsetPage([], 20));
 		apiMock.post.mockResolvedValue({
 			flow_id: "flow-1",
 			public_key: { challenge: "challenge-1" },
@@ -227,7 +243,9 @@ describe("authService", () => {
 		await authService.renamePasskey(7, { name: "Desk Mac" });
 		await authService.deletePasskey(7);
 
-		expect(apiMock.get).toHaveBeenCalledWith("/auth/passkeys");
+		expect(apiMock.get).toHaveBeenCalledWith(
+			"/auth/passkeys?limit=20&offset=0",
+		);
 		expect(apiMock.post).toHaveBeenCalledWith("/auth/passkeys/register/start", {
 			name: "MacBook",
 		});
@@ -289,7 +307,7 @@ describe("authService", () => {
 
 	it("deduplicates pending session requests and invalidates them after revocation", async () => {
 		let resolveSessions:
-			| ((sessions: ReturnType<typeof authSession>[]) => void)
+			| ((sessions: OffsetPageFixture<ReturnType<typeof authSession>>) => void)
 			| undefined;
 		apiMock.get.mockReturnValueOnce(
 			new Promise((resolve) => {
@@ -300,14 +318,16 @@ describe("authService", () => {
 
 		const first = authService.sessions();
 		const second = authService.sessions();
-		resolveSessions?.([authSession()]);
+		resolveSessions?.(offsetPage([authSession()]));
 
 		await expect(first).resolves.toHaveLength(1);
 		await expect(second).resolves.toHaveLength(1);
 		expect(apiMock.get).toHaveBeenCalledTimes(1);
 
 		apiMock.deleteRequest.mockResolvedValueOnce(undefined);
-		apiMock.get.mockResolvedValueOnce([authSession({ id: "session-2" })]);
+		apiMock.get.mockResolvedValueOnce(
+			offsetPage([authSession({ id: "session-2" })]),
+		);
 		await authService.revokeSession("session-1");
 
 		await expect(authService.sessions()).resolves.toEqual([
@@ -318,8 +338,10 @@ describe("authService", () => {
 
 	it("caches passkeys, supports forced refresh, and syncs mutations", async () => {
 		apiMock.get
-			.mockResolvedValueOnce([passkey()])
-			.mockResolvedValueOnce([passkey({ id: 8, name: "Phone" })]);
+			.mockResolvedValueOnce(offsetPage([passkey()], 20))
+			.mockResolvedValueOnce(
+				offsetPage([passkey({ id: 8, name: "Phone" })], 20),
+			);
 		const { authService } = await import("./authService");
 
 		const first = await authService.listPasskeys();
@@ -444,10 +466,18 @@ describe("systemService", () => {
 describe("externalAuthService", () => {
 	it("caches public providers, clones results, and supports forced refresh", async () => {
 		apiMock.get
-			.mockResolvedValueOnce([externalAuthProvider()])
-			.mockResolvedValueOnce([
-				externalAuthProvider({ display_name: "Microsoft", key: "microsoft" }),
-			]);
+			.mockResolvedValueOnce(offsetPage([externalAuthProvider()], 20))
+			.mockResolvedValueOnce(
+				offsetPage(
+					[
+						externalAuthProvider({
+							display_name: "Microsoft",
+							key: "microsoft",
+						}),
+					],
+					20,
+				),
+			);
 		const { externalAuthService } = await import("./externalAuthService");
 
 		const first = await externalAuthService.listPublic();
@@ -464,14 +494,14 @@ describe("externalAuthService", () => {
 		expect(apiMock.get).toHaveBeenCalledTimes(2);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			1,
-			"/auth/external-auth/providers",
+			"/auth/external-auth/providers?limit=20&offset=0",
 			{
 				signal: undefined,
 			},
 		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			2,
-			"/auth/external-auth/providers",
+			"/auth/external-auth/providers?limit=20&offset=0",
 			{
 				signal: undefined,
 			},
@@ -480,7 +510,9 @@ describe("externalAuthService", () => {
 
 	it("deduplicates public provider requests without sharing abortable calls", async () => {
 		let resolveProviders:
-			| ((providers: ReturnType<typeof externalAuthProvider>[]) => void)
+			| ((
+					providers: OffsetPageFixture<ReturnType<typeof externalAuthProvider>>,
+			  ) => void)
 			| undefined;
 		apiMock.get.mockReturnValueOnce(
 			new Promise((resolve) => {
@@ -491,29 +523,47 @@ describe("externalAuthService", () => {
 
 		const first = externalAuthService.listPublic();
 		const second = externalAuthService.listAuthAliases();
-		resolveProviders?.([externalAuthProvider()]);
+		resolveProviders?.(offsetPage([externalAuthProvider()], 20));
 
 		await expect(first).resolves.toHaveLength(1);
 		await expect(second).resolves.toHaveLength(1);
 		expect(apiMock.get).toHaveBeenCalledTimes(1);
 
 		const signal = new AbortController().signal;
-		apiMock.get.mockResolvedValueOnce([externalAuthProvider({ key: "oidc" })]);
+		apiMock.get.mockResolvedValueOnce(
+			offsetPage([externalAuthProvider({ key: "oidc" })], 20),
+		);
 		await externalAuthService.listPublic(signal);
 
 		expect(apiMock.get).toHaveBeenCalledTimes(2);
 		expect(apiMock.get).toHaveBeenLastCalledWith(
-			"/auth/external-auth/providers",
+			"/auth/external-auth/providers?limit=20&offset=0",
 			{ signal },
+		);
+	});
+
+	it("loads public providers by kind through paginated endpoints", async () => {
+		apiMock.get.mockResolvedValueOnce(
+			offsetPage([externalAuthProvider({ kind: "oidc", key: "oidc" })], 20),
+		);
+		const { externalAuthService } = await import("./externalAuthService");
+
+		await expect(
+			externalAuthService.listAuthAliasesByKind("oidc"),
+		).resolves.toEqual([externalAuthProvider({ kind: "oidc", key: "oidc" })]);
+
+		expect(apiMock.get).toHaveBeenCalledWith(
+			"/auth/external-auth/oidc/providers?limit=20&offset=0",
+			{ signal: undefined },
 		);
 	});
 
 	it("caches external auth links and syncs deletes", async () => {
 		apiMock.get
-			.mockResolvedValueOnce([externalAuthLink()])
-			.mockResolvedValueOnce([
-				externalAuthLink({ id: 12, subject: "subject-2" }),
-			]);
+			.mockResolvedValueOnce(offsetPage([externalAuthLink()], 20))
+			.mockResolvedValueOnce(
+				offsetPage([externalAuthLink({ id: 12, subject: "subject-2" })], 20),
+			);
 		const { externalAuthService } = await import("./externalAuthService");
 
 		const first = await externalAuthService.listLinks();
@@ -569,6 +619,16 @@ describe("externalAuthService", () => {
 });
 
 describe("yggdrasilService", () => {
+	it("uses configured public Yggdrasil API root before the current page host", async () => {
+		const { yggdrasilApiRoot } = await import("./yggdrasilService");
+
+		expect(
+			yggdrasilApiRoot({
+				public_base_urls: ["https://skin.example.test/api/yggdrasil"],
+			}),
+		).toBe("https://skin.example.test/api/yggdrasil");
+	});
+
 	it("loads protocol metadata using the generated protocol response type", async () => {
 		const metadata = {
 			meta: {

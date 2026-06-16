@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { UserAvatarImage } from "@/components/common/UserAvatarImage";
 import { AvatarCropDialog } from "@/components/settings/AvatarCropDialog";
 import { LoginDevicesSection } from "@/components/settings/LoginDevicesSection";
@@ -32,6 +33,8 @@ import type {
 } from "@/types/api";
 
 type SettingsSectionId = "profile" | "security" | "passkeys" | "external-auth";
+
+const EXTERNAL_AUTH_LINK_PAGE_SIZE = 20;
 
 type SectionDefinition = {
 	id: SettingsSectionId;
@@ -210,19 +213,29 @@ function SectionNav({
 function ExternalAuthLinksSection() {
 	const { t } = useTranslation();
 	const [links, setLinks] = useState<ExternalAuthLinkInfo[]>([]);
+	const [linkTotal, setLinkTotal] = useState(0);
+	const [offset, setOffset] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [busyId, setBusyId] = useState<number | null>(null);
 
-	const reload = useCallback(async (options?: { force?: boolean }) => {
-		setLoading(true);
-		try {
-			setLinks(await externalAuthService.listLinks(options));
-		} catch (error) {
-			toast.error(formatUnknownError(error));
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+	const reload = useCallback(
+		async (nextOffset = offset) => {
+			setLoading(true);
+			try {
+				const page = await externalAuthService.listLinksPage({
+					limit: EXTERNAL_AUTH_LINK_PAGE_SIZE,
+					offset: nextOffset,
+				});
+				setLinks(page.items);
+				setLinkTotal(page.total);
+			} catch (error) {
+				toast.error(formatUnknownError(error));
+			} finally {
+				setLoading(false);
+			}
+		},
+		[offset],
+	);
 
 	useEffect(() => {
 		void reload();
@@ -232,7 +245,7 @@ function ExternalAuthLinksSection() {
 		setBusyId(link.id);
 		try {
 			await externalAuthService.deleteLink(link.id);
-			setLinks((current) => current.filter((item) => item.id !== link.id));
+			await reload();
 			toast.success(t("personalSettings.externalAuthUnlinked"));
 		} catch (error) {
 			toast.error(formatUnknownError(error));
@@ -257,7 +270,7 @@ function ExternalAuthLinksSection() {
 					variant="outline"
 					size="sm"
 					disabled={loading}
-					onClick={() => void reload({ force: true })}
+					onClick={() => void reload()}
 				>
 					<Icon
 						name={loading ? "Spinner" : "ArrowClockwise"}
@@ -328,6 +341,34 @@ function ExternalAuthLinksSection() {
 					))
 				)}
 			</div>
+			<AdminOffsetPagination
+				currentPage={Math.floor(offset / EXTERNAL_AUTH_LINK_PAGE_SIZE) + 1}
+				nextDisabled={offset + EXTERNAL_AUTH_LINK_PAGE_SIZE >= linkTotal}
+				onNext={() =>
+					setOffset((current) => current + EXTERNAL_AUTH_LINK_PAGE_SIZE)
+				}
+				onPageSizeChange={() => {}}
+				onPrevious={() =>
+					setOffset((current) =>
+						Math.max(0, current - EXTERNAL_AUTH_LINK_PAGE_SIZE),
+					)
+				}
+				pageSize={String(EXTERNAL_AUTH_LINK_PAGE_SIZE)}
+				pageSizeOptions={[
+					{
+						label: t("admin.pagination.pageSizeOption", {
+							count: EXTERNAL_AUTH_LINK_PAGE_SIZE,
+						}),
+						value: String(EXTERNAL_AUTH_LINK_PAGE_SIZE),
+					},
+				]}
+				prevDisabled={offset === 0}
+				total={linkTotal}
+				totalPages={Math.max(
+					1,
+					Math.ceil(linkTotal / EXTERNAL_AUTH_LINK_PAGE_SIZE),
+				)}
+			/>
 		</div>
 	);
 }

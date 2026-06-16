@@ -79,9 +79,56 @@ async fn external_auth_lists_enabled_providers() {
     assert_eq!(resp.status(), 200);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"][0]["key"], "example");
-    assert_eq!(body["data"][0]["display_name"], "Example");
-    assert_eq!(body["data"][0]["kind"], "oidc");
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["items"][0]["key"], "example");
+    assert_eq!(body["data"]["items"][0]["display_name"], "Example");
+    assert_eq!(body["data"]["items"][0]["kind"], "oidc");
+}
+
+#[actix_web::test]
+async fn external_auth_provider_lists_are_paginated() {
+    let state = common::setup().await;
+    for (key, display_name, kind) in [
+        ("alpha", "Alpha", ExternalAuthProviderKind::Oidc),
+        ("bravo", "Bravo", ExternalAuthProviderKind::GenericOAuth2),
+        ("charlie", "Charlie", ExternalAuthProviderKind::Oidc),
+    ] {
+        let mut provider = oidc_provider_model(key, true);
+        provider.display_name = Set(display_name.to_string());
+        provider.provider_kind = Set(kind);
+        provider.protocol = Set(match kind {
+            ExternalAuthProviderKind::GenericOAuth2 => ExternalAuthProtocol::OAuth2,
+            _ => ExternalAuthProtocol::Oidc,
+        });
+        provider
+            .insert(state.db_handles.writer())
+            .await
+            .expect("external auth provider should insert");
+    }
+
+    let app = create_test_app!(state);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/external-auth/providers?limit=500&offset=1")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 3);
+    assert_eq!(body["data"]["items"][0]["key"], "bravo");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/external-auth/oidc/providers?limit=1&offset=1")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 2);
+    assert_eq!(body["data"]["items"][0]["key"], "charlie");
 }
 
 #[actix_web::test]

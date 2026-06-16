@@ -1,11 +1,23 @@
+import { withQuery } from "@/lib/query";
 import type {
 	AuthSessionInfo,
+	AuthSessionPage,
+	AuthSessionQuery,
 	AuthTokenResponse,
 	AuthUserInfo,
 	CheckResp,
 	LoginRequest,
 	OperationPath,
 	OperationRequestBody,
+	PasskeyInfo,
+	PasskeyLoginStartRequest,
+	PasskeyLoginStartResponse,
+	PasskeyPage,
+	PasskeyQuery,
+	PasskeyRegisterFinishRequest,
+	PasskeyRegisterStartRequest,
+	PasskeyRegisterStartResponse,
+	PatchPasskeyRequest,
 	RegisterRequest,
 	RevokeOtherAuthSessionsResponse,
 	SetupRequest,
@@ -21,40 +33,7 @@ type CachedRequestOptions = {
 	force?: boolean;
 };
 
-export interface PasskeyInfo {
-	id: number;
-	name: string;
-	transports?: string[] | null;
-	backup_eligible: boolean;
-	backed_up: boolean;
-	sign_count: number;
-	created_at: string;
-	updated_at: string;
-	last_used_at?: string | null;
-}
-
-export interface PasskeyRegisterStartRequest {
-	name?: string | null;
-}
-
-export interface PasskeyRegisterStartResponse {
-	flow_id: string;
-	public_key: unknown;
-}
-
-export interface PasskeyLoginStartRequest {
-	identifier?: string | null;
-	conditional?: boolean | null;
-}
-
-export interface PasskeyLoginStartResponse {
-	flow_id: string;
-	public_key: unknown;
-}
-
-export interface PatchPasskeyRequest {
-	name: string;
-}
+export type { PasskeyInfo };
 
 let cachedMe: AuthUserInfo | null = null;
 let pendingMeRequest: Promise<AuthUserInfo> | null = null;
@@ -164,8 +143,9 @@ function sessions(options?: CachedRequestOptions) {
 
 	const requestSerial = ++sessionsCacheSerial;
 	const request = api
-		.get<AuthSessionInfo[]>("/auth/sessions")
-		.then((nextSessions) => {
+		.get<AuthSessionPage>(withQuery("/auth/sessions", { limit: 50, offset: 0 }))
+		.then((page) => {
+			const nextSessions = page.items;
 			if (requestSerial === sessionsCacheSerial) {
 				primeSessionsCache(nextSessions);
 			}
@@ -180,6 +160,10 @@ function sessions(options?: CachedRequestOptions) {
 	return request.then(cloneSessions);
 }
 
+function sessionsPage(params: AuthSessionQuery = {}) {
+	return api.get<AuthSessionPage>(withQuery("/auth/sessions", params));
+}
+
 function listPasskeys(options?: CachedRequestOptions) {
 	const force = options?.force ?? false;
 	if (!force && cachedPasskeys !== null) {
@@ -191,8 +175,9 @@ function listPasskeys(options?: CachedRequestOptions) {
 
 	const requestSerial = ++passkeysCacheSerial;
 	const request = api
-		.get<PasskeyInfo[]>("/auth/passkeys")
-		.then((passkeys) => {
+		.get<PasskeyPage>(withQuery("/auth/passkeys", { limit: 20, offset: 0 }))
+		.then((page) => {
+			const passkeys = page.items;
 			if (requestSerial === passkeysCacheSerial) {
 				primePasskeysCache(passkeys);
 			}
@@ -205,6 +190,10 @@ function listPasskeys(options?: CachedRequestOptions) {
 		});
 	pendingPasskeysRequest = request;
 	return request.then(clonePasskeys);
+}
+
+function listPasskeysPage(params: PasskeyQuery = {}) {
+	return api.get<PasskeyPage>(withQuery("/auth/passkeys", params));
 }
 
 function upsertCachedPasskey(passkey: PasskeyInfo) {
@@ -292,6 +281,7 @@ export const authService = {
 		return profile;
 	},
 	sessions,
+	sessionsPage,
 	revokeSession: async (id: RevokeAuthSessionPath["id"]) => {
 		await api.delete<void>(`/auth/sessions/${id}`);
 		invalidateSessionsCache();
@@ -304,6 +294,7 @@ export const authService = {
 		return response;
 	},
 	listPasskeys,
+	listPasskeysPage,
 	startPasskeyRegistration: (data: PasskeyRegisterStartRequest) =>
 		api.post<PasskeyRegisterStartResponse, PasskeyRegisterStartRequest>(
 			"/auth/passkeys/register/start",
@@ -314,14 +305,14 @@ export const authService = {
 		credential: unknown,
 		name?: string | null,
 	) => {
-		const passkey = await api.post<
-			PasskeyInfo,
-			{ flow_id: string; credential: unknown; name?: string | null }
-		>("/auth/passkeys/register/finish", {
-			flow_id: flowId,
-			credential,
-			name,
-		});
+		const passkey = await api.post<PasskeyInfo, PasskeyRegisterFinishRequest>(
+			"/auth/passkeys/register/finish",
+			{
+				flow_id: flowId,
+				credential,
+				name,
+			},
+		);
 		upsertCachedPasskey(passkey);
 		return passkey;
 	},

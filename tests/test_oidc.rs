@@ -63,12 +63,17 @@ async fn admin_provider_api_masks_secret_and_public_list_only_shows_enabled() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let public_body: Value = test::read_body_json(resp).await;
-    assert_eq!(public_body["data"][0]["key"], provider_key);
+    assert_eq!(public_body["data"]["total"], 1);
+    assert_eq!(public_body["data"]["items"][0]["key"], provider_key);
     assert_eq!(
-        public_body["data"][0]["icon_url"],
+        public_body["data"]["items"][0]["icon_url"],
         "/static/external-auth/mock.svg"
     );
-    assert!(public_body["data"][0].get("client_secret").is_none());
+    assert!(
+        public_body["data"]["items"][0]
+            .get("client_secret")
+            .is_none()
+    );
 
     let provider_id = created["data"]["id"]
         .as_i64()
@@ -89,7 +94,8 @@ async fn admin_provider_api_masks_secret_and_public_list_only_shows_enabled() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     let public_body: Value = test::read_body_json(resp).await;
-    assert_eq!(public_body["data"].as_array().unwrap().len(), 0);
+    assert_eq!(public_body["data"]["total"], 0);
+    assert_eq!(public_body["data"]["items"].as_array().unwrap().len(), 0);
 
     server.stop(true).await;
 }
@@ -2183,13 +2189,28 @@ async fn oidc_links_can_be_listed_and_deleted_after_login() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    let links = body["data"]
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["limit"], 20);
+    assert_eq!(body["data"]["offset"], 0);
+    let links = body["data"]["items"]
         .as_array()
         .expect("links response should be an array");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0]["provider_key"], provider_key);
     assert_eq!(links[0]["subject"], "links-subject");
     let link_id = links[0]["id"].as_i64().expect("link id should exist");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/external-auth/links?limit=9999&offset=1")
+        .insert_header(("Cookie", common::access_cookie_header(&access_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 0);
 
     let req = test::TestRequest::delete()
         .uri(&format!("/api/v1/auth/external-auth/links/{link_id}"))
@@ -2206,7 +2227,7 @@ async fn oidc_links_can_be_listed_and_deleted_after_login() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"].as_array().unwrap().len(), 0);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 0);
 
     let identities = external_auth_identity::Entity::find()
         .all(state.writer_db())

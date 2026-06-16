@@ -1,7 +1,14 @@
-import { type FormEvent, useCallback, useEffect, useMemo } from "react";
+import {
+	type FormEvent,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useTextureWardrobePageState } from "@/components/account/wardrobe-page/useTextureWardrobePageState";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { Field, NativeSelectField } from "@/components/common/FormControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,9 +35,12 @@ import type {
 	MinecraftWardrobeTextureMetadata,
 } from "@/types/api";
 
+const WARDROBE_PAGE_SIZE = 50;
+
 export default function TextureWardrobePage() {
 	const { t, i18n } = useTranslation();
 	const [state, dispatch] = useTextureWardrobePageState();
+	const [textureOffset, setTextureOffset] = useState(0);
 	const {
 		activeTexture,
 		deleteDialogOpen,
@@ -44,32 +54,40 @@ export default function TextureWardrobePage() {
 		query,
 		selectedProfileId,
 		submitting,
+		textureTotal,
 		textures,
 		textureType,
 	} = state;
 
 	usePageTitle(t("wardrobe.title"));
 
-	const loadData = useCallback(async () => {
-		dispatch({ type: "loading", value: true });
-		try {
-			const [nextProfiles, nextTextures] = await Promise.all([
-				yggdrasilService.listProfiles(),
-				yggdrasilService.listWardrobeTextures(),
-			]);
-			dispatch({
-				type: "loadSuccess",
-				profiles: nextProfiles,
-				textures: nextTextures,
-			});
-		} catch (nextError) {
-			const errorMessage = formatUnknownError(nextError);
-			toast.error(errorMessage);
-			dispatch({ type: "loading", value: false });
-		} finally {
-			dispatch({ type: "loading", value: false });
-		}
-	}, [dispatch]);
+	const loadData = useCallback(
+		async (nextOffset = textureOffset) => {
+			dispatch({ type: "loading", value: true });
+			try {
+				const [nextProfiles, nextTextures] = await Promise.all([
+					yggdrasilService.listProfiles(),
+					yggdrasilService.listWardrobeTextures({
+						limit: WARDROBE_PAGE_SIZE,
+						offset: nextOffset,
+					}),
+				]);
+				dispatch({
+					type: "loadSuccess",
+					profiles: nextProfiles.items,
+					textureTotal: nextTextures.total,
+					textures: nextTextures.items,
+				});
+			} catch (nextError) {
+				const errorMessage = formatUnknownError(nextError);
+				toast.error(errorMessage);
+				dispatch({ type: "loading", value: false });
+			} finally {
+				dispatch({ type: "loading", value: false });
+			}
+		},
+		[dispatch, textureOffset],
+	);
 
 	useEffect(() => {
 		void loadData();
@@ -106,9 +124,11 @@ export default function TextureWardrobePage() {
 				model,
 				file,
 			});
+			setTextureOffset(0);
 			dispatch({ type: "prependTexture", value: uploaded });
 			dispatch({ type: "file", value: null });
 			toast.success(t("wardrobe.uploadSuccess"));
+			await loadData(0);
 		} catch (nextError) {
 			const errorMessage = formatUnknownError(nextError);
 			toast.error(errorMessage);
@@ -163,6 +183,7 @@ export default function TextureWardrobePage() {
 			dispatch({ type: "removeTexture", id: deleteTexture.id });
 			toast.success(t("wardrobe.deleteSuccess"));
 			dispatch({ type: "deleteDialogOpen", value: false });
+			await loadData();
 		} catch (nextError) {
 			const errorMessage = formatUnknownError(nextError);
 			toast.error(errorMessage);
@@ -187,7 +208,7 @@ export default function TextureWardrobePage() {
 							</Badge>
 							<Badge variant="secondary" className="rounded-md">
 								{t("wardrobe.totalTextures", {
-									count: textures.length.toString(),
+									count: textureTotal.toString(),
 								})}
 							</Badge>
 						</div>
@@ -343,6 +364,34 @@ export default function TextureWardrobePage() {
 								))}
 							</div>
 						)}
+						<AdminOffsetPagination
+							currentPage={Math.floor(textureOffset / WARDROBE_PAGE_SIZE) + 1}
+							nextDisabled={textureOffset + WARDROBE_PAGE_SIZE >= textureTotal}
+							onNext={() =>
+								setTextureOffset((current) => current + WARDROBE_PAGE_SIZE)
+							}
+							onPageSizeChange={() => {}}
+							onPrevious={() =>
+								setTextureOffset((current) =>
+									Math.max(0, current - WARDROBE_PAGE_SIZE),
+								)
+							}
+							pageSize={String(WARDROBE_PAGE_SIZE)}
+							pageSizeOptions={[
+								{
+									label: t("admin.pagination.pageSizeOption", {
+										count: WARDROBE_PAGE_SIZE,
+									}),
+									value: String(WARDROBE_PAGE_SIZE),
+								},
+							]}
+							prevDisabled={textureOffset === 0}
+							total={textureTotal}
+							totalPages={Math.max(
+								1,
+								Math.ceil(textureTotal / WARDROBE_PAGE_SIZE),
+							)}
+						/>
 					</div>
 				</div>
 			</section>

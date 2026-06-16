@@ -10,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useMinecraftProfilesPageState } from "@/components/account/profiles-page/useMinecraftProfilesPageState";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { NativeSelectField, TextField } from "@/components/common/FormControls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ import type {
 	MinecraftTextureType,
 } from "@/types/api";
 
+const PROFILE_PAGE_SIZE = 50;
+
 const MinecraftPreview = lazy(() =>
 	import("@/components/yggdrasil/MinecraftPreview").then((module) => ({
 		default: module.MinecraftPreview,
@@ -48,6 +51,7 @@ const MinecraftPreview = lazy(() =>
 export default function MinecraftProfilesPage() {
 	const { t } = useTranslation();
 	const [state, dispatch] = useMinecraftProfilesPageState();
+	const [profileOffset, setProfileOffset] = useState(0);
 	const {
 		accessToken,
 		file,
@@ -55,6 +59,7 @@ export default function MinecraftProfilesPage() {
 		model,
 		previewMotion,
 		profileName,
+		profileTotal,
 		profiles,
 		query,
 		selectedUuid,
@@ -65,10 +70,16 @@ export default function MinecraftProfilesPage() {
 
 	usePageTitle(t("profiles.title"));
 
-	const loadProfiles = useCallback(async () => {
-		const next = await yggdrasilService.listProfiles();
-		dispatch({ type: "profiles", value: next });
-	}, [dispatch]);
+	const loadProfiles = useCallback(
+		async (nextOffset = profileOffset) => {
+			const next = await yggdrasilService.listProfiles({
+				limit: PROFILE_PAGE_SIZE,
+				offset: nextOffset,
+			});
+			dispatch({ type: "profilePage", value: next });
+		},
+		[dispatch, profileOffset],
+	);
 
 	const loadTextures = useCallback(
 		async (uuid: string) => {
@@ -134,7 +145,8 @@ export default function MinecraftProfilesPage() {
 				name: profileName,
 			});
 			dispatch({ type: "profileName", value: "" });
-			await loadProfiles();
+			setProfileOffset(0);
+			await loadProfiles(0);
 			dispatch({ type: "selectedUuid", value: created.id });
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
@@ -160,7 +172,8 @@ export default function MinecraftProfilesPage() {
 			setRenameDialogOpen(false);
 			setRenameUuid("");
 			setRenameName("");
-			await loadProfiles();
+			setProfileOffset(0);
+			await loadProfiles(0);
 			dispatch({ type: "selectedUuid", value: renamed.id });
 			toast.success(t("profiles.renameSuccess"));
 		} catch (nextError) {
@@ -222,7 +235,7 @@ export default function MinecraftProfilesPage() {
 								</Badge>
 								<Badge variant="secondary" className="rounded-md">
 									{t("profiles.totalProfiles", {
-										count: profiles.length.toString(),
+										count: profileTotal.toString(),
 									})}
 								</Badge>
 							</div>
@@ -365,6 +378,34 @@ export default function MinecraftProfilesPage() {
 								</div>
 							</div>
 						)}
+						<AdminOffsetPagination
+							currentPage={Math.floor(profileOffset / PROFILE_PAGE_SIZE) + 1}
+							nextDisabled={profileOffset + PROFILE_PAGE_SIZE >= profileTotal}
+							onNext={() =>
+								setProfileOffset((current) => current + PROFILE_PAGE_SIZE)
+							}
+							onPageSizeChange={() => {}}
+							onPrevious={() =>
+								setProfileOffset((current) =>
+									Math.max(0, current - PROFILE_PAGE_SIZE),
+								)
+							}
+							pageSize={String(PROFILE_PAGE_SIZE)}
+							pageSizeOptions={[
+								{
+									label: t("admin.pagination.pageSizeOption", {
+										count: PROFILE_PAGE_SIZE,
+									}),
+									value: String(PROFILE_PAGE_SIZE),
+								},
+							]}
+							prevDisabled={profileOffset === 0}
+							total={profileTotal}
+							totalPages={Math.max(
+								1,
+								Math.ceil(profileTotal / PROFILE_PAGE_SIZE),
+							)}
+						/>
 					</div>
 				</div>
 

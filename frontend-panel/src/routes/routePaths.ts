@@ -9,6 +9,7 @@ export const accountPaths = {
 	home: "/account",
 	profiles: "/account/profiles",
 	wardrobe: "/account/wardrobe",
+	audit: "/account/audit",
 	settings: "/account/settings",
 } as const;
 

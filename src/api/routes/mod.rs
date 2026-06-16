@@ -1,5 +1,6 @@
 //! API route registration.
 
+pub mod account;
 pub mod admin;
 pub mod auth;
 pub mod auth_external_auth;
@@ -15,6 +16,7 @@ use actix_web::web;
 pub fn configure_api(cfg: &mut web::ServiceConfig) {
     cfg.configure(auth_external_auth::configure)
         .configure(auth::configure)
+        .configure(account::configure)
         .configure(profiles::configure)
         .configure(wardrobe::configure)
         .configure(public::configure)

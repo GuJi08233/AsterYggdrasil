@@ -18,6 +18,11 @@ import { ProtectedRoute } from "@/router/ProtectedRoute";
 import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import { useInitStatusStore } from "@/stores/initStatusStore";
+import type {
+	AuthSessionInfo,
+	AuthSessionPage,
+	PasskeyPage,
+} from "@/types/api";
 
 const authServiceMock = vi.hoisted(() => ({
 	check: vi.fn(),
@@ -27,9 +32,11 @@ const authServiceMock = vi.hoisted(() => ({
 	setup: vi.fn(),
 	logout: vi.fn(),
 	sessions: vi.fn(),
+	sessionsPage: vi.fn(),
 	revokeSession: vi.fn(),
 	revokeOtherSessions: vi.fn(),
 	listPasskeys: vi.fn(),
+	listPasskeysPage: vi.fn(),
 	startPasskeyRegistration: vi.fn(),
 	finishPasskeyRegistration: vi.fn(),
 	renamePasskey: vi.fn(),
@@ -42,6 +49,24 @@ const yggdrasilServiceMock = vi.hoisted(() => ({
 	metadata: vi.fn(),
 	listProfiles: vi.fn(),
 }));
+
+function sessionsPage(items: AuthSessionInfo[]): AuthSessionPage {
+	return {
+		items,
+		limit: 50,
+		offset: 0,
+		total: items.length,
+	};
+}
+
+function passkeyPage(items: PasskeyPage["items"]): PasskeyPage {
+	return {
+		items,
+		limit: 20,
+		offset: 0,
+		total: items.length,
+	};
+}
 
 vi.mock("@/services/authService", () => ({
 	authService: authServiceMock,
@@ -72,9 +97,11 @@ describe("frontend entry routes", () => {
 		authServiceMock.setup.mockResolvedValue(undefined);
 		authServiceMock.logout.mockResolvedValue(undefined);
 		authServiceMock.sessions.mockResolvedValue([]);
+		authServiceMock.sessionsPage.mockResolvedValue(sessionsPage([]));
 		authServiceMock.revokeSession.mockResolvedValue(undefined);
 		authServiceMock.revokeOtherSessions.mockResolvedValue({ removed: 0 });
 		authServiceMock.listPasskeys.mockResolvedValue([]);
+		authServiceMock.listPasskeysPage.mockResolvedValue(passkeyPage([]));
 		authServiceMock.startPasskeyRegistration.mockResolvedValue({
 			flow_id: "flow-1",
 			public_key: {},
@@ -560,6 +587,7 @@ describe("frontend entry routes", () => {
 			"/account",
 			"/account/profiles",
 			"/account/wardrobe",
+			"/account/audit",
 			"/account/settings",
 			"/admin/users",
 			"/admin/external-auth",
@@ -568,12 +596,113 @@ describe("frontend entry routes", () => {
 			"/admin/settings",
 			"/admin/about",
 		]);
+		for (const link of sidebarLinks) {
+			expect(link.className).not.toContain("translate-y");
+		}
 		expect(
 			within(sidebarNav as HTMLElement).getByText("My space"),
 		).toBeVisible();
 		expect(
 			within(sidebarNav as HTMLElement).getByText("Administration"),
 		).toBeVisible();
+	});
+
+	it("hides the account mobile topbar brand and removes the desktop search box", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			role: "admin",
+			status: "active",
+		} as const;
+		useAuthStore.setState({
+			user,
+			checking: false,
+			error: null,
+			expiresAt: Date.now() + 60_000,
+			isAuthStale: false,
+			isAuthenticated: true,
+			isAdmin: true,
+		});
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout />,
+					children: [
+						{
+							path: "/account",
+							element: <div>account-route</div>,
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/account"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("account-route")).toBeInTheDocument();
+		const topbar = screen.getByRole("banner");
+		expect(
+			within(topbar).queryByRole("link", { name: /AsterYggdrasil/ }),
+		).not.toBeInTheDocument();
+		expect(
+			within(topbar).queryByPlaceholderText(
+				"Search players, UUIDs, sessions, or settings...",
+			),
+		).not.toBeInTheDocument();
+		expect(within(topbar).queryByText("⌘K")).not.toBeInTheDocument();
+	});
+
+	it("keeps the admin mobile topbar brand while removing the desktop search box", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			role: "admin",
+			status: "active",
+		} as const;
+		useAuthStore.setState({
+			user,
+			checking: false,
+			error: null,
+			expiresAt: Date.now() + 60_000,
+			isAuthStale: false,
+			isAuthenticated: true,
+			isAdmin: true,
+		});
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout />,
+					children: [
+						{
+							path: "/admin/settings",
+							element: <div>admin-settings-route</div>,
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/admin/settings"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("admin-settings-route")).toBeInTheDocument();
+		const topbar = screen.getByRole("banner");
+		const brandLink = within(topbar).getByRole("link", {
+			name: /AsterYggdrasil/,
+		});
+		expect(brandLink).toHaveAttribute("href", "/");
+		expect(brandLink.querySelector("img")).toHaveClass("size-9");
+		expect(
+			within(topbar).queryByPlaceholderText(
+				"Search players, UUIDs, sessions, or settings...",
+			),
+		).not.toBeInTheDocument();
+		expect(within(topbar).queryByText("⌘K")).not.toBeInTheDocument();
 	});
 
 	it("opens the shared app navigation from the mobile topbar", async () => {
@@ -783,7 +912,7 @@ describe("frontend entry routes", () => {
 
 	it("shows only active login devices in the settings section", async () => {
 		const now = Date.now();
-		authServiceMock.sessions.mockResolvedValue([
+		const sessions: AuthSessionInfo[] = [
 			{
 				created_at: new Date(now - 60_000).toISOString(),
 				id: "session-active",
@@ -814,7 +943,8 @@ describe("frontend entry routes", () => {
 				revoked: false,
 				user_agent: "ExpiredBrowser/1.0",
 			},
-		]);
+		];
+		authServiceMock.sessionsPage.mockResolvedValue(sessionsPage(sessions));
 
 		render(
 			<MemoryRouter>

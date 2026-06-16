@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/account/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_account_audit_logs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_account_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/audit-logs": {
         parameters: {
             query?: never;
@@ -1266,11 +1298,18 @@ export interface components {
             /** Format: int64 */
             user_id: number;
         };
-        /** @enum {string} */
-        AdminAuditLogSortBy: "id" | "created_at" | "user_id" | "action" | "entity_type" | "entity_name" | "ip_address";
-        AdminAuditLogSortQuery: {
-            sort_by?: null | components["schemas"]["AdminAuditLogSortBy"];
-            sort_order?: null | components["schemas"]["SortOrder"];
+        AccountAuditLogFilterQuery: {
+            action?: string | null;
+            after?: string | null;
+            before?: string | null;
+            /** Format: int64 */
+            entity_id?: number | null;
+            entity_type?: null | components["schemas"]["AuditEntityType"];
+        };
+        AccountOverviewResp: {
+            /** Format: int64 */
+            profile_count: number;
+            recent_activity: components["schemas"]["AuditLogEntry"][];
         };
         AdminExternalAuthProviderInfo: {
             allowed_domains: string[];
@@ -1403,6 +1442,12 @@ export interface components {
             user_agent?: string | null;
             /** Format: int64 */
             user_id: number;
+        };
+        /** @enum {string} */
+        AuditLogSortBy: "id" | "created_at" | "user_id" | "action" | "entity_type" | "entity_name" | "ip_address";
+        AuditLogSortQuery: {
+            sort_by?: null | components["schemas"]["AuditLogSortBy"];
+            sort_order?: null | components["schemas"]["SortOrder"];
         };
         AuditPresentation: {
             detail?: null | components["schemas"]["AuditPresentationMessage"];
@@ -1892,6 +1937,63 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        OffsetPage_AuthSessionInfo: {
+            items: {
+                created_at: string;
+                id: string;
+                ip_address?: string | null;
+                is_current: boolean;
+                last_seen_at: string;
+                refresh_expires_at: string;
+                revoked: boolean;
+                user_agent?: string | null;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_ExternalAuthLinkInfo: {
+            items: {
+                created_at: string;
+                display_name_snapshot?: string | null;
+                email_snapshot?: string | null;
+                /** Format: int64 */
+                id: number;
+                issuer: string;
+                last_login_at?: string | null;
+                provider_display_name: string;
+                provider_icon_url?: string | null;
+                /** Format: int64 */
+                provider_id: number;
+                provider_key: string;
+                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                subject: string;
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_ExternalAuthPublicProvider: {
+            items: {
+                display_name: string;
+                icon_url?: string | null;
+                key: string;
+                kind: components["schemas"]["ExternalAuthProviderKind"];
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
         OffsetPage_MinecraftProfileInfo: {
             items: {
                 created_at: string;
@@ -1904,6 +2006,53 @@ export interface components {
                 /** Format: int64 */
                 user_id: number;
                 uuid: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_MinecraftWardrobeTextureMetadata: {
+            items: {
+                created_at: string;
+                /** Format: int64 */
+                file_size: number;
+                hash: string;
+                /** Format: int32 */
+                height: number;
+                /** Format: int64 */
+                id: number;
+                mime_type: string;
+                texture_model: components["schemas"]["MinecraftTextureModel"];
+                texture_type: components["schemas"]["MinecraftTextureType"];
+                updated_at: string;
+                url: string;
+                visibility: components["schemas"]["MinecraftTextureVisibility"];
+                /** Format: int32 */
+                width: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_PasskeyInfo: {
+            items: {
+                backed_up: boolean;
+                backup_eligible: boolean;
+                created_at: string;
+                /** Format: int64 */
+                id: number;
+                last_used_at?: string | null;
+                name: string;
+                /** Format: int64 */
+                sign_count: number;
+                transports?: string[] | null;
+                updated_at: string;
             }[];
             /** Format: int64 */
             limit: number;
@@ -1970,6 +2119,19 @@ export interface components {
                 status_text?: string | null;
                 steps: components["schemas"]["TaskStepInfo"][];
                 updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        OffsetPage_YggdrasilProfile: {
+            items: {
+                id: string;
+                name: string;
+                properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
             }[];
             /** Format: int64 */
             limit: number;
@@ -2383,6 +2545,108 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_account_audit_logs: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+                action?: string | null;
+                entity_type?: null | components["schemas"]["AuditEntityType"];
+                entity_id?: number | null;
+                after?: string | null;
+                before?: string | null;
+                sort_by?: null | components["schemas"]["AuditLogSortBy"];
+                sort_order?: null | components["schemas"]["SortOrder"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's audit log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                action: components["schemas"]["AuditAction"];
+                                created_at: string;
+                                details?: string | null;
+                                /** Format: int64 */
+                                entity_id?: number | null;
+                                entity_name?: string | null;
+                                entity_type: components["schemas"]["AuditEntityType"];
+                                /** Format: int64 */
+                                id: number;
+                                ip_address?: string | null;
+                                presentation?: null | components["schemas"]["AuditPresentation"];
+                                user?: null | components["schemas"]["AuditUserSummary"];
+                                user_agent?: string | null;
+                                /** Format: int64 */
+                                user_id: number;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_account_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current account overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            profile_count: number;
+                            recent_activity: components["schemas"]["AuditLogEntry"][];
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_audit_logs: {
         parameters: {
             query?: {
@@ -2394,7 +2658,7 @@ export interface operations {
                 entity_id?: number | null;
                 after?: string | null;
                 before?: string | null;
-                sort_by?: null | components["schemas"]["AdminAuditLogSortBy"];
+                sort_by?: null | components["schemas"]["AuditLogSortBy"];
                 sort_order?: null | components["schemas"]["SortOrder"];
             };
             header?: never;
@@ -4463,7 +4727,10 @@ export interface operations {
     };
     admin_list_user_minecraft_profiles: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path: {
                 /** @description User ID */
@@ -4482,10 +4749,18 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            id: string;
-                            name: string;
-                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                        }[];
+                            items: {
+                                id: string;
+                                name: string;
+                                properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -4608,7 +4883,10 @@ export interface operations {
     };
     auth_external_auth_list_links: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4624,22 +4902,30 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            created_at: string;
-                            display_name_snapshot?: string | null;
-                            email_snapshot?: string | null;
+                            items: {
+                                created_at: string;
+                                display_name_snapshot?: string | null;
+                                email_snapshot?: string | null;
+                                /** Format: int64 */
+                                id: number;
+                                issuer: string;
+                                last_login_at?: string | null;
+                                provider_display_name: string;
+                                provider_icon_url?: string | null;
+                                /** Format: int64 */
+                                provider_id: number;
+                                provider_key: string;
+                                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                                subject: string;
+                                updated_at: string;
+                            }[];
                             /** Format: int64 */
-                            id: number;
-                            issuer: string;
-                            last_login_at?: string | null;
-                            provider_display_name: string;
-                            provider_icon_url?: string | null;
+                            limit: number;
                             /** Format: int64 */
-                            provider_id: number;
-                            provider_key: string;
-                            provider_kind: components["schemas"]["ExternalAuthProviderKind"];
-                            subject: string;
-                            updated_at: string;
-                        }[];
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -4740,7 +5026,10 @@ export interface operations {
     };
     auth_external_auth_list_providers: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4756,11 +5045,19 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            display_name: string;
-                            icon_url?: string | null;
-                            key: string;
-                            kind: components["schemas"]["ExternalAuthProviderKind"];
-                        }[];
+                            items: {
+                                display_name: string;
+                                icon_url?: string | null;
+                                key: string;
+                                kind: components["schemas"]["ExternalAuthProviderKind"];
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -4770,7 +5067,10 @@ export interface operations {
     };
     auth_external_auth_list_providers_by_kind: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path: {
                 /** @description External auth provider kind */
@@ -4789,11 +5089,19 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            display_name: string;
-                            icon_url?: string | null;
-                            key: string;
-                            kind: components["schemas"]["ExternalAuthProviderKind"];
-                        }[];
+                            items: {
+                                display_name: string;
+                                icon_url?: string | null;
+                                key: string;
+                                kind: components["schemas"]["ExternalAuthProviderKind"];
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -5012,7 +5320,10 @@ export interface operations {
     };
     list_passkeys: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5028,18 +5339,26 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            backed_up: boolean;
-                            backup_eligible: boolean;
-                            created_at: string;
+                            items: {
+                                backed_up: boolean;
+                                backup_eligible: boolean;
+                                created_at: string;
+                                /** Format: int64 */
+                                id: number;
+                                last_used_at?: string | null;
+                                name: string;
+                                /** Format: int64 */
+                                sign_count: number;
+                                transports?: string[] | null;
+                                updated_at: string;
+                            }[];
                             /** Format: int64 */
-                            id: number;
-                            last_used_at?: string | null;
-                            name: string;
+                            limit: number;
                             /** Format: int64 */
-                            sign_count: number;
-                            transports?: string[] | null;
-                            updated_at: string;
-                        }[];
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -5587,7 +5906,10 @@ export interface operations {
     };
     list_auth_sessions: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5603,15 +5925,23 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            created_at: string;
-                            id: string;
-                            ip_address?: string | null;
-                            is_current: boolean;
-                            last_seen_at: string;
-                            refresh_expires_at: string;
-                            revoked: boolean;
-                            user_agent?: string | null;
-                        }[];
+                            items: {
+                                created_at: string;
+                                id: string;
+                                ip_address?: string | null;
+                                is_current: boolean;
+                                last_seen_at: string;
+                                refresh_expires_at: string;
+                                revoked: boolean;
+                                user_agent?: string | null;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -5758,7 +6088,10 @@ export interface operations {
     };
     list_current_user_minecraft_profiles: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5774,10 +6107,18 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            id: string;
-                            name: string;
-                            properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                        }[];
+                            items: {
+                                id: string;
+                                name: string;
+                                properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };
@@ -6174,7 +6515,10 @@ export interface operations {
     };
     list_current_user_wardrobe_textures: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6190,23 +6534,31 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
-                            created_at: string;
+                            items: {
+                                created_at: string;
+                                /** Format: int64 */
+                                file_size: number;
+                                hash: string;
+                                /** Format: int32 */
+                                height: number;
+                                /** Format: int64 */
+                                id: number;
+                                mime_type: string;
+                                texture_model: components["schemas"]["MinecraftTextureModel"];
+                                texture_type: components["schemas"]["MinecraftTextureType"];
+                                updated_at: string;
+                                url: string;
+                                visibility: components["schemas"]["MinecraftTextureVisibility"];
+                                /** Format: int32 */
+                                width: number;
+                            }[];
                             /** Format: int64 */
-                            file_size: number;
-                            hash: string;
-                            /** Format: int32 */
-                            height: number;
+                            limit: number;
                             /** Format: int64 */
-                            id: number;
-                            mime_type: string;
-                            texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_type: components["schemas"]["MinecraftTextureType"];
-                            updated_at: string;
-                            url: string;
-                            visibility: components["schemas"]["MinecraftTextureVisibility"];
-                            /** Format: int32 */
-                            width: number;
-                        }[];
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
                     };

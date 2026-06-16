@@ -1,6 +1,7 @@
+import { withQuery } from "@/lib/query";
 import type {
 	CheckResp,
-	ExternalAuthPublicProvider,
+	ExternalAuthPublicProviderPage,
 	HealthResponse,
 } from "@/types/api";
 import { api } from "./http";
@@ -18,11 +19,13 @@ export const systemService = {
 	checkAuth: (signal?: AbortSignal) =>
 		api.get<CheckResp>("/auth/check", { signal }),
 	publicExternalAuthProviders: (signal?: AbortSignal) =>
-		api.get<ExternalAuthPublicProvider[]>("/auth/external-auth/providers", {
-			signal,
-		}),
+		api.get<ExternalAuthPublicProviderPage>(
+			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			{ signal },
+		),
 	authExternalAuthProviders: (signal?: AbortSignal) =>
-		api.get<ExternalAuthPublicProvider[]>("/auth/external-auth/providers", {
-			signal,
-		}),
+		api.get<ExternalAuthPublicProviderPage>(
+			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			{ signal },
+		),
 };

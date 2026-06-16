@@ -34,7 +34,28 @@ export function ThemeToggleButton({
 			aria-label={t("shell.themeAction")}
 			title={t("shell.themeAction")}
 		>
-			<Icon name={isDark ? "Sun" : "Moon"} className="size-4" />
+			<span className="relative inline-flex size-4 items-center justify-center">
+				<span
+					className={cn(
+						"absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out motion-reduce:transition-none",
+						isDark
+							? "rotate-0 scale-100 opacity-100"
+							: "-rotate-90 scale-75 opacity-0",
+					)}
+				>
+					<Icon name="Sun" className="size-4" />
+				</span>
+				<span
+					className={cn(
+						"absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out motion-reduce:transition-none",
+						isDark
+							? "rotate-90 scale-75 opacity-0"
+							: "rotate-0 scale-100 opacity-100",
+					)}
+				>
+					<Icon name="Moon" className="size-4" />
+				</span>
+			</span>
 		</Button>
 	);
 }

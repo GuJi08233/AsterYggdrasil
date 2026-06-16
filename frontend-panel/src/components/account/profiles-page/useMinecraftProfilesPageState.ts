@@ -15,6 +15,7 @@ export type MinecraftProfilesPageState = {
 	model: MinecraftTextureModel;
 	previewMotion: PreviewMotion;
 	profileName: string;
+	profileTotal: number;
 	profiles: YggdrasilProfile[];
 	query: string;
 	selectedUuid: string;
@@ -30,6 +31,7 @@ export type MinecraftProfilesPageAction =
 	| { type: "model"; value: MinecraftTextureModel }
 	| { type: "previewMotion"; value: PreviewMotion }
 	| { type: "profileName"; value: string }
+	| { type: "profilePage"; value: { items: YggdrasilProfile[]; total: number } }
 	| { type: "profiles"; value: YggdrasilProfile[] }
 	| { type: "query"; value: string }
 	| { type: "selectedUuid"; value: string }
@@ -44,6 +46,7 @@ const initialState: MinecraftProfilesPageState = {
 	model: "default",
 	previewMotion: "idle",
 	profileName: "",
+	profileTotal: 0,
 	profiles: [],
 	query: "",
 	selectedUuid: "",
@@ -72,8 +75,16 @@ function reducer(
 		case "profiles":
 			return {
 				...state,
+				profileTotal: action.value.length,
 				profiles: action.value,
 				selectedUuid: state.selectedUuid || action.value[0]?.id || "",
+			};
+		case "profilePage":
+			return {
+				...state,
+				profileTotal: action.value.total,
+				profiles: action.value.items,
+				selectedUuid: state.selectedUuid || action.value.items[0]?.id || "",
 			};
 	}
 }

@@ -5,6 +5,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use futures::StreamExt;
 
 use crate::api::error_code::AsterErrorCode;
+use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
@@ -31,8 +32,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     path = "/api/v1/wardrobe/textures",
     tag = "profiles",
     operation_id = "list_current_user_wardrobe_textures",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Current user's wardrobe textures", body = inline(ApiResponse<Vec<texture_service::MinecraftWardrobeTextureMetadata>>)),
+        (status = 200, description = "Current user's wardrobe textures", body = inline(ApiResponse<OffsetPage<texture_service::MinecraftWardrobeTextureMetadata>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -40,20 +42,37 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 pub async fn list_wardrobe_textures(
     state: web::Data<AppState>,
     req: HttpRequest,
+    page: web::Query<LimitOffsetQuery>,
 ) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
-    tracing::debug!(user_id = user.id, "listing current user wardrobe textures");
-    let textures = texture_service::list_wardrobe_textures(state.get_ref(), user.id)
-        .await?
+    let limit = page.limit_or(50, 100);
+    let offset = page.offset();
+    tracing::debug!(
+        user_id = user.id,
+        limit,
+        offset,
+        "listing current user wardrobe textures"
+    );
+    let page =
+        texture_service::list_wardrobe_textures_paginated(state.get_ref(), user.id, limit, offset)
+            .await?;
+    let textures = page
+        .items
         .iter()
         .map(|texture| texture_service::wardrobe_texture_metadata(state.get_ref(), texture))
         .collect::<Vec<_>>();
     tracing::debug!(
         user_id = user.id,
-        count = textures.len(),
+        returned = textures.len(),
+        total = page.total,
         "listed current user wardrobe textures"
     );
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(textures)))
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+        textures,
+        page.total,
+        page.limit,
+        page.offset,
+    ))))
 }
 
 #[api_docs_macros::path(

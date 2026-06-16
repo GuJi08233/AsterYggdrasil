@@ -113,7 +113,7 @@ pub enum AdminTaskSortBy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 #[serde(rename_all = "snake_case")]
-pub enum AdminAuditLogSortBy {
+pub enum AuditLogSortBy {
     Id,
     CreatedAt,
     UserId,

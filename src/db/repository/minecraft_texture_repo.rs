@@ -1,11 +1,12 @@
 //! Minecraft texture asset repository.
 
+use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::minecraft_texture::{self, Entity as MinecraftTexture};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, Set,
+    QueryFilter, QueryOrder, QuerySelect, Set,
 };
 
 #[derive(Debug, Clone)]
@@ -74,6 +75,34 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn list_by_user_paginated<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<minecraft_texture::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let query = MinecraftTexture::find()
+            .filter(minecraft_texture::Column::UserId.eq(user_id))
+            .filter(minecraft_texture::Column::IsWardrobeItem.eq(true))
+            .order_by_desc(minecraft_texture::Column::UpdatedAt)
+            .order_by_desc(minecraft_texture::Column::Id);
+        let total = query
+            .clone()
+            .count(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        Ok((items, total))
+    })
+    .await
 }
 
 pub async fn find_wardrobe_by_fingerprint<C: ConnectionTrait>(

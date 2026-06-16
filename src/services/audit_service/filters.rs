@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::{IntoParams, ToSchema};
 
+use crate::api::pagination::{AuditLogSortBy, SortOrder};
 use crate::types::AuditEntityType;
 
 #[derive(Debug, Deserialize)]
@@ -19,6 +20,16 @@ pub struct AuditLogFilterQuery {
     pub before: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(IntoParams, ToSchema)
+)]
+pub struct AuditLogSortQuery {
+    pub sort_by: Option<AuditLogSortBy>,
+    pub sort_order: Option<SortOrder>,
+}
+
 pub struct AuditLogFilters {
     pub user_id: Option<i64>,
     pub action: Option<String>,
@@ -26,6 +37,16 @@ pub struct AuditLogFilters {
     pub entity_id: Option<i64>,
     pub after: Option<DateTime<Utc>>,
     pub before: Option<DateTime<Utc>>,
+}
+
+impl AuditLogSortQuery {
+    pub fn sort_by(&self) -> AuditLogSortBy {
+        self.sort_by.unwrap_or(AuditLogSortBy::CreatedAt)
+    }
+
+    pub fn sort_order(&self) -> SortOrder {
+        self.sort_order.unwrap_or(SortOrder::Desc)
+    }
 }
 
 impl AuditLogFilters {

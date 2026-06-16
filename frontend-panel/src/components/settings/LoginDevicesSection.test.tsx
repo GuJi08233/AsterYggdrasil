@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
 import { useAuthStore } from "@/stores/authStore";
-import type { AuthSessionInfo } from "@/types/api";
+import type { AuthSessionInfo, AuthSessionPage } from "@/types/api";
 import { LoginDevicesSection } from "./LoginDevicesSection";
 
 const authServiceMock = vi.hoisted(() => ({
 	revokeOtherSessions: vi.fn(),
 	revokeSession: vi.fn(),
 	sessions: vi.fn(),
+	sessionsPage: vi.fn(),
 }));
 
 const toastMock = vi.hoisted(() => ({
@@ -54,6 +55,15 @@ function activeSessions() {
 	];
 }
 
+function sessionsPage(items: AuthSessionInfo[]): AuthSessionPage {
+	return {
+		items,
+		limit: 50,
+		offset: 0,
+		total: items.length,
+	};
+}
+
 describe("LoginDevicesSection", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -63,6 +73,9 @@ describe("LoginDevicesSection", () => {
 			isAuthenticated: true,
 		});
 		authServiceMock.sessions.mockResolvedValue(activeSessions());
+		authServiceMock.sessionsPage.mockResolvedValue(
+			sessionsPage(activeSessions()),
+		);
 		authServiceMock.revokeSession.mockResolvedValue(undefined);
 		authServiceMock.revokeOtherSessions.mockResolvedValue({ removed: 1 });
 	});

@@ -50,7 +50,7 @@ import {
 	type SortOrder,
 } from "@/lib/pagination";
 import { adminAuditService } from "@/services/adminService";
-import type { AdminAuditLogSortBy, AuditEntityType } from "@/types/api";
+import type { AuditEntityType, AuditLogSortBy } from "@/types/api";
 
 const AUDIT_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const DEFAULT_AUDIT_PAGE_SIZE = 20 as const;
@@ -62,9 +62,8 @@ const AUDIT_SORT_BY_OPTIONS = [
 	"entity_type",
 	"entity_name",
 	"ip_address",
-] as const satisfies readonly AdminAuditLogSortBy[];
-const DEFAULT_AUDIT_SORT_BY =
-	"created_at" as const satisfies AdminAuditLogSortBy;
+] as const satisfies readonly AuditLogSortBy[];
+const DEFAULT_AUDIT_SORT_BY = "created_at" as const satisfies AuditLogSortBy;
 const DEFAULT_AUDIT_SORT_ORDER = "desc" as const satisfies SortOrder;
 const AUDIT_MANAGED_QUERY_KEYS = [
 	"action",
@@ -100,7 +99,7 @@ function buildManagedAuditSearchParams({
 	entityType: AuditEntityTypeFilter;
 	offset: number;
 	pageSize: (typeof AUDIT_PAGE_SIZE_OPTIONS)[number];
-	sortBy: AdminAuditLogSortBy;
+	sortBy: AuditLogSortBy;
 	sortOrder: SortOrder;
 }) {
 	return buildOffsetPaginationSearchParams({
@@ -188,7 +187,7 @@ export default function AdminAuditPage() {
 		useState<AuditEntityTypeFilter>(
 			parseEntityTypeSearchParam(searchParams.get("entityType")),
 		);
-	const [sortBy, setSortBy] = useState<AdminAuditLogSortBy>(
+	const [sortBy, setSortBy] = useState<AuditLogSortBy>(
 		parseSortSearchParam(
 			searchParams.get("sortBy"),
 			AUDIT_SORT_BY_OPTIONS,
@@ -355,7 +354,7 @@ export default function AdminAuditPage() {
 	};
 
 	const handleSortChange = useCallback(
-		(nextSortBy: AdminAuditLogSortBy, nextOrder: SortOrder) => {
+		(nextSortBy: AuditLogSortBy, nextOrder: SortOrder) => {
 			setSortBy(nextSortBy);
 			setSortOrder(nextOrder);
 			setOffset(0);

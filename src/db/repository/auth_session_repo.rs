@@ -1,11 +1,12 @@
 //! Auth session repository.
 
+use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::auth_session::{self, Entity as AuthSession};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder,
-    sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, sea_query::Expr,
 };
 
 pub async fn create<C: ConnectionTrait>(
@@ -50,6 +51,33 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn list_by_user_paginated<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<auth_session::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let query = AuthSession::find()
+            .filter(auth_session::Column::UserId.eq(user_id))
+            .order_by_desc(auth_session::Column::LastSeenAt)
+            .order_by_desc(auth_session::Column::Id);
+        let total = query
+            .clone()
+            .count(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        Ok((items, total))
+    })
+    .await
 }
 
 pub async fn list_active_for_user<C: ConnectionTrait>(

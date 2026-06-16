@@ -47,12 +47,21 @@ vi.mock("@/components/yggdrasil/LauncherSetupCard", () => ({
 	),
 }));
 
+function offsetPage<T>(
+	items: T[],
+	limit = 50,
+	offset = 0,
+	total = items.length,
+) {
+	return { items, limit, offset, total };
+}
+
 describe("MinecraftProfilesPage rename workflow", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		yggdrasilServiceMock.listProfiles.mockResolvedValue([
-			{ id: "profile-one", name: "OldName", properties: [] },
-		]);
+		yggdrasilServiceMock.listProfiles.mockResolvedValue(
+			offsetPage([{ id: "profile-one", name: "OldName", properties: [] }]),
+		);
 		yggdrasilServiceMock.listProfileTextures.mockResolvedValue([]);
 		yggdrasilServiceMock.renameProfile.mockResolvedValue({
 			id: "profile-one",
@@ -73,9 +82,9 @@ describe("MinecraftProfilesPage rename workflow", () => {
 		const input = within(dialog).getByLabelText("profiles.profileName");
 		expect(input).toHaveValue("OldName");
 
-		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce([
-			{ id: "profile-one", name: "NewName", properties: [] },
-		]);
+		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
+			offsetPage([{ id: "profile-one", name: "NewName", properties: [] }]),
+		);
 		fireEvent.change(input, { target: { value: " NewName " } });
 		fireEvent.click(
 			within(dialog).getByRole("button", { name: "common.save" }),

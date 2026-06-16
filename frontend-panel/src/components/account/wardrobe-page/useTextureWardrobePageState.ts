@@ -19,6 +19,7 @@ export type TextureWardrobePageState = {
 	query: string;
 	selectedProfileId: string;
 	submitting: boolean;
+	textureTotal: number;
 	textures: MinecraftWardrobeTextureMetadata[];
 	textureType: MinecraftTextureType;
 };
@@ -32,6 +33,7 @@ export type TextureWardrobePageAction =
 	| {
 			type: "loadSuccess";
 			profiles: YggdrasilProfile[];
+			textureTotal: number;
 			textures: MinecraftWardrobeTextureMetadata[];
 	  }
 	| { type: "loading"; value: boolean }
@@ -57,6 +59,7 @@ const initialState: TextureWardrobePageState = {
 	query: "",
 	selectedProfileId: "",
 	submitting: false,
+	textureTotal: 0,
 	textures: [],
 	textureType: "skin",
 };
@@ -85,13 +88,19 @@ function reducer(
 				profiles: action.profiles,
 				selectedProfileId:
 					state.selectedProfileId || action.profiles[0]?.id || "",
+				textureTotal: action.textureTotal,
 				textures: action.textures,
 			};
 		case "prependTexture":
-			return { ...state, textures: [action.value, ...state.textures] };
+			return {
+				...state,
+				textureTotal: state.textureTotal + 1,
+				textures: [action.value, ...state.textures],
+			};
 		case "removeTexture":
 			return {
 				...state,
+				textureTotal: Math.max(0, state.textureTotal - 1),
 				textures: state.textures.filter((texture) => texture.id !== action.id),
 			};
 		case "selectedProfileId":

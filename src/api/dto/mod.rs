@@ -3,6 +3,7 @@
 //! Route handlers should import request/response contracts from this module
 //! instead of defining public API structs inline.
 
+pub mod account;
 pub mod admin;
 pub mod auth;
 pub mod external_auth;
@@ -10,11 +11,12 @@ pub mod textures;
 pub(crate) mod validation;
 pub mod yggdrasil;
 
+pub use account::{AccountAuditLogFilterQuery, AccountOverviewResp};
 pub use admin::{
-    AdminAuditLogSortQuery, AdminMinecraftProfileListQuery, AdminTaskCleanupReq,
-    AdminTaskListQuery, AdminUserListQuery, CreateAdminUserReq, CreateExternalAuthProviderReq,
-    ExecuteConfigActionReq, ExecuteConfigActionResp, ExternalAuthProviderTestParamsReq,
-    RemovedCountResponse, SetConfigReq, UpdateAdminUserReq, UpdateExternalAuthProviderReq,
+    AdminMinecraftProfileListQuery, AdminTaskCleanupReq, AdminTaskListQuery, AdminUserListQuery,
+    CreateAdminUserReq, CreateExternalAuthProviderReq, ExecuteConfigActionReq,
+    ExecuteConfigActionResp, ExternalAuthProviderTestParamsReq, RemovedCountResponse, SetConfigReq,
+    UpdateAdminUserReq, UpdateExternalAuthProviderReq,
 };
 pub use auth::{
     CheckResp, LoginReq, LogoutReq, LogoutResp, PasskeyLoginFinishReq, PasskeyLoginStartReq,

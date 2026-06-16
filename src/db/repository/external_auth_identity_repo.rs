@@ -3,9 +3,10 @@
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DatabaseConnection,
-    EntityTrait, QueryFilter, QueryOrder, sea_query::Expr,
+    EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
+use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::external_auth_identity::{self, Entity as ExternalAuthIdentity};
 use crate::errors::{AsterError, Result};
 
@@ -30,6 +31,30 @@ pub async fn list_for_user(
         .all(db)
         .await
         .map_err(AsterError::from)
+}
+
+pub async fn list_for_user_paginated(
+    db: &DatabaseConnection,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<external_auth_identity::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let query = ExternalAuthIdentity::find()
+            .filter(external_auth_identity::Column::UserId.eq(user_id))
+            .order_by_desc(external_auth_identity::Column::LastLoginAt)
+            .order_by_desc(external_auth_identity::Column::CreatedAt)
+            .order_by_desc(external_auth_identity::Column::Id);
+        let total = query.clone().count(db).await.map_err(AsterError::from)?;
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_err(AsterError::from)?;
+        Ok((items, total))
+    })
+    .await
 }
 
 pub async fn find_by_provider_subject<C: ConnectionTrait>(

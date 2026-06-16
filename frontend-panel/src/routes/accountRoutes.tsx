@@ -12,6 +12,9 @@ const MinecraftProfilesPage = lazyWithPreload(
 const AccountSettingsPage = lazyWithPreload(
 	() => import("@/pages/account/AccountSettingsPage"),
 );
+const AccountAuditPage = lazyWithPreload(
+	() => import("@/pages/account/AccountAuditPage"),
+);
 const TextureWardrobePage = lazyWithPreload(
 	() => import("@/pages/account/TextureWardrobePage"),
 );
@@ -23,6 +26,7 @@ export const accountRoutes = [
 			{ path: accountPaths.home, element: <AccountOverviewPage /> },
 			{ path: accountPaths.profiles, element: <MinecraftProfilesPage /> },
 			{ path: accountPaths.wardrobe, element: <TextureWardrobePage /> },
+			{ path: accountPaths.audit, element: <AccountAuditPage /> },
 			{ path: accountPaths.settings, element: <AccountSettingsPage /> },
 		],
 	},

@@ -2,7 +2,7 @@
 	"account": {
 		"title": "{{username}}'s workbench",
 		"welcome": "Welcome back, {{username}}",
-		"description": "Profiles, textures, launcher access, and sessions.",
+		"description": "Prepare your profiles and textures, then step into the Minecraft world.",
 		"role": "Role",
 		"profiles": "Profiles",
 		"textures": "Textures",
@@ -34,9 +34,14 @@
 		"statusSessionCount": "{{count}} session",
 		"statusSessionCount_plural": "{{count}} sessions",
 		"statusReady": "Ready",
+		"recentActivityEyebrow": "Audit",
+		"recentActivityTitle": "Recent activity",
+		"recentActivityEmpty": "No recent activity.",
 		"quickActions": "Quick actions",
 		"actionProfilesTitle": "Manage profiles",
 		"actionProfilesDescription": "Profiles and textures",
+		"actionWardrobeTitle": "Organize wardrobe",
+		"actionWardrobeDescription": "Skin and cape assets",
 		"actionLauncherTitle": "Launcher access",
 		"actionLauncherDescription": "Add this server in your launcher",
 		"actionSessionsTitle": "Review sessions",
@@ -44,8 +49,31 @@
 		"actionAdminTitle": "Admin console",
 		"actionAdminDescription": "Yggdrasil config",
 		"nextActions": "Next actions",
-		"nextActionsDescription": "Main player workflows.",
-		"currentPreview": "Current profile preview"
+		"nextActionsDescription": "Add the auth server, sign in, then choose a profile.",
+		"currentPreview": "Current profile preview",
+		"workflowProfileTitle": "Create a profile",
+		"workflowProfileDescription": "Prepare a Minecraft name and UUID before launcher sign-in needs a selectable profile.",
+		"workflowTextureTitle": "Upload texture assets",
+		"workflowTextureDescription": "Store skins and capes in the wardrobe, then bind them to profiles when needed.",
+		"workflowLauncherTitle": "Connect a launcher",
+		"workflowLauncherDescription": "Copy the API Root or drag the server card, then sign in with this site account.",
+		"auditPage": {
+			"title": "Activity",
+			"description": "Review login, profile, texture, and security events created by your account.",
+			"action": "Action",
+			"created": "Created",
+			"entity": "Entity",
+			"emptyDescription": "This account has not created any activity records yet.",
+			"emptyTitle": "No activity records",
+			"filteredEmptyDescription": "Try a different action or entity type filter.",
+			"filteredEmptyTitle": "No matching activity records",
+			"filters": {
+				"actionPlaceholder": "Filter by action code",
+				"allTypes": "All entity types"
+			},
+			"loadErrorTitle": "Failed to load activity records",
+			"noDetail": "No additional detail"
+		}
 	},
 	"profiles": {
 		"title": "Minecraft Profiles",

@@ -12,6 +12,7 @@ use webauthn_rs::prelude::{
 use webauthn_rs_proto::{ResidentKeyRequirement, UserVerificationPolicy};
 
 use crate::api::error_code::AsterErrorCode;
+use crate::api::pagination::OffsetPage;
 use crate::cache::CacheExt;
 use crate::config::{auth_runtime::RuntimeAuthPolicy, branding, site_url};
 use crate::db::repository::{passkey_repo, user_repo};
@@ -496,6 +497,31 @@ pub async fn list_passkeys(
             tracing::debug!(user_id, count = items.len(), "listed passkeys");
             items.into_iter().map(model_to_info).collect()
         })
+}
+
+pub async fn list_passkeys_paginated(
+    state: &impl SharedRuntimeState,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<PasskeyInfo>> {
+    tracing::debug!(user_id, limit, offset, "listing passkeys page");
+    let page =
+        passkey_repo::list_for_user_paginated(state.writer_db(), user_id, limit, offset).await?;
+    let items = page
+        .items
+        .into_iter()
+        .map(model_to_info)
+        .collect::<Vec<_>>();
+    tracing::debug!(
+        user_id,
+        returned = items.len(),
+        total = page.total,
+        limit = page.limit,
+        offset = page.offset,
+        "listed passkeys page"
+    );
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
 }
 
 pub async fn start_registration(

@@ -1,12 +1,13 @@
 //! Repository helpers for passkey credentials.
 
+use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::passkey::{self, Entity as Passkey};
 use crate::errors::{AsterError, Result};
 use crate::types::StoredPasskeyCredential;
 use chrono::Utc;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
-    sea_query::Expr,
+    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
+    QuerySelect, sea_query::Expr,
 };
 
 pub async fn list_for_user(db: &DatabaseConnection, user_id: i64) -> Result<Vec<passkey::Model>> {
@@ -17,6 +18,30 @@ pub async fn list_for_user(db: &DatabaseConnection, user_id: i64) -> Result<Vec<
         .all(db)
         .await
         .map_err(AsterError::from)
+}
+
+pub async fn list_for_user_paginated(
+    db: &DatabaseConnection,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<passkey::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let query = Passkey::find()
+            .filter(passkey::Column::UserId.eq(user_id))
+            .order_by_desc(passkey::Column::LastUsedAt)
+            .order_by_desc(passkey::Column::CreatedAt)
+            .order_by_desc(passkey::Column::Id);
+        let total = query.clone().count(db).await.map_err(AsterError::from)?;
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_err(AsterError::from)?;
+        Ok((items, total))
+    })
+    .await
 }
 
 pub async fn find_by_id_for_user(

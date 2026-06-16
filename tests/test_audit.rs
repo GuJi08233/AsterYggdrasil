@@ -5,7 +5,7 @@ mod common;
 
 use actix_web::test;
 use aster_yggdrasil::config::definitions::BRANDING_TITLE_KEY;
-use aster_yggdrasil::db::repository::mail_outbox_repo;
+use aster_yggdrasil::db::repository::{audit_log_repo, mail_outbox_repo, user_repo};
 use aster_yggdrasil::entities::{audit_log, background_task, mail_outbox};
 use aster_yggdrasil::errors::{AsterError, Result as AsterResult};
 use aster_yggdrasil::runtime::AppState;
@@ -132,6 +132,49 @@ async fn latest_audit_entry(
         .expect("audit log entry should exist")
 }
 
+async fn user_id_by_username(state: &AppState, username: &str) -> i64 {
+    user_repo::find_by_username(state.reader_db(), username)
+        .await
+        .expect("user query should succeed")
+        .unwrap_or_else(|| panic!("test user {username} should exist"))
+        .id
+}
+
+async fn insert_account_audit_entry(
+    state: &AppState,
+    user_id: i64,
+    action: audit_service::AuditAction,
+    entity_type: audit_service::AuditEntityType,
+    entity_id: i64,
+    entity_name: &str,
+    created_at: chrono::DateTime<Utc>,
+) -> i64 {
+    audit_log_repo::create(
+        state.writer_db(),
+        audit_log::ActiveModel {
+            user_id: Set(user_id),
+            action: Set(action),
+            entity_type: Set(entity_type.as_str().to_string()),
+            entity_id: Set(Some(entity_id)),
+            entity_name: Set(Some(entity_name.to_string())),
+            details: Set(Some(
+                serde_json::json!({
+                    "entity_name": entity_name,
+                    "source": "account-audit-test",
+                })
+                .to_string(),
+            )),
+            ip_address: Set(Some("127.0.0.1".to_string())),
+            user_agent: Set(Some("account-audit-test".to_string())),
+            created_at: Set(created_at),
+            ..Default::default()
+        },
+    )
+    .await
+    .expect("test audit log should insert")
+    .id
+}
+
 #[actix_web::test]
 async fn audit_log_persists_external_auth_provider_entry() {
     let state = common::setup().await;
@@ -191,6 +234,448 @@ async fn admin_audit_logs_are_admin_only() {
         .insert_header(common::bearer_header(user_token))
         .to_request();
     assert_service_status!(app, req, 403);
+}
+
+#[actix_web::test]
+async fn account_audit_logs_are_limited_to_current_user() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let alice_token = register_user!(
+        app,
+        "audit-alice",
+        "audit-alice@example.com",
+        "password1234"
+    );
+    let bob_token = register_user!(app, "audit-bob", "audit-bob@example.com", "password1234");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs")
+        .to_request();
+    assert_service_status!(app, req, 401);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?limit=20")
+        .insert_header(common::bearer_header(&alice_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let items = body["data"]["items"]
+        .as_array()
+        .expect("account audit log items should be an array");
+    assert!(items.iter().any(|item| item["action"] == "user_register"));
+    assert!(
+        items
+            .iter()
+            .all(|item| item["user"]["username"] == "audit-alice"),
+        "account audit endpoint must not expose other users: {items:?}"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?limit=20")
+        .insert_header(common::bearer_header(&bob_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let items = body["data"]["items"]
+        .as_array()
+        .expect("account audit log items should be an array");
+    assert!(
+        items
+            .iter()
+            .all(|item| item["user"]["username"] == "audit-bob"),
+        "account audit endpoint must not expose other users: {items:?}"
+    );
+}
+
+#[actix_web::test]
+async fn account_audit_logs_clamp_limit_and_apply_offset() {
+    let state = common::setup().await;
+    let state_for_insert = state.clone();
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let token = register_user!(
+        app,
+        "audit-page-user",
+        "audit-page-user@example.com",
+        "password1234"
+    );
+    let user_id = user_id_by_username(&state_for_insert, "audit-page-user").await;
+    let base = chrono::DateTime::parse_from_rfc3339("2035-01-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    for index in 0..105 {
+        insert_account_audit_entry(
+            &state_for_insert,
+            user_id,
+            audit_service::AuditAction::MinecraftProfileCreate,
+            audit_service::AuditEntityType::MinecraftProfile,
+            10_000 + index,
+            &format!("PagedProfile{index:03}"),
+            base + Duration::seconds(index),
+        )
+        .await;
+    }
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?action=minecraft_profile_create&limit=9999")
+        .insert_header(common::bearer_header(&token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["total"], 105);
+    assert_eq!(
+        body["data"]["items"].as_array().unwrap().len(),
+        100,
+        "account audit list should clamp oversized page requests"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?action=minecraft_profile_create&limit=9999&offset=100")
+        .insert_header(common::bearer_header(token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 100);
+    assert_eq!(body["data"]["offset"], 100);
+    assert_eq!(body["data"]["total"], 105);
+    assert_eq!(
+        body["data"]["items"].as_array().unwrap().len(),
+        5,
+        "offset should page within the current user's filtered audit logs"
+    );
+}
+
+#[actix_web::test]
+async fn account_audit_logs_filter_by_rfc3339_bounds_and_entity_fields() {
+    let state = common::setup().await;
+    let state_for_insert = state.clone();
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let token = register_user!(
+        app,
+        "audit-filter-user",
+        "audit-filter-user@example.com",
+        "password1234"
+    );
+    let user_id = user_id_by_username(&state_for_insert, "audit-filter-user").await;
+    let base = chrono::DateTime::parse_from_rfc3339("2035-02-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let before_match_id = insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftTextureUpload,
+        audit_service::AuditEntityType::MinecraftTexture,
+        20_001,
+        "BoundaryBefore",
+        base,
+    )
+    .await;
+    let lower_bound_id = insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftTextureUpload,
+        audit_service::AuditEntityType::MinecraftTexture,
+        20_002,
+        "BoundaryLower",
+        base + Duration::minutes(1),
+    )
+    .await;
+    let upper_bound_id = insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftTextureUpload,
+        audit_service::AuditEntityType::MinecraftTexture,
+        20_003,
+        "BoundaryUpper",
+        base + Duration::minutes(2),
+    )
+    .await;
+    let after_match_id = insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftTextureUpload,
+        audit_service::AuditEntityType::MinecraftTexture,
+        20_004,
+        "BoundaryAfter",
+        base + Duration::minutes(3),
+    )
+    .await;
+    insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftProfileCreate,
+        audit_service::AuditEntityType::MinecraftProfile,
+        20_002,
+        "WrongAction",
+        base + Duration::minutes(1),
+    )
+    .await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?action=minecraft_texture_upload&entity_type=minecraft_texture&after=2035-02-01T00:01:00Z&before=2035-02-01T00:02:00Z&limit=20")
+        .insert_header(common::bearer_header(&token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let item_ids = body["data"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["id"].as_i64().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(body["data"]["total"], 2);
+    assert_eq!(item_ids, vec![upper_bound_id, lower_bound_id]);
+    assert!(
+        !item_ids.contains(&before_match_id) && !item_ids.contains(&after_match_id),
+        "RFC3339 bounds should be inclusive and exclude values outside the window"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?action=minecraft_texture_upload&entity_type=minecraft_texture&entity_id=20002&limit=20")
+        .insert_header(common::bearer_header(token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["items"][0]["id"], lower_bound_id);
+}
+
+#[actix_web::test]
+async fn account_audit_logs_accept_admin_shape_sort_query() {
+    let state = common::setup().await;
+    let state_for_insert = state.clone();
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let token = register_user!(
+        app,
+        "audit-sort-user",
+        "audit-sort-user@example.com",
+        "password1234"
+    );
+    let other_token = register_user!(
+        app,
+        "audit-sort-other",
+        "audit-sort-other@example.com",
+        "password1234"
+    );
+    let user_id = user_id_by_username(&state_for_insert, "audit-sort-user").await;
+    let other_user_id = user_id_by_username(&state_for_insert, "audit-sort-other").await;
+    let base = chrono::DateTime::parse_from_rfc3339("2035-04-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::UserLogout,
+        audit_service::AuditEntityType::AuthSession,
+        40_001,
+        "SortLogout",
+        base,
+    )
+    .await;
+    insert_account_audit_entry(
+        &state_for_insert,
+        user_id,
+        audit_service::AuditAction::MinecraftProfileCreate,
+        audit_service::AuditEntityType::MinecraftProfile,
+        40_002,
+        "SortProfile",
+        base + Duration::seconds(1),
+    )
+    .await;
+    insert_account_audit_entry(
+        &state_for_insert,
+        other_user_id,
+        audit_service::AuditAction::ConfigUpdate,
+        audit_service::AuditEntityType::SystemConfig,
+        40_003,
+        "OtherUserConfig",
+        base + Duration::seconds(2),
+    )
+    .await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?limit=20&sort_by=action&sort_order=asc")
+        .insert_header(common::bearer_header(&token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let actions = body["data"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["action"].as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    let profile_index = actions
+        .iter()
+        .position(|action| action == "minecraft_profile_create")
+        .expect("current user profile action should be present");
+    let logout_index = actions
+        .iter()
+        .position(|action| action == "user_logout")
+        .expect("current user logout action should be present");
+    assert!(profile_index < logout_index);
+    assert!(
+        !actions.iter().any(|action| action == "config_update"),
+        "sort query must not bypass current-user scoping: {actions:?}"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/audit-logs?limit=20&sort_by=action&sort_order=asc")
+        .insert_header(common::bearer_header(other_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
+async fn account_overview_returns_recent_current_user_activity() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let token = register_user!(
+        app,
+        "overview-user",
+        "overview-user@example.com",
+        "password1234"
+    );
+    let _login_token = login_user!(app, "overview-user", "password1234");
+
+    for name in ["OverviewOne", "OverviewTwo"] {
+        let req = test::TestRequest::post()
+            .uri("/api/v1/profiles/minecraft")
+            .insert_header(common::bearer_header(&token))
+            .set_json(serde_json::json!({ "name": name }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 200, "profile {name} should be created");
+    }
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/overview")
+        .insert_header(common::bearer_header(&token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let items = body["data"]["recent_activity"]
+        .as_array()
+        .expect("recent activity should be an array");
+    assert_eq!(body["data"]["profile_count"], 2);
+    assert!(!items.is_empty());
+    assert!(
+        items
+            .iter()
+            .all(|item| item["user"]["username"] == "overview-user"),
+        "overview activity must be scoped to current user: {items:?}"
+    );
+    assert!(
+        items.len() <= 5,
+        "overview should return a small recent activity slice"
+    );
+}
+
+#[actix_web::test]
+async fn account_overview_returns_latest_five_current_user_activities() {
+    let state = common::setup().await;
+    let state_for_insert = state.clone();
+    let app = create_test_app!(state);
+    let _admin_token = setup_admin!(app);
+    let token = register_user!(
+        app,
+        "overview-limit-user",
+        "overview-limit-user@example.com",
+        "password1234"
+    );
+    let other_token = register_user!(
+        app,
+        "overview-other-user",
+        "overview-other-user@example.com",
+        "password1234"
+    );
+    let user_id = user_id_by_username(&state_for_insert, "overview-limit-user").await;
+    let other_user_id = user_id_by_username(&state_for_insert, "overview-other-user").await;
+    let base = chrono::DateTime::parse_from_rfc3339("2035-03-01T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+
+    let mut inserted_ids = Vec::new();
+    for index in 0..7 {
+        let id = insert_account_audit_entry(
+            &state_for_insert,
+            user_id,
+            audit_service::AuditAction::MinecraftTextureBind,
+            audit_service::AuditEntityType::MinecraftProfile,
+            30_000 + index,
+            &format!("OverviewProfile{index}"),
+            base + Duration::seconds(index),
+        )
+        .await;
+        inserted_ids.push(id);
+    }
+    let other_user_latest_id = insert_account_audit_entry(
+        &state_for_insert,
+        other_user_id,
+        audit_service::AuditAction::MinecraftTextureBind,
+        audit_service::AuditEntityType::MinecraftProfile,
+        39_999,
+        "OtherUserLatest",
+        base + Duration::minutes(10),
+    )
+    .await;
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/overview")
+        .insert_header(common::bearer_header(&token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let item_ids = body["data"]["recent_activity"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item["id"].as_i64().unwrap())
+        .collect::<Vec<_>>();
+    let expected_ids = inserted_ids
+        .iter()
+        .rev()
+        .take(5)
+        .copied()
+        .collect::<Vec<_>>();
+    assert_eq!(item_ids, expected_ids);
+    assert!(
+        !item_ids.contains(&other_user_latest_id),
+        "overview must not leak newer activity from another user"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/account/overview")
+        .insert_header(common::bearer_header(other_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let other_items = body["data"]["recent_activity"].as_array().unwrap();
+    assert!(
+        other_items
+            .iter()
+            .any(|item| item["id"] == other_user_latest_id),
+        "other user should still see their own activity"
+    );
 }
 
 #[actix_web::test]

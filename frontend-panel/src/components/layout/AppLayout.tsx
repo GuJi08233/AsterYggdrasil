@@ -60,6 +60,7 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 
 	return (
 		<div
+			data-theme-surface="chrome"
 			className={cn(
 				"app-shell min-h-dvh text-foreground",
 				isAdminScope ? "admin-shell" : "bg-background",

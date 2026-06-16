@@ -8,6 +8,9 @@ use crate::api::dto::{
     RemovedCountResponse, SetupReq, UpdateAvatarSourceReq, UpdateProfileReq, validate_request,
 };
 use crate::api::middleware::csrf::{self, RequestSourceMode};
+use crate::api::pagination::LimitOffsetQuery;
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::OffsetPage;
 use crate::api::request_auth::access_cookie_token;
 use crate::api::response::ApiResponse;
 use crate::config::auth_runtime::RuntimeAuthPolicy;
@@ -490,24 +493,43 @@ pub async fn get_self_avatar(
     path = "/api/v1/auth/sessions",
     tag = "auth",
     operation_id = "list_auth_sessions",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Current user's sessions", body = inline(ApiResponse<Vec<auth_service::AuthSessionInfo>>)),
+        (status = 200, description = "Current user's sessions", body = inline(ApiResponse<OffsetPage<auth_service::AuthSessionInfo>>)),
         (status = 401, description = "Missing or invalid access token"),
         (status = 403, description = "User is disabled"),
     ),
     security(("bearer" = [])),
 )]
-pub async fn sessions(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
+pub async fn sessions(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    page: web::Query<LimitOffsetQuery>,
+) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
-    tracing::debug!(user_id = user.id, "auth sessions list request received");
+    let limit = page.limit_or(50, 100);
+    let offset = page.offset();
+    tracing::debug!(
+        user_id = user.id,
+        limit,
+        offset,
+        "auth sessions list request received"
+    );
     let refresh_token = req
         .cookie(REFRESH_COOKIE)
         .map(|cookie| cookie.value().to_string());
-    let sessions =
-        auth_service::list_sessions(state.get_ref(), user.id, refresh_token.as_deref()).await?;
+    let sessions = auth_service::list_sessions_paginated(
+        state.get_ref(),
+        user.id,
+        refresh_token.as_deref(),
+        limit,
+        offset,
+    )
+    .await?;
     tracing::debug!(
         user_id = user.id,
-        count = sessions.len(),
+        returned = sessions.items.len(),
+        total = sessions.total,
         "auth sessions list request completed"
     );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(sessions)))
@@ -612,19 +634,33 @@ pub async fn delete_session(
     path = "/api/v1/auth/passkeys",
     tag = "auth",
     operation_id = "list_passkeys",
+    params(LimitOffsetQuery),
     responses(
-        (status = 200, description = "Registered passkeys for current user", body = inline(ApiResponse<Vec<passkey_service::PasskeyInfo>>)),
+        (status = 200, description = "Registered passkeys for current user", body = inline(ApiResponse<OffsetPage<passkey_service::PasskeyInfo>>)),
         (status = 401, description = "Not authenticated"),
     ),
     security(("bearer" = [])),
 )]
-pub async fn list_passkeys(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
+pub async fn list_passkeys(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    page: web::Query<LimitOffsetQuery>,
+) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
-    tracing::debug!(user_id = user.id, "auth passkey list request received");
-    let items = passkey_service::list_passkeys(state.get_ref(), user.id).await?;
+    let limit = page.limit_or(20, 100);
+    let offset = page.offset();
     tracing::debug!(
         user_id = user.id,
-        count = items.len(),
+        limit,
+        offset,
+        "auth passkey list request received"
+    );
+    let items =
+        passkey_service::list_passkeys_paginated(state.get_ref(), user.id, limit, offset).await?;
+    tracing::debug!(
+        user_id = user.id,
+        returned = items.items.len(),
+        total = items.total,
         "auth passkey list request completed"
     );
     Ok(HttpResponse::Ok().json(ApiResponse::ok(items)))

@@ -8,6 +8,7 @@
 		"account": "工作台",
 		"profiles": "角色档案",
 		"wardrobe": "衣柜",
+		"accountAudit": "活动记录",
 		"launcher": "启动器",
 		"sessions": "会话",
 		"personalSettings": "个人设置",
@@ -49,7 +50,6 @@
 		"configLoadFailed": "前端配置加载失败"
 	},
 	"shell": {
-		"searchPlaceholder": "搜索玩家、UUID、会话或设置...",
 		"themeAction": "切换主题",
 		"openNavigation": "打开导航",
 		"navigationTitle": "应用导航",

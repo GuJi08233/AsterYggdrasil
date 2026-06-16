@@ -1,5 +1,6 @@
 use chrono::Utc;
 
+use crate::api::pagination::OffsetPage;
 use crate::db::repository::{
     external_auth_email_verification_flow_repo, external_auth_identity_repo,
     external_auth_login_flow_repo, external_auth_provider_repo,
@@ -27,6 +28,41 @@ pub async fn list_links(
             Some(link_to_info(identity, provider))
         })
         .collect())
+}
+
+pub async fn list_links_paginated(
+    state: &impl SharedRuntimeState,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<ExternalAuthLinkInfo>> {
+    let page = external_auth_identity_repo::list_for_user_paginated(
+        state.writer_db(),
+        user_id,
+        limit,
+        offset,
+    )
+    .await?;
+    let provider_ids = page
+        .items
+        .iter()
+        .map(|identity| identity.provider_id)
+        .collect::<std::collections::BTreeSet<_>>();
+    let providers = external_auth_provider_repo::find_all(state.writer_db()).await?;
+    let provider_lookup = providers
+        .into_iter()
+        .filter(|provider| provider_ids.contains(&provider.id))
+        .map(|provider| (provider.id, provider))
+        .collect::<std::collections::HashMap<_, _>>();
+    let items = page
+        .items
+        .into_iter()
+        .filter_map(|identity| {
+            let provider = provider_lookup.get(&identity.provider_id)?;
+            Some(link_to_info(identity, provider))
+        })
+        .collect::<Vec<_>>();
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
 }
 
 fn link_to_info(

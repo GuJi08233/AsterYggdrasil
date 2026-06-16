@@ -388,6 +388,25 @@ pub async fn list_public_providers(
         .collect())
 }
 
+pub async fn list_public_providers_paginated(
+    state: &impl SharedRuntimeState,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<ExternalAuthPublicProvider>> {
+    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
+        external_auth_provider_repo::find_enabled_paginated(
+            state.writer_db(),
+            limit,
+            offset,
+            registry::default_registry().supported_kinds(),
+        )
+        .await
+    })
+    .await?;
+    let items = page.items.into_iter().map(provider_to_public).collect();
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+}
+
 pub async fn list_public_providers_by_kind(
     state: &impl SharedRuntimeState,
     provider_kind: ExternalAuthProviderKind,
@@ -400,6 +419,31 @@ pub async fn list_public_providers_by_kind(
             .map(provider_to_public)
             .collect(),
     )
+}
+
+pub async fn list_public_providers_by_kind_paginated(
+    state: &impl SharedRuntimeState,
+    provider_kind: ExternalAuthProviderKind,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<ExternalAuthPublicProvider>> {
+    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
+        external_auth_provider_repo::find_enabled_by_kind_paginated(
+            state.writer_db(),
+            provider_kind,
+            limit,
+            offset,
+        )
+        .await
+    })
+    .await?;
+    let items = page
+        .items
+        .into_iter()
+        .filter(|provider| registry::default_registry().contains(provider.provider_kind))
+        .map(provider_to_public)
+        .collect();
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
 }
 
 pub async fn list_admin_providers(

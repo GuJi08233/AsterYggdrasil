@@ -127,4 +127,27 @@ describe("LoginPage", () => {
 		);
 		expect(toastMock.success).toHaveBeenCalledWith("login.registerSuccess");
 	});
+
+	it("updates password strength color on the register form", async () => {
+		renderLoginPage("/register");
+
+		const passwordInput = await screen.findByLabelText("login.password");
+
+		fireEvent.change(passwordInput, { target: { value: "short" } });
+		expect(screen.getByText("login.passwordStrengthWeak")).toHaveClass(
+			"text-red-700",
+		);
+
+		fireEvent.change(passwordInput, { target: { value: "longpassword12" } });
+		expect(screen.getByText("login.passwordStrengthMedium")).toHaveClass(
+			"text-amber-700",
+		);
+
+		fireEvent.change(passwordInput, {
+			target: { value: "LongPassword12!" },
+		});
+		expect(screen.getByText("login.passwordStrengthStrong")).toHaveClass(
+			"text-emerald-700",
+		);
+	});
 });

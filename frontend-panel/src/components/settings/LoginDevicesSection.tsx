@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { SessionPlatformIcon } from "@/components/common/SessionPlatformIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,25 +14,36 @@ import { formatUnknownError } from "@/services/http";
 import { useAuthStore } from "@/stores/authStore";
 import type { AuthSessionInfo } from "@/types/api";
 
+const SESSION_PAGE_SIZE = 50;
+
 export function LoginDevicesSection() {
 	const { t } = useTranslation();
 	const clearAuth = useAuthStore((state) => state.clear);
 	const [sessions, setSessions] = useState<AuthSessionInfo[]>([]);
+	const [sessionTotal, setSessionTotal] = useState(0);
+	const [offset, setOffset] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [revokeBusyId, setRevokeBusyId] = useState<string | null>(null);
 	const [revokeOthersBusy, setRevokeOthersBusy] = useState(false);
 
-	const loadSessions = useCallback(async () => {
-		setLoading(true);
-		try {
-			const next = await authService.sessions();
-			setSessions(sortSessions(next));
-		} catch (nextError: unknown) {
-			toast.error(formatUnknownError(nextError));
-		} finally {
-			setLoading(false);
-		}
-	}, []);
+	const loadSessions = useCallback(
+		async (nextOffset = offset) => {
+			setLoading(true);
+			try {
+				const next = await authService.sessionsPage({
+					limit: SESSION_PAGE_SIZE,
+					offset: nextOffset,
+				});
+				setSessions(sortSessions(next.items));
+				setSessionTotal(next.total);
+			} catch (nextError: unknown) {
+				toast.error(formatUnknownError(nextError));
+			} finally {
+				setLoading(false);
+			}
+		},
+		[offset],
+	);
 
 	useEffect(() => {
 		void loadSessions();
@@ -62,9 +74,7 @@ export function LoginDevicesSection() {
 					clearAuth();
 					return;
 				}
-				setSessions((current) =>
-					current.filter((item) => item.id !== session.id),
-				);
+				await loadSessions();
 				toast.success(t("sessions.sessionRevoked"));
 			} catch (nextError: unknown) {
 				toast.error(formatUnknownError(nextError));
@@ -72,20 +82,21 @@ export function LoginDevicesSection() {
 				setRevokeBusyId(null);
 			}
 		},
-		[clearAuth, t],
+		[clearAuth, loadSessions, t],
 	);
 	const revokeOtherSessions = useCallback(async () => {
 		setRevokeOthersBusy(true);
 		try {
 			await authService.revokeOtherSessions();
-			setSessions((current) => current.filter((session) => session.is_current));
+			setOffset(0);
+			await loadSessions(0);
 			toast.success(t("sessions.otherSessionsRevoked"));
 		} catch (nextError: unknown) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
 			setRevokeOthersBusy(false);
 		}
-	}, [t]);
+	}, [loadSessions, t]);
 
 	return (
 		<div className="rounded-lg border border-border/70 bg-background/55 p-4 dark:border-white/10 dark:bg-input/10">
@@ -199,6 +210,30 @@ export function LoginDevicesSection() {
 								onRevoke={revokeSession}
 							/>
 						))}
+						<AdminOffsetPagination
+							currentPage={Math.floor(offset / SESSION_PAGE_SIZE) + 1}
+							nextDisabled={offset + SESSION_PAGE_SIZE >= sessionTotal}
+							onNext={() => setOffset((current) => current + SESSION_PAGE_SIZE)}
+							onPageSizeChange={() => {}}
+							onPrevious={() =>
+								setOffset((current) => Math.max(0, current - SESSION_PAGE_SIZE))
+							}
+							pageSize={String(SESSION_PAGE_SIZE)}
+							pageSizeOptions={[
+								{
+									label: t("admin.pagination.pageSizeOption", {
+										count: SESSION_PAGE_SIZE,
+									}),
+									value: String(SESSION_PAGE_SIZE),
+								},
+							]}
+							prevDisabled={offset === 0}
+							total={sessionTotal}
+							totalPages={Math.max(
+								1,
+								Math.ceil(sessionTotal / SESSION_PAGE_SIZE),
+							)}
+						/>
 					</div>
 				)}
 			</div>

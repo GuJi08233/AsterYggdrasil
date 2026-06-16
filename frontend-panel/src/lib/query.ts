@@ -2,7 +2,7 @@ type QueryPrimitive = string | number | boolean | null | undefined;
 
 export function withQuery(
 	path: string,
-	params: Record<string, QueryPrimitive>,
+	params: { [Key in string]?: QueryPrimitive },
 ) {
 	const query = new URLSearchParams();
 	for (const [key, value] of Object.entries(params)) {

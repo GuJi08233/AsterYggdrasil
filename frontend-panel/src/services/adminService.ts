@@ -9,6 +9,7 @@ import type {
 	AdminTaskListQuery,
 	AdminTaskPage,
 	AdminUserListQuery,
+	AdminUserMinecraftProfileQuery,
 	AdminUserPage,
 	AuditLogPage,
 	ConfigListQuery,
@@ -30,7 +31,7 @@ import type {
 	SystemInfoResponse,
 	UpdateAdminUserRequest,
 	UpdateExternalAuthProviderRequest,
-	YggdrasilProfile,
+	YggdrasilProfilePage,
 } from "@/types/api";
 import { api } from "./http";
 
@@ -44,8 +45,8 @@ export const adminAuditService = {
 	list: (params: AdminAuditLogQuery = {}) =>
 		api.get<AuditLogPage>(
 			withQuery("/admin/audit-logs", {
-				limit: params.limit ?? 50,
-				offset: params.offset ?? 0,
+				limit: params.limit,
+				offset: params.offset,
 				user_id: params.user_id,
 				action: params.action,
 				entity_type: params.entity_type,
@@ -66,8 +67,8 @@ export const adminConfigService = {
 	list: (params: ConfigListQuery = {}) =>
 		api.get<SystemConfigPage>(
 			withQuery("/admin/config", {
-				limit: params.limit ?? 50,
-				offset: params.offset ?? 0,
+				limit: params.limit,
+				offset: params.offset,
 			}),
 		),
 	schema: () => api.get<ConfigSchemaItem[]>("/admin/config/schema"),
@@ -86,8 +87,8 @@ export const adminTaskService = {
 	list: (params: AdminTaskListQuery = {}) =>
 		api.get<AdminTaskPage>(
 			withQuery("/admin/tasks", {
-				limit: params.limit ?? 50,
-				offset: params.offset ?? 0,
+				limit: params.limit,
+				offset: params.offset,
 				kind: params.kind,
 				status: params.status,
 				sort_by: params.sort_by ?? "updated_at",
@@ -115,8 +116,19 @@ export const adminMinecraftProfileService = {
 		api.get<MinecraftTextureMetadata[]>(
 			`/admin/minecraft-profiles/${uuid}/textures`,
 		),
-	listByUser: (userId: number) =>
-		api.get<YggdrasilProfile[]>(`/admin/users/${userId}/minecraft-profiles`),
+	listByUser: (userId: number, params: AdminUserMinecraftProfileQuery = {}) =>
+		api
+			.get<YggdrasilProfilePage>(
+				withQuery(`/admin/users/${userId}/minecraft-profiles`, params),
+			)
+			.then((page) => page.items),
+	listByUserPage: (
+		userId: number,
+		params: AdminUserMinecraftProfileQuery = {},
+	) =>
+		api.get<YggdrasilProfilePage>(
+			withQuery(`/admin/users/${userId}/minecraft-profiles`, params),
+		),
 	delete: (uuid: string) =>
 		api.delete<void>(`/admin/minecraft-profiles/${uuid}`),
 	deleteTexture: (uuid: string, textureType: "skin" | "cape") =>
@@ -129,8 +141,8 @@ export const adminUserService = {
 	list: (params: AdminUserListQuery = {}) =>
 		api.get<AdminUserPage>(
 			withQuery("/admin/users", {
-				limit: params.limit ?? 20,
-				offset: params.offset ?? 0,
+				limit: params.limit,
+				offset: params.offset,
 				keyword: params.keyword,
 				role: params.role,
 				status: params.status,
@@ -164,8 +176,8 @@ export const adminExternalAuthService = {
 	list: (params: AdminExternalAuthProviderListQuery = {}) =>
 		api.get<AdminExternalAuthProviderPage>(
 			withQuery("/admin/external-auth/providers", {
-				limit: params.limit ?? 50,
-				offset: params.offset ?? 0,
+				limit: params.limit,
+				offset: params.offset,
 			}),
 		),
 	get: (id: AdminExternalAuthProviderPath["id"]) =>

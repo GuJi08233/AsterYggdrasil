@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
-use crate::api::pagination::{AdminAuditLogSortBy, AdminTaskSortBy, AdminUserSortBy, SortOrder};
+use crate::api::pagination::{AdminTaskSortBy, AdminUserSortBy, SortOrder};
 use crate::services::config_service::{ConfigActionType, SystemConfigValue};
 use crate::services::external_auth_service::{
     CreateExternalAuthProviderInput, ExternalAuthProviderTestParamsInput,
@@ -75,16 +75,6 @@ pub struct AdminTaskCleanupReq {
     pub status: Option<BackgroundTaskStatus>,
 }
 
-#[derive(Debug, Deserialize)]
-#[cfg_attr(
-    all(debug_assertions, feature = "openapi"),
-    derive(IntoParams, ToSchema)
-)]
-pub struct AdminAuditLogSortQuery {
-    pub sort_by: Option<AdminAuditLogSortBy>,
-    pub sort_order: Option<SortOrder>,
-}
-
 #[derive(Debug, Deserialize, Validate)]
 #[cfg_attr(
     all(debug_assertions, feature = "openapi"),
@@ -134,16 +124,6 @@ pub struct UpdateAdminUserReq {
     pub password: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<UserStatus>,
-}
-
-impl AdminAuditLogSortQuery {
-    pub fn sort_by(&self) -> AdminAuditLogSortBy {
-        self.sort_by.unwrap_or(AdminAuditLogSortBy::CreatedAt)
-    }
-
-    pub fn sort_order(&self) -> SortOrder {
-        self.sort_order.unwrap_or(SortOrder::Desc)
-    }
 }
 
 #[derive(Debug, Deserialize, Validate)]

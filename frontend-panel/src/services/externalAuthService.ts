@@ -2,7 +2,13 @@ import { withQuery } from "@/lib/query";
 import type {
 	ExternalAuthFinishLoginResponse,
 	ExternalAuthLinkInfo,
+	ExternalAuthLinkPage,
+	ExternalAuthLinkQuery,
 	ExternalAuthPublicProvider,
+	ExternalAuthPublicProviderByKindPage,
+	ExternalAuthPublicProviderByKindQuery,
+	ExternalAuthPublicProviderPage,
+	ExternalAuthPublicProviderQuery,
 	ExternalAuthStartLoginRequest,
 	ExternalAuthStartLoginResponse,
 	OperationPath,
@@ -93,10 +99,12 @@ function listPublic(options?: AbortSignal | CachedRequestOptions) {
 
 	const requestSerial = ++publicProvidersCacheSerial;
 	const request = api
-		.get<ExternalAuthPublicProvider[]>("/auth/external-auth/providers", {
-			signal,
-		})
-		.then((providers) => {
+		.get<ExternalAuthPublicProviderPage>(
+			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			{ signal },
+		)
+		.then((page) => {
+			const providers = page.items;
 			if (!signal && requestSerial === publicProvidersCacheSerial) {
 				primePublicProvidersCache(providers);
 			}
@@ -113,6 +121,32 @@ function listPublic(options?: AbortSignal | CachedRequestOptions) {
 	return request.then(clonePublicProviders);
 }
 
+function listPublicPage(
+	params: ExternalAuthPublicProviderQuery = {},
+	options?: AbortSignal | CachedRequestOptions,
+) {
+	const { signal } = normalizeOptions(options);
+	return api.get<ExternalAuthPublicProviderPage>(
+		withQuery("/auth/external-auth/providers", params),
+		{ signal },
+	);
+}
+
+function listPublicByKindPage(
+	kind: AuthExternalAuthKindPath["kind"],
+	params: ExternalAuthPublicProviderByKindQuery = {},
+	options?: AbortSignal | CachedRequestOptions,
+) {
+	const { signal } = normalizeOptions(options);
+	return api.get<ExternalAuthPublicProviderByKindPage>(
+		withQuery(
+			`/auth/external-auth/${encodeURIComponent(kind)}/providers`,
+			params,
+		),
+		{ signal },
+	);
+}
+
 function listLinks(options?: AbortSignal | CachedRequestOptions) {
 	const { force = false, signal } = normalizeOptions(options);
 	if (!force && !signal && cachedLinks !== null) {
@@ -124,8 +158,12 @@ function listLinks(options?: AbortSignal | CachedRequestOptions) {
 
 	const requestSerial = ++linksCacheSerial;
 	const request = api
-		.get<ExternalAuthLinkInfo[]>("/auth/external-auth/links", { signal })
-		.then((links) => {
+		.get<ExternalAuthLinkPage>(
+			withQuery("/auth/external-auth/links", { limit: 20, offset: 0 }),
+			{ signal },
+		)
+		.then((page) => {
+			const links = page.items;
 			if (!signal && requestSerial === linksCacheSerial) {
 				primeLinksCache(links);
 			}
@@ -142,17 +180,29 @@ function listLinks(options?: AbortSignal | CachedRequestOptions) {
 	return request.then(cloneLinks);
 }
 
+function listLinksPage(
+	params: ExternalAuthLinkQuery = {},
+	options?: AbortSignal | CachedRequestOptions,
+) {
+	const { signal } = normalizeOptions(options);
+	return api.get<ExternalAuthLinkPage>(
+		withQuery("/auth/external-auth/links", params),
+		{ signal },
+	);
+}
+
 export const externalAuthService = {
 	listPublic,
+	listPublicPage,
 	listAuthAliases: listPublic,
 	listAuthAliasesByKind: (
 		kind: AuthExternalAuthKindPath["kind"],
 		signal?: AbortSignal,
 	) =>
-		api.get<ExternalAuthPublicProvider[]>(
-			`/auth/external-auth/${encodeURIComponent(kind)}/providers`,
-			{ signal },
+		listPublicByKindPage(kind, { limit: 20, offset: 0 }, signal).then(
+			(page) => page.items,
 		),
+	listAuthAliasesByKindPage: listPublicByKindPage,
 	startAuthAlias: (
 		kind: AuthExternalAuthProviderPath["kind"],
 		provider: AuthExternalAuthProviderPath["provider"],
@@ -182,6 +232,7 @@ export const externalAuthService = {
 			),
 		),
 	listLinks,
+	listLinksPage,
 	deleteLink: async (id: number) => {
 		await api.delete<void>(`/auth/external-auth/links/${id}`);
 		removeCachedLink(id);

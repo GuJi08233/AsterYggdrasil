@@ -79,6 +79,19 @@ const BASE_UI_CONTROL_MODULES = new Set([
 	"toolbar",
 ]);
 
+const STARTUP_FORBIDDEN_PRECACHE_GLOBS = [
+	"assets/**/*Admin*",
+	"assets/**/*admin*",
+	"assets/**/*MinecraftPreview*",
+	"assets/**/*StaticSkinPreview*",
+	"assets/**/*TextureWardrobe*",
+	"assets/**/*vendor-3d*",
+	"assets/**/*vendor-devicons*",
+	"assets/**/*preview-data*",
+	"assets/**/*preview-xml*",
+	"assets/**/*pwaWarmup*",
+];
+
 export default defineConfig(({ command }) => {
 	const isDevServer = command === "serve";
 	const rootReactPath = path.resolve(__dirname, "./node_modules/react");
@@ -121,7 +134,8 @@ export default defineConfig(({ command }) => {
 				workbox: {
 					globPatterns: isDevServer
 						? []
-						: ["**/*.{html,js,css,ico,png,svg,woff2,ttf,mjs}"],
+						: ["index.html", "assets/**/*.{js,css,mjs,woff2}"],
+					globIgnores: isDevServer ? [] : STARTUP_FORBIDDEN_PRECACHE_GLOBS,
 					navigateFallback: "index.html",
 					navigateFallbackDenylist: [/^\/api\//, /^\/health\//],
 					runtimeCaching: [
@@ -132,7 +146,7 @@ export default defineConfig(({ command }) => {
 									request.destination === "style" ||
 									request.destination === "font" ||
 									request.destination === "worker"),
-							handler: "StaleWhileRevalidate",
+							handler: "CacheFirst",
 							options: {
 								cacheName: "asset-chunks",
 								expiration: {

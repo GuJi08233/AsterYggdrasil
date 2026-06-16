@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,8 @@ import {
 } from "@/lib/webauthn";
 import { authService, type PasskeyInfo } from "@/services/authService";
 import { formatUnknownError } from "@/services/http";
+
+const PASSKEY_PAGE_SIZE = 20;
 
 function formatLastUsed(passkey: PasskeyInfo, fallback: string) {
 	return passkey.last_used_at ?? fallback;
@@ -25,11 +28,12 @@ type PasskeysState = {
 	loading: boolean;
 	name: string;
 	passkeys: PasskeyInfo[];
+	total: number;
 };
 
 type PasskeysAction =
 	| { type: "set_loading"; value: boolean }
-	| { type: "set_passkeys"; value: PasskeyInfo[] }
+	| { type: "set_passkeys"; value: PasskeyInfo[]; total: number }
 	| { type: "set_creating"; value: boolean }
 	| { type: "set_name"; value: string }
 	| { type: "created"; value: PasskeyInfo }
@@ -48,6 +52,7 @@ const initialPasskeysState: PasskeysState = {
 	loading: false,
 	name: "",
 	passkeys: [],
+	total: 0,
 };
 
 function passkeysReducer(
@@ -58,7 +63,7 @@ function passkeysReducer(
 		case "set_loading":
 			return { ...state, loading: action.value };
 		case "set_passkeys":
-			return { ...state, passkeys: action.value };
+			return { ...state, passkeys: action.value, total: action.total };
 		case "set_creating":
 			return { ...state, creating: action.value };
 		case "set_name":
@@ -67,6 +72,7 @@ function passkeysReducer(
 			return {
 				...state,
 				name: "",
+				total: state.total + 1,
 				passkeys: [action.value, ...state.passkeys],
 			};
 		case "start_edit":
@@ -92,6 +98,7 @@ function passkeysReducer(
 			return {
 				...state,
 				passkeys: state.passkeys.filter((passkey) => passkey.id !== action.id),
+				total: Math.max(0, state.total - 1),
 			};
 		case "set_busy": {
 			const busyIds = new Set(state.busyIds);
@@ -105,21 +112,30 @@ function passkeysReducer(
 export function SecurityPasskeysSection() {
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(passkeysReducer, initialPasskeysState);
+	const [offset, setOffset] = useState(0);
 	const supported = useMemo(() => isWebAuthnSupported(), []);
 
-	const reload = useCallback(async (options?: { force?: boolean }) => {
-		dispatch({ type: "set_loading", value: true });
-		try {
-			dispatch({
-				type: "set_passkeys",
-				value: await authService.listPasskeys(options),
-			});
-		} catch (error) {
-			toast.error(formatUnknownError(error));
-		} finally {
-			dispatch({ type: "set_loading", value: false });
-		}
-	}, []);
+	const reload = useCallback(
+		async (nextOffset = offset) => {
+			dispatch({ type: "set_loading", value: true });
+			try {
+				const page = await authService.listPasskeysPage({
+					limit: PASSKEY_PAGE_SIZE,
+					offset: nextOffset,
+				});
+				dispatch({
+					type: "set_passkeys",
+					total: page.total,
+					value: page.items,
+				});
+			} catch (error) {
+				toast.error(formatUnknownError(error));
+			} finally {
+				dispatch({ type: "set_loading", value: false });
+			}
+		},
+		[offset],
+	);
 
 	useEffect(() => {
 		void reload();
@@ -141,8 +157,10 @@ export function SecurityPasskeysSection() {
 				credential,
 				state.name.trim() || null,
 			);
+			setOffset(0);
 			dispatch({ type: "created", value: created });
 			toast.success(t("personalSettings.passkeysCreated"));
+			await reload(0);
 		} catch (error) {
 			if (error instanceof WebAuthnUnsupportedError) {
 				toast.error(t("personalSettings.passkeysUnsupported"));
@@ -179,6 +197,7 @@ export function SecurityPasskeysSection() {
 			await authService.deletePasskey(id);
 			dispatch({ type: "deleted", id });
 			toast.success(t("personalSettings.passkeysDeleted"));
+			await reload();
 		} catch (error) {
 			toast.error(formatUnknownError(error));
 		} finally {
@@ -187,20 +206,21 @@ export function SecurityPasskeysSection() {
 	}
 
 	return (
-		<section className="rounded-xl border border-border/70 bg-card p-5 text-card-foreground shadow-sm dark:border-white/10 dark:bg-card/90 dark:shadow-none">
-			<div className="flex items-center justify-between gap-3">
-				<div>
-					<h2 className="text-lg font-semibold">
+		<div className="rounded-lg border border-border/70 bg-background/55 p-4 dark:border-white/10 dark:bg-input/10">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
+					<h3 className="text-sm font-semibold">
 						{t("personalSettings.passkeysTitle")}
-					</h2>
-					<p className="mt-1 text-sm leading-6 text-muted-foreground">
+					</h3>
+					<p className="mt-1 text-xs leading-5 text-muted-foreground">
 						{t("personalSettings.passkeysDescription")}
 					</p>
 				</div>
 				<Button
 					type="button"
 					variant="outline"
-					onClick={() => void reload({ force: true })}
+					size="sm"
+					onClick={() => void reload()}
 				>
 					<Icon name="ArrowClockwise" className="mr-2 size-4" />
 					{t("common.refresh")}
@@ -348,7 +368,28 @@ export function SecurityPasskeysSection() {
 						);
 					})
 				)}
+				<AdminOffsetPagination
+					currentPage={Math.floor(offset / PASSKEY_PAGE_SIZE) + 1}
+					nextDisabled={offset + PASSKEY_PAGE_SIZE >= state.total}
+					onNext={() => setOffset((current) => current + PASSKEY_PAGE_SIZE)}
+					onPageSizeChange={() => {}}
+					onPrevious={() =>
+						setOffset((current) => Math.max(0, current - PASSKEY_PAGE_SIZE))
+					}
+					pageSize={String(PASSKEY_PAGE_SIZE)}
+					pageSizeOptions={[
+						{
+							label: t("admin.pagination.pageSizeOption", {
+								count: PASSKEY_PAGE_SIZE,
+							}),
+							value: String(PASSKEY_PAGE_SIZE),
+						},
+					]}
+					prevDisabled={offset === 0}
+					total={state.total}
+					totalPages={Math.max(1, Math.ceil(state.total / PASSKEY_PAGE_SIZE))}
+				/>
 			</div>
-		</section>
+		</div>
 	);
 }

@@ -3,14 +3,21 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type CopyFieldProps = {
 	label: string;
 	value: string;
 	compact?: boolean;
+	inputClassName?: string;
 };
 
-export function CopyField({ label, value, compact = false }: CopyFieldProps) {
+export function CopyField({
+	label,
+	value,
+	compact = false,
+	inputClassName,
+}: CopyFieldProps) {
 	const { t } = useTranslation();
 	const [copied, setCopied] = useState(false);
 
@@ -27,7 +34,10 @@ export function CopyField({ label, value, compact = false }: CopyFieldProps) {
 				<Input
 					readOnly
 					value={value}
-					className={compact ? "h-8 font-mono text-xs" : "font-mono text-xs"}
+					className={cn(
+						compact ? "h-8 font-mono text-xs" : "font-mono text-xs",
+						inputClassName,
+					)}
 				/>
 				<Button
 					type="button"

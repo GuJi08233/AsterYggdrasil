@@ -26,6 +26,7 @@ pub use types::{
     StoredTexture, StoredWardrobeTexture, TextureBlob, TextureDownload, WardrobeRegistrationResult,
 };
 
+use crate::api::pagination::OffsetPage;
 use crate::db::repository::{
     minecraft_profile_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
 };
@@ -549,6 +550,29 @@ where
     let textures = minecraft_texture_repo::list_by_user(state.reader_db(), user_id).await?;
     tracing::debug!(user_id, count = textures.len(), "listed wardrobe textures");
     Ok(textures)
+}
+
+pub async fn list_wardrobe_textures_paginated<S>(
+    state: &S,
+    user_id: i64,
+    limit: u64,
+    offset: u64,
+) -> Result<OffsetPage<minecraft_texture::Model>>
+where
+    S: DatabaseRuntimeState,
+{
+    let page =
+        minecraft_texture_repo::list_by_user_paginated(state.reader_db(), user_id, limit, offset)
+            .await?;
+    tracing::debug!(
+        user_id,
+        returned = page.items.len(),
+        total = page.total,
+        limit = page.limit,
+        offset = page.offset,
+        "listed wardrobe textures page"
+    );
+    Ok(page)
 }
 
 pub async fn delete_wardrobe_texture<S>(
