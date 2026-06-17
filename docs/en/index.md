@@ -72,7 +72,7 @@ Site and admin APIs live under `/api/v1`, including account APIs, profile manage
 2. [Getting Started](./guide/getting-started.md): start locally, create the first admin, and verify metadata and texture paths.
 3. [User Guide](./guide/user-guide.md): accounts, profiles, textures, and launcher login in normal use.
 4. [Yggdrasil API](./guide/yggdrasil-api.md): ALI, metadata, authserver, sessionserver, and protocol errors.
-5. [Minecraft Profiles](./guide/profiles.md): profile creation, deletion, immutability, and admin APIs.
+5. [Minecraft Profiles](./guide/profiles.md): profile creation, controlled renames, deletion, and admin APIs.
 6. [Textures](./guide/yggdrasil-textures.md): wardrobe, binding, skin/cape upload, hashes, public reads, and skinDomains.
 7. [Config and Keys](./guide/configuration.md): public URLs, runtime config, and signing key rotation.
 8. [Audit and Tasks](./guide/audit-tasks.md): admin-visible audit logs, runtime tasks, and maintenance policy.
@@ -80,7 +80,7 @@ Site and admin APIs live under `/api/v1`, including account APIs, profile manage
 
 ## Current Boundaries
 
-- Minecraft profile names cannot be changed after creation. Rename flows should delete and recreate the profile.
+- Minecraft profile names support controlled renames through the user or administrator APIs. Do not edit names directly in the database.
 - Profile disabling is intentionally left for a future ban system that defines login, join, hasJoined, and texture access semantics together.
 - The current production texture storage backend is local. S3/minio config shape is reserved, but the backend still needs implementation.
 - The admin frontend is still evolving; docs describe stable backend behavior and deployable semantics first.

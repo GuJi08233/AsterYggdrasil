@@ -77,8 +77,10 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     ),
 )]
 pub async fn check(state: web::Data<AppState>) -> Result<HttpResponse> {
+    tracing::debug!("auth check request received");
     let initialized =
         crate::db::repository::user_repo::count_all(state.get_ref().reader_db()).await? > 0;
+    tracing::debug!(initialized, "auth check request completed");
     Ok(HttpResponse::Ok().json(ApiResponse::ok(CheckResp { initialized })))
 }
 
@@ -357,6 +359,11 @@ pub async fn logout(
     security(("bearer" = [])),
 )]
 pub async fn me(state: web::Data<AppState>, req: HttpRequest) -> Result<HttpResponse> {
+    tracing::debug!(
+        has_access_cookie = access_cookie_token(&req).is_some(),
+        has_authorization_header = req.headers().get(header::AUTHORIZATION).is_some(),
+        "auth me request received"
+    );
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     let info = auth_service::auth_user_info(state.get_ref(), user).await?;
     tracing::debug!(user_id = info.id, "auth me request completed");

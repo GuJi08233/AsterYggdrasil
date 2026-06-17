@@ -34,7 +34,7 @@ GET    /api/v1/profiles/minecraft/{uuid}/textures
 DELETE /api/v1/profiles/minecraft/{uuid}
 ```
 
-Creating a profile only requires a name. Profile names cannot be changed after creation. To change a name, delete the old profile, create a new one, and log in from the launcher again.
+Creating a profile only requires a name. Profile names support controlled renames. A rename keeps the UUID, texture bindings, and audit trail, then temporarily invalidates bound Yggdrasil tokens. Refresh or log in again from the launcher to receive the new name.
 
 ::: warning Do not edit profile names directly in the database
 Direct renames can desynchronize launcher caches, Yggdrasil tokens, server allowlists, texture properties, and audit records. The resulting state is difficult to diagnose.
@@ -148,4 +148,4 @@ Make the launcher or server fetch `/api/yggdrasil` metadata again. After signing
 
 ### Can I rename a profile?
 
-Not in the current model. Delete the old profile, create a new one, and log in again. This is the current stable flow for preserving consistency.
+Yes, but use the site API or administrator API. A controlled rename keeps the profile UUID and texture bindings, then temporarily invalidates bound Yggdrasil tokens. Refresh or log in again from the launcher to receive the new name. Do not edit profile names directly in the database.

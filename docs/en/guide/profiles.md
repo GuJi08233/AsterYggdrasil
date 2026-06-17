@@ -47,13 +47,13 @@ This does not conflict with direct Yggdrasil upload. Direct upload writes the pr
 
 ## Name Rules
 
-Profile names cannot be changed after creation. Do not update them directly in the database; launcher caches, tokens, audit logs, server allowlists, and texture properties can all be affected.
+Profile names support controlled renames through the API. Do not update them directly in the database; launcher caches, tokens, audit logs, server allowlists, and texture properties can all be affected.
 
-To change a name:
+To change a name, use the user or administrator rename API:
 
-1. Delete the old profile.
-2. Create a new profile.
-3. Log in again from the launcher.
+1. The server keeps the original profile UUID, texture bindings, and audit trail.
+2. Yggdrasil tokens bound to that profile are marked temporarily invalid.
+3. The launcher refreshes to receive a new token with the new name.
 
 There is no name history table in the current model.
 

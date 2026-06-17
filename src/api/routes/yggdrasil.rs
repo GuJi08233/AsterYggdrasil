@@ -1,5 +1,6 @@
 //! Yggdrasil protocol routes.
 
+pub(crate) mod minecraft_services;
 pub(crate) mod texture;
 
 use crate::api::dto::validate_request;
@@ -33,6 +34,29 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 .route("/profile/{uuid}", web::get().to(profile_by_uuid)),
         )
         .route("/api/profiles/minecraft", web::post().to(profiles_by_names))
+        .service(
+            web::scope("/minecraftservices")
+                .route(
+                    "/player/certificates",
+                    web::post().to(minecraft_services::player_certificates),
+                )
+                .route("/privileges", web::get().to(minecraft_services::privileges))
+                .route(
+                    "/player/attributes",
+                    web::get().to(minecraft_services::player_attributes),
+                )
+                .route(
+                    "/privacy/blocklist",
+                    web::get().to(minecraft_services::privacy_blocklist),
+                )
+                .default_service(web::to(
+                    minecraft_services::minecraft_services_not_found_req,
+                )),
+        )
+        .route(
+            "/sessionserver/blockedservers",
+            web::get().to(minecraft_services::blocked_servers),
+        )
         .route(
             "/api/user/profile/{uuid}/{texture_type}",
             web::put().to(upload_texture),
@@ -41,7 +65,12 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             "/api/user/profile/{uuid}/{texture_type}",
             web::delete().to(delete_texture),
         )
-        .route("/textures/{hash}", web::get().to(texture_by_hash));
+        .route("/textures/{hash}", web::get().to(texture_by_hash))
+        .default_service(web::to(yggdrasil_not_found));
+}
+
+async fn yggdrasil_not_found(req: HttpRequest) -> HttpResponse {
+    minecraft_services::minecraft_services_not_found_req(req).await
 }
 
 #[api_docs_macros::path(

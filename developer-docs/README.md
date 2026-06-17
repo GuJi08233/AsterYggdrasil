@@ -14,7 +14,9 @@ AsterYggdrasil is currently a self-hosted Minecraft skin site and Yggdrasil auth
 ## Focused Guides
 
 - [Mail runtime extension](./en/mail-runtime.md)
+- [Yggdrasil API implementation](./en/yggdrasil-api.md)
 - [邮件运行时扩展](./zh-CN/mail-runtime.md)
+- [Yggdrasil API 实现说明](./zh-CN/yggdrasil-api.md)
 
 ## Status
 

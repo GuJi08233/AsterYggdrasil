@@ -98,9 +98,9 @@ bun run test:e2e
 
 ## 玩家档案生命周期
 
-- Minecraft profile name 创建后不可改名。不要添加 rename API、改名任务、名称历史表或后台直接改名入口，除非产品决策明确变更。
-- 需要换名时走删除并重新创建 profile 的流程；删除流程必须同时处理材质记录、存储对象、启动器 token 失效和审计。
-- profile name 唯一性以当前存活 profile 为准。后续如果引入软删除或保留删除记录，必须先明确旧名称是否释放，不能顺手加历史表。
+- Minecraft profile name 当前支持受控改名。用户和管理员 rename API 必须保持 UUID、材质绑定和审计链路不变，并临时失效已绑定该 profile 的 Yggdrasil token，让启动器通过 refresh 获取新名称。
+- 删除 profile 时必须同时处理材质记录、存储对象、启动器 token 失效和审计。
+- profile name 唯一性以当前存活 profile 为准。当前没有名称历史表；后续如果引入软删除、保留删除记录或名称历史，必须先明确旧名称是否释放，不能顺手加表。
 
 ## API 约定
 

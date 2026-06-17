@@ -72,7 +72,7 @@ GET  /api/yggdrasil/textures/{hash}
 2. [快速开始](./guide/getting-started.md)：本地启动、创建首个管理员、确认 metadata 和材质路径。
 3. [用户手册](./guide/user-guide.md)：账号、profile、材质、启动器登录的实际流程。
 4. [Yggdrasil API](./guide/yggdrasil-api.md)：ALI、metadata、authserver、sessionserver 和协议错误。
-5. [玩家档案](./guide/profiles.md)：profile 创建、删除、不可改名和管理 API。
+5. [玩家档案](./guide/profiles.md)：profile 创建、受控改名、删除和管理 API。
 6. [材质处理](./guide/yggdrasil-textures.md)：wardrobe、绑定、skin/cape 上传、hash、公开读取和 skinDomains。
 7. [配置和密钥](./guide/configuration.md)：public URL、运行时配置和签名 key rotate。
 8. [审计与后台任务](./guide/audit-tasks.md)：管理员可见的审计、runtime task 和维护策略。
@@ -80,7 +80,7 @@ GET  /api/yggdrasil/textures/{hash}
 
 ## 当前边界
 
-- Minecraft profile name 创建后不可改名。需要换名时删除并重新创建 profile。
+- Minecraft profile name 支持受控改名；必须走用户或管理员 API，不能直接改数据库。
 - profile 禁用不在当前版本里直接加字段，后续会通过统一封禁系统定义登录、join、hasJoined 和材质访问语义。
 - 当前 texture storage 生产可用 backend 是 local。S3/minio 配置形状已预留，但 backend 实现还需要后续接入。
 - 前端管理面板仍在演进，文档优先描述当前稳定后端能力和真实可部署语义。

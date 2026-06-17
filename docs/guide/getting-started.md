@@ -96,7 +96,7 @@ POST /api/v1/profiles/minecraft
 GET  /api/v1/profiles/minecraft
 ```
 
-profile name 创建后不可改名。需要换名时删除旧 profile 并重新创建。
+profile name 支持通过用户或管理员 API 受控改名。改名会保留 UUID、材质绑定和审计链路，并临时失效已绑定该 profile 的 Yggdrasil token，让启动器通过 refresh 获取新名称。不要直接改数据库。
 
 ## 5. 上传和绑定材质
 

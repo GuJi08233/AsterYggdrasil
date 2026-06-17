@@ -3,11 +3,13 @@
 #[macro_use]
 mod common;
 
-use actix_web::test;
+use actix_web::{http::header, test};
 use aster_yggdrasil::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
+use aster_yggdrasil::config::auth_runtime::AUTH_ALLOW_USER_REGISTRATION_KEY;
 use aster_yggdrasil::config::definitions::PUBLIC_SITE_URL_KEY;
 use aster_yggdrasil::config::yggdrasil::{
-    YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY, YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
+    YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
+    YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
     YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY, YGGDRASIL_PUBLIC_BASE_URL_KEY,
     YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
 };
@@ -91,6 +93,22 @@ macro_rules! ygg_login {
         YggLogin {
             access_token: body["accessToken"].as_str().unwrap().to_string(),
         }
+    }};
+}
+
+macro_rules! assert_minecraft_services_not_found {
+    ($app:expr, $method:ident, $uri:expr, $path:expr) => {{
+        let req = test::TestRequest::$method().uri($uri).to_request();
+        let resp = test::call_service(&$app, req).await;
+        assert_eq!(resp.status(), 404);
+        assert_eq!(
+            resp.headers()
+                .get(header::CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok()),
+            Some("no-store")
+        );
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["path"], $path);
     }};
 }
 
@@ -510,6 +528,17 @@ async fn yggdrasil_profile_name_login_is_controlled_by_runtime_config() {
     assert_eq!(resp.status(), 200);
     let metadata: Value = test::read_body_json(resp).await;
     assert_eq!(metadata["meta"]["feature.non_email_login"], true);
+    assert_eq!(metadata["meta"]["feature.enable_profile_key"], true);
+    assert_eq!(
+        metadata["meta"]["feature.enable_mojang_anti_features"],
+        true
+    );
+    assert_eq!(metadata["meta"]["feature.username_check"], true);
+    assert_eq!(metadata["meta"]["links"]["homepage"], "http://localhost/");
+    assert_eq!(
+        metadata["meta"]["links"]["register"],
+        "http://localhost/register"
+    );
     assert!(
         metadata["meta"].get("feature").is_none(),
         "authlib-injector expects dotted feature keys in meta, not nested feature objects"
@@ -565,6 +594,7 @@ async fn yggdrasil_profile_name_login_is_controlled_by_runtime_config() {
     assert_eq!(resp.status(), 200);
     let metadata: Value = test::read_body_json(resp).await;
     assert_eq!(metadata["meta"]["feature.non_email_login"], false);
+    assert_eq!(metadata["meta"]["feature.username_check"], true);
     assert!(
         metadata["meta"].get("feature").is_none(),
         "authlib-injector expects dotted feature keys in meta, not nested feature objects"
@@ -580,6 +610,403 @@ async fn yggdrasil_profile_name_login_is_controlled_by_runtime_config() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 403);
+}
+
+#[actix_web::test]
+async fn yggdrasil_metadata_capability_flags_follow_runtime_config() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+
+    let req = test::TestRequest::get().uri("/api/yggdrasil/").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let metadata: Value = test::read_body_json(resp).await;
+    assert_eq!(metadata["meta"]["feature.enable_profile_key"], true);
+    assert_eq!(
+        metadata["meta"]["feature.enable_mojang_anti_features"],
+        true
+    );
+    assert_eq!(metadata["meta"]["feature.username_check"], true);
+    assert!(
+        metadata["meta"].get("feature").is_none(),
+        "authlib-injector expects dotted feature keys in meta, not nested feature objects"
+    );
+
+    for key in [
+        YGGDRASIL_ENABLE_PROFILE_KEY_KEY,
+        YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
+    ] {
+        let saved =
+            system_config_repo::upsert_with_options(state.writer_db(), key, "false", None, None)
+                .await
+                .unwrap();
+        state.runtime_config().apply(saved);
+    }
+
+    let req = test::TestRequest::get().uri("/api/yggdrasil/").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let metadata: Value = test::read_body_json(resp).await;
+    assert_eq!(metadata["meta"]["feature.enable_profile_key"], false);
+    assert_eq!(
+        metadata["meta"]["feature.enable_mojang_anti_features"],
+        false
+    );
+    assert_eq!(metadata["meta"]["feature.username_check"], true);
+
+    assert_minecraft_services_not_found!(
+        app,
+        post,
+        "/api/yggdrasil/minecraftservices/player/certificates",
+        "/player/certificates"
+    );
+    assert_minecraft_services_not_found!(
+        app,
+        get,
+        "/api/yggdrasil/minecraftservices/privileges",
+        "/privileges"
+    );
+    assert_minecraft_services_not_found!(
+        app,
+        get,
+        "/api/yggdrasil/minecraftservices/player/attributes",
+        "/player/attributes"
+    );
+    assert_minecraft_services_not_found!(
+        app,
+        get,
+        "/api/yggdrasil/minecraftservices/privacy/blocklist",
+        "/privacy/blocklist"
+    );
+}
+
+#[actix_web::test]
+async fn yggdrasil_metadata_links_respect_registration_policy() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+
+    let req = test::TestRequest::get().uri("/api/yggdrasil/").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let metadata: Value = test::read_body_json(resp).await;
+    assert_eq!(metadata["meta"]["links"]["homepage"], "http://localhost/");
+    assert_eq!(
+        metadata["meta"]["links"]["register"],
+        "http://localhost/register"
+    );
+
+    let saved = system_config_repo::upsert_with_options(
+        state.writer_db(),
+        AUTH_ALLOW_USER_REGISTRATION_KEY,
+        "false",
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    state.runtime_config().apply(saved);
+
+    let req = test::TestRequest::get().uri("/api/yggdrasil/").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let metadata: Value = test::read_body_json(resp).await;
+    assert_eq!(metadata["meta"]["links"]["homepage"], "http://localhost/");
+    assert!(
+        metadata["meta"]["links"].get("register").is_none(),
+        "metadata must not advertise a closed registration entrypoint"
+    );
+}
+
+#[actix_web::test]
+async fn minecraft_services_profile_key_certificate_uses_yggdrasil_bearer_token() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+    let _profile_id = create_profile!(app, &access, "CertUser");
+    let login = ygg_login!(app, "admin@example.com", "cert-client");
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header(("Authorization", format!("Bearer {}", login.access_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+
+    assert!(
+        body["keyPair"]["privateKey"]
+            .as_str()
+            .unwrap()
+            .starts_with("-----BEGIN RSA PRIVATE KEY-----")
+    );
+    assert!(
+        body["keyPair"]["publicKey"]
+            .as_str()
+            .unwrap()
+            .starts_with("-----BEGIN RSA PUBLIC KEY-----")
+    );
+    assert_eq!(body["publicKeySignature"], "AA==");
+    assert_eq!(body["publicKeySignatureV2"], "AA==");
+    assert!(chrono::DateTime::parse_from_rfc3339(body["expiresAt"].as_str().unwrap()).is_ok());
+    assert!(chrono::DateTime::parse_from_rfc3339(body["refreshedAfter"].as_str().unwrap()).is_ok());
+
+    let expires_at =
+        chrono::DateTime::parse_from_rfc3339(body["expiresAt"].as_str().unwrap()).unwrap();
+    let refreshed_after =
+        chrono::DateTime::parse_from_rfc3339(body["refreshedAfter"].as_str().unwrap()).unwrap();
+    assert!(
+        expires_at > refreshed_after,
+        "profile key certificate must expire after its refresh time"
+    );
+}
+
+#[actix_web::test]
+async fn minecraft_services_profile_key_certificate_rejects_missing_unselected_or_invalid_token() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+    let first_profile_id = create_profile!(app, &access, "CertFirst");
+    let _second_profile_id = create_profile!(app, &access, "CertSecond");
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["path"], "/player/certificates");
+
+    let login = ygg_login!(app, "admin@example.com", "cert-unselected-client");
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header(("Authorization", format!("Bearer {}", login.access_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["path"], "/player/certificates");
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header(("Authorization", "Bearer not-a-token"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["path"], "/player/certificates");
+
+    let selected_login = ygg_login_selected!(
+        app,
+        "cert-selected-client",
+        first_profile_id.as_str(),
+        "CertFirst"
+    );
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header((
+            "Authorization",
+            format!("Bearer {}", selected_login.access_token),
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
+async fn minecraft_services_profile_key_certificate_rejects_revoked_and_wrong_method_requests() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+    let _profile_id = create_profile!(app, &access, "CertRevoked");
+    let login = ygg_login!(app, "admin@example.com", "cert-revoked-client");
+    let access_token = login.access_token;
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header(("Authorization", format!("Bearer {access_token}")))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/invalidate")
+        .set_json(serde_json::json!({
+            "accessToken": access_token,
+            "clientToken": "cert-revoked-client"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/minecraftservices/player/certificates")
+        .insert_header(("Authorization", format!("Bearer {access_token}")))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["path"], "/player/certificates");
+}
+
+#[actix_web::test]
+async fn minecraft_services_anti_feature_policy_endpoints_are_served() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let _access = setup_admin!(app);
+    let login = ygg_login!(app, "admin@example.com", "policy-client");
+    let authorization = format!("Bearer {}", login.access_token);
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/minecraftservices/privileges")
+        .insert_header(("Authorization", authorization.as_str()))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["privileges"]["onlineChat"]["enabled"], true);
+    assert_eq!(body["privileges"]["multiplayerServer"]["enabled"], true);
+    assert_eq!(body["privileges"]["multiplayerRealms"]["enabled"], true);
+    assert_eq!(body["privileges"]["telemetry"]["enabled"], true);
+    assert_eq!(body["privileges"]["optionalTelemetry"]["enabled"], true);
+    assert!(
+        body.get("profanityFilterPreferences").is_none(),
+        "privileges endpoint should not include player attributes fields"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/minecraftservices/player/attributes")
+        .insert_header(("Authorization", authorization.as_str()))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["profanityFilterPreferences"]["profanityFilterOn"],
+        false
+    );
+    assert_eq!(body["privileges"]["onlineChat"]["enabled"], true);
+    assert_eq!(body["privileges"]["multiplayerServer"]["enabled"], true);
+    assert_eq!(body["privileges"]["multiplayerRealms"]["enabled"], true);
+    assert_eq!(body["privileges"]["telemetry"]["enabled"], true);
+    assert_eq!(body["privileges"]["optionalTelemetry"]["enabled"], true);
+    assert_eq!(body["friendsPreferences"]["friends"], "DISABLED");
+    assert_eq!(body["friendsPreferences"]["acceptInvites"], "DISABLED");
+    assert_eq!(body["chatPreferences"]["textCommunication"], "ENABLED");
+    assert_eq!(body["banStatus"]["bannedScopes"], serde_json::json!({}));
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/minecraftservices/privacy/blocklist")
+        .insert_header(("Authorization", authorization.as_str()))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["blockedProfiles"], serde_json::json!([]));
+
+    assert_minecraft_services_not_found!(
+        app,
+        get,
+        "/api/yggdrasil/sessionserver/blockedservers",
+        "/blockedservers"
+    );
+}
+
+#[actix_web::test]
+async fn yggdrasil_unmatched_routes_use_minecraft_services_not_found_shape() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+
+    assert_minecraft_services_not_found!(
+        app,
+        get,
+        "/api/yggdrasil/minecraftservices/asds",
+        "/asds"
+    );
+    assert_minecraft_services_not_found!(app, get, "/api/yggdrasil/asds", "/asds");
+}
+
+#[actix_web::test]
+async fn minecraft_services_anti_feature_policy_requires_valid_bearer_token() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let _access = setup_admin!(app);
+    let login = ygg_login!(app, "admin@example.com", "policy-revoked-client");
+    let revoked_token = login.access_token;
+
+    for (uri, path) in [
+        ("/api/yggdrasil/minecraftservices/privileges", "/privileges"),
+        (
+            "/api/yggdrasil/minecraftservices/player/attributes",
+            "/player/attributes",
+        ),
+        (
+            "/api/yggdrasil/minecraftservices/privacy/blocklist",
+            "/privacy/blocklist",
+        ),
+    ] {
+        let req = test::TestRequest::get().uri(uri).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401, "missing token should fail: {uri}");
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["path"], path);
+
+        let req = test::TestRequest::get()
+            .uri(uri)
+            .insert_header(("Authorization", "Bearer not-a-token"))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401, "invalid token should fail: {uri}");
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["path"], path);
+    }
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/invalidate")
+        .set_json(serde_json::json!({
+            "accessToken": revoked_token,
+            "clientToken": "policy-revoked-client"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    for (uri, path) in [
+        ("/api/yggdrasil/minecraftservices/privileges", "/privileges"),
+        (
+            "/api/yggdrasil/minecraftservices/player/attributes",
+            "/player/attributes",
+        ),
+        (
+            "/api/yggdrasil/minecraftservices/privacy/blocklist",
+            "/privacy/blocklist",
+        ),
+    ] {
+        let req = test::TestRequest::get()
+            .uri(uri)
+            .insert_header(("Authorization", format!("Bearer {revoked_token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 401, "revoked token should fail: {uri}");
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["path"], path);
+    }
+}
+
+#[actix_web::test]
+async fn minecraft_services_anti_feature_policy_wrong_methods_are_not_routed() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+
+    for uri in [
+        "/api/yggdrasil/minecraftservices/privileges",
+        "/api/yggdrasil/minecraftservices/player/attributes",
+        "/api/yggdrasil/minecraftservices/privacy/blocklist",
+        "/api/yggdrasil/sessionserver/blockedservers",
+    ] {
+        let req = test::TestRequest::post().uri(uri).to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 404, "wrong method should not route: {uri}");
+    }
 }
 
 #[actix_web::test]
@@ -3256,6 +3683,47 @@ async fn yggdrasil_signout_revokes_all_tokens_and_records_audit() {
     assert_eq!(entry.entity_type, "user");
     let details: Value = serde_json::from_str(entry.details.as_deref().unwrap()).unwrap();
     assert_eq!(details["identifier"], "admin@example.com");
+}
+
+#[actix_web::test]
+async fn yggdrasil_signout_accepts_profile_name_when_profile_name_login_is_enabled() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+    let _profile = create_profile!(app, &access, "SignoutProfile");
+
+    let first = ygg_login!(app, "admin@example.com", "signout-profile-one");
+    let second = ygg_login!(app, "admin@example.com", "signout-profile-two");
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/signout")
+        .set_json(serde_json::json!({
+            "username": "SignoutProfile",
+            "password": "password1234"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    for (token, client) in [
+        (first.access_token, "signout-profile-one"),
+        (second.access_token, "signout-profile-two"),
+    ] {
+        let req = test::TestRequest::post()
+            .uri("/api/yggdrasil/authserver/validate")
+            .set_json(serde_json::json!({
+                "accessToken": token,
+                "clientToken": client
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 403);
+    }
+
+    audit_service::flush_global_audit_log_manager().await;
+    let entry = audit_entry(&state, audit_service::AuditAction::YggdrasilSignout).await;
+    let details: Value = serde_json::from_str(entry.details.as_deref().unwrap()).unwrap();
+    assert_eq!(details["identifier"], "SignoutProfile");
 }
 
 #[actix_web::test]

@@ -34,7 +34,7 @@ GET    /api/v1/profiles/minecraft/{uuid}/textures
 DELETE /api/v1/profiles/minecraft/{uuid}
 ```
 
-创建 profile 时只需要提供名称。名称创建后不可改名。想换名就删除旧 profile，再创建新 profile，然后重新登录启动器。
+创建 profile 时只需要提供名称。名称支持受控改名；改名后 UUID、材质绑定和审计链路保持不变，已绑定旧名称的启动器 token 会暂时失效，重新 refresh 或重新登录即可拿到新名称。
 
 ::: warning 不要直接改数据库里的 profile name
 直接改名会让启动器缓存、Yggdrasil token、服务端白名单、材质属性和审计记录互相不一致，后续排查成本很高。
@@ -148,4 +148,4 @@ yggdrasil_public_base_url
 
 ### 能不能改名
 
-当前不能改名。删除旧 profile，创建新 profile，然后重新登录启动器。这是当前版本保持一致性的稳定流程。
+可以，但必须走站点 API 或管理员 API。受控改名会保留 profile UUID 和材质绑定，并临时失效已绑定该 profile 的 Yggdrasil token；启动器 refresh 或重新登录后会拿到新名称。不要直接改数据库。

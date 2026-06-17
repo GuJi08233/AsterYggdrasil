@@ -113,6 +113,8 @@ Key contracts:
 
 Mail outbox delivery is also a system runtime task. See [Mail Runtime Extension](./mail-runtime.md) for the concrete extension rules.
 
+Yggdrasil/authlib-injector protocol endpoints, authentication, error shapes, the Minecraft services compatibility layer, and test expectations are covered in [Yggdrasil API Implementation](./yggdrasil-api.md).
+
 ## Audit Service
 
 Audit code lives in `src/services/audit_service/`; stable enums live in `src/types/audit.rs`.

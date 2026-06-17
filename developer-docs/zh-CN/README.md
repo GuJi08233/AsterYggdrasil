@@ -113,6 +113,8 @@ Admin API 可以 list、retry、cleanup；普通用户任务 API 当前没有。
 
 邮件 outbox 投递也是系统运行时任务，具体扩展规则见 [邮件运行时扩展](./mail-runtime.md)。
 
+Yggdrasil/authlib-injector 协议端点、鉴权、错误形状、Minecraft services 兼容层和测试要求见 [Yggdrasil API 实现说明](./yggdrasil-api.md)。
+
 ## Audit Service
 
 Audit 代码在 `src/services/audit_service/`，稳定枚举在 `src/types/audit.rs`。

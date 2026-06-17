@@ -47,13 +47,13 @@ DELETE /api/v1/wardrobe/textures/{texture_id}
 
 ## 名称规则
 
-profile name 创建后不可改名。不要通过数据库直接改名，因为启动器缓存、token、审计、服务端白名单和材质属性都会受到影响。
+profile name 支持通过 API 受控改名。不要通过数据库直接改名，因为启动器缓存、token、审计、服务端白名单和材质属性都会受到影响。
 
-需要换名时：
+需要换名时，使用用户或管理员 rename API：
 
-1. 删除旧 profile。
-2. 创建新 profile。
-3. 重新登录启动器。
+1. 服务端保留原 profile UUID、材质绑定和审计链路。
+2. 已绑定该 profile 的 Yggdrasil token 会被标记为暂时失效。
+3. 启动器通过 refresh 获取带有新名称的新 token。
 
 当前没有名称历史表。
 

@@ -9,7 +9,8 @@ use url::Url;
 
 pub use crate::config::definitions::{
     YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY, YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY,
-    YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
+    YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
+    YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
     YGGDRASIL_MAX_TEXTURE_PIXELS_KEY, YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
     YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SERVER_NAME_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
     YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
@@ -21,6 +22,8 @@ pub const DEFAULT_YGGDRASIL_API_ROOT_ALI: &str = "/api/yggdrasil/";
 pub const DEFAULT_YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN: bool = true;
 pub const DEFAULT_YGGDRASIL_ALLOW_SKIN_UPLOAD: bool = true;
 pub const DEFAULT_YGGDRASIL_ALLOW_CAPE_UPLOAD: bool = true;
+pub const DEFAULT_YGGDRASIL_ENABLE_PROFILE_KEY: bool = true;
+pub const DEFAULT_YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES: bool = true;
 pub const DEFAULT_YGGDRASIL_TOKEN_TTL_DAYS: u64 = 15;
 pub const DEFAULT_YGGDRASIL_MAX_ACTIVE_TOKENS: u64 = 10;
 pub const DEFAULT_YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES: u64 = 4 * 1024 * 1024;
@@ -33,6 +36,8 @@ pub struct RuntimeYggdrasilPolicy {
     pub allow_profile_name_login: bool,
     pub allow_skin_upload: bool,
     pub allow_cape_upload: bool,
+    pub enable_profile_key: bool,
+    pub enable_mojang_anti_features: bool,
     pub token_ttl_days: u64,
     pub max_active_tokens: u64,
     pub max_texture_upload_bytes: u64,
@@ -61,6 +66,14 @@ impl RuntimeYggdrasilPolicy {
             allow_cape_upload: runtime_config.get_bool_or(
                 YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY,
                 DEFAULT_YGGDRASIL_ALLOW_CAPE_UPLOAD,
+            ),
+            enable_profile_key: runtime_config.get_bool_or(
+                YGGDRASIL_ENABLE_PROFILE_KEY_KEY,
+                DEFAULT_YGGDRASIL_ENABLE_PROFILE_KEY,
+            ),
+            enable_mojang_anti_features: runtime_config.get_bool_or(
+                YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
+                DEFAULT_YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES,
             ),
             token_ttl_days: read_positive_u64(
                 runtime_config,
@@ -521,6 +534,28 @@ mod tests {
         let policy = RuntimeYggdrasilPolicy::from_runtime_config(&runtime_config);
 
         assert_eq!(policy.uploadable_textures_value(), "cape");
+    }
+
+    #[test]
+    fn minecraft_services_capability_flags_default_enabled_and_follow_runtime_switches() {
+        let runtime_config = RuntimeConfig::new();
+        let policy = RuntimeYggdrasilPolicy::from_runtime_config(&runtime_config);
+        assert!(policy.enable_profile_key);
+        assert!(policy.enable_mojang_anti_features);
+
+        runtime_config.apply(system_config::Model {
+            value_type: SystemConfigValueType::Boolean,
+            ..config_model(YGGDRASIL_ENABLE_PROFILE_KEY_KEY, "false")
+        });
+        runtime_config.apply(system_config::Model {
+            id: 2,
+            value_type: SystemConfigValueType::Boolean,
+            ..config_model(YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY, "false")
+        });
+
+        let policy = RuntimeYggdrasilPolicy::from_runtime_config(&runtime_config);
+        assert!(!policy.enable_profile_key);
+        assert!(!policy.enable_mojang_anti_features);
     }
 
     #[test]

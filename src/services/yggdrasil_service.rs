@@ -4,6 +4,7 @@ mod auth;
 mod error;
 mod login;
 mod metadata;
+mod minecraft_services;
 mod profile;
 mod properties;
 mod session;
@@ -12,6 +13,10 @@ mod token;
 pub use auth::{authenticate, invalidate, refresh, signout, validate};
 pub use error::{YggdrasilError, YggdrasilErrorKind};
 pub use metadata::metadata;
+pub use minecraft_services::{
+    minecraft_services_player_attributes, minecraft_services_privacy_blocklist,
+    minecraft_services_privileges, profile_key_certificate,
+};
 pub use profile::{
     DeleteMinecraftProfileResult, MinecraftProfileInfo, RenameMinecraftProfileResult,
     create_profile, delete_profile_for_user, profile_info, profile_summary, rename_profile,

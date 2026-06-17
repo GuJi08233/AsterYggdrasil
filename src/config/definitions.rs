@@ -120,6 +120,8 @@ pub const YGGDRASIL_SERVER_NAME_KEY: &str = "yggdrasil_server_name";
 pub const YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY: &str = "yggdrasil_allow_profile_name_login";
 pub const YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY: &str = "yggdrasil_allow_skin_upload";
 pub const YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY: &str = "yggdrasil_allow_cape_upload";
+pub const YGGDRASIL_ENABLE_PROFILE_KEY_KEY: &str = "yggdrasil_enable_profile_key";
+pub const YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY: &str = "yggdrasil_enable_mojang_anti_features";
 pub const YGGDRASIL_TOKEN_TTL_DAYS_KEY: &str = "yggdrasil_token_ttl_days";
 pub const YGGDRASIL_MAX_ACTIVE_TOKENS_KEY: &str = "yggdrasil_max_active_tokens";
 pub const YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY: &str = "yggdrasil_max_texture_upload_bytes";
@@ -868,6 +870,30 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_YGGDRASIL,
         description: "Allow Minecraft profiles to upload cape textures",
+    },
+    ConfigDef {
+        key: YGGDRASIL_ENABLE_PROFILE_KEY_KEY,
+        label_i18n_key: "settings_item_yggdrasil_enable_profile_key_label",
+        description_i18n_key: "settings_item_yggdrasil_enable_profile_key_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ENABLE_PROFILE_KEY.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Expose authlib-injector profile key support and serve Minecraft services player certificates",
+    },
+    ConfigDef {
+        key: YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
+        label_i18n_key: "settings_item_yggdrasil_enable_mojang_anti_features_label",
+        description_i18n_key: "settings_item_yggdrasil_enable_mojang_anti_features_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES.to_string()
+        },
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Expose authlib-injector Minecraft services anti-feature policy endpoints",
     },
     ConfigDef {
         key: YGGDRASIL_TOKEN_TTL_DAYS_KEY,

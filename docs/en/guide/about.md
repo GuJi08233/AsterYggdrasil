@@ -46,7 +46,7 @@ If you only want Mojang official online mode, this is not that project. AsterYgg
 
 ## Current Boundaries
 
-Minecraft profile names cannot be changed after creation. To change a name, delete the old profile and create a new one. This avoids mismatches across launcher caches, tokens, server allowlists, texture signatures, and audit history.
+Minecraft profile names support controlled renames through the user or administrator APIs. A controlled rename keeps the UUID, texture bindings, and audit trail, then temporarily invalidates bound Yggdrasil tokens so launchers can refresh into the new name. Do not edit names directly in the database.
 
 Texture uploads accept PNG only. The server re-encodes uploads into sanitized PNG files and hashes the processed bytes. Raw uploads are not kept.
 

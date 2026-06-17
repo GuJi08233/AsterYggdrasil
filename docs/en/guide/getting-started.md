@@ -96,7 +96,7 @@ POST /api/v1/profiles/minecraft
 GET  /api/v1/profiles/minecraft
 ```
 
-Profile names cannot be changed after creation. To change a name, delete the profile and create a new one.
+Profile names support controlled renames through the user or administrator APIs. A rename keeps the UUID, texture bindings, and audit trail, then temporarily invalidates bound Yggdrasil tokens so launchers can refresh into the new name. Do not edit names directly in the database.
 
 ## 5. Upload and Bind Textures
 

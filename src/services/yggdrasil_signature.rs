@@ -210,6 +210,8 @@ mod tests {
             allow_profile_name_login: true,
             allow_skin_upload: true,
             allow_cape_upload: true,
+            enable_profile_key: true,
+            enable_mojang_anti_features: true,
             token_ttl_days: 15,
             max_active_tokens: 10,
             max_texture_upload_bytes:

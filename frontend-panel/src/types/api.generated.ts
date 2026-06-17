@@ -1188,6 +1188,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/yggdrasil/minecraftservices/player/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["minecraft_services_player_attributes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/minecraftservices/player/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["minecraft_services_player_certificates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/minecraftservices/privacy/blocklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["minecraft_services_privacy_blocklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/minecraftservices/privileges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["minecraft_services_privileges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/yggdrasil/sessionserver/blockedservers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["minecraft_services_blocked_servers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/yggdrasil/sessionserver/session/minecraft/hasJoined": {
         parameters: {
             query?: never;
@@ -1761,6 +1841,85 @@ export interface components {
             texture_id: number;
             texture_type: components["schemas"]["MinecraftTextureType"];
             updated_at: string;
+        };
+        MinecraftServicesBanStatus: {
+            /** @description Map of banned service scopes. Empty means no active Minecraft services ban. */
+            bannedScopes: components["schemas"]["MinecraftServicesBannedScopes"];
+        };
+        MinecraftServicesBannedScopes: Record<string, never>;
+        MinecraftServicesCertificateResp: {
+            /** @description RFC3339 timestamp after which the certificate should no longer be used. */
+            expiresAt: string;
+            /** @description Ephemeral RSA key pair used by the client for signed chat/profile-key flows. */
+            keyPair: components["schemas"]["MinecraftServicesKeyPair"];
+            /** @description Signature over the public key. Self-hosted authlib-injector compatibility uses a dummy value. */
+            publicKeySignature: string;
+            /** @description Newer signature field used by recent clients. Self-hosted compatibility uses a dummy value. */
+            publicKeySignatureV2: string;
+            /** @description RFC3339 timestamp after which the client should refresh the certificate. */
+            refreshedAfter: string;
+        };
+        MinecraftServicesChatPreferences: {
+            /** @description Text chat feature state, for example `ENABLED` or `DISABLED`. */
+            textCommunication: components["schemas"]["MinecraftServicesPreferenceState"];
+        };
+        MinecraftServicesFriendsPreferences: {
+            /** @description Friend invitation feature state, for example `ENABLED` or `DISABLED`. */
+            acceptInvites: components["schemas"]["MinecraftServicesPreferenceState"];
+            /** @description Friend-list feature state, for example `ENABLED` or `DISABLED`. */
+            friends: components["schemas"]["MinecraftServicesPreferenceState"];
+        };
+        MinecraftServicesKeyPair: {
+            /** @description PKCS#1 PEM private key returned to the authenticated client. */
+            privateKey: string;
+            /** @description PKCS#1 PEM public key paired with `privateKey`. */
+            publicKey: string;
+        };
+        MinecraftServicesPathError: {
+            /** @description Minecraft services path that rejected the request, matching Mojang's 401 body shape. */
+            path: string;
+        };
+        MinecraftServicesPlayerAttributesResp: {
+            /** @description Ban scopes currently active for this account/profile. */
+            banStatus: components["schemas"]["MinecraftServicesBanStatus"];
+            /** @description Chat feature preferences exposed by Minecraft services. */
+            chatPreferences: components["schemas"]["MinecraftServicesChatPreferences"];
+            /** @description Social feature preferences exposed by Minecraft services. */
+            friendsPreferences: components["schemas"]["MinecraftServicesFriendsPreferences"];
+            /** @description Effective service privileges for the authenticated account/profile. */
+            privileges: components["schemas"]["MinecraftServicesPrivileges"];
+            /** @description Client-side profanity filter preference. */
+            profanityFilterPreferences: components["schemas"]["MinecraftServicesProfanityFilterPreferences"];
+        };
+        /** @enum {string} */
+        MinecraftServicesPreferenceState: "ENABLED" | "DISABLED";
+        MinecraftServicesPrivacyBlocklistResp: {
+            /** @description UUID list of profiles blocked by the authenticated user. */
+            blockedProfiles: string[];
+        };
+        MinecraftServicesPrivilege: {
+            /** @description Boolean state for a single Minecraft services privilege. */
+            enabled: boolean;
+        };
+        MinecraftServicesPrivileges: {
+            /** @description Whether Realms multiplayer is allowed. */
+            multiplayerRealms: components["schemas"]["MinecraftServicesPrivilege"];
+            /** @description Whether joining multiplayer servers is allowed. */
+            multiplayerServer: components["schemas"]["MinecraftServicesPrivilege"];
+            /** @description Whether online chat is allowed. */
+            onlineChat: components["schemas"]["MinecraftServicesPrivilege"];
+            /** @description Whether optional telemetry is allowed/enabled from the service policy perspective. */
+            optionalTelemetry: components["schemas"]["MinecraftServicesPrivilege"];
+            /** @description Whether required telemetry is allowed/enabled from the service policy perspective. */
+            telemetry: components["schemas"]["MinecraftServicesPrivilege"];
+        };
+        MinecraftServicesPrivilegesResp: {
+            /** @description Effective service privileges for the authenticated account/profile. */
+            privileges: components["schemas"]["MinecraftServicesPrivileges"];
+        };
+        MinecraftServicesProfanityFilterPreferences: {
+            /** @description Whether the client should enable the profanity filter. */
+            profanityFilterOn: boolean;
         };
         MinecraftTextureMetadata: {
             created_at: string;
@@ -2489,10 +2648,18 @@ export interface components {
             serverId: string;
         };
         YggdrasilMeta: {
+            "feature.enable_mojang_anti_features": boolean;
+            "feature.enable_profile_key": boolean;
             "feature.non_email_login": boolean;
+            "feature.username_check": boolean;
             implementationName: string;
             implementationVersion: string;
+            links?: null | components["schemas"]["YggdrasilMetaLinks"];
             serverName: string;
+        };
+        YggdrasilMetaLinks: {
+            homepage: string;
+            register?: string | null;
         };
         YggdrasilMetaResp: {
             meta: components["schemas"]["YggdrasilMeta"];
@@ -7037,6 +7204,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["YggdrasilErrorBody"];
+                };
+            };
+        };
+    };
+    minecraft_services_player_attributes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft services player attributes policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPlayerAttributesResp"];
+                };
+            };
+            /** @description Missing or invalid bearer token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+            /** @description Minecraft services anti-feature policy support is disabled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+        };
+    };
+    minecraft_services_player_certificates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft services profile key certificate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesCertificateResp"];
+                };
+            };
+            /** @description Missing or invalid bearer token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+            /** @description Profile key support is disabled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+        };
+    };
+    minecraft_services_privacy_blocklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft services privacy blocklist */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPrivacyBlocklistResp"];
+                };
+            };
+            /** @description Missing or invalid bearer token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+            /** @description Minecraft services anti-feature policy support is disabled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+        };
+    };
+    minecraft_services_privileges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft services privileges policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPrivilegesResp"];
+                };
+            };
+            /** @description Missing or invalid bearer token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+            /** @description Minecraft services anti-feature policy support is disabled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
+                };
+            };
+        };
+    };
+    minecraft_services_blocked_servers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Empty blocked server list or disabled anti-feature policy support */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MinecraftServicesPathError"];
                 };
             };
         };
