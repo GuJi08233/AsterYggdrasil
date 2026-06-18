@@ -473,9 +473,8 @@ mod tests {
             ..Default::default()
         });
         let cache = cache::create_cache(&config.cache).await;
-        let texture_storage =
-            crate::texture_storage::create_texture_storage(&config.texture_storage)
-                .expect("texture storage should initialize");
+        let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
+            .expect("object storage should initialize");
         let yggdrasil_rate_limiter = AppState::new_yggdrasil_rate_limiter(&config);
 
         AppState {
@@ -483,7 +482,7 @@ mod tests {
             config,
             runtime_config,
             cache,
-            texture_storage,
+            object_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),

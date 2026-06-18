@@ -1,174 +1,74 @@
-//! Local avatar storage path helpers.
+//! Avatar object storage key helpers.
 
-use std::path::Component;
-use std::path::{Path, PathBuf};
-
-use crate::config::avatar;
 use crate::entities::user_profile;
-use crate::runtime::RuntimeConfigRuntimeState;
+use crate::runtime::ObjectStorageRuntimeState;
 use crate::types::AvatarSource;
 
 use super::shared::{AVATAR_SIZE_LG, AVATAR_SIZE_SM, stored_avatar_prefix};
 
-pub(super) fn avatar_variant_file_path(prefix: &Path, size: u32) -> PathBuf {
-    prefix.join(format!("{size}.webp"))
-}
+const AVATAR_OBJECT_ROOT: &str = "avatar";
 
 pub(super) fn user_avatar_prefix(user_id: i64, version: i32) -> String {
-    format!("user/{user_id}/v{version}")
+    format!("{AVATAR_OBJECT_ROOT}/user/{user_id}/v{version}")
 }
 
-pub(super) fn user_avatar_dir(root_dir: &Path, user_id: i64, version: i32) -> PathBuf {
-    root_dir.join(user_avatar_prefix(user_id, version))
+pub(super) fn user_avatar_variant_key(prefix: &str, size: u32) -> String {
+    format!("{prefix}/{size}.webp")
 }
 
-fn normalize_absolute_path(path: &Path) -> Option<PathBuf> {
-    if !path.is_absolute() {
-        return None;
-    }
-
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir => normalized.push(component.as_os_str()),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            Component::Normal(part) => normalized.push(part),
-        }
-    }
-
-    Some(normalized)
+fn expected_user_avatar_prefix(user_id: i64, version: i32) -> String {
+    user_avatar_prefix(user_id, version)
 }
 
-fn expected_user_avatar_prefix_path(user_id: i64, version: i32) -> PathBuf {
-    PathBuf::from(user_avatar_prefix(user_id, version))
-}
-
-pub(super) fn resolve_stored_avatar_prefix_path(
-    root_dir: &Path,
-    profile: &user_profile::Model,
-) -> Option<PathBuf> {
+pub(super) fn resolve_stored_avatar_prefix(profile: &user_profile::Model) -> Option<&str> {
     let stored_prefix = stored_avatar_prefix(Some(profile))?;
-    let expected_relative =
-        expected_user_avatar_prefix_path(profile.user_id, profile.avatar_version);
-    let normalized_root = normalize_absolute_path(root_dir)?;
-    let stored_path = Path::new(stored_prefix);
-
-    if stored_path.is_absolute() || stored_path != expected_relative {
-        return None;
+    let expected = expected_user_avatar_prefix(profile.user_id, profile.avatar_version);
+    if stored_prefix == expected {
+        Some(stored_prefix)
+    } else {
+        None
     }
-
-    Some(normalized_root.join(expected_relative))
 }
 
-pub(super) fn resolve_stored_avatar_variant_path(
-    root_dir: &Path,
+pub(super) fn resolve_stored_avatar_variant_key(
     profile: &user_profile::Model,
     size: u32,
-) -> Option<PathBuf> {
-    resolve_stored_avatar_prefix_path(root_dir, profile)
-        .map(|prefix| avatar_variant_file_path(&prefix, size))
+) -> Option<String> {
+    resolve_stored_avatar_prefix(profile).map(|prefix| user_avatar_variant_key(prefix, size))
 }
 
-async fn cleanup_empty_avatar_dirs(prefix_dir: &Path, root_dir: &Path) {
-    let Some(mut current) = normalize_absolute_path(prefix_dir) else {
-        tracing::warn!(
-            "skip avatar dir cleanup for non-absolute prefix {}",
-            prefix_dir.display()
-        );
-        return;
-    };
-    let Some(root_dir) = normalize_absolute_path(root_dir) else {
-        tracing::warn!(
-            "skip avatar dir cleanup for non-absolute root {}",
-            root_dir.display()
-        );
-        return;
-    };
-
-    if current == root_dir || !current.starts_with(&root_dir) {
-        tracing::warn!(
-            "skip avatar dir cleanup outside avatar root: prefix={}, root={}",
-            current.display(),
-            root_dir.display()
-        );
-        return;
-    }
-
-    while current != root_dir {
-        match tokio::fs::remove_dir(&current).await {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) if error.kind() == std::io::ErrorKind::DirectoryNotEmpty => break,
-            Err(error) => {
-                tracing::warn!(
-                    "failed to cleanup avatar dir {}: {error}",
-                    current.display()
-                );
-                break;
-            }
-        }
-
-        let Some(parent) = current.parent() else {
-            break;
-        };
-        current = parent.to_path_buf();
-    }
-}
-
-async fn delete_local_avatar_files(prefix: &Path) {
+pub(super) async fn delete_avatar_variant_objects<S: ObjectStorageRuntimeState>(
+    state: &S,
+    prefix: &str,
+) {
     for size in [AVATAR_SIZE_SM, AVATAR_SIZE_LG] {
-        let path = avatar_variant_file_path(prefix, size);
-        if let Err(error) = tokio::fs::remove_file(&path).await
-            && error.kind() != std::io::ErrorKind::NotFound
-        {
-            tracing::warn!("failed to delete avatar file {}: {error}", path.display());
+        let key = user_avatar_variant_key(prefix, size);
+        if let Err(error) = state.object_storage().delete(&key).await {
+            tracing::warn!(key, "failed to delete avatar object: {error}");
         }
     }
 }
 
-pub(super) async fn cleanup_local_avatar_prefix(prefix: &Path, root_dir: &Path) {
-    delete_local_avatar_files(prefix).await;
-    cleanup_empty_avatar_dirs(prefix, root_dir).await;
-}
-
-pub(super) async fn delete_upload_objects(
-    state: &impl RuntimeConfigRuntimeState,
+pub(super) async fn delete_upload_objects<S: ObjectStorageRuntimeState>(
+    state: &S,
     profile: &user_profile::Model,
 ) {
     if profile.avatar_source != AvatarSource::Upload {
         return;
     }
 
-    if stored_avatar_prefix(Some(profile)).is_none() {
-        return;
-    }
-
-    match avatar::resolve_local_avatar_root_dir(state.runtime_config()) {
-        Ok(root_dir) => {
-            let Some(prefix_path) = resolve_stored_avatar_prefix_path(&root_dir, profile) else {
-                tracing::warn!(
-                    user_id = profile.user_id,
-                    avatar_version = profile.avatar_version,
-                    "skip avatar cleanup for invalid stored avatar key"
-                );
-                return;
-            };
-
-            delete_local_avatar_files(&prefix_path).await;
-            cleanup_empty_avatar_dirs(&prefix_path, &root_dir).await;
-        }
-        Err(error) => {
+    let Some(prefix) = resolve_stored_avatar_prefix(profile) else {
+        if stored_avatar_prefix(Some(profile)).is_some() {
             tracing::warn!(
                 user_id = profile.user_id,
                 avatar_version = profile.avatar_version,
-                "failed to resolve avatar root for local avatar cleanup: {error}"
+                "skip avatar cleanup for invalid stored avatar key"
             );
         }
-    }
+        return;
+    };
+
+    delete_avatar_variant_objects(state, prefix).await;
 }
 
 #[cfg(test)]
@@ -189,37 +89,30 @@ mod tests {
         }
     }
 
-    fn avatar_test_root() -> PathBuf {
-        std::env::temp_dir().join("asteryggdrasil-avatar")
-    }
-
     #[test]
-    fn resolve_stored_avatar_prefix_accepts_expected_relative_key() {
-        let root = avatar_test_root();
-        let profile = profile_with_key(42, 3, "user/42/v3");
+    fn resolve_stored_avatar_prefix_accepts_expected_object_key() {
+        let profile = profile_with_key(42, 3, "avatar/user/42/v3");
 
         assert_eq!(
-            resolve_stored_avatar_prefix_path(&root, &profile),
-            Some(root.join("user/42/v3"))
+            resolve_stored_avatar_prefix(&profile),
+            Some("avatar/user/42/v3")
+        );
+        assert_eq!(
+            resolve_stored_avatar_variant_key(&profile, 512),
+            Some("avatar/user/42/v3/512.webp".to_string())
         );
     }
 
     #[test]
-    fn resolve_stored_avatar_prefix_rejects_absolute_key_under_root() {
-        let root = avatar_test_root();
-        let avatar_prefix = root.join("user/42/v3");
-        let profile = profile_with_key(42, 3, &avatar_prefix.to_string_lossy());
+    fn resolve_stored_avatar_prefix_rejects_legacy_or_wrong_keys() {
+        let legacy = profile_with_key(42, 3, "user/42/v3");
+        let wrong_user = profile_with_key(42, 3, "avatar/user/43/v3");
+        let wrong_version = profile_with_key(42, 3, "avatar/user/42/v4");
+        let absolute = profile_with_key(42, 3, "/avatar/user/42/v3");
 
-        assert!(resolve_stored_avatar_prefix_path(&root, &profile).is_none());
-    }
-
-    #[test]
-    fn resolve_stored_avatar_prefix_rejects_wrong_user_or_version() {
-        let root = avatar_test_root();
-        let wrong_user = profile_with_key(42, 3, "user/43/v3");
-        let wrong_version = profile_with_key(42, 3, "user/42/v4");
-
-        assert!(resolve_stored_avatar_prefix_path(&root, &wrong_user).is_none());
-        assert!(resolve_stored_avatar_prefix_path(&root, &wrong_version).is_none());
+        assert!(resolve_stored_avatar_prefix(&legacy).is_none());
+        assert!(resolve_stored_avatar_prefix(&wrong_user).is_none());
+        assert!(resolve_stored_avatar_prefix(&wrong_version).is_none());
+        assert!(resolve_stored_avatar_prefix(&absolute).is_none());
     }
 }

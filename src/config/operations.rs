@@ -129,7 +129,7 @@ mod tests {
         background_task_max_concurrency, maintenance_cleanup_interval_secs,
         normalize_interval_config_value, task_list_max_limit,
     };
-    use crate::config::{RuntimeConfig, definitions::CONFIG_CATEGORY_RUNTIME};
+    use crate::config::{RuntimeConfig, definitions::CONFIG_CATEGORY_RUNTIME_TASKS};
     use crate::entities::system_config;
     use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
     use chrono::Utc;
@@ -145,7 +145,7 @@ mod tests {
             source: SystemConfigSource::System,
             visibility: SystemConfigVisibility::Private,
             namespace: String::new(),
-            category: CONFIG_CATEGORY_RUNTIME.to_string(),
+            category: CONFIG_CATEGORY_RUNTIME_TASKS.to_string(),
             description: "test runtime operation config".to_string(),
             updated_at: Utc::now(),
             updated_by: None,

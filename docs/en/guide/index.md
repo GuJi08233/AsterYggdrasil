@@ -42,7 +42,7 @@ Administrators need to keep three layers separate: startup config, runtime confi
 
 - [Admin Guide](./admin-guide): users, profiles, textures, config, audit logs, and tasks
 - [Config and Keys](./configuration): `config.toml`, `system_config`, public URLs, and signing key rotation
-- [Texture Storage](./storage): local backend, storage paths, public URLs, and consistency checks
+- [Object Storage](./storage): local/S3/MinIO backends, storage paths, public URLs, and consistency checks
 - [Audit and Tasks](./audit-tasks): audit coverage, runtime tasks, primary/follower mode, and maintenance guidance
 - [Deployment Overview](/en/deployment/) and [Docker Deployment](/en/deployment/docker): persistent data, reverse proxy, trusted proxies, multiple instances, and backups
 

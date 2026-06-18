@@ -13,8 +13,8 @@ pub struct Config {
     pub auth: AuthConfig,
     #[serde(default)]
     pub cache: CacheConfig,
-    #[serde(default)]
-    pub texture_storage: TextureStorageConfig,
+    #[serde(default, alias = "texture_storage")]
+    pub object_storage: ObjectStorageConfig,
     #[serde(default)]
     pub logging: LoggingConfig,
     #[serde(default)]
@@ -195,37 +195,37 @@ impl CacheConfig {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TextureStorageConfig {
-    #[serde(default = "TextureStorageConfig::default_backend")]
+pub struct ObjectStorageConfig {
+    #[serde(default = "ObjectStorageConfig::default_backend")]
     pub backend: String,
-    #[serde(default = "TextureStorageConfig::default_local_root")]
+    #[serde(default = "ObjectStorageConfig::default_local_root")]
     pub local_root: String,
     #[serde(default)]
-    pub s3: S3TextureStorageConfig,
+    pub s3: S3ObjectStorageConfig,
 }
 
-impl Default for TextureStorageConfig {
+impl Default for ObjectStorageConfig {
     fn default() -> Self {
         Self {
             backend: Self::default_backend(),
             local_root: Self::default_local_root(),
-            s3: S3TextureStorageConfig::default(),
+            s3: S3ObjectStorageConfig::default(),
         }
     }
 }
 
-impl TextureStorageConfig {
+impl ObjectStorageConfig {
     fn default_backend() -> String {
         "local".to_string()
     }
 
     fn default_local_root() -> String {
-        "textures".to_string()
+        "storage".to_string()
     }
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct S3TextureStorageConfig {
+pub struct S3ObjectStorageConfig {
     #[serde(default)]
     pub endpoint: String,
     #[serde(default)]

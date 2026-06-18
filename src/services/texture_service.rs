@@ -16,8 +16,8 @@ pub use default_skin::{
 };
 pub use error::{TextureError, TextureErrorKind};
 pub use maintenance::{
-    OrphanTextureCleanupResult, TextureStorageConsistencyIssue, TextureStorageConsistencyIssueKind,
-    TextureStorageConsistencyReport, check_texture_storage_consistency,
+    ObjectStorageConsistencyIssue, ObjectStorageConsistencyIssueKind,
+    ObjectStorageConsistencyReport, OrphanTextureCleanupResult, check_object_storage_consistency,
     cleanup_orphan_texture_blobs,
 };
 pub use processing::{TextureProcessingResult, process_texture_file, sanitize_png_texture};
@@ -38,7 +38,7 @@ use crate::db::repository::{
 };
 use crate::entities::{minecraft_profile, minecraft_texture, yggdrasil_token};
 use crate::errors::{AsterError, Result};
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState, TextureStorageRuntimeState};
+use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::{MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility};
 use futures::StreamExt;
 use std::path::{Path, PathBuf};
@@ -176,7 +176,7 @@ pub async fn store_texture<S>(
     source_path: PathBuf,
 ) -> std::result::Result<StoredTexture, TextureError>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         profile_id = profile.id,
@@ -255,7 +255,7 @@ pub async fn store_wardrobe_texture<S>(
     source_path: PathBuf,
 ) -> std::result::Result<StoredWardrobeTexture, TextureError>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         user_id,
@@ -289,7 +289,7 @@ pub async fn register_bound_textures_in_wardrobe<S>(
     state: &S,
 ) -> std::result::Result<WardrobeRegistrationResult, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     let bindings = minecraft_profile_texture_repo::list_all(state.reader_db())
         .await
@@ -381,7 +381,7 @@ async fn store_or_reuse_wardrobe_texture<S>(
     input: StoreTextureAssetInput<'_>,
 ) -> std::result::Result<minecraft_texture::Model, TextureError>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     let StoreTextureAssetInput {
         user_id,
@@ -411,7 +411,7 @@ where
     )
     .await
     .map_err(|error| TextureError::with_detail(TextureErrorKind::InvalidPng, error.message()))?;
-    let storage_key = texture_storage_key(&processing.hash);
+    let storage_key = object_storage_key(&processing.hash);
     tracing::debug!(
         user_id,
         texture_type = ?texture_type,
@@ -443,7 +443,7 @@ where
     }
 
     state
-        .texture_storage()
+        .object_storage()
         .put_file(&storage_key, &processed_path)
         .await
         .map_err(TextureError::from)?;
@@ -495,7 +495,7 @@ async fn cleanup_texture_asset_if_unreferenced<S>(
     texture: &minecraft_texture::Model,
     reason: &str,
 ) where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     if texture.is_wardrobe_item {
         tracing::debug!(
@@ -593,7 +593,7 @@ pub async fn delete_wardrobe_texture<S>(
     wardrobe_texture_id: i64,
 ) -> std::result::Result<minecraft_texture::Model, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         user_id,
@@ -630,7 +630,7 @@ pub async fn delete_all_wardrobe_textures_for_user<S>(
     user_id: i64,
 ) -> std::result::Result<Vec<minecraft_texture::Model>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     let textures = minecraft_texture_repo::list_by_user(state.reader_db(), user_id)
         .await
@@ -655,7 +655,7 @@ pub async fn bind_wardrobe_texture_to_profile<S>(
     texture_type: MinecraftTextureType,
 ) -> std::result::Result<StoredTexture, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         user_id,
@@ -730,7 +730,7 @@ pub async fn delete_texture<S>(
     texture_type: MinecraftTextureType,
 ) -> std::result::Result<Option<minecraft_profile_texture_repo::ProfileTexture>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         profile_id = profile.id,
@@ -763,7 +763,7 @@ pub async fn delete_texture_for_profile<S>(
     texture_type: MinecraftTextureType,
 ) -> std::result::Result<Option<DeletedMinecraftTexture>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     let deleted = delete_texture(state, profile, texture_type).await?;
     Ok(deleted.map(|texture| DeletedMinecraftTexture {
@@ -778,7 +778,7 @@ pub async fn delete_texture_for_profile_unchecked<S>(
     texture_type: MinecraftTextureType,
 ) -> std::result::Result<Option<DeletedMinecraftTexture>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         profile_id = profile.id,
@@ -813,7 +813,7 @@ pub async fn delete_textures_by_hash<S>(
     hash: &str,
 ) -> std::result::Result<Vec<DeletedMinecraftTexture>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     if !is_valid_texture_hash(hash) {
         tracing::debug!(hash, "delete textures by hash skipped invalid hash");
@@ -870,7 +870,7 @@ pub async fn delete_all_textures_for_profile<S>(
     profile: &minecraft_profile::Model,
 ) -> std::result::Result<Vec<minecraft_profile_texture_repo::ProfileTexture>, TextureError>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(profile_id = profile.id, "deleting all textures for profile");
     let textures = minecraft_profile_texture_repo::list_by_profile(state.reader_db(), profile.id)
@@ -959,7 +959,7 @@ fn ensure_upload_allowed(
     }
 }
 
-fn texture_storage_key(hash: &str) -> String {
+fn object_storage_key(hash: &str) -> String {
     let prefix = &hash[..2];
     format!("{prefix}/{hash}.png")
 }

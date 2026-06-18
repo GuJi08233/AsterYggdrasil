@@ -16,7 +16,7 @@ description: AsterYggdrasil 部署总览，按上线前准备、公开 URL、反
 | 用 Docker 上线 | [Docker 部署](/deployment/docker) |
 | 配公开访问地址 | [配置和密钥](/guide/configuration) |
 | 排查启动器、皮肤、进服问题 | [故障排查](/guide/troubleshooting) |
-| 理解材质保存在哪里 | [材质存储](/guide/storage) |
+| 理解材质和上传头像保存在哪里 | [对象存储](/guide/storage) |
 
 ## 上线前先确认
 
@@ -29,7 +29,7 @@ description: AsterYggdrasil 部署总览，按上线前准备、公开 URL、反
 - 首页 `/` 保留 `X-Authlib-Injector-API-Location` 响应头。
 - `public_site_url` 或 `yggdrasil_public_base_url` 能生成客户端可访问的材质 URL。
 - `skinDomains` 覆盖材质 URL 的 host。
-- 数据库、`config.toml` 和 local texture storage 已经持久化。
+- 数据库、`config.toml` 和 local object storage 已经持久化。
 
 ## 推荐部署路径
 
@@ -67,6 +67,6 @@ start_mode = "primary"
 
 - 数据库。
 - `config.toml` 或等价的 secret/config 管理记录。
-- local texture storage 目录，默认类似 `data/textures`。
+- local object storage 目录，默认类似 `data/storage`。
 
 数据库和材质目录要作为一组恢复。只恢复数据库会出现 missing object；只恢复材质目录会出现 orphan object。

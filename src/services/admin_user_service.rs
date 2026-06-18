@@ -4,7 +4,7 @@ use crate::api::pagination::{AdminUserSortBy, OffsetPage, SortOrder};
 use crate::db::repository::{minecraft_profile_repo, user_repo, yggdrasil_token_repo};
 use crate::entities::user;
 use crate::errors::{AsterError, Result};
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState, TextureStorageRuntimeState};
+use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::profile_service::{self, AvatarAudience, AvatarInfo, UserProfileInfo};
 use crate::services::{auth_service, texture_service, yggdrasil_service};
 use crate::types::{UserRole, UserStatus};
@@ -321,7 +321,7 @@ where
 
 pub async fn delete_user<S>(state: &S, user_id: i64) -> Result<DeleteAdminUserOutput>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     if user_id == SUPER_ADMIN_USER_ID {
         return Err(AsterError::auth_forbidden(
@@ -416,7 +416,7 @@ mod tests {
     use super::*;
     use crate::db::repository::{
         auth_session_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
-        system_config_repo, user_profile_repo,
+        user_profile_repo,
     };
     use crate::entities::{auth_session, minecraft_profile, minecraft_texture, user_profile};
     use crate::runtime::AppState;
@@ -425,20 +425,17 @@ mod tests {
     };
     use chrono::{Duration, Utc};
     use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
-    use std::path::Path;
     use std::sync::Arc;
 
     struct TestContext {
         state: AppState,
-        avatar_root: std::path::PathBuf,
         texture_root: std::path::PathBuf,
     }
 
     async fn test_context() -> TestContext {
         let suffix = uuid::Uuid::new_v4();
         let root = std::env::temp_dir().join(format!("asteryggdrasil-admin-users-{suffix}"));
-        let avatar_root = root.join("avatars");
-        let texture_root = root.join("textures");
+        let texture_root = root.join("storage");
         let db_cfg = crate::config::DatabaseConfig {
             url: "sqlite::memory:".to_string(),
             pool_size: 1,
@@ -453,14 +450,6 @@ mod tests {
         crate::services::system_config_service::ensure_defaults(&db)
             .await
             .expect("admin user test defaults should seed");
-        system_config_repo::upsert_with_actor(
-            &db,
-            crate::config::avatar::AVATAR_DIR_KEY,
-            &avatar_root.to_string_lossy(),
-            None,
-        )
-        .await
-        .expect("admin user test avatar dir config should save");
 
         let runtime_config = Arc::new(crate::config::RuntimeConfig::new());
         runtime_config
@@ -469,7 +458,7 @@ mod tests {
             .expect("admin user test runtime config should reload");
         let config = Arc::new(crate::config::Config {
             database: db_cfg,
-            texture_storage: crate::config::TextureStorageConfig {
+            object_storage: crate::config::ObjectStorageConfig {
                 backend: "local".to_string(),
                 local_root: texture_root.to_string_lossy().to_string(),
                 ..Default::default()
@@ -481,16 +470,15 @@ mod tests {
             ..Default::default()
         });
         let cache = crate::cache::create_cache(&config.cache).await;
-        let texture_storage =
-            crate::texture_storage::create_texture_storage(&config.texture_storage)
-                .expect("admin user test texture storage should initialize");
+        let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
+            .expect("admin user test object storage should initialize");
         let yggdrasil_rate_limiter = AppState::new_yggdrasil_rate_limiter(&config);
         let state = AppState {
             db_handles: crate::db::DbHandles::single(db),
             config,
             runtime_config,
             cache,
-            texture_storage,
+            object_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
@@ -499,7 +487,6 @@ mod tests {
         };
         TestContext {
             state,
-            avatar_root,
             texture_root,
         }
     }
@@ -547,7 +534,7 @@ mod tests {
             .await
             .expect("admin user test source texture should write");
         state
-            .texture_storage()
+            .object_storage()
             .put_file(storage_key, &source)
             .await
             .expect("admin user test texture blob should store");
@@ -618,15 +605,16 @@ mod tests {
         .expect("admin user test yggdrasil token should insert");
     }
 
-    async fn create_uploaded_avatar(ctx: &TestContext, user_id: i64) -> std::path::PathBuf {
+    async fn create_uploaded_avatar(ctx: &TestContext, user_id: i64) -> String {
         let now = Utc::now();
+        let avatar_prefix = format!("avatar/user/{user_id}/v1");
         user_profile_repo::create(
             ctx.state.writer_db(),
             user_profile::ActiveModel {
                 user_id: Set(user_id),
                 display_name: Set(Some("Display Cat".to_string())),
                 avatar_source: Set(AvatarSource::Upload),
-                avatar_key: Set(Some(format!("user/{user_id}/v1"))),
+                avatar_key: Set(Some(avatar_prefix.clone())),
                 avatar_version: Set(1),
                 created_at: Set(now),
                 updated_at: Set(now),
@@ -634,16 +622,22 @@ mod tests {
         )
         .await
         .expect("admin user test user profile should insert");
-        let avatar_dir = ctx.avatar_root.join(format!("user/{user_id}/v1"));
-        tokio::fs::create_dir_all(&avatar_dir)
+        let source = std::env::temp_dir().join(format!(
+            "asteryggdrasil-avatar-{}.webp",
+            uuid::Uuid::new_v4()
+        ));
+        tokio::fs::write(&source, b"avatar")
             .await
-            .expect("admin user test avatar dir should create");
+            .expect("admin user test avatar source should write");
         for size in [512, 1024] {
-            tokio::fs::write(avatar_dir.join(format!("{size}.webp")), b"avatar")
+            ctx.state
+                .object_storage()
+                .put_file(&format!("{avatar_prefix}/{size}.webp"), &source)
                 .await
-                .expect("admin user test avatar file should write");
+                .expect("admin user test avatar object should store");
         }
-        avatar_dir
+        let _ = tokio::fs::remove_file(&source).await;
+        avatar_prefix
     }
 
     async fn count_users(state: &AppState) -> u64 {
@@ -766,7 +760,7 @@ mod tests {
         let ctx = test_context().await;
         let _super_admin = insert_user(&ctx.state, "root-user").await;
         let user = insert_user(&ctx.state, "delete-target").await;
-        let avatar_dir = create_uploaded_avatar(&ctx, user.id).await;
+        let avatar_prefix = create_uploaded_avatar(&ctx, user.id).await;
         let profile = insert_profile(&ctx.state, user.id, "DeleteTarget").await;
         let profile_texture =
             insert_texture(&ctx.state, user.id, "profile/delete-target-skin.png", false).await;
@@ -825,24 +819,36 @@ mod tests {
                 .unwrap()
                 == 0
         );
-        assert!(!Path::new(&avatar_dir.join("512.webp")).exists());
         assert!(
             !ctx.state
-                .texture_storage()
+                .object_storage()
+                .exists(&format!("{avatar_prefix}/512.webp"))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !ctx.state
+                .object_storage()
+                .exists(&format!("{avatar_prefix}/1024.webp"))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !ctx.state
+                .object_storage()
                 .exists(&profile_texture.storage_key)
                 .await
                 .unwrap()
         );
         assert!(
             !ctx.state
-                .texture_storage()
+                .object_storage()
                 .exists(&wardrobe_texture.storage_key)
                 .await
                 .unwrap()
         );
         assert_eq!(count_users(&ctx.state).await, 1);
 
-        let _ = tokio::fs::remove_dir_all(&ctx.avatar_root).await;
         let _ = tokio::fs::remove_dir_all(&ctx.texture_root).await;
     }
 

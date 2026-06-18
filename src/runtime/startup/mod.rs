@@ -82,10 +82,10 @@ mod tests {
             config: Arc::new(crate::config::Config::default()),
             runtime_config,
             cache,
-            texture_storage: crate::texture_storage::create_texture_storage(
-                &crate::config::Config::default().texture_storage,
+            object_storage: crate::object_storage::create_object_storage(
+                &crate::config::Config::default().object_storage,
             )
-            .expect("test texture storage should initialize"),
+            .expect("test object storage should initialize"),
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),

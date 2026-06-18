@@ -65,12 +65,12 @@ authlib-injector 会校验材质 URL 的域名是否在 metadata 的 `skinDomain
 
 ## 存储和维护
 
-当前支持 local texture storage，并通过 `texture_storage.local_root` 显式配置本地根目录。上传成功后只保存处理后的 PNG，不保存原始上传文件。
+当前支持 local、S3 和 MinIO object storage，并通过 `object_storage` 静态配置选择 backend。上传成功后只保存处理后的 PNG，不保存原始上传文件。
 
 运行时维护任务包括：
 
 - `yggdrasil-texture-cleanup`: 删除没有数据库引用的材质对象。
-- `yggdrasil-storage-consistency-check`: 检查数据库记录指向的对象是否缺失，以及 storage key 是否和数据库 hash 一致。
+- `yggdrasil-storage-consistency-check`: 检查数据库记录指向的对象是否缺失，以及 object storage key 是否和数据库 hash 一致。
 - `yggdrasil-token-cleanup`: 清理过期或已吊销的 Yggdrasil token。
 
 删除材质会先删除数据库引用，再按引用计数清理对象。多个 profile 引用同一 hash 时，不会误删仍被引用的对象。

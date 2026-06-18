@@ -1,27 +1,28 @@
-# 材质存储
+# 对象存储
 
-AsterYggdrasil 通过 texture storage backend 保存处理后的 PNG。上传原文件只作为临时输入，处理完成后不会持久保存。
+AsterYggdrasil 通过 object storage backend 保存处理后的 PNG 材质和上传头像。上传原文件只作为临时输入，处理完成后不会持久保存。头像不再有单独的本地目录配置，会跟随同一个 `object_storage` backend。
 
 ## 本地存储
 
 使用本地后端时配置为：
 
 ```toml
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 ```
 
 当配置文件位于 `data/config.toml` 时，相对路径会按 `data/` 解析，所以默认实际路径是：
 
 ```text
-data/textures
+data/storage
 ```
 
-材质对象按 hash 分片保存，例如：
+材质对象按 hash 分片保存，上传头像使用 `avatar/` 前缀，例如：
 
 ```text
-data/textures/ab/abcdef...png
+data/storage/ab/abcdef...png
+data/storage/avatar/user/1/v1/512.webp
 ```
 
 公开 URL 不直接暴露文件系统路径，而是通过：
@@ -35,10 +36,10 @@ GET /api/yggdrasil/textures/{hash}
 `s3` 和 `minio` backend 使用服务端 streaming 上传处理后的 PNG，不提供客户端 presigned 上传入口：
 
 ```toml
-[texture_storage]
+[object_storage]
 backend = "s3"
 
-[texture_storage.s3]
+[object_storage.s3]
 endpoint = ""
 region = ""
 bucket = ""
@@ -48,11 +49,11 @@ secret_access_key = ""
 force_path_style = false
 ```
 
-`base_path` 是桶内前缀，例如 `env/production/textures`。数据库里的 texture storage key 不包含这个前缀，服务端会在访问 S3 时自动拼接。
+`base_path` 是桶内前缀，例如 `env/production/textures`。数据库里的 object storage key 不包含这个前缀，服务端会在访问 S3 时自动拼接。
 
 ## Public URL 的关系
 
-texture storage 决定对象保存在哪里；`yggdrasil_public_base_url` 决定默认情况下客户端看到的材质 API URL。
+object storage 决定对象保存在哪里；`yggdrasil_public_base_url` 决定默认情况下客户端看到的材质 API URL。
 
 例如：
 
@@ -74,7 +75,7 @@ https://skin.example.com/api/yggdrasil/textures/{hash}
 https://cdn.example.com/env/production/textures
 ```
 
-生成的 URL 会拼接 texture storage key，例如：
+生成的 URL 会拼接 object storage key，例如：
 
 ```text
 https://cdn.example.com/env/production/textures/ab/abcdef...png
@@ -94,7 +95,7 @@ https://cdn.example.com/env/production/textures/ab/abcdef...png
 
 运行时任务：
 
-- `yggdrasil-texture-cleanup`: 删除 storage 中没有数据库引用的对象。
-- `yggdrasil-storage-consistency-check`: 检查数据库 texture 记录是否指向缺失对象，以及 storage key 是否和数据库 hash 一致，不读取对象内容。
+- `yggdrasil-texture-cleanup`: 删除 object storage 中没有数据库引用的材质对象。
+- `yggdrasil-storage-consistency-check`: 检查数据库 texture 记录是否指向缺失对象，以及 object storage key 是否和数据库 hash 一致，不读取对象内容。
 
-删除 profile 或 texture 时，服务端会先删除数据库引用，再按引用计数决定是否删除对象。不要绕过服务层直接删 storage 文件，否则一致性检查会报告 missing object。
+删除 profile、texture 或切换上传头像来源时，服务端会先更新数据库状态，再按引用计数或头像版本删除对象。不要绕过服务层直接删 object storage 文件，否则一致性检查或头像读取会报告 missing object。

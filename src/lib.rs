@@ -13,8 +13,8 @@ pub mod external_auth;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod metrics_core;
+pub mod object_storage;
 pub mod runtime;
 pub mod services;
-pub mod texture_storage;
 pub mod types;
 pub mod utils;

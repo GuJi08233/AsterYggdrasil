@@ -224,7 +224,7 @@ mod tests {
             source: SystemConfigSource::System,
             visibility: SystemConfigVisibility::Private,
             namespace: String::new(),
-            category: crate::config::definitions::CONFIG_CATEGORY_AUTH.to_string(),
+            category: crate::config::definitions::CONFIG_CATEGORY_AUTH_EMAIL_POLICY.to_string(),
             description: "test".to_string(),
             updated_at: Utc::now(),
             updated_by: None,

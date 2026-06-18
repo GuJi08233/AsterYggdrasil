@@ -211,9 +211,9 @@ pub async fn overview(state: &AppState) -> Result<AdminOverviewResp> {
             detail: None,
         },
         AdminOverviewServiceStatus {
-            key: "texture_storage".to_string(),
+            key: "object_storage".to_string(),
             status: AdminOverviewServiceStatusKind::Ok,
-            metric: Some(state.texture_storage().backend_name().to_string()),
+            metric: Some(state.object_storage().backend_name().to_string()),
             detail: Some(format!("{texture_count} texture records")),
         },
         AdminOverviewServiceStatus {
@@ -545,7 +545,7 @@ mod tests {
             .expect("admin overview test runtime config should reload");
         let config = Arc::new(crate::config::Config {
             database: db_cfg,
-            texture_storage: crate::config::TextureStorageConfig {
+            object_storage: crate::config::ObjectStorageConfig {
                 backend: "local".to_string(),
                 local_root: texture_root.to_string_lossy().to_string(),
                 ..Default::default()
@@ -557,16 +557,15 @@ mod tests {
             ..Default::default()
         });
         let cache = crate::cache::create_cache(&config.cache).await;
-        let texture_storage =
-            crate::texture_storage::create_texture_storage(&config.texture_storage)
-                .expect("admin overview test texture storage should initialize");
+        let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
+            .expect("admin overview test object storage should initialize");
 
         AppState {
             db_handles: crate::db::DbHandles::single(db),
             config: config.clone(),
             runtime_config,
             cache,
-            texture_storage,
+            object_storage,
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
@@ -1199,7 +1198,7 @@ mod tests {
         .await;
         insert_yggdrasil_storage_consistency_task(
             &state,
-            RuntimeTaskRunOutcome::succeeded(Some("checked 3 texture storage records".to_string())),
+            RuntimeTaskRunOutcome::succeeded(Some("checked 3 object storage records".to_string())),
         )
         .await;
 
@@ -1217,7 +1216,7 @@ mod tests {
         );
         assert!(response.system_health.task_id.is_some());
         assert_eq!(storage.status, AdminOverviewSystemHealthStatus::Healthy);
-        assert_eq!(storage.message, "checked 3 texture storage records");
+        assert_eq!(storage.message, "checked 3 object storage records");
     }
 
     #[tokio::test]

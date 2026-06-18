@@ -16,7 +16,7 @@ This page helps you decide what to check before going live. For concrete Docker 
 | Deploy with Docker | [Docker Deployment](/en/deployment/docker) |
 | Configure public URLs | [Config and Keys](/en/guide/configuration) |
 | Diagnose launcher, skin, or join issues | [Troubleshooting](/en/guide/troubleshooting) |
-| Understand texture persistence | [Texture Storage](/en/guide/storage) |
+| Understand texture and uploaded-avatar persistence | [Object Storage](/en/guide/storage) |
 
 ## Check Before Launch
 
@@ -29,7 +29,7 @@ Before launch, verify:
 - The homepage `/` keeps the `X-Authlib-Injector-API-Location` response header.
 - `public_site_url` or `yggdrasil_public_base_url` can produce client-reachable texture URLs.
 - `skinDomains` covers the host used by texture URLs.
-- The database, `config.toml`, and local texture storage are persisted.
+- The database, `config.toml`, and local object storage are persisted.
 
 ## Recommended Path
 
@@ -67,6 +67,6 @@ Back up at least:
 
 - Database.
 - `config.toml` or equivalent secret/config records.
-- Local texture storage directory, usually similar to `data/textures`.
+- Local object storage directory, usually similar to `data/storage`.
 
 Restore the database and texture directory as a set. Restoring only the database can produce missing objects; restoring only textures can produce orphan objects.

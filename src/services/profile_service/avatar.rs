@@ -3,19 +3,19 @@
 use actix_multipart::Multipart;
 use chrono::Utc;
 use sea_orm::Set;
+use tokio::io::AsyncReadExt;
 
 use crate::api::error_code::AsterErrorCode;
-use crate::config::avatar;
 use crate::db::repository::{user_profile_repo, user_repo};
 use crate::entities::user_profile;
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
+use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::AvatarSource;
 
 use super::avatar_image::{process_avatar_upload, read_avatar_upload};
 use super::avatar_storage::{
-    avatar_variant_file_path, cleanup_local_avatar_prefix, delete_upload_objects,
-    resolve_stored_avatar_variant_path, user_avatar_dir, user_avatar_prefix,
+    delete_avatar_variant_objects, delete_upload_objects, resolve_stored_avatar_variant_key,
+    user_avatar_prefix, user_avatar_variant_key,
 };
 use super::info::{AvatarAudience, UserProfileInfo, build_profile_info, resolve_gravatar_base_url};
 use super::shared::{
@@ -25,17 +25,31 @@ use super::shared::{
 pub const AVATAR_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 pub const AVATAR_CONTENT_TYPE: &str = "image/webp";
 
-async fn write_local_avatar(path: &std::path::Path, data: &[u8]) -> Result<()> {
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_aster_err_ctx("create avatar directory", AsterError::internal_error)?;
-    }
-
-    tracing::debug!(bytes = data.len(), "writing local avatar variant");
-    tokio::fs::write(path, data)
+async fn put_avatar_bytes<S: ObjectStorageRuntimeState>(
+    state: &S,
+    storage_key: &str,
+    data: &[u8],
+) -> Result<()> {
+    let temp_path = std::env::temp_dir().join(format!(
+        "asteryggdrasil-avatar-{}-{}.webp",
+        uuid::Uuid::new_v4(),
+        storage_key.replace('/', "_")
+    ));
+    tokio::fs::write(&temp_path, data)
         .await
-        .map_aster_err_ctx("write avatar file", AsterError::internal_error)?;
+        .map_aster_err_ctx("write avatar temp file", AsterError::internal_error)?;
+
+    let result = state
+        .object_storage()
+        .put_file(storage_key, &temp_path)
+        .await;
+    if let Err(error) = tokio::fs::remove_file(&temp_path).await {
+        tracing::warn!(
+            path = %temp_path.display(),
+            "failed to remove avatar temp file: {error}"
+        );
+    }
+    result?;
     Ok(())
 }
 
@@ -45,7 +59,7 @@ pub async fn upload_avatar<S>(
     payload: &mut Multipart,
 ) -> Result<UserProfileInfo>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(user_id, "uploading user avatar");
     let user = user_repo::find_by_id(state.writer_db(), user_id).await?;
@@ -62,15 +76,13 @@ where
         .as_ref()
         .map(|profile| profile.avatar_version.saturating_add(1))
         .unwrap_or(1);
-    let avatar_root_dir = avatar::resolve_local_avatar_root_dir(state.runtime_config())?;
     let prefix_key = user_avatar_prefix(user_id, version);
-    let prefix = user_avatar_dir(&avatar_root_dir, user_id, version);
-    let small_path = avatar_variant_file_path(&prefix, AVATAR_SIZE_SM);
-    let large_path = avatar_variant_file_path(&prefix, AVATAR_SIZE_LG);
+    let small_key = user_avatar_variant_key(&prefix_key, AVATAR_SIZE_SM);
+    let large_key = user_avatar_variant_key(&prefix_key, AVATAR_SIZE_LG);
 
-    write_local_avatar(&small_path, &processed_avatar.small_bytes).await?;
-    if let Err(error) = write_local_avatar(&large_path, &processed_avatar.large_bytes).await {
-        cleanup_local_avatar_prefix(&prefix, &avatar_root_dir).await;
+    put_avatar_bytes(state, &small_key, &processed_avatar.small_bytes).await?;
+    if let Err(error) = put_avatar_bytes(state, &large_key, &processed_avatar.large_bytes).await {
+        delete_avatar_variant_objects(state, &prefix_key).await;
         return Err(error);
     }
     tracing::debug!(
@@ -86,7 +98,7 @@ where
         Some(current) => {
             let mut active: user_profile::ActiveModel = current.into();
             active.avatar_source = Set(AvatarSource::Upload);
-            active.avatar_key = Set(Some(prefix_key));
+            active.avatar_key = Set(Some(prefix_key.clone()));
             active.avatar_version = Set(version);
             active.updated_at = Set(now);
             user_profile_repo::update(state.writer_db(), active).await
@@ -94,7 +106,7 @@ where
         None => {
             let mut active = default_profile_active_model(user_id, now);
             active.avatar_source = Set(AvatarSource::Upload);
-            active.avatar_key = Set(Some(prefix_key));
+            active.avatar_key = Set(Some(prefix_key.clone()));
             active.avatar_version = Set(version);
             user_profile_repo::create(state.writer_db(), active).await
         }
@@ -103,7 +115,7 @@ where
     let saved = match saved {
         Ok(model) => model,
         Err(error) => {
-            cleanup_local_avatar_prefix(&prefix, &avatar_root_dir).await;
+            delete_avatar_variant_objects(state, &prefix_key).await;
             return Err(error);
         }
     };
@@ -132,7 +144,7 @@ pub async fn set_avatar_source<S>(
     source: AvatarSource,
 ) -> Result<UserProfileInfo>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(user_id, source = ?source, "setting user avatar source");
     if source == AvatarSource::Upload {
@@ -211,7 +223,7 @@ fn validate_avatar_size(size: u32) -> Result<u32> {
 
 pub async fn get_avatar_bytes<S>(state: &S, user_id: i64, size: u32) -> Result<Vec<u8>>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     let size = validate_avatar_size(size)?;
     tracing::debug!(user_id, size, "loading user avatar bytes");
@@ -246,22 +258,29 @@ where
     stored_avatar_prefix(Some(&profile)).ok_or_else(|| {
         AsterError::record_not_found_code(AsterErrorCode::AvatarNotFound, "avatar key missing")
     })?;
-    let avatar_root_dir = avatar::resolve_local_avatar_root_dir(state.runtime_config())?;
-    let path =
-        resolve_stored_avatar_variant_path(&avatar_root_dir, &profile, size).ok_or_else(|| {
-            tracing::warn!(
-                user_id = profile.user_id,
-                avatar_version = profile.avatar_version,
-                "reject invalid stored avatar key"
-            );
-            AsterError::record_not_found_code(AsterErrorCode::AvatarNotFound, "avatar key invalid")
-        })?;
-    let bytes = tokio::fs::read(&path).await.map_aster_err_with(|| {
-        AsterError::record_not_found_code(
-            AsterErrorCode::AvatarNotFound,
-            format!("avatar object {}", path.display()),
-        )
+    let key = resolve_stored_avatar_variant_key(&profile, size).ok_or_else(|| {
+        tracing::warn!(
+            user_id = profile.user_id,
+            avatar_version = profile.avatar_version,
+            "reject invalid stored avatar key"
+        );
+        AsterError::record_not_found_code(AsterErrorCode::AvatarNotFound, "avatar key invalid")
     })?;
+    let mut stream = state
+        .object_storage()
+        .get_stream(&key)
+        .await
+        .map_aster_err_with(|| {
+            AsterError::record_not_found_code(
+                AsterErrorCode::AvatarNotFound,
+                format!("avatar object {key}"),
+            )
+        })?;
+    let mut bytes = Vec::new();
+    stream
+        .read_to_end(&mut bytes)
+        .await
+        .map_aster_err_ctx("read avatar object", AsterError::internal_error)?;
     tracing::debug!(
         user_id,
         size,
@@ -273,7 +292,7 @@ where
 
 pub async fn delete_uploaded_avatar_for_user<S>(state: &S, user_id: i64) -> Result<()>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     if let Some(profile) = user_profile_repo::find_by_user_id(state.reader_db(), user_id).await? {
         delete_upload_objects(state, &profile).await;

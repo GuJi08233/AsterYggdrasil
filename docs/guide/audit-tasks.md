@@ -51,7 +51,7 @@ yggdrasil-texture-cleanup
 Yggdrasil 相关任务：
 
 - `yggdrasil-token-cleanup`: 删除过期或已吊销 token。
-- `yggdrasil-storage-consistency-check`: 检查 texture DB 记录指向的对象是否缺失，以及 storage key 是否仍匹配记录的 hash。
+- `yggdrasil-storage-consistency-check`: 检查 texture DB 记录指向的对象是否缺失，以及 object storage key 是否仍匹配记录的 hash。
 - `yggdrasil-texture-cleanup`: 删除 storage 中没有 DB 引用的孤儿对象。
 
 ## primary/follower

@@ -20,8 +20,8 @@ use aster_yggdrasil::entities::{
     audit_log, minecraft_profile_texture, minecraft_texture, yggdrasil_token,
 };
 use aster_yggdrasil::errors::{AsterError, Result};
+use aster_yggdrasil::object_storage::{ObjectBlobMetadata, ObjectStorage};
 use aster_yggdrasil::services::audit_service;
-use aster_yggdrasil::texture_storage::{TextureBlobMetadata, TextureStorage};
 use aster_yggdrasil::types::MinecraftTextureModel;
 use aster_yggdrasil::utils::hash::sha256_hex;
 use base64::Engine;
@@ -40,17 +40,17 @@ const DEFAULT_STEVE_SKIN_HASH: &str =
 const DEFAULT_ALEX_SKIN_HASH: &str =
     "394b483392052fb28d6271c736ba0df0394223c93b6348f1f1d135fdb7412daa";
 
-struct FailingTextureStorage;
+struct FailingObjectStorage;
 
 #[async_trait::async_trait]
-impl TextureStorage for FailingTextureStorage {
+impl ObjectStorage for FailingObjectStorage {
     fn backend_name(&self) -> &'static str {
         "failing"
     }
 
     async fn put_file(&self, _storage_key: &str, _local_path: &Path) -> Result<String> {
         Err(AsterError::internal_error(
-            "S3 texture upload failed: endpoint=https://s3.internal, bucket=private, source=connection refused",
+            "S3 object upload failed: endpoint=https://s3.internal, bucket=private, source=connection refused",
         ))
     }
 
@@ -66,7 +66,7 @@ impl TextureStorage for FailingTextureStorage {
         Ok(false)
     }
 
-    async fn metadata(&self, _storage_key: &str) -> Result<TextureBlobMetadata> {
+    async fn metadata(&self, _storage_key: &str) -> Result<ObjectBlobMetadata> {
         Err(AsterError::internal_error("failing test storage"))
     }
 
@@ -5074,7 +5074,7 @@ async fn wardrobe_upload_rejects_streams_over_runtime_size_limit() {
 #[actix_web::test]
 async fn wardrobe_upload_storage_errors_hide_internal_details() {
     let mut state = setup_yggdrasil().await;
-    state.texture_storage = Arc::new(FailingTextureStorage);
+    state.object_storage = Arc::new(FailingObjectStorage);
     let app = create_test_app!(state);
     let access = setup_admin!(app);
 
@@ -5083,7 +5083,7 @@ async fn wardrobe_upload_storage_errors_hide_internal_details() {
     assert_eq!(resp.status(), 500);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["code"], "minecraft_texture.storage_failed");
-    assert_eq!(body["msg"], "Texture storage failed.");
+    assert_eq!(body["msg"], "Object storage failed.");
 
     let response_text = body.to_string();
     for hidden in [

@@ -463,7 +463,7 @@ async fn run_task_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
 async fn run_yggdrasil_storage_consistency_check(
     state: web::Data<AppState>,
 ) -> RuntimeTaskRunOutcome {
-    match crate::services::texture_service::check_texture_storage_consistency(state.get_ref()).await
+    match crate::services::texture_service::check_object_storage_consistency(state.get_ref()).await
     {
         Ok(report) if report.missing > 0 || report.hash_mismatched > 0 => {
             let summary = yggdrasil_storage_consistency_failure_summary(&report);
@@ -472,12 +472,12 @@ async fn run_yggdrasil_storage_consistency_check(
                 missing = report.missing,
                 hash_mismatched = report.hash_mismatched,
                 issues = %summary,
-                "Yggdrasil texture storage consistency issues found"
+                "Yggdrasil object storage consistency issues found"
             );
             RuntimeTaskRunOutcome::failed(Some(summary.clone()), summary)
         }
         Ok(report) if report.checked > 0 => RuntimeTaskRunOutcome::succeeded(Some(format!(
-            "checked {} texture storage records",
+            "checked {} object storage records",
             report.checked
         ))),
         Ok(_) => RuntimeTaskRunOutcome::quiet(),
@@ -489,7 +489,7 @@ async fn run_yggdrasil_storage_consistency_check(
 }
 
 fn yggdrasil_storage_consistency_failure_summary(
-    report: &crate::services::texture_service::TextureStorageConsistencyReport,
+    report: &crate::services::texture_service::ObjectStorageConsistencyReport,
 ) -> String {
     const MAX_ISSUES_IN_SUMMARY: usize = 5;
 
@@ -508,10 +508,10 @@ fn yggdrasil_storage_consistency_failure_summary(
         .take(MAX_ISSUES_IN_SUMMARY)
         .map(|issue| {
             let kind = match issue.kind {
-                crate::services::texture_service::TextureStorageConsistencyIssueKind::MissingObject => {
+                crate::services::texture_service::ObjectStorageConsistencyIssueKind::MissingObject => {
                     "missing object"
                 }
-                crate::services::texture_service::TextureStorageConsistencyIssueKind::HashMismatch => {
+                crate::services::texture_service::ObjectStorageConsistencyIssueKind::HashMismatch => {
                     "hash/key mismatch"
                 }
             };
@@ -881,8 +881,8 @@ fn panic_payload_message(panic: &Box<dyn std::any::Any + Send>) -> String {
 mod tests {
     use super::*;
     use crate::services::texture_service::{
-        TextureStorageConsistencyIssue, TextureStorageConsistencyIssueKind,
-        TextureStorageConsistencyReport,
+        ObjectStorageConsistencyIssue, ObjectStorageConsistencyIssueKind,
+        ObjectStorageConsistencyReport,
     };
 
     #[tokio::test]
@@ -918,22 +918,22 @@ mod tests {
 
     #[test]
     fn storage_consistency_failure_summary_includes_issue_details() {
-        let report = TextureStorageConsistencyReport {
+        let report = ObjectStorageConsistencyReport {
             checked: 2,
             missing: 1,
             hash_mismatched: 1,
             issues: vec![
-                TextureStorageConsistencyIssue {
+                ObjectStorageConsistencyIssue {
                     texture_id: 41,
                     storage_key: "aa/missing.png".to_string(),
                     hash: "expected-missing-hash".to_string(),
-                    kind: TextureStorageConsistencyIssueKind::MissingObject,
+                    kind: ObjectStorageConsistencyIssueKind::MissingObject,
                 },
-                TextureStorageConsistencyIssue {
+                ObjectStorageConsistencyIssue {
                     texture_id: 42,
                     storage_key: "bb/mismatch.png".to_string(),
                     hash: "expected-mismatch-hash".to_string(),
-                    kind: TextureStorageConsistencyIssueKind::HashMismatch,
+                    kind: ObjectStorageConsistencyIssueKind::HashMismatch,
                 },
             ],
         };

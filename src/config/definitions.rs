@@ -2,28 +2,46 @@
 
 use crate::types::SystemConfigValueType;
 
-pub const CONFIG_CATEGORY_SITE: &str = "site";
-pub const CONFIG_CATEGORY_AUTH: &str = "auth";
+pub const CONFIG_CATEGORY_SITE_PUBLIC: &str = "site.public";
+pub const CONFIG_CATEGORY_SITE_BRANDING: &str = "site.branding";
+pub const CONFIG_CATEGORY_AUTH_SESSION: &str = "auth.session";
+pub const CONFIG_CATEGORY_AUTH_REGISTRATION: &str = "auth.registration";
+pub const CONFIG_CATEGORY_AUTH_RECOVERY: &str = "auth.recovery";
+pub const CONFIG_CATEGORY_AUTH_LOGIN: &str = "auth.login";
+pub const CONFIG_CATEGORY_AUTH_EMAIL_POLICY: &str = "auth.email_policy";
 pub const CONFIG_CATEGORY_USER_AVATAR: &str = "user.avatar";
-pub const CONFIG_CATEGORY_NETWORK: &str = "network";
-pub const CONFIG_CATEGORY_AUDIT: &str = "audit";
-pub const CONFIG_CATEGORY_RUNTIME: &str = "runtime";
+pub const CONFIG_CATEGORY_NETWORK_CORS: &str = "network.cors";
+pub const CONFIG_CATEGORY_AUDIT_LOG: &str = "audit.log";
+pub const CONFIG_CATEGORY_RUNTIME_TASKS: &str = "runtime.tasks";
 pub const CONFIG_CATEGORY_RUNTIME_MAIL: &str = "runtime.mail";
+pub const CONFIG_CATEGORY_RUNTIME_MAINTENANCE: &str = "runtime.maintenance";
 pub const CONFIG_CATEGORY_MAIL_CONFIG: &str = "mail.config";
 pub const CONFIG_CATEGORY_MAIL_TEMPLATE: &str = "mail.template";
-pub const CONFIG_CATEGORY_YGGDRASIL: &str = "yggdrasil";
+pub const CONFIG_CATEGORY_YGGDRASIL_METADATA: &str = "yggdrasil.metadata";
+pub const CONFIG_CATEGORY_YGGDRASIL_AUTH: &str = "yggdrasil.auth";
+pub const CONFIG_CATEGORY_YGGDRASIL_TEXTURES: &str = "yggdrasil.textures";
+pub const CONFIG_CATEGORY_YGGDRASIL_SIGNING: &str = "yggdrasil.signing";
 
 pub const SYSTEM_CONFIG_ALLOWED_CATEGORIES: &[&str] = &[
-    CONFIG_CATEGORY_SITE,
-    CONFIG_CATEGORY_AUTH,
+    CONFIG_CATEGORY_SITE_PUBLIC,
+    CONFIG_CATEGORY_SITE_BRANDING,
+    CONFIG_CATEGORY_AUTH_SESSION,
+    CONFIG_CATEGORY_AUTH_REGISTRATION,
+    CONFIG_CATEGORY_AUTH_RECOVERY,
+    CONFIG_CATEGORY_AUTH_LOGIN,
+    CONFIG_CATEGORY_AUTH_EMAIL_POLICY,
     CONFIG_CATEGORY_USER_AVATAR,
-    CONFIG_CATEGORY_NETWORK,
-    CONFIG_CATEGORY_AUDIT,
-    CONFIG_CATEGORY_RUNTIME,
+    CONFIG_CATEGORY_NETWORK_CORS,
+    CONFIG_CATEGORY_AUDIT_LOG,
+    CONFIG_CATEGORY_RUNTIME_TASKS,
     CONFIG_CATEGORY_RUNTIME_MAIL,
+    CONFIG_CATEGORY_RUNTIME_MAINTENANCE,
     CONFIG_CATEGORY_MAIL_CONFIG,
     CONFIG_CATEGORY_MAIL_TEMPLATE,
-    CONFIG_CATEGORY_YGGDRASIL,
+    CONFIG_CATEGORY_YGGDRASIL_METADATA,
+    CONFIG_CATEGORY_YGGDRASIL_AUTH,
+    CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
+    CONFIG_CATEGORY_YGGDRASIL_SIGNING,
 ];
 
 pub const PUBLIC_SITE_URL_KEY: &str = "public_site_url";
@@ -56,7 +74,6 @@ pub const AUTH_EMAIL_CODE_LOGIN_RESEND_COOLDOWN_SECS_KEY: &str =
 pub const AUTH_LOCAL_EMAIL_ALLOWLIST_KEY: &str = "auth_local_email_allowlist";
 pub const AUTH_LOCAL_EMAIL_BLOCKLIST_KEY: &str = "auth_local_email_blocklist";
 
-pub const AVATAR_DIR_KEY: &str = "avatar_dir";
 pub const GRAVATAR_BASE_URL_KEY: &str = "gravatar_base_url";
 
 pub const CORS_ENABLED_KEY: &str = "cors_enabled";
@@ -130,6 +147,10 @@ pub const YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_texture_publi
 pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public_key";
 pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
 
+pub const DEPRECATED_AVATAR_DIR_KEY: &str = "avatar_dir";
+
+pub const DEPRECATED_SYSTEM_CONFIG_KEYS: &[&str] = &[DEPRECATED_AVATAR_DIR_KEY];
+
 pub struct ConfigDef {
     pub key: &'static str,
     pub label_i18n_key: &'static str,
@@ -155,7 +176,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: empty_origin_list_default,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_PUBLIC,
         description: "Public origins used to build externally visible application URLs",
     },
     ConfigDef {
@@ -166,7 +187,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "AsterYggdrasil".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_BRANDING,
         description: "Application title shown in the embedded frontend",
     },
     ConfigDef {
@@ -179,7 +200,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         },
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_BRANDING,
         description: "Short application description shown in public UI contexts",
     },
     ConfigDef {
@@ -190,7 +211,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "/favicon.svg".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_BRANDING,
         description: "Favicon URL for the embedded frontend",
     },
     ConfigDef {
@@ -201,7 +222,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_BRANDING,
         description: "Optional dark wordmark URL for branded frontend shells",
     },
     ConfigDef {
@@ -212,7 +233,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_SITE,
+        category: CONFIG_CATEGORY_SITE_BRANDING,
         description: "Optional light wordmark URL for branded frontend shells",
     },
     ConfigDef {
@@ -223,7 +244,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_SESSION,
         description: "Whether authentication cookies require HTTPS",
     },
     ConfigDef {
@@ -234,7 +255,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "900".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_SESSION,
         description: "Access token lifetime in seconds",
     },
     ConfigDef {
@@ -245,7 +266,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "604800".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_SESSION,
         description: "Refresh token lifetime in seconds",
     },
     ConfigDef {
@@ -256,7 +277,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "Allow users to register after the initial setup",
     },
     ConfigDef {
@@ -267,7 +288,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "false".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "Require activation before newly registered users can sign in",
     },
     ConfigDef {
@@ -278,7 +299,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "86400".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "Registration activation token lifetime in seconds",
     },
     ConfigDef {
@@ -291,7 +312,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         },
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "User invitation token lifetime in seconds",
     },
     ConfigDef {
@@ -302,7 +323,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "86400".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_RECOVERY,
         description: "Contact change confirmation token lifetime in seconds",
     },
     ConfigDef {
@@ -313,7 +334,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "3600".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_RECOVERY,
         description: "Password reset token lifetime in seconds",
     },
     ConfigDef {
@@ -324,7 +345,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "60".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_RECOVERY,
         description: "Minimum cooldown between contact verification sends in seconds",
     },
     ConfigDef {
@@ -335,7 +356,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "60".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_RECOVERY,
         description: "Minimum cooldown between password reset requests in seconds",
     },
     ConfigDef {
@@ -346,7 +367,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "false".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
         description: "Enable email code login when mail plumbing is provided by the project",
     },
     ConfigDef {
@@ -357,7 +378,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
         description: "Enable passkey login when passkey plumbing is provided by the project",
     },
     ConfigDef {
@@ -368,7 +389,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "false".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
         description: "Allow email code fallback for TOTP challenges",
     },
     ConfigDef {
@@ -379,7 +400,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "600".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
         description: "Email login code lifetime in seconds",
     },
     ConfigDef {
@@ -390,7 +411,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "60".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
         description: "Minimum cooldown between email login code sends in seconds",
     },
     ConfigDef {
@@ -401,7 +422,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: empty_origin_list_default,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_EMAIL_POLICY,
         description: "Allowed local-account email addresses and exact ASCII domains. Empty means no allowlist restriction",
     },
     ConfigDef {
@@ -412,19 +433,8 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: empty_origin_list_default,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUTH,
+        category: CONFIG_CATEGORY_AUTH_EMAIL_POLICY,
         description: "Blocked local-account email addresses and exact ASCII domains. Blocklist wins over allowlist",
-    },
-    ConfigDef {
-        key: AVATAR_DIR_KEY,
-        label_i18n_key: "settings_item_avatar_dir_label",
-        description_i18n_key: "settings_item_avatar_dir_desc",
-        value_type: SystemConfigValueType::String,
-        default_fn: || crate::config::avatar::DEFAULT_AVATAR_DIR.to_string(),
-        requires_restart: false,
-        is_sensitive: false,
-        category: CONFIG_CATEGORY_USER_AVATAR,
-        description: "Local directory used for uploaded avatar files; relative paths resolve under ./data",
     },
     ConfigDef {
         key: GRAVATAR_BASE_URL_KEY,
@@ -445,7 +455,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "false".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_NETWORK,
+        category: CONFIG_CATEGORY_NETWORK_CORS,
         description: "Enable runtime CORS handling for cross-origin browser requests",
     },
     ConfigDef {
@@ -456,7 +466,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_NETWORK,
+        category: CONFIG_CATEGORY_NETWORK_CORS,
         description: "Comma-separated CORS origin whitelist",
     },
     ConfigDef {
@@ -467,7 +477,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "false".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_NETWORK,
+        category: CONFIG_CATEGORY_NETWORK_CORS,
         description: "Whether CORS responses include Access-Control-Allow-Credentials",
     },
     ConfigDef {
@@ -478,7 +488,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "3600".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_NETWORK,
+        category: CONFIG_CATEGORY_NETWORK_CORS,
         description: "CORS preflight cache duration in seconds",
     },
     ConfigDef {
@@ -489,7 +499,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUDIT,
+        category: CONFIG_CATEGORY_AUDIT_LOG,
         description: "Enable audit log recording",
     },
     ConfigDef {
@@ -500,7 +510,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "90".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUDIT,
+        category: CONFIG_CATEGORY_AUDIT_LOG,
         description: "Audit log retention in days",
     },
     ConfigDef {
@@ -511,7 +521,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: crate::config::audit::default_recorded_actions_value,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_AUDIT,
+        category: CONFIG_CATEGORY_AUDIT_LOG,
         description: "Audit action allowlist stored as a JSON string array",
     },
     ConfigDef {
@@ -855,7 +865,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_SERVER_NAME.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_METADATA,
         description: "Server name exposed in authlib-injector metadata",
     },
     ConfigDef {
@@ -868,7 +878,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         },
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
         description: "Allow launcher login using Minecraft profile names",
     },
     ConfigDef {
@@ -879,7 +889,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ALLOW_SKIN_UPLOAD.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Allow Minecraft profiles to upload skin textures",
     },
     ConfigDef {
@@ -890,7 +900,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ALLOW_CAPE_UPLOAD.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Allow Minecraft profiles to upload cape textures",
     },
     ConfigDef {
@@ -901,7 +911,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_ENABLE_PROFILE_KEY.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_METADATA,
         description: "Expose authlib-injector profile key support and serve Minecraft services player certificates",
     },
     ConfigDef {
@@ -914,7 +924,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         },
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_METADATA,
         description: "Expose authlib-injector Minecraft services anti-feature policy endpoints",
     },
     ConfigDef {
@@ -925,7 +935,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_TOKEN_TTL_DAYS.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
         description: "Launcher access token lifetime in days",
     },
     ConfigDef {
@@ -936,7 +946,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_ACTIVE_TOKENS.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
         description: "Maximum active launcher tokens retained per user",
     },
     ConfigDef {
@@ -949,7 +959,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         },
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Maximum uploaded texture file size in bytes, enforced while streaming multipart data",
     },
     ConfigDef {
@@ -960,7 +970,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS.to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Maximum uploaded texture pixel count checked from PNG dimensions before full decode",
     },
     ConfigDef {
@@ -971,7 +981,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: crate::config::yggdrasil::default_skin_domains_config,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Texture domain whitelist exposed in authlib-injector metadata",
     },
     ConfigDef {
@@ -982,7 +992,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: empty_origin_list_default,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Externally reachable base URL candidates used to build Yggdrasil texture URLs",
     },
     ConfigDef {
@@ -993,7 +1003,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
         description: "Optional public object-storage or CDN base URL used for uploaded texture objects. When empty, texture URLs use the Yggdrasil API route",
     },
     ConfigDef {
@@ -1004,7 +1014,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_SIGNING,
         description: "PEM public key exposed in authlib-injector metadata when no signing private key is configured; when a private key exists, metadata derives the public key from it",
     },
     ConfigDef {
@@ -1015,7 +1025,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: String::new,
         requires_restart: false,
         is_sensitive: true,
-        category: CONFIG_CATEGORY_YGGDRASIL,
+        category: CONFIG_CATEGORY_YGGDRASIL_SIGNING,
         description: "PEM RSA private key used to sign Yggdrasil texture properties. Rotate via config action; new profile/hasJoined responses are signed with the current key",
     },
     ConfigDef {
@@ -1039,7 +1049,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "5".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "Default interval for project background task dispatch loops",
     },
     ConfigDef {
@@ -1050,7 +1060,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "60".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "Maximum idle backoff interval for background task dispatch loops",
     },
     ConfigDef {
@@ -1061,7 +1071,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "4".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "Maximum number of generic background tasks processed concurrently",
     },
     ConfigDef {
@@ -1072,7 +1082,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "3".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "Default max attempts for retryable project background tasks",
     },
     ConfigDef {
@@ -1083,7 +1093,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "24".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "How long completed background task records and artifacts are retained",
     },
     ConfigDef {
@@ -1094,7 +1104,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "100".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_TASKS,
         description: "Maximum page size accepted by background task list APIs",
     },
     ConfigDef {
@@ -1105,7 +1115,119 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         default_fn: || "3600".to_string(),
         requires_restart: false,
         is_sensitive: false,
-        category: CONFIG_CATEGORY_RUNTIME,
+        category: CONFIG_CATEGORY_RUNTIME_MAINTENANCE,
         description: "Default interval for project maintenance cleanup loops",
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    #[test]
+    fn every_config_category_is_allowed() {
+        let allowed = SYSTEM_CONFIG_ALLOWED_CATEGORIES
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        assert_eq!(allowed.len(), SYSTEM_CONFIG_ALLOWED_CATEGORIES.len());
+
+        for def in ALL_CONFIGS {
+            assert!(
+                allowed.contains(def.category),
+                "{} uses unregistered category {}",
+                def.key,
+                def.category
+            );
+        }
+    }
+
+    #[test]
+    fn deprecated_config_keys_do_not_overlap_active_definitions() {
+        let active = ALL_CONFIGS
+            .iter()
+            .map(|def| def.key)
+            .collect::<BTreeSet<_>>();
+        let deprecated = DEPRECATED_SYSTEM_CONFIG_KEYS
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            deprecated.len(),
+            DEPRECATED_SYSTEM_CONFIG_KEYS.len(),
+            "deprecated config keys must be unique"
+        );
+
+        for key in deprecated {
+            assert!(!active.contains(key), "{key} is both active and deprecated");
+        }
+    }
+
+    #[test]
+    fn representative_configs_use_domain_subcategories() {
+        let by_key = ALL_CONFIGS
+            .iter()
+            .map(|def| (def.key, def.category))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(by_key[PUBLIC_SITE_URL_KEY], CONFIG_CATEGORY_SITE_PUBLIC);
+        assert_eq!(by_key[BRANDING_TITLE_KEY], CONFIG_CATEGORY_SITE_BRANDING);
+        assert_eq!(
+            by_key[AUTH_ACCESS_TOKEN_TTL_SECS_KEY],
+            CONFIG_CATEGORY_AUTH_SESSION
+        );
+        assert_eq!(
+            by_key[AUTH_ALLOW_USER_REGISTRATION_KEY],
+            CONFIG_CATEGORY_AUTH_REGISTRATION
+        );
+        assert_eq!(
+            by_key[AUTH_PASSWORD_RESET_TTL_SECS_KEY],
+            CONFIG_CATEGORY_AUTH_RECOVERY
+        );
+        assert_eq!(
+            by_key[AUTH_EMAIL_CODE_LOGIN_ENABLED_KEY],
+            CONFIG_CATEGORY_AUTH_LOGIN
+        );
+        assert_eq!(
+            by_key[AUTH_LOCAL_EMAIL_ALLOWLIST_KEY],
+            CONFIG_CATEGORY_AUTH_EMAIL_POLICY
+        );
+        assert_eq!(by_key[GRAVATAR_BASE_URL_KEY], CONFIG_CATEGORY_USER_AVATAR);
+        assert_eq!(by_key[CORS_ENABLED_KEY], CONFIG_CATEGORY_NETWORK_CORS);
+        assert_eq!(by_key[AUDIT_LOG_ENABLED_KEY], CONFIG_CATEGORY_AUDIT_LOG);
+        assert_eq!(by_key[MAIL_SMTP_HOST_KEY], CONFIG_CATEGORY_MAIL_CONFIG);
+        assert_eq!(
+            by_key[MAIL_TEMPLATE_PASSWORD_RESET_HTML_KEY],
+            CONFIG_CATEGORY_MAIL_TEMPLATE
+        );
+        assert_eq!(
+            by_key[YGGDRASIL_SERVER_NAME_KEY],
+            CONFIG_CATEGORY_YGGDRASIL_METADATA
+        );
+        assert_eq!(
+            by_key[YGGDRASIL_TOKEN_TTL_DAYS_KEY],
+            CONFIG_CATEGORY_YGGDRASIL_AUTH
+        );
+        assert_eq!(
+            by_key[YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY],
+            CONFIG_CATEGORY_YGGDRASIL_TEXTURES
+        );
+        assert_eq!(
+            by_key[YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY],
+            CONFIG_CATEGORY_YGGDRASIL_SIGNING
+        );
+        assert_eq!(
+            by_key[MAIL_OUTBOX_DISPATCH_INTERVAL_SECS_KEY],
+            CONFIG_CATEGORY_RUNTIME_MAIL
+        );
+        assert_eq!(
+            by_key[BACKGROUND_TASK_MAX_CONCURRENCY_KEY],
+            CONFIG_CATEGORY_RUNTIME_TASKS
+        );
+        assert_eq!(
+            by_key[MAINTENANCE_CLEANUP_INTERVAL_SECS_KEY],
+            CONFIG_CATEGORY_RUNTIME_MAINTENANCE
+        );
+    }
+}

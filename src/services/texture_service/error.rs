@@ -92,7 +92,7 @@ impl TextureError {
                 .detail
                 .clone()
                 .unwrap_or_else(|| "Invalid texture dimensions.".to_string()),
-            TextureErrorKind::Storage => "Texture storage failed.".to_string(),
+            TextureErrorKind::Storage => "Object storage failed.".to_string(),
         }
     }
 }
@@ -113,19 +113,19 @@ mod tests {
     fn storage_errors_do_not_expose_internal_details_to_clients() {
         let error = TextureError::with_detail(
             TextureErrorKind::Storage,
-            "S3 texture upload failed: endpoint=https://s3.internal, bucket=private",
+            "S3 object upload failed: endpoint=https://s3.internal, bucket=private",
         );
 
-        assert_eq!(error.protocol_message(), "Texture storage failed.");
+        assert_eq!(error.protocol_message(), "Object storage failed.");
     }
 
     #[test]
     fn aster_errors_are_logged_but_mapped_to_generic_storage_errors() {
         let error = TextureError::from(AsterError::internal_error(
-            "S3 texture upload failed: source=connection refused",
+            "S3 object upload failed: source=connection refused",
         ));
 
         assert_eq!(error.kind(), TextureErrorKind::Storage);
-        assert_eq!(error.protocol_message(), "Texture storage failed.");
+        assert_eq!(error.protocol_message(), "Object storage failed.");
     }
 }

@@ -32,11 +32,11 @@ vi.mock("@/services/adminService", async (importOriginal) => {
 });
 
 const config = {
-	category: "site.urls",
+	category: "site.public",
 	description: "Public site URLs",
 	id: 1,
 	is_sensitive: false,
-	key: "site.urls",
+	key: "public_site_url",
 	namespace: "site",
 	requires_restart: false,
 	source: "system",
@@ -58,11 +58,11 @@ const customConfig = {
 } satisfies SystemConfig;
 
 const schema = {
-	category: "site.urls",
+	category: "site.public",
 	description: "Public site URLs",
 	description_i18n_key: "",
 	is_sensitive: false,
-	key: "site.urls",
+	key: "public_site_url",
 	label_i18n_key: "",
 	options: [],
 	requires_restart: false,
@@ -101,7 +101,7 @@ const mailTemplateHtmlConfig = {
 
 const yggdrasilConfig = {
 	...config,
-	category: "yggdrasil",
+	category: "yggdrasil.signing",
 	id: 6,
 	key: "yggdrasil_signature_private_key",
 	namespace: "yggdrasil",
@@ -148,7 +148,7 @@ const enumSetSchema = {
 
 const sensitiveStringConfig = {
 	...config,
-	category: "auth.security",
+	category: "auth.session",
 	id: 9,
 	is_sensitive: true,
 	key: "auth_session_secret",
@@ -158,10 +158,30 @@ const sensitiveStringConfig = {
 	visibility: "private",
 } satisfies SystemConfig;
 
+const authAccessTokenTtlConfig = {
+	...config,
+	category: "auth.session",
+	id: 12,
+	key: "auth_access_token_ttl_secs",
+	namespace: "auth",
+	value: "3600",
+	value_type: "number",
+} satisfies SystemConfig;
+
+const userAvatarConfig = {
+	...config,
+	category: "user.avatar",
+	id: 10,
+	key: "gravatar_base_url",
+	namespace: "system",
+	value: "https://www.gravatar.com/avatar",
+	value_type: "string",
+} satisfies SystemConfig;
+
 const unknownCategoryConfig = {
 	...config,
 	category: "legacy.cloud",
-	id: 10,
+	id: 11,
 	key: "legacy_cloud_storage",
 	namespace: "legacy",
 	value: "enabled",
@@ -238,7 +258,7 @@ describe("AdminSettingsPage", () => {
 			screen.queryByRole("heading", { name: "settings_category_site" }),
 		).not.toBeInTheDocument();
 		expect(
-			screen.getByRole("heading", { name: "Site Urls" }),
+			screen.getByRole("heading", { name: "Site Public" }),
 		).toBeInTheDocument();
 	});
 
@@ -247,7 +267,7 @@ describe("AdminSettingsPage", () => {
 
 		render(<AdminSettingsPage />);
 
-		const heading = await screen.findByRole("heading", { name: "Site Urls" });
+		const heading = await screen.findByRole("heading", { name: "Site Public" });
 		const groupHeader = heading.closest(".border-b");
 		expect(groupHeader).not.toBeNull();
 		expect(within(groupHeader as HTMLElement).queryByText("1")).toBeNull();
@@ -271,7 +291,7 @@ describe("AdminSettingsPage", () => {
 		});
 		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
 
-		expect(adminConfigService.set).toHaveBeenCalledWith("site.urls", {
+		expect(adminConfigService.set).toHaveBeenCalledWith("public_site_url", {
 			value: ["https://example.com/account"],
 		});
 		await waitFor(() =>
@@ -333,6 +353,25 @@ describe("AdminSettingsPage", () => {
 		expect(screen.queryByDisplayValue("enabled")).not.toBeInTheDocument();
 	});
 
+	it("shows user avatar settings under the user category", async () => {
+		mockSettingsLoad({ items: [userAvatarConfig] });
+
+		render(<AdminSettingsPage />);
+
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: /settings_category_user/i,
+			}),
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: "User Avatar" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByDisplayValue("https://www.gravatar.com/avatar"),
+		).toBeInTheDocument();
+	});
+
 	it("does not reveal sensitive stored values and only saves an explicit replacement", async () => {
 		mockSettingsLoad({ items: [sensitiveStringConfig] });
 		vi.mocked(adminConfigService.set).mockResolvedValue({
@@ -389,6 +428,21 @@ describe("AdminSettingsPage", () => {
 		);
 	});
 
+	it("renders time unit selectors with translated labels", async () => {
+		mockSettingsLoad({ items: [authAccessTokenTtlConfig] });
+
+		render(<AdminSettingsPage />);
+
+		fireEvent.click(
+			await screen.findByRole("button", { name: /settings_category_auth/i }),
+		);
+
+		expect(
+			await screen.findByText("settings_time_unit_hours"),
+		).toBeInTheDocument();
+		expect(screen.queryByText("hours")).not.toBeInTheDocument();
+	});
+
 	it("compacts trimmed string-array rows before saving", async () => {
 		mockSettingsLoad({ items: [config], nextSchema: [schema] });
 		vi.mocked(adminConfigService.set).mockResolvedValue({
@@ -416,7 +470,7 @@ describe("AdminSettingsPage", () => {
 		});
 		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
 
-		expect(adminConfigService.set).toHaveBeenCalledWith("site.urls", {
+		expect(adminConfigService.set).toHaveBeenCalledWith("public_site_url", {
 			value: ["https://example.com/account"],
 		});
 	});

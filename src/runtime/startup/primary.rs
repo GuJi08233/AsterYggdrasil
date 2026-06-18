@@ -19,7 +19,7 @@ pub async fn prepare_primary(config: Arc<Config>) -> Result<PreparedPrimaryRunti
         mail_sender: crate::services::mail_service::runtime_sender(common.runtime_config.clone()),
         runtime_config: common.runtime_config,
         cache: common.cache,
-        texture_storage: common.texture_storage,
+        object_storage: common.object_storage,
         metrics: common.metrics,
         started_at: AppState::new_started_at(),
         yggdrasil_rate_limiter,

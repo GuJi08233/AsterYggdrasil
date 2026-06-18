@@ -123,7 +123,6 @@ where
         | local_email_policy::AUTH_LOCAL_EMAIL_BLOCKLIST_KEY => {
             local_email_policy::normalize_local_email_policy_config_value(key, value)
         }
-        avatar::AVATAR_DIR_KEY => avatar::normalize_avatar_dir_config_value(value),
         avatar::GRAVATAR_BASE_URL_KEY => avatar::normalize_gravatar_base_url_config_value(value),
         mail::MAIL_SMTP_HOST_KEY => mail::normalize_smtp_host_config_value(value),
         mail::MAIL_SMTP_PORT_KEY => mail::normalize_smtp_port_config_value(value),
@@ -227,7 +226,7 @@ pub fn apply_definition(mut config: system_config::Model) -> system_config::Mode
 #[cfg(test)]
 mod tests {
     use super::{apply_definition, normalize_system_value, validate_value_type};
-    use crate::config::definitions::{CONFIG_CATEGORY_SITE, PUBLIC_SITE_URL_KEY};
+    use crate::config::definitions::{CONFIG_CATEGORY_SITE_PUBLIC, PUBLIC_SITE_URL_KEY};
     use crate::config::yggdrasil::{YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY};
     use crate::config::{audit, cors, operations};
     use crate::entities::system_config;
@@ -384,7 +383,7 @@ mod tests {
             SystemConfigSource::System,
         ));
         assert_eq!(config.value_type, SystemConfigValueType::StringArray);
-        assert_eq!(config.category, CONFIG_CATEGORY_SITE);
+        assert_eq!(config.category, CONFIG_CATEGORY_SITE_PUBLIC);
         assert_eq!(
             config.description,
             "Public origins used to build externally visible application URLs"

@@ -781,7 +781,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         config: base.config.clone(),
         runtime_config: base.runtime_config,
         cache,
-        texture_storage: base.texture_storage,
+        object_storage: base.object_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
         started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
@@ -972,9 +972,9 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         .expect("runtime config should reload");
 
     let cache = aster_yggdrasil::cache::create_cache(&config.cache).await;
-    let texture_storage =
-        aster_yggdrasil::texture_storage::create_texture_storage(&config.texture_storage)
-            .expect("texture storage should initialize");
+    let object_storage =
+        aster_yggdrasil::object_storage::create_object_storage(&config.object_storage)
+            .expect("object storage should initialize");
     let db_handles = aster_yggdrasil::db::connect_reader_for_writer_with_metrics(
         &db_cfg,
         writer,
@@ -990,7 +990,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         config,
         runtime_config,
         cache,
-        texture_storage,
+        object_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
         started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
@@ -1160,7 +1160,7 @@ pub fn system_config_model(
         source: aster_yggdrasil::types::SystemConfigSource::System,
         visibility: aster_yggdrasil::types::SystemConfigVisibility::Private,
         namespace: String::new(),
-        category: aster_yggdrasil::config::definitions::CONFIG_CATEGORY_SITE.to_string(),
+        category: aster_yggdrasil::config::definitions::CONFIG_CATEGORY_SITE_PUBLIC.to_string(),
         description: "test".to_string(),
         updated_at: chrono::Utc::now(),
         updated_by: None,

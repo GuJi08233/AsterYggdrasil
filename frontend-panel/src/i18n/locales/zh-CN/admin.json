@@ -65,6 +65,7 @@
 				"database": "数据库",
 				"yggdrasil": "Yggdrasil 认证",
 				"session": "站点会话",
+				"object_storage": "对象存储",
 				"texture_storage": "材质存储",
 				"background_tasks": "后台任务"
 			},

@@ -28,11 +28,11 @@ backend = "memory"
 redis_url = ""
 default_ttl = 3600
 
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 
-[texture_storage.s3]
+[object_storage.s3]
 endpoint = ""
 region = ""
 bucket = ""

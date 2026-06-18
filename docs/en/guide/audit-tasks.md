@@ -51,7 +51,7 @@ yggdrasil-texture-cleanup
 Yggdrasil-specific tasks:
 
 - `yggdrasil-token-cleanup`: deletes expired or revoked tokens.
-- `yggdrasil-storage-consistency-check`: checks whether texture DB rows point to missing objects and whether storage keys still match their recorded hashes.
+- `yggdrasil-storage-consistency-check`: checks whether texture DB rows point to missing objects and whether object storage keys still match their recorded hashes.
 - `yggdrasil-texture-cleanup`: deletes orphan objects with no DB references.
 
 ## primary/follower

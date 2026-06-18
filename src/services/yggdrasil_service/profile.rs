@@ -3,7 +3,7 @@ use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_repo, yggdrasil_token_repo};
 use crate::entities::minecraft_profile;
 use crate::errors::{AsterError, Result};
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState, TextureStorageRuntimeState};
+use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::texture_service;
 use serde::Serialize;
 
@@ -107,7 +107,7 @@ pub async fn delete_profile_for_user<S>(
     uuid: &str,
 ) -> Result<Option<DeleteMinecraftProfileResult>>
 where
-    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
     tracing::debug!(
         user_id,

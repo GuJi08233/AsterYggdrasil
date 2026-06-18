@@ -6,7 +6,6 @@ import {
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
-	SelectValue,
 } from "@/components/ui/select";
 import type { NumberUnitOption } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
@@ -48,6 +47,8 @@ export function AdminNumberUnitInput<TValue extends string>({
 }: AdminNumberUnitInputProps<TValue>) {
 	const { t } = useTranslation();
 	const invalidState = Boolean(errorMessage) || invalid === true;
+	const selectedUnit = units.find((option) => option.value === unit);
+	const selectedUnitLabel = selectedUnit ? t(selectedUnit.labelKey) : unit;
 
 	return (
 		<div className={cn("space-y-2", className)}>
@@ -88,7 +89,12 @@ export function AdminNumberUnitInput<TValue extends string>({
 						aria-label={unitAriaLabel}
 						aria-invalid={invalidState ? true : undefined}
 					>
-						<SelectValue />
+						<span
+							data-slot="select-value"
+							className="flex min-w-0 flex-1 text-left"
+						>
+							{selectedUnitLabel}
+						</span>
 					</SelectTrigger>
 					<SelectContent align="end">
 						{units.map((option) => (

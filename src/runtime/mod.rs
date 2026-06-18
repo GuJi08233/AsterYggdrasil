@@ -11,8 +11,8 @@ use crate::cache::CacheBackend;
 use crate::config::{Config, RuntimeConfig};
 use crate::db::DbHandles;
 use crate::metrics_core::SharedMetricsRecorder;
+use crate::object_storage::ObjectStorage;
 use crate::services::mail_service::MailSender;
-use crate::texture_storage::TextureStorage;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -24,7 +24,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub runtime_config: Arc<RuntimeConfig>,
     pub cache: Arc<dyn CacheBackend>,
-    pub texture_storage: Arc<dyn TextureStorage>,
+    pub object_storage: Arc<dyn ObjectStorage>,
     pub mail_sender: Arc<dyn MailSender>,
     pub metrics: SharedMetricsRecorder,
     pub started_at: Instant,
@@ -65,8 +65,8 @@ impl AppState {
         &self.cache
     }
 
-    pub fn texture_storage(&self) -> &Arc<dyn TextureStorage> {
-        &self.texture_storage
+    pub fn object_storage(&self) -> &Arc<dyn ObjectStorage> {
+        &self.object_storage
     }
 
     pub fn mail_sender(&self) -> &Arc<dyn MailSender> {
@@ -107,8 +107,8 @@ pub trait CacheRuntimeState {
     fn cache(&self) -> &Arc<dyn CacheBackend>;
 }
 
-pub trait TextureStorageRuntimeState {
-    fn texture_storage(&self) -> &Arc<dyn TextureStorage>;
+pub trait ObjectStorageRuntimeState {
+    fn object_storage(&self) -> &Arc<dyn ObjectStorage>;
 }
 
 pub trait MetricsRuntimeState {
@@ -120,7 +120,7 @@ pub trait SharedRuntimeState:
     + AppConfigRuntimeState
     + RuntimeConfigRuntimeState
     + CacheRuntimeState
-    + TextureStorageRuntimeState
+    + ObjectStorageRuntimeState
     + MetricsRuntimeState
 {
 }
@@ -130,7 +130,7 @@ impl<T> SharedRuntimeState for T where
         + AppConfigRuntimeState
         + RuntimeConfigRuntimeState
         + CacheRuntimeState
-        + TextureStorageRuntimeState
+        + ObjectStorageRuntimeState
         + MetricsRuntimeState
 {
 }
@@ -171,9 +171,9 @@ impl CacheRuntimeState for AppState {
     }
 }
 
-impl TextureStorageRuntimeState for AppState {
-    fn texture_storage(&self) -> &Arc<dyn TextureStorage> {
-        self.texture_storage()
+impl ObjectStorageRuntimeState for AppState {
+    fn object_storage(&self) -> &Arc<dyn ObjectStorage> {
+        self.object_storage()
     }
 }
 

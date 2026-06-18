@@ -101,7 +101,7 @@
 					"mail": "邮件",
 					"background_tasks": "后台任务",
 					"storage": "材质存储",
-					"texture_storage_consistency": "材质存储一致性",
+					"texture_storage_consistency": "对象存储一致性",
 					"yggdrasil": "Yggdrasil",
 					"yggdrasil_storage": "Yggdrasil 存储",
 					"yggdrasil_storage_consistency": "Yggdrasil 存储一致性"

@@ -194,7 +194,7 @@ mod tests {
             source: crate::types::SystemConfigSource::System,
             visibility: crate::types::SystemConfigVisibility::Private,
             namespace: String::new(),
-            category: crate::config::definitions::CONFIG_CATEGORY_SITE.to_string(),
+            category: crate::config::definitions::CONFIG_CATEGORY_SITE_PUBLIC.to_string(),
             description: "test".to_string(),
             updated_at: Utc::now(),
             updated_by: None,

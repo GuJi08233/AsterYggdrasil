@@ -2,7 +2,7 @@
 
 AsterYggdrasil separates static config from runtime config.
 
-- Static config lives in `data/config.toml` and controls database, bind address, cache, texture storage, and startup-time settings.
+- Static config lives in `data/config.toml` and controls database, bind address, cache, object storage, and startup-time settings.
 - Runtime config lives in the `system_config` table and controls Yggdrasil policy, public URLs, upload switches, token policy, and signing keys.
 
 ## Static Config
@@ -23,12 +23,12 @@ url = "sqlite://asteryggdrasil.db?mode=rwc"
 enabled = true
 backend = "memory"
 
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 ```
 
-Relative paths resolve against the directory containing `data/config.toml`. The default `local_root = "textures"` resolves to `data/textures`.
+Relative paths resolve against the directory containing `data/config.toml`. The default `local_root = "storage"` resolves to `data/storage`. Textures and uploaded user avatars both use this object storage config.
 
 ## Yggdrasil Runtime Config
 

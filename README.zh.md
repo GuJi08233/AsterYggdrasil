@@ -23,10 +23,10 @@ AsterYggdrasil 把 Minecraft 私有部署里常见的身份和材质链路放进
 - Yggdrasil/authlib-injector 协议根路径 `/api/yggdrasil`。
 - 启动器登录、token refresh/validate/invalidate/signout。
 - Minecraft join / hasJoined / profile 查询。
-- skin/cape 上传、PNG 重编码、旧式 cape 兼容、hash 公开读取和 local 材质存储。
+- skin/cape 上传、PNG 重编码、旧式 cape 兼容、hash 公开读取和 local/S3/MinIO 对象存储。
 - 运行时配置、Yggdrasil 签名密钥轮换、审计日志和周期维护任务。
 
-它不是云盘、私有云、服务器面板或通用 SaaS 模板。项目域已经明确收敛到 Minecraft/Yggdrasil：账号、玩家档案、皮肤、披风、启动器登录、服务端进服验证、签名密钥、材质存储和管理员运维。
+它不是云盘、私有云、服务器面板或通用 SaaS 模板。项目域已经明确收敛到 Minecraft/Yggdrasil：账号、玩家档案、皮肤、披风、启动器登录、服务端进服验证、签名密钥、对象存储和管理员运维。
 
 ## 当前适合谁
 
@@ -35,14 +35,14 @@ AsterYggdrasil 适合这些场景：
 - 你在运营 authlib-injector 或离线登录生态下的 Minecraft 服务器。
 - 你希望自己掌握玩家账号、Minecraft profile、材质文件、数据库、签名密钥和备份。
 - 你需要 Yggdrasil/authlib-injector 兼容协议端点。
-- 你想从 SQLite + local texture storage 起步，后续再按需要扩展数据库。
+- 你想从 SQLite + local object storage 起步，后续再按需要扩展数据库或存储后端。
 - 你想要单一二进制直接部署，不想维护复杂的 PHP 运行环境、Web 服务器插件和扩展依赖。
 - 你想基于 Rust、Actix Web、SeaORM、React 和 Vite 做二次开发。
 
 当前版本不适合这些场景：
 
 - 需要成熟商业级皮肤站前端，开箱即可给大量用户长期使用。
-- 需要 S3/MinIO 材质存储后端。配置形状已预留，但 backend 尚未实现。
+- 需要客户端直接向 S3/MinIO presigned 上传。当前上传统一走服务端 streaming。
 - 需要多主高可用、自动故障切换、复杂封禁系统或企业合规承诺。
 - 需要游戏服务器管理、文件存储、WebDAV、WOPI、团队分享或云盘功能。
 - 需要替代 Mojang 官方 online-mode 面向任意公网客户端提供通用账号服务。
@@ -209,10 +209,10 @@ docker run -d \
 
 - 不要直接把 `:3000` 暴露到公网。请放在反向代理后面，由代理处理 HTTPS、上传限制和真实客户端 IP。
 - 正式使用前配置 `public_site_url` 或 `yggdrasil_public_base_url`，否则 textures property 无法生成客户端可访问的绝对 URL。
-- 备份数据库、`data/config.toml` 和 local texture storage 目录。
+- 备份数据库、`data/config.toml` 和 object storage backend 或 local object storage 目录。
 - Yggdrasil 签名私钥属于敏感配置。使用 config action 轮换，不要直接手写数据库。
 - 多实例部署时，只让一个实例使用 `start_mode = "primary"` 执行周期维护任务。
-- 当前生产可用的材质存储 backend 是 local；`s3` / `minio` backend 仍是预留项。
+- 当前生产可用的 object storage backend 是 local、S3 或 MinIO。材质和上传头像都会走同一个 backend。
 
 ## 常用开发命令
 
@@ -252,7 +252,7 @@ src/db/                      数据库连接、重试、事务、repository
 src/entities/                SeaORM entity
 src/runtime/                 AppState、启动、关闭、日志、后台任务循环
 src/services/                auth、external auth、config、mail、audit、task、health、Yggdrasil、texture
-src/texture_storage/         Minecraft 材质存储抽象
+src/object_storage/          材质和上传头像共用的对象存储抽象
 src/types/                   共享枚举和 DB wrapper 类型
 src/utils/                   crypto、ID、path、number、email、RAII 等工具
 migration/                   SeaORM migration crate

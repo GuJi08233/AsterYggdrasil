@@ -447,10 +447,8 @@ mod tests {
             config: config.clone(),
             runtime_config,
             cache,
-            texture_storage: crate::texture_storage::create_texture_storage(
-                &config.texture_storage,
-            )
-            .expect("texture storage should initialize"),
+            object_storage: crate::object_storage::create_object_storage(&config.object_storage)
+                .expect("object storage should initialize"),
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),

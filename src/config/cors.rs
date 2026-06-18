@@ -295,7 +295,7 @@ mod tests {
     use chrono::Utc;
 
     use crate::config::RuntimeConfig;
-    use crate::config::definitions::CONFIG_CATEGORY_NETWORK;
+    use crate::config::definitions::CONFIG_CATEGORY_NETWORK_CORS;
     use crate::entities::system_config;
 
     use super::{
@@ -318,7 +318,7 @@ mod tests {
             source: crate::types::SystemConfigSource::System,
             visibility: crate::types::SystemConfigVisibility::Private,
             namespace: String::new(),
-            category: CONFIG_CATEGORY_NETWORK.to_string(),
+            category: CONFIG_CATEGORY_NETWORK_CORS.to_string(),
             description: "test".to_string(),
             updated_at: Utc::now(),
             updated_by: None,

@@ -133,7 +133,7 @@ GET /api/yggdrasil/textures/{hash}
 如果返回 404：
 
 - 确认 hash 来自当前 profile textures property。
-- 确认 local texture storage 目录已经挂载。
+- 确认 local object storage 目录已经挂载。
 - 确认没有直接删除 storage 文件。
 - 确认数据库和材质目录是同一时间点的备份。
 

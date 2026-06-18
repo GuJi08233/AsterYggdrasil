@@ -10,7 +10,7 @@ Runtime state inside the container should be mounted at `/data`. Persist at leas
 
 - `config.toml`
 - SQLite database, or external database connection config.
-- Local texture storage directory.
+- Local object storage directory.
 - Runtime temp and log directories if enabled.
 
 Example static config:
@@ -25,16 +25,16 @@ temp_dir = ".tmp"
 [database]
 url = "sqlite://asteryggdrasil.db?mode=rwc"
 
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 
 [cache]
 enabled = true
 backend = "memory"
 ```
 
-If `config.toml` lives at `/data/config.toml`, `local_root = "textures"` resolves to `/data/textures`.
+If `config.toml` lives at `/data/config.toml`, `local_root = "storage"` resolves to `/data/storage`. Textures and uploaded user avatars are written through this object storage directory.
 
 ## Reverse Proxy
 
@@ -100,7 +100,7 @@ After rotation, clients and servers may need to fetch metadata again.
 Back up at least:
 
 - Database.
-- `/data/textures`.
+- `/data/storage`.
 - `data/config.toml` or equivalent secret/config records.
 
-Database and texture storage must be backed up as a set. Restoring only one side can produce missing-object or orphan-object reports from the storage consistency check.
+Database and object storage must be backed up as a set. Restoring only one side can produce missing-object or orphan-object reports from the storage consistency check.

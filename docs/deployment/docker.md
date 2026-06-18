@@ -10,7 +10,7 @@
 
 - `config.toml`
 - SQLite 数据库或外部数据库连接配置。
-- local texture storage 目录。
+- local object storage 目录。
 - 运行时临时目录和日志目录，如果配置启用。
 
 示例静态配置：
@@ -25,16 +25,16 @@ temp_dir = ".tmp"
 [database]
 url = "sqlite://asteryggdrasil.db?mode=rwc"
 
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 
 [cache]
 enabled = true
 backend = "memory"
 ```
 
-如果 `config.toml` 位于 `/data/config.toml`，`local_root = "textures"` 会解析为 `/data/textures`。
+如果 `config.toml` 位于 `/data/config.toml`，`local_root = "storage"` 会解析为 `/data/storage`。材质和用户上传头像都会写入这个对象存储目录。
 
 ## 反向代理
 
@@ -100,7 +100,7 @@ POST /api/v1/admin/config/yggdrasil/action
 至少备份：
 
 - 数据库。
-- `/data/textures`。
+- `/data/storage`。
 - `data/config.toml` 或对应 secret/config 管理记录。
 
-数据库和 texture storage 必须作为一组备份。只恢复其中一个会导致 storage consistency check 报 missing object 或 orphan object。
+数据库和 object storage 必须作为一组备份。只恢复其中一个会导致 storage consistency check 报 missing object 或 orphan object。

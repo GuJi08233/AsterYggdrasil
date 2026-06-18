@@ -65,6 +65,7 @@
 				"database": "Database",
 				"yggdrasil": "Yggdrasil auth",
 				"session": "Site sessions",
+				"object_storage": "Object storage",
 				"texture_storage": "Texture storage",
 				"background_tasks": "Background tasks"
 			},

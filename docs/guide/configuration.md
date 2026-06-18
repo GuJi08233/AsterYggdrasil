@@ -2,7 +2,7 @@
 
 AsterYggdrasil 的配置分成静态配置和运行时配置。
 
-- 静态配置在 `data/config.toml`，用于数据库、监听地址、cache、texture storage 等启动期配置。
+- 静态配置在 `data/config.toml`，用于数据库、监听地址、cache、object storage 等启动期配置。
 - 运行时配置在 `system_config` 表，适合 Yggdrasil 策略、公开 URL、上传开关、token 策略和签名 key。
 
 ## 静态配置
@@ -23,12 +23,12 @@ url = "sqlite://asteryggdrasil.db?mode=rwc"
 enabled = true
 backend = "memory"
 
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 ```
 
-相对路径按 `data/config.toml` 所在目录解析。默认 `local_root = "textures"` 会落到 `data/textures`。
+相对路径按 `data/config.toml` 所在目录解析。默认 `local_root = "storage"` 会落到 `data/storage`。材质和用户上传头像都走这个对象存储配置。
 
 ## Yggdrasil 运行时配置
 

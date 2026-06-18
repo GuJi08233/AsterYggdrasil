@@ -21,8 +21,8 @@ pub mod yggdrasil;
 pub use runtime_config::RuntimeConfig;
 pub use schema::{
     AuthConfig, CacheConfig, Config, DatabaseConfig, LoggingConfig, NetworkTrustConfig,
-    RateLimitConfig, RateLimitTier, S3TextureStorageConfig, ServerConfig, ServerFollowerConfig,
-    TextureStorageConfig,
+    ObjectStorageConfig, RateLimitConfig, RateLimitTier, S3ObjectStorageConfig, ServerConfig,
+    ServerFollowerConfig,
 };
 
 use std::sync::Arc;

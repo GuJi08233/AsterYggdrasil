@@ -60,7 +60,7 @@ frontend-panel/src/services/   前端 service wrapper
 frontend-panel/src/pages/      需要时增加页面
 ```
 
-材质文件存储走 `src/texture_storage/`，不要复活旧云盘文件模型。Yggdrasil 业务逻辑集中在 `src/services/yggdrasil_service/`，材质业务逻辑集中在 `src/services/texture_service/`，handler 只做认证、参数提取、调用 service、返回响应。
+对象文件存储走 `src/object_storage/`，不要复活旧云盘文件模型。Yggdrasil 业务逻辑集中在 `src/services/yggdrasil_service/`，材质业务逻辑集中在 `src/services/texture_service/`，handler 只做认证、参数提取、调用 service、返回响应。
 
 ## Runtime Startup
 

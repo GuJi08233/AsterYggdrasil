@@ -40,7 +40,7 @@ async fn test_state(texture_root: String) -> AppState {
         .expect("texture cleanup runtime config should reload");
     let config = Arc::new(crate::config::Config {
         database: db_cfg,
-        texture_storage: crate::config::TextureStorageConfig {
+        object_storage: crate::config::ObjectStorageConfig {
             backend: "local".to_string(),
             local_root: texture_root,
             ..Default::default()
@@ -52,7 +52,7 @@ async fn test_state(texture_root: String) -> AppState {
         ..Default::default()
     });
     let cache = crate::cache::create_cache(&config.cache).await;
-    let texture_storage = crate::texture_storage::create_texture_storage(&config.texture_storage)
+    let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
         .expect("texture cleanup storage should initialize");
     let yggdrasil_rate_limiter = crate::runtime::AppState::new_yggdrasil_rate_limiter(&config);
 
@@ -61,7 +61,7 @@ async fn test_state(texture_root: String) -> AppState {
         config,
         runtime_config,
         cache,
-        texture_storage,
+        object_storage,
         mail_sender: crate::services::mail_service::memory_sender(),
         metrics: crate::metrics_core::NoopMetrics::arc(),
         started_at: crate::runtime::AppState::new_started_at(),
@@ -180,7 +180,7 @@ async fn cleanup_orphan_texture_blobs_deletes_unreferenced_storage_keys_only() {
 }
 
 #[tokio::test]
-async fn check_texture_storage_consistency_reports_missing_and_storage_key_mismatch() {
+async fn check_object_storage_consistency_reports_missing_and_storage_key_mismatch() {
     let root = std::env::temp_dir().join(format!(
         "asteryggdrasil-texture-consistency-{}",
         uuid::Uuid::new_v4()
@@ -265,17 +265,17 @@ async fn check_texture_storage_consistency_reports_missing_and_storage_key_misma
     )
     .await;
 
-    let report = check_texture_storage_consistency(&state).await.unwrap();
+    let report = check_object_storage_consistency(&state).await.unwrap();
 
     assert_eq!(report.checked, 3);
     assert_eq!(report.missing, 1);
     assert_eq!(report.hash_mismatched, 1);
     assert_eq!(report.issues.len(), 2);
     assert!(report.issues.iter().any(|issue| issue.kind
-        == TextureStorageConsistencyIssueKind::MissingObject
+        == ObjectStorageConsistencyIssueKind::MissingObject
         && issue.storage_key == missing_key));
     assert!(report.issues.iter().any(|issue| issue.kind
-        == TextureStorageConsistencyIssueKind::HashMismatch
+        == ObjectStorageConsistencyIssueKind::HashMismatch
         && issue.storage_key == mismatch_key));
     tokio::fs::remove_dir_all(root).await.unwrap();
 }

@@ -132,7 +132,7 @@ mod tests {
     use crate::config::audit;
     use crate::config::definitions::{
         AUTH_ACCESS_TOKEN_TTL_SECS_KEY, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY,
-        CONFIG_CATEGORY_SITE,
+        CONFIG_CATEGORY_SITE_BRANDING,
     };
     use crate::db;
     use crate::db::repository::system_config_repo;
@@ -167,7 +167,7 @@ mod tests {
             source: SystemConfigSource::System,
             visibility: crate::types::SystemConfigVisibility::Private,
             namespace: String::new(),
-            category: CONFIG_CATEGORY_SITE.to_string(),
+            category: CONFIG_CATEGORY_SITE_BRANDING.to_string(),
             description: "test".to_string(),
             updated_at: Utc::now(),
             updated_by: None,

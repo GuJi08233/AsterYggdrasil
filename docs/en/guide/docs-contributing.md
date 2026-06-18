@@ -12,7 +12,7 @@ This page is for people editing the AsterYggdrasil docs. Every page should help 
 | --- | --- | --- |
 | First run, player actions, launcher setup | `guide/` | Getting Started, User Guide, Launcher Login |
 | Yggdrasil protocol and texture behavior | `guide/` | Yggdrasil API, Textures, Minecraft Profiles |
-| Admin config and runtime policy | `guide/` | Config and Keys, Texture Storage, Audit and Tasks |
+| Admin config and runtime policy | `guide/` | Config and Keys, Object Storage, Audit and Tasks |
 | Deployment, reverse proxy, backups, launch checks | `deployment/` | Docker Deployment |
 | Project boundaries, contribution rules, routing help | `guide/` reference pages | About, Docs Contributing |
 

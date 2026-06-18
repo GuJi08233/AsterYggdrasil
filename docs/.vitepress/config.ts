@@ -122,7 +122,7 @@ export default withMermaid(
 							items: [
 								{ text: "管理员指南", link: "/guide/admin-guide" },
 								{ text: "配置和密钥", link: "/guide/configuration" },
-								{ text: "材质存储", link: "/guide/storage" },
+								{ text: "对象存储", link: "/guide/storage" },
 								{ text: "审计与后台任务", link: "/guide/audit-tasks" },
 							],
 						},
@@ -191,7 +191,7 @@ export default withMermaid(
 							items: [
 								{ text: "Admin Guide", link: "/en/guide/admin-guide" },
 								{ text: "Config and Keys", link: "/en/guide/configuration" },
-								{ text: "Texture Storage", link: "/en/guide/storage" },
+								{ text: "Object Storage", link: "/en/guide/storage" },
 								{ text: "Audit and Tasks", link: "/en/guide/audit-tasks" },
 							],
 						},

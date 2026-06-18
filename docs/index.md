@@ -75,7 +75,7 @@ X-Authlib-Injector-API-Location: /api/yggdrasil/
 
 遇到启动器登录、进服、皮肤显示或验签问题，直接看 [故障排查](/guide/troubleshooting)。短问题看 [常见问题速查](/guide/faq)。
 
-材质保存位置看 [材质存储](/guide/storage)。当前可用 storage backend 是 local、S3 和 MinIO；S3/MinIO 使用服务端 streaming 上传，不提供 presigned 上传。
+材质和上传头像保存位置看 [对象存储](/guide/storage)。当前可用 object storage backend 是 local、S3 和 MinIO；S3/MinIO 使用服务端 streaming 上传，不提供 presigned 上传。
 
 ### 我准备改文档
 
@@ -86,5 +86,5 @@ X-Authlib-Injector-API-Location: /api/yggdrasil/
 - Minecraft profile name 支持受控改名，必须走用户或管理员 API；不要直接改数据库。
 - 删除 profile 会处理材质绑定、引用计数、相关 Yggdrasil token 和审计记录。
 - Yggdrasil 协议端点返回协议格式；站点和管理 API 才返回 `{ "code": "success", "msg": "", "data": ... }`。
-- 当前可用材质存储后端是 local、S3 和 MinIO。S3/MinIO 只支持服务端 streaming 上传。
+- 当前可用对象存储后端是 local、S3 和 MinIO。材质和上传头像都会走同一个 object storage backend；S3/MinIO 只支持服务端 streaming 上传。
 - 前端管理面板仍在演进；文档优先描述稳定后端能力和真实可部署语义。

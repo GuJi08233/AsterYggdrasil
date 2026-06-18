@@ -65,12 +65,12 @@ authlib-injector validates that texture URL domains are included in metadata `sk
 
 ## Storage and Maintenance
 
-Local texture storage is currently supported and is configured explicitly through `texture_storage.local_root`. After a successful upload, only the processed PNG is stored; the raw upload is not retained.
+Local, S3, and MinIO object storage are supported and selected through the static `object_storage` config. After a successful upload, only the processed PNG is stored; the raw upload is not retained.
 
 Runtime maintenance tasks include:
 
 - `yggdrasil-texture-cleanup`: deletes texture objects that have no database reference.
-- `yggdrasil-storage-consistency-check`: checks whether database texture rows point to missing objects, and whether storage keys still match database hashes.
+- `yggdrasil-storage-consistency-check`: checks whether database texture rows point to missing objects, and whether object storage keys still match database hashes.
 - `yggdrasil-token-cleanup`: removes expired or revoked Yggdrasil tokens.
 
 Texture deletion removes the database reference first, then deletes the object only when the reference count reaches zero. If multiple profiles reference the same hash, the object remains available until the last reference is removed.

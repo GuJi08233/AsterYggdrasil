@@ -101,7 +101,7 @@
 					"mail": "Mail",
 					"background_tasks": "Background tasks",
 					"storage": "Texture storage",
-					"texture_storage_consistency": "Texture storage consistency",
+					"texture_storage_consistency": "Object storage consistency",
 					"yggdrasil": "Yggdrasil",
 					"yggdrasil_storage": "Yggdrasil storage",
 					"yggdrasil_storage_consistency": "Yggdrasil storage consistency"

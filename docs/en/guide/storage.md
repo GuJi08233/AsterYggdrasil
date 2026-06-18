@@ -1,27 +1,28 @@
-# Texture Storage
+# Object Storage
 
-AsterYggdrasil stores processed PNG files through a texture storage backend. Raw uploads are temporary inputs and are not retained after processing.
+AsterYggdrasil stores processed PNG textures and uploaded avatars through an object storage backend. Raw uploads are temporary inputs and are not retained after processing. Avatars no longer have a separate local-directory setting; they follow the same `object_storage` backend.
 
 ## Local Storage
 
 To use the local backend:
 
 ```toml
-[texture_storage]
+[object_storage]
 backend = "local"
-local_root = "textures"
+local_root = "storage"
 ```
 
 When the config file lives at `data/config.toml`, relative paths resolve under `data/`, so the default effective path is:
 
 ```text
-data/textures
+data/storage
 ```
 
-Texture objects are sharded by hash, for example:
+Texture objects are sharded by hash, and uploaded avatars use the `avatar/` prefix, for example:
 
 ```text
-data/textures/ab/abcdef...png
+data/storage/ab/abcdef...png
+data/storage/avatar/user/1/v1/512.webp
 ```
 
 The public URL does not expose filesystem paths directly. It is served through:
@@ -35,10 +36,10 @@ GET /api/yggdrasil/textures/{hash}
 The `s3` and `minio` backends upload processed PNG files through server-side streaming. Client presigned uploads are not exposed:
 
 ```toml
-[texture_storage]
+[object_storage]
 backend = "s3"
 
-[texture_storage.s3]
+[object_storage.s3]
 endpoint = ""
 region = ""
 bucket = ""
@@ -48,11 +49,11 @@ secret_access_key = ""
 force_path_style = false
 ```
 
-`base_path` is an optional object prefix such as `env/production/textures`. Texture storage keys stored in the database do not include this prefix; the server prepends it when talking to S3.
+`base_path` is an optional object prefix such as `env/production/textures`. Object storage keys stored in the database do not include this prefix; the server prepends it when talking to S3.
 
 ## Relation to Public URL
 
-Texture storage decides where objects are stored. `yggdrasil_public_base_url` decides the default texture API URL clients see.
+Object storage decides where objects are stored. `yggdrasil_public_base_url` decides the default texture API URL clients see.
 
 For example:
 
@@ -74,7 +75,7 @@ For a publicly readable, privately writable S3 bucket or CDN, set the runtime co
 https://cdn.example.com/env/production/textures
 ```
 
-The generated URL appends the texture storage key, for example:
+The generated URL appends the object storage key, for example:
 
 ```text
 https://cdn.example.com/env/production/textures/ab/abcdef...png
@@ -94,7 +95,7 @@ Browser texture previews load these CDN/bucket URLs in anonymous CORS mode. Afte
 
 Runtime tasks:
 
-- `yggdrasil-texture-cleanup`: deletes storage objects that have no database reference.
-- `yggdrasil-storage-consistency-check`: checks for missing objects and mismatches between database hashes and storage keys without reading object bytes.
+- `yggdrasil-texture-cleanup`: deletes texture objects that have no database reference.
+- `yggdrasil-storage-consistency-check`: checks for missing texture objects and mismatches between database hashes and object storage keys without reading object bytes.
 
-When deleting a profile or texture, the service removes the database reference first, then deletes the object only if its reference count reaches zero. Do not delete storage files directly outside the service layer; consistency checks will report missing objects.
+When deleting a profile or texture, or when switching away from an uploaded avatar, the service updates database state first and then deletes objects according to reference counts or avatar version keys. Do not delete object storage files directly outside the service layer; consistency checks or avatar reads will report missing objects.

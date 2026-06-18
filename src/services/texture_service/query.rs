@@ -4,7 +4,7 @@ use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_texture_repo, minecraft_texture_repo};
 use crate::entities::{minecraft_profile, minecraft_texture};
 use crate::errors::Result;
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState, TextureStorageRuntimeState};
+use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 
 use super::{
     MinecraftTextureMetadata, MinecraftTextureMetadataSource, MinecraftWardrobeTextureMetadata,
@@ -45,7 +45,7 @@ pub async fn texture_blob_by_hash<S: DatabaseRuntimeState>(
     Ok(blob)
 }
 
-pub async fn download_texture<S: TextureStorageRuntimeState>(
+pub async fn download_texture<S: ObjectStorageRuntimeState>(
     state: &S,
     texture: &minecraft_profile_texture_repo::ProfileTexture,
 ) -> Result<TextureDownload> {
@@ -54,27 +54,27 @@ pub async fn download_texture<S: TextureStorageRuntimeState>(
         profile_texture_id = texture.binding.id,
         "downloading profile texture"
     );
-    download_texture_storage_key(state, &texture.texture.storage_key).await
+    download_object_storage_key(state, &texture.texture.storage_key).await
 }
 
-pub async fn download_texture_blob<S: TextureStorageRuntimeState>(
+pub async fn download_texture_blob<S: ObjectStorageRuntimeState>(
     state: &S,
     texture: &TextureBlob,
 ) -> Result<TextureDownload> {
     tracing::debug!("downloading texture blob");
-    download_texture_storage_key(state, &texture.storage_key).await
+    download_object_storage_key(state, &texture.storage_key).await
 }
 
-async fn download_texture_storage_key<S: TextureStorageRuntimeState>(
+async fn download_object_storage_key<S: ObjectStorageRuntimeState>(
     state: &S,
     storage_key: &str,
 ) -> Result<TextureDownload> {
-    let metadata = state.texture_storage().metadata(storage_key).await?;
-    let stream = state.texture_storage().get_stream(storage_key).await?;
+    let metadata = state.object_storage().metadata(storage_key).await?;
+    let stream = state.object_storage().get_stream(storage_key).await?;
     tracing::debug!(
         content_type = %metadata.content_type,
         size = metadata.size,
-        "opened texture storage stream"
+        "opened object storage stream"
     );
     Ok(TextureDownload {
         stream: ReaderStream::new(stream),

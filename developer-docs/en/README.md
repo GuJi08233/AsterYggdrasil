@@ -60,7 +60,7 @@ frontend-panel/src/services/   frontend service wrapper
 frontend-panel/src/pages/      UI page when needed
 ```
 
-Texture blobs go through `src/texture_storage/`; do not bring back the old file-drive model. Yggdrasil behavior belongs under `src/services/yggdrasil_service/`, texture behavior belongs under `src/services/texture_service/`, and handlers should only authenticate, extract HTTP input, call services, and return responses.
+Object blobs go through `src/object_storage/`; do not bring back the old file-drive model. Yggdrasil behavior belongs under `src/services/yggdrasil_service/`, texture behavior belongs under `src/services/texture_service/`, and handlers should only authenticate, extract HTTP input, call services, and return responses.
 
 ## Runtime Startup
 

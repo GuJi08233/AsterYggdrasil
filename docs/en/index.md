@@ -75,7 +75,7 @@ Start with [Admin Guide](/en/guide/admin-guide) and [Config and Keys](/en/guide/
 
 For launcher login, server join, skin display, or signature verification issues, go directly to [Troubleshooting](/en/guide/troubleshooting). Short questions are covered in the [FAQ](/en/guide/faq).
 
-Texture persistence is covered in [Texture Storage](/en/guide/storage). The available storage backends are local, S3, and MinIO. S3/MinIO uses server-side streaming uploads and does not expose presigned uploads.
+Texture and uploaded-avatar persistence is covered in [Object Storage](/en/guide/storage). The available object storage backends are local, S3, and MinIO. S3/MinIO uses server-side streaming uploads and does not expose presigned uploads.
 
 ### I want to edit the docs
 
@@ -86,5 +86,5 @@ Read [Docs Contributing](/en/guide/docs-contributing) first. These docs are for 
 - Minecraft profile names support controlled renames through user or administrator APIs. Do not edit names directly in the database.
 - Deleting a profile handles texture bindings, reference counts, related Yggdrasil tokens, and audit records.
 - Yggdrasil protocol endpoints return protocol-shaped responses; site and admin APIs use `{ "code": "success", "msg": "", "data": ... }`.
-- Available texture storage backends are local, S3, and MinIO. S3/MinIO supports server-side streaming uploads only.
+- Available object storage backends are local, S3, and MinIO. Textures and uploaded avatars use the same object storage backend; S3/MinIO supports server-side streaming uploads only.
 - The admin frontend is still evolving; docs prioritize stable backend behavior and deployable semantics.

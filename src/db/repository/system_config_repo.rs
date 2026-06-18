@@ -1,6 +1,6 @@
 //! System config repository.
 
-use crate::config::definitions::{ALL_CONFIGS, ConfigDef};
+use crate::config::definitions::{ALL_CONFIGS, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
 use crate::db::repository::pagination_repo::fetch_offset_page;
 use crate::entities::system_config::{self, Entity as SystemConfig};
 use crate::errors::{AsterError, Result};
@@ -249,8 +249,32 @@ pub async fn ensure_system_value_if_missing<C: ConnectionTrait>(
     Ok(inserted)
 }
 
+pub async fn delete_deprecated_keys<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    if DEPRECATED_SYSTEM_CONFIG_KEYS.is_empty() {
+        return Ok(0);
+    }
+
+    let result = SystemConfig::delete_many()
+        .filter(system_config::Column::Key.is_in(DEPRECATED_SYSTEM_CONFIG_KEYS.iter().copied()))
+        .exec(db)
+        .await
+        .map_err(AsterError::from)?;
+
+    if result.rows_affected > 0 {
+        tracing::info!(
+            count = result.rows_affected,
+            keys = ?DEPRECATED_SYSTEM_CONFIG_KEYS,
+            "deleted deprecated system config keys"
+        );
+    }
+
+    Ok(result.rows_affected)
+}
+
 pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
     let mut count = 0;
+
+    delete_deprecated_keys(db).await?;
 
     for def in ALL_CONFIGS {
         let now = Utc::now();
@@ -302,14 +326,15 @@ pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
 #[cfg(test)]
 mod tests {
     use super::{
-        delete_by_key, ensure_defaults, ensure_system_value_if_missing, find_all, find_by_key,
-        find_paginated, find_visible_custom, lock_by_key, upsert, upsert_with_actor,
-        upsert_with_options,
+        delete_by_key, delete_deprecated_keys, ensure_defaults, ensure_system_value_if_missing,
+        find_all, find_by_key, find_paginated, find_visible_custom, lock_by_key, upsert,
+        upsert_with_actor, upsert_with_options,
     };
     use crate::config::{
         DatabaseConfig,
         definitions::{
-            ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY,
+            ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, DEPRECATED_AVATAR_DIR_KEY,
+            PUBLIC_SITE_URL_KEY,
         },
     };
     use crate::entities::system_config;
@@ -360,11 +385,37 @@ mod tests {
         assert_eq!(repaired.value_type, SystemConfigValueType::String);
         assert!(!repaired.requires_restart);
         assert!(!repaired.is_sensitive);
-        assert_eq!(repaired.category, "site");
+        assert_eq!(repaired.category, "site.branding");
         assert_eq!(
             repaired.description,
             "Application title shown in the embedded frontend"
         );
+
+        db.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn ensure_defaults_deletes_deprecated_config_keys() {
+        let db = build_test_db().await;
+
+        upsert_with_actor(&db, DEPRECATED_AVATAR_DIR_KEY, "/tmp/avatars", None)
+            .await
+            .unwrap();
+        upsert_with_actor(&db, "custom_keep_me", "value", None)
+            .await
+            .unwrap();
+
+        let inserted = ensure_defaults(&db).await.unwrap();
+        assert_eq!(inserted, ALL_CONFIGS.len());
+        assert!(
+            find_by_key(&db, DEPRECATED_AVATAR_DIR_KEY)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(find_by_key(&db, "custom_keep_me").await.unwrap().is_some());
+
+        assert_eq!(delete_deprecated_keys(&db).await.unwrap(), 0);
 
         db.close().await.unwrap();
     }

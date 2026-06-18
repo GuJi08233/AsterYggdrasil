@@ -133,7 +133,7 @@ GET /api/yggdrasil/textures/{hash}
 If it returns 404:
 
 - Confirm the hash comes from the current profile textures property.
-- Confirm local texture storage is mounted.
+- Confirm local object storage is mounted.
 - Confirm storage files were not deleted directly.
 - Confirm the database and texture directory are from the same backup point.
 

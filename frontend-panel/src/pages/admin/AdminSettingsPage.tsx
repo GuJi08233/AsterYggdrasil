@@ -239,6 +239,7 @@ const SAVE_BAR_EXIT_UNMOUNT_GRACE_MS = 50;
 const categoryOrder = [
 	"site",
 	"auth",
+	"user",
 	"network",
 	"mail",
 	"yggdrasil",
@@ -258,6 +259,12 @@ const categoryMeta: Record<string, CategoryMeta> = {
 		icon: "Shield",
 		labelKey: "settings_category_auth",
 		descriptionKey: "settings_category_auth_desc",
+	},
+	user: {
+		id: "user",
+		icon: "User",
+		labelKey: "settings_category_user",
+		descriptionKey: "settings_category_user_desc",
 	},
 	site: {
 		id: "site",
@@ -1054,7 +1061,7 @@ function getSettingsGroupAction({
 		);
 	}
 
-	if (category === "yggdrasil") {
+	if (category === "yggdrasil.signing") {
 		return (
 			<div className="flex flex-col items-start gap-2 lg:items-end">
 				<Button
@@ -1986,6 +1993,7 @@ const mailTemplateOrder = [
 	"contact_change_notice",
 	"external_auth_email_verification",
 	"login_email_code",
+	"user_invitation",
 ];
 
 function getMailTemplateGroupOrderIndex(templateCode: string) {

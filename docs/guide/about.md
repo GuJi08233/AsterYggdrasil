@@ -21,7 +21,7 @@ AsterYggdrasil 是一个自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-in
 - 站点账号的注册、登录、刷新、退出和管理员初始化。
 - `/api/yggdrasil` 协议根路径，包含 metadata、authserver、sessionserver、profile lookup 和公开材质读取。
 - Minecraft profile 独立建模，一个站点账号可以拥有多个 profile。
-- skin/cape 上传、PNG 重编码、旧式 cape 兼容、hash 公开读取和本地材质存储。
+- skin/cape 上传、PNG 重编码、旧式 cape 兼容、hash 公开读取和本地对象存储。
 - 运行时配置、签名密钥轮换、审计日志和周期维护任务。
 
 这些能力是后端真实存在的，不是路线图上的愿望。文档会尽量按这个边界写，避免把尚未落地的能力写成已经可用的功能。
@@ -40,7 +40,7 @@ AsterYggdrasil 是一个自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-in
 
 如果你需要一个已经打磨完整的商业级皮肤站前端，当前版本还不适合直接拿来当最终产品。后端能力更扎实，前端管理面板仍在演进。
 
-如果你需要多主高可用、复杂封禁系统或完整商业级运营后台，当前版本还不适合直接承担这些场景。材质存储已经支持 local、S3 和 MinIO；S3/MinIO 走服务端 streaming 上传，不支持客户端 presigned 上传。
+如果你需要多主高可用、复杂封禁系统或完整商业级运营后台，当前版本还不适合直接承担这些场景。对象存储已经支持 local、S3 和 MinIO；材质和上传头像都会走同一个 backend。S3/MinIO 走服务端 streaming 上传，不支持客户端 presigned 上传。
 
 如果目标是运行 Mojang 官方在线模式服务器，AsterYggdrasil 并不面向这个场景。它面向的是自建 Yggdrasil/authlib-injector 接入。
 

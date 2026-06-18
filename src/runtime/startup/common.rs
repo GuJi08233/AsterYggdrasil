@@ -5,15 +5,15 @@ use crate::config::{Config, RuntimeConfig};
 use crate::db;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::metrics_core::SharedMetricsRecorder;
+use crate::object_storage;
 use crate::services::system_config_service;
-use crate::texture_storage;
 
 pub(super) struct CommonRuntimeParts {
     pub config: Arc<Config>,
     pub db_handles: db::DbHandles,
     pub runtime_config: Arc<RuntimeConfig>,
     pub cache: Arc<dyn cache::CacheBackend>,
-    pub texture_storage: Arc<dyn texture_storage::TextureStorage>,
+    pub object_storage: Arc<dyn object_storage::ObjectStorage>,
     pub metrics: SharedMetricsRecorder,
 }
 
@@ -39,7 +39,7 @@ pub(super) async fn prepare_common(config: Arc<Config>) -> Result<CommonRuntimeP
     let runtime_config = Arc::new(RuntimeConfig::new());
     runtime_config.reload(db_handles.reader()).await?;
     let cache = cache::create_cache(&config.cache).await;
-    let texture_storage = texture_storage::create_texture_storage(&config.texture_storage)?;
+    let object_storage = object_storage::create_object_storage(&config.object_storage)?;
 
     crate::services::audit_service::init_global_audit_log_manager(db_handles.writer().clone());
 
@@ -48,7 +48,7 @@ pub(super) async fn prepare_common(config: Arc<Config>) -> Result<CommonRuntimeP
         db_handles,
         runtime_config,
         cache,
-        texture_storage,
+        object_storage,
         metrics,
     })
 }

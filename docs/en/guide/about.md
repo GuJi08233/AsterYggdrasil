@@ -21,7 +21,7 @@ The current code already includes:
 - Site account setup, registration, login, refresh, logout, and admin bootstrap.
 - The `/api/yggdrasil` protocol root with metadata, authserver, sessionserver, profile lookup, and public texture reads.
 - Separate Minecraft profile records, so one site account can own multiple profiles.
-- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local texture storage.
+- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local object storage.
 - Runtime config, signing key rotation, audit logs, and periodic maintenance tasks.
 
 These are implemented backend capabilities, not roadmap promises. The docs should stay within that boundary and avoid presenting unfinished work as available functionality.
@@ -40,7 +40,7 @@ It is also a good fit if you want a single-binary deployment model instead of ma
 
 If you need a polished, finished commercial-grade skin-site frontend today, the current version is not there yet. The backend is the stable part; the admin frontend is still evolving.
 
-If you need multi-primary high availability, a mature ban system, or a finished commercial operations panel, wait or plan to build that work. Texture storage supports local, S3, and MinIO. S3/MinIO uses server-side streaming uploads and does not support client presigned uploads.
+If you need multi-primary high availability, a mature ban system, or a finished commercial operations panel, wait or plan to build that work. Object storage supports local, S3, and MinIO; textures and uploaded avatars use the same backend. S3/MinIO uses server-side streaming uploads and does not support client presigned uploads.
 
 If your target is Mojang official online mode, AsterYggdrasil is not designed for that scenario. It targets self-hosted Yggdrasil/authlib-injector integration.
 

@@ -42,7 +42,7 @@ authlib-injector checks whether the texture URL host is covered by metadata `ski
 
 ## Can I use S3 or MinIO?
 
-Yes. `local`, `s3`, and `minio` are available texture storage backends. S3/MinIO uses server-side streaming uploads only and does not expose client presigned uploads.
+Yes. `local`, `s3`, and `minio` are available object storage backends. S3/MinIO uses server-side streaming uploads only and does not expose client presigned uploads.
 
 ## Can I delete texture files directly?
 

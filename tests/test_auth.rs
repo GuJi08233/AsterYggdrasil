@@ -5,7 +5,6 @@ mod common;
 
 use actix_web::{body::MessageBody, cookie::SameSite, http::header, test};
 use aster_yggdrasil::api::error_code::AsterErrorCode;
-use aster_yggdrasil::config::avatar::AVATAR_DIR_KEY;
 use aster_yggdrasil::config::branding::DEFAULT_BRANDING_TITLE;
 use aster_yggdrasil::db::repository::{
     auth_session_repo, contact_verification_token_repo, passkey_repo, system_config_repo, user_repo,
@@ -2524,24 +2523,7 @@ async fn auth_avatar_read_rejects_missing_upload_and_invalid_size() {
 #[actix_web::test]
 async fn auth_avatar_upload_validates_empty_multipart_and_serves_webp_variants() {
     let state = common::setup().await;
-    let avatar_root = std::env::temp_dir().join(format!(
-        "asteryggdrasil-avatar-test-{}",
-        uuid::Uuid::new_v4()
-    ));
-    std::fs::create_dir_all(&avatar_root).expect("avatar root should create");
-    system_config_repo::upsert_with_actor(
-        state.writer_db(),
-        AVATAR_DIR_KEY,
-        avatar_root.to_str().expect("avatar root should be utf8"),
-        None,
-    )
-    .await
-    .expect("avatar_dir should save");
-    state
-        .runtime_config
-        .reload(state.writer_db())
-        .await
-        .expect("runtime config should reload");
+    let state_for_assert = state.clone();
 
     let app = create_test_app!(state);
     let token = setup_admin!(app);
@@ -2590,10 +2572,22 @@ async fn auth_avatar_upload_validates_empty_multipart_and_serves_webp_variants()
         "/auth/profile/avatar/1024?v=1"
     );
 
-    let stored_512 = avatar_root.join("user/1/v1/512.webp");
-    let stored_1024 = avatar_root.join("user/1/v1/1024.webp");
-    assert!(stored_512.exists());
-    assert!(stored_1024.exists());
+    let stored_512 = "avatar/user/1/v1/512.webp";
+    let stored_1024 = "avatar/user/1/v1/1024.webp";
+    assert!(
+        state_for_assert
+            .object_storage()
+            .exists(stored_512)
+            .await
+            .unwrap()
+    );
+    assert!(
+        state_for_assert
+            .object_storage()
+            .exists(stored_1024)
+            .await
+            .unwrap()
+    );
 
     let req = test::TestRequest::get()
         .uri("/api/v1/auth/profile/avatar/512")
@@ -2667,8 +2661,20 @@ async fn auth_avatar_upload_validates_empty_multipart_and_serves_webp_variants()
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
-    assert!(!stored_512.exists());
-    assert!(!stored_1024.exists());
+    assert!(
+        !state_for_assert
+            .object_storage()
+            .exists(stored_512)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !state_for_assert
+            .object_storage()
+            .exists(stored_1024)
+            .await
+            .unwrap()
+    );
 
     let req = test::TestRequest::get()
         .uri("/api/v1/auth/profile/avatar/512")

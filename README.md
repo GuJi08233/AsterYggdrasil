@@ -23,10 +23,10 @@ AsterYggdrasil puts the identity and texture flow needed by private Minecraft de
 - Yggdrasil/authlib-injector protocol root at `/api/yggdrasil`.
 - Launcher login plus token refresh/validate/invalidate/signout.
 - Minecraft join / hasJoined / profile lookup.
-- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local texture storage.
+- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local/S3/MinIO object storage.
 - Runtime config, Yggdrasil signing key rotation, audit logs, and periodic maintenance tasks.
 
-It is not a file drive, private cloud, game server panel, or generic SaaS template. The product domain is Minecraft/Yggdrasil: accounts, player profiles, skins, capes, launcher login, server join verification, signing keys, texture storage, and admin operations.
+It is not a file drive, private cloud, game server panel, or generic SaaS template. The product domain is Minecraft/Yggdrasil: accounts, player profiles, skins, capes, launcher login, server join verification, signing keys, object storage, and admin operations.
 
 ## Current Fit
 
@@ -35,14 +35,14 @@ AsterYggdrasil is a good fit when:
 - You operate Minecraft servers in the authlib-injector or offline-login ecosystem.
 - You want to control player accounts, Minecraft profiles, texture files, the database, signing keys, and backups.
 - You need Yggdrasil/authlib-injector-compatible protocol endpoints.
-- You want to start with SQLite and local texture storage, then expand the database later if needed.
+- You want to start with SQLite and local object storage, then expand the database or storage backend later if needed.
 - You want a single-binary deployment model instead of maintaining a PHP runtime, web server modules, and extension dependencies.
 - You want a Rust, Actix Web, SeaORM, React, and Vite codebase for further development.
 
 The current version is not the right fit when:
 
 - You need a polished commercial-grade skin site frontend ready for large long-term user traffic.
-- You need S3/MinIO texture storage. The config shape is reserved, but the backend is not implemented yet.
+- You need client-side presigned uploads directly to S3/MinIO. Uploads are server-side streaming only.
 - You need multi-primary high availability, automatic failover, a complete ban system, or enterprise compliance guarantees.
 - You need game server management, file storage, WebDAV, WOPI, team sharing, or cloud-drive features.
 - You need a public replacement for Mojang official online-mode auth for arbitrary clients.
@@ -209,10 +209,10 @@ See [docs/deployment/docker.md](docs/deployment/docker.md) for full deployment n
 
 - Do not expose `:3000` directly to the public Internet. Put it behind a reverse proxy for HTTPS, upload limits, and real client IP handling.
 - Configure `public_site_url` or `yggdrasil_public_base_url` before real use; otherwise textures properties cannot include client-reachable absolute URLs.
-- Back up the database, `data/config.toml`, and the local texture storage directory.
+- Back up the database, `data/config.toml`, and the object storage backend or local object storage directory.
 - Treat the Yggdrasil signing private key as sensitive config. Rotate it through the config action instead of editing database rows directly.
 - In multi-instance deployments, only one instance should use `start_mode = "primary"` for periodic maintenance.
-- The production texture storage backend today is local. `s3` / `minio` backends are reserved but not implemented yet.
+- The production object storage backend can be local, S3, or MinIO. Textures and uploaded avatars use the same backend.
 
 ## Common Development Commands
 
@@ -252,7 +252,7 @@ src/db/                      Database connections, retry helpers, transactions, 
 src/entities/                SeaORM entities
 src/runtime/                 AppState, startup, shutdown, logging, background task loops
 src/services/                auth, external auth, config, mail, audit, task, health, Yggdrasil, texture
-src/texture_storage/         Minecraft texture storage abstraction
+src/object_storage/          Object storage abstraction used by textures and uploaded avatars
 src/types/                   Shared enums and DB wrapper types
 src/utils/                   crypto, ID, path, number, email, RAII helpers
 migration/                   SeaORM migration crate
