@@ -21,6 +21,7 @@ pub async fn prepare_follower(config: Arc<Config>) -> Result<PreparedFollowerRun
         cache: common.cache,
         texture_storage: common.texture_storage,
         metrics: common.metrics,
+        started_at: AppState::new_started_at(),
         yggdrasil_rate_limiter,
         background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
     };

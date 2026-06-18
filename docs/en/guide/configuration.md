@@ -45,6 +45,7 @@ yggdrasil_max_texture_upload_bytes
 yggdrasil_max_texture_pixels
 yggdrasil_skin_domains
 yggdrasil_public_base_url
+yggdrasil_texture_public_base_url
 yggdrasil_signature_public_key
 yggdrasil_signature_private_key
 ```
@@ -88,6 +89,16 @@ https://skin.example.com/api/yggdrasil/textures/{hash}
 ```
 
 If neither `yggdrasil_public_base_url` nor `public_site_url` has a usable value, Yggdrasil profile texture responses return a configuration error. Protocol responses do not emit relative texture URLs.
+
+`yggdrasil_texture_public_base_url` is an object-storage/CDN direct URL override for publicly readable, privately writable S3 buckets or CDNs. It is a plain string, not an array:
+
+```text
+https://cdn.example.com/env/production/textures
+```
+
+When configured, uploaded textures use `{yggdrasil_texture_public_base_url}/{storage_key}`, such as `https://cdn.example.com/env/production/textures/ab/abcdef...png`. Default skins are not stored in object storage and still use the Yggdrasil API URL.
+
+If this URL points to an S3 bucket or CDN, the frontend texture preview loads images directly from that domain. The bucket/CDN must allow anonymous `GET`/`HEAD` CORS reads from the public site origins in `public_site_url`. Browser upload CORS is not needed here because uploads always stream from the server to object storage.
 
 ## skinDomains
 

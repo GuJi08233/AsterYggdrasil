@@ -7,6 +7,9 @@ import { adminPaths } from "@/routes/routePaths";
 const AdminSettingsPage = lazyWithPreload(
 	() => import("@/pages/admin/AdminSettingsPage"),
 );
+const AdminOverviewPage = lazyWithPreload(
+	() => import("@/pages/admin/AdminOverviewPage"),
+);
 const AdminAuditPage = lazyWithPreload(
 	() => import("@/pages/admin/AdminAuditPage"),
 );
@@ -39,6 +42,10 @@ export const adminRoutes = [
 			{
 				element: <AppShell scope="admin" />,
 				children: [
+					{
+						path: adminPaths.overview,
+						element: <AdminOverviewPage />,
+					},
 					{
 						path: adminPaths.audit,
 						element: <AdminAuditPage />,

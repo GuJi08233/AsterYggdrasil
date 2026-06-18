@@ -23,6 +23,7 @@ describe("MinecraftSkinAvatar", () => {
 
 		const image = screen.getByTestId("skin-avatar-image");
 		expect(image).toHaveAttribute("src", "/textures/steve.png");
+		expect(image).toHaveAttribute("crossorigin", "anonymous");
 		expect(image).toHaveAttribute("draggable", "false");
 		expect(image).toHaveStyle({
 			transform: "translate(-12.5%, -12.5%)",

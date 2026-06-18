@@ -4,6 +4,7 @@ use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::minecraft_texture::{self, Entity as MinecraftTexture};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility};
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ModelTrait,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
@@ -54,6 +55,26 @@ pub async fn create<C: ConnectionTrait>(
     .insert(db)
     .await
     .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    MinecraftTexture::find()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_created_between<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<u64> {
+    MinecraftTexture::find()
+        .filter(minecraft_texture::Column::CreatedAt.gte(start))
+        .filter(minecraft_texture::Column::CreatedAt.lt(end))
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
 }
 
 pub async fn find_by_id_for_user<C: ConnectionTrait>(

@@ -71,11 +71,11 @@ X-Authlib-Injector-API-Location: /api/yggdrasil/
 
 ### 我要管理一个实例
 
-先看 [管理员指南](/guide/admin-guide) 和 [配置和密钥](/guide/configuration)，确认 `public_site_url`、`yggdrasil_public_base_url`、`yggdrasil_skin_domains` 和签名密钥轮换。再看 [审计与后台任务](/guide/audit-tasks)，了解 token 清理、材质一致性检查和管理员审计。
+先看 [管理员指南](/guide/admin-guide) 和 [配置和密钥](/guide/configuration)，确认 `public_site_url`、`yggdrasil_public_base_url`、`yggdrasil_texture_public_base_url`、`yggdrasil_skin_domains` 和签名密钥轮换。再看 [审计与后台任务](/guide/audit-tasks)，了解 token 清理、材质一致性检查和管理员审计。
 
 遇到启动器登录、进服、皮肤显示或验签问题，直接看 [故障排查](/guide/troubleshooting)。短问题看 [常见问题速查](/guide/faq)。
 
-材质保存位置看 [材质存储](/guide/storage)。当前生产可用 storage backend 是 local；S3/MinIO 配置形状已预留，但后端实现还没接入。
+材质保存位置看 [材质存储](/guide/storage)。当前可用 storage backend 是 local、S3 和 MinIO；S3/MinIO 使用服务端 streaming 上传，不提供 presigned 上传。
 
 ### 我准备改文档
 
@@ -86,5 +86,5 @@ X-Authlib-Injector-API-Location: /api/yggdrasil/
 - Minecraft profile name 支持受控改名，必须走用户或管理员 API；不要直接改数据库。
 - 删除 profile 会处理材质绑定、引用计数、相关 Yggdrasil token 和审计记录。
 - Yggdrasil 协议端点返回协议格式；站点和管理 API 才返回 `{ "code": "success", "msg": "", "data": ... }`。
-- 当前生产可用材质存储后端是 local。S3/MinIO 只是预留配置形状。
+- 当前可用材质存储后端是 local、S3 和 MinIO。S3/MinIO 只支持服务端 streaming 上传。
 - 前端管理面板仍在演进；文档优先描述稳定后端能力和真实可部署语义。

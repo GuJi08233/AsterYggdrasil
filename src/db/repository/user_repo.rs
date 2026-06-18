@@ -8,6 +8,7 @@ use crate::entities::{
 };
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{UserRole, UserStatus};
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set, sea_query::Expr,
@@ -22,6 +23,19 @@ pub struct AdminUserFilters {
 
 pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
     User::find()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_created_between<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<u64> {
+    User::find()
+        .filter(user::Column::CreatedAt.gte(start))
+        .filter(user::Column::CreatedAt.lt(end))
         .count(db)
         .await
         .map_aster_err(AsterError::database_operation)

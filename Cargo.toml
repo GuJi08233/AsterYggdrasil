@@ -1,6 +1,6 @@
 [package]
 name = "aster_yggdrasil"
-version = "0.1.0-alpha.4"
+version = "0.1.0-alpha.5"
 description = "Self-hosted Minecraft skin site and Yggdrasil authentication server."
 authors = [
     "AptS-1547 <apts-1547@esaps.net>",
@@ -72,6 +72,8 @@ actix-governor = "0.10"
 api-docs-macros = { path = "api-docs-macros" }
 argon2 = "0.5.3"
 async-trait = "0.1"
+aws-credential-types = { version = "1.2.14", features = ["hardcoded-credentials"] }
+aws-sdk-s3 = { version = "1.136.0", default-features = false, features = ["sigv4a", "http-1x", "default-https-client", "rt-tokio"] }
 base64 = "0.22"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
 clap = { version = "4", features = ["derive", "env"], optional = true }

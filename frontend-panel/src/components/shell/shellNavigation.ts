@@ -54,6 +54,13 @@ export const personalSettingsNavItem: ShellNavItem = {
 
 export const adminNavItems: ShellNavItem[] = [
 	{
+		to: adminPaths.overview,
+		labelKey: "admin.nav.overview",
+		icon: "Gauge",
+		end: true,
+		preload: () => import("@/pages/admin/AdminOverviewPage"),
+	},
+	{
 		to: adminPaths.users,
 		labelKey: "admin.nav.users",
 		icon: "User",

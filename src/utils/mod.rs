@@ -8,6 +8,7 @@ pub mod net;
 pub mod numbers;
 pub mod paths;
 pub mod raii;
+pub mod url;
 
 pub const OUTBOUND_HTTP_USER_AGENT: &str = concat!("AsterYggdrasil/", env!("CARGO_PKG_VERSION"));
 

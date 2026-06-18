@@ -466,19 +466,15 @@ async fn run_yggdrasil_storage_consistency_check(
     match crate::services::texture_service::check_texture_storage_consistency(state.get_ref()).await
     {
         Ok(report) if report.missing > 0 || report.hash_mismatched > 0 => {
+            let summary = yggdrasil_storage_consistency_failure_summary(&report);
             tracing::warn!(
                 checked = report.checked,
                 missing = report.missing,
                 hash_mismatched = report.hash_mismatched,
+                issues = %summary,
                 "Yggdrasil texture storage consistency issues found"
             );
-            RuntimeTaskRunOutcome::failed(
-                Some(format!(
-                    "checked {}, missing {}, hash mismatched {} texture blobs",
-                    report.checked, report.missing, report.hash_mismatched
-                )),
-                "Yggdrasil texture storage consistency check found issues",
-            )
+            RuntimeTaskRunOutcome::failed(Some(summary.clone()), summary)
         }
         Ok(report) if report.checked > 0 => RuntimeTaskRunOutcome::succeeded(Some(format!(
             "checked {} texture storage records",
@@ -490,6 +486,52 @@ async fn run_yggdrasil_storage_consistency_check(
             error.to_string(),
         ),
     }
+}
+
+fn yggdrasil_storage_consistency_failure_summary(
+    report: &crate::services::texture_service::TextureStorageConsistencyReport,
+) -> String {
+    const MAX_ISSUES_IN_SUMMARY: usize = 5;
+
+    let mut summary = format!(
+        "checked {}, missing {}, hash/key mismatched {} texture blobs",
+        report.checked, report.missing, report.hash_mismatched
+    );
+
+    if report.issues.is_empty() {
+        return summary;
+    }
+
+    let issue_details = report
+        .issues
+        .iter()
+        .take(MAX_ISSUES_IN_SUMMARY)
+        .map(|issue| {
+            let kind = match issue.kind {
+                crate::services::texture_service::TextureStorageConsistencyIssueKind::MissingObject => {
+                    "missing object"
+                }
+                crate::services::texture_service::TextureStorageConsistencyIssueKind::HashMismatch => {
+                    "hash/key mismatch"
+                }
+            };
+            format!(
+                "{kind}: texture #{}, key {}, expected hash {}",
+                issue.texture_id, issue.storage_key, issue.hash
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    summary.push_str(": ");
+    summary.push_str(&issue_details);
+
+    let remaining = report.issues.len().saturating_sub(MAX_ISSUES_IN_SUMMARY);
+    if remaining > 0 {
+        summary.push_str(&format!("; and {remaining} more"));
+    }
+
+    summary
 }
 
 async fn run_yggdrasil_texture_cleanup(state: web::Data<AppState>) -> RuntimeTaskRunOutcome {
@@ -838,6 +880,10 @@ fn panic_payload_message(panic: &Box<dyn std::any::Any + Send>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::texture_service::{
+        TextureStorageConsistencyIssue, TextureStorageConsistencyIssueKind,
+        TextureStorageConsistencyReport,
+    };
 
     #[tokio::test]
     async fn shutdown_only_awaits_each_handle_once() {
@@ -868,5 +914,38 @@ mod tests {
             .expect("background worker should report shutdown");
 
         tasks.shutdown().await;
+    }
+
+    #[test]
+    fn storage_consistency_failure_summary_includes_issue_details() {
+        let report = TextureStorageConsistencyReport {
+            checked: 2,
+            missing: 1,
+            hash_mismatched: 1,
+            issues: vec![
+                TextureStorageConsistencyIssue {
+                    texture_id: 41,
+                    storage_key: "aa/missing.png".to_string(),
+                    hash: "expected-missing-hash".to_string(),
+                    kind: TextureStorageConsistencyIssueKind::MissingObject,
+                },
+                TextureStorageConsistencyIssue {
+                    texture_id: 42,
+                    storage_key: "bb/mismatch.png".to_string(),
+                    hash: "expected-mismatch-hash".to_string(),
+                    kind: TextureStorageConsistencyIssueKind::HashMismatch,
+                },
+            ],
+        };
+
+        let summary = yggdrasil_storage_consistency_failure_summary(&report);
+
+        assert!(summary.contains("checked 2, missing 1, hash/key mismatched 1 texture blobs"));
+        assert!(summary.contains(
+            "missing object: texture #41, key aa/missing.png, expected hash expected-missing-hash"
+        ));
+        assert!(summary.contains(
+            "hash/key mismatch: texture #42, key bb/mismatch.png, expected hash expected-mismatch-hash"
+        ));
     }
 }

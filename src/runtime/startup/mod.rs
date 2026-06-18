@@ -88,6 +88,7 @@ mod tests {
             .expect("test texture storage should initialize"),
             mail_sender: crate::services::mail_service::memory_sender(),
             metrics: crate::metrics_core::NoopMetrics::arc(),
+            started_at: AppState::new_started_at(),
             yggdrasil_rate_limiter: AppState::new_yggdrasil_rate_limiter(
                 &crate::config::Config::default(),
             ),

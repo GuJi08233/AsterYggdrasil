@@ -96,11 +96,15 @@
 				},
 				"component": {
 					"database": "数据库",
+					"admin_overview": "概况 API",
 					"cache": "缓存",
 					"mail": "邮件",
 					"background_tasks": "后台任务",
 					"storage": "材质存储",
-					"yggdrasil": "Yggdrasil"
+					"texture_storage_consistency": "材质存储一致性",
+					"yggdrasil": "Yggdrasil",
+					"yggdrasil_storage": "Yggdrasil 存储",
+					"yggdrasil_storage_consistency": "Yggdrasil 存储一致性"
 				}
 			},
 			"steps": {

@@ -94,6 +94,15 @@ pub async fn list_active_for_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
+pub async fn count_active<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    AuthSession::find()
+        .filter(auth_session::Column::RevokedAt.is_null())
+        .filter(auth_session::Column::RefreshExpiresAt.gt(Utc::now()))
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
 pub async fn find_by_id_for_user<C: ConnectionTrait>(
     db: &C,
     user_id: i64,

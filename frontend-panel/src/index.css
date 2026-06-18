@@ -340,6 +340,11 @@
 	.auth-card-transition {
 		animation: auth-card-route-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
+	.status-indicator--breathe {
+		transform-origin: center;
+		animation: status-indicator-breathe 2.8s ease-in-out infinite;
+		will-change: opacity, transform;
+	}
 	html.theme-switching :where(*, *::before, *::after) {
 		transition-property: none;
 	}
@@ -402,6 +407,18 @@
 		opacity: 1;
 		transform: translateX(0) scale(1);
 		filter: blur(0);
+	}
+}
+
+@keyframes status-indicator-breathe {
+	0%,
+	100% {
+		opacity: 0.76;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.18);
 	}
 }
 

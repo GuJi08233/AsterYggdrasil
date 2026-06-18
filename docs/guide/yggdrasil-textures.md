@@ -57,7 +57,9 @@ Minecraft/authlib-injector 客户端会把 URL 文件名当作材质标识缓存
 
 ## Public URL 和 skinDomains
 
-`textures` property 中的 URL 必须是客户端可访问的绝对 URL。普通部署只需要配置 `public_site_url`，服务端会派生出 `{public_site_url}/api/yggdrasil/textures/{hash}`。如果配置了高级覆盖项 `yggdrasil_public_base_url`，服务端会优先使用第一个可用的 http/https URL。
+`textures` property 中的 URL 必须是客户端可访问的绝对 URL。普通部署只需要配置 `public_site_url`，服务端会派生出 `{public_site_url}/api/yggdrasil/textures/{hash}`。如果配置了高级覆盖项 `yggdrasil_public_base_url`，服务端会优先使用第一个可用的 http/https URL。公开读对象存储/CDN 可以额外配置 `yggdrasil_texture_public_base_url`，让已上传材质使用 `{base}/{storage_key}`；默认皮肤仍走 Yggdrasil API。
+
+配置 `yggdrasil_texture_public_base_url` 后，管理前端和用户前端的材质预览也会直接加载该对象存储/CDN URL。桶或 CDN 必须允许对外服务站点来源的匿名 `GET`/`HEAD` CORS 读取。上传不需要浏览器 CORS，AsterYggdrasil 始终由服务端 streaming 上传。
 
 authlib-injector 会校验材质 URL 的域名是否在 metadata 的 `skinDomains` 中。metadata 会自动包含 Mojang 官方域名 `.minecraft.net`、`.mojang.com`，以及当前有效 texture URL 的 host。`yggdrasil_skin_domains` 只用于额外允许 CDN 或外部材质域名。
 
@@ -68,7 +70,7 @@ authlib-injector 会校验材质 URL 的域名是否在 metadata 的 `skinDomain
 运行时维护任务包括：
 
 - `yggdrasil-texture-cleanup`: 删除没有数据库引用的材质对象。
-- `yggdrasil-storage-consistency-check`: 检查数据库记录指向的对象是否缺失，以及对象内容 hash 是否和数据库记录一致。
+- `yggdrasil-storage-consistency-check`: 检查数据库记录指向的对象是否缺失，以及 storage key 是否和数据库 hash 一致。
 - `yggdrasil-token-cleanup`: 清理过期或已吊销的 Yggdrasil token。
 
 删除材质会先删除数据库引用，再按引用计数清理对象。多个 profile 引用同一 hash 时，不会误删仍被引用的对象。

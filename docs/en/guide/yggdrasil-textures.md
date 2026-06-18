@@ -57,7 +57,9 @@ Minecraft/authlib-injector clients treat the URL filename as the texture identif
 
 ## Public URL and skinDomains
 
-The texture URL inside the `textures` property must be an absolute URL reachable by clients. For normal deployments, configure `public_site_url`; the server derives `{public_site_url}/api/yggdrasil/textures/{hash}`. If the advanced `yggdrasil_public_base_url` override is configured, the server uses the first valid http/https URL instead.
+The texture URL inside the `textures` property must be an absolute URL reachable by clients. For normal deployments, configure `public_site_url`; the server derives `{public_site_url}/api/yggdrasil/textures/{hash}`. If the advanced `yggdrasil_public_base_url` override is configured, the server uses the first valid http/https URL instead. A publicly readable object store or CDN can also set `yggdrasil_texture_public_base_url` so uploaded textures use `{base}/{storage_key}`; default skins still use the Yggdrasil API.
+
+When `yggdrasil_texture_public_base_url` is configured, the admin and account frontend previews also load that object-storage/CDN URL directly. The bucket or CDN must allow anonymous `GET`/`HEAD` CORS reads from public site origins. Uploads do not need browser CORS because AsterYggdrasil always uploads to object storage by server-side streaming.
 
 authlib-injector validates that texture URL domains are included in metadata `skinDomains`. Metadata automatically includes Mojang's official domains `.minecraft.net` and `.mojang.com`, plus the current effective texture URL host. `yggdrasil_skin_domains` is only for additional CDN or external texture domains.
 
@@ -68,7 +70,7 @@ Local texture storage is currently supported and is configured explicitly throug
 Runtime maintenance tasks include:
 
 - `yggdrasil-texture-cleanup`: deletes texture objects that have no database reference.
-- `yggdrasil-storage-consistency-check`: checks whether database texture rows point to missing objects, and whether object hashes still match database records.
+- `yggdrasil-storage-consistency-check`: checks whether database texture rows point to missing objects, and whether storage keys still match database hashes.
 - `yggdrasil-token-cleanup`: removes expired or revoked Yggdrasil tokens.
 
 Texture deletion removes the database reference first, then deletes the object only when the reference count reaches zero. If multiple profiles reference the same hash, the object remains available until the last reference is removed.

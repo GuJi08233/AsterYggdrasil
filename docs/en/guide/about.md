@@ -40,7 +40,7 @@ It is also a good fit if you want a single-binary deployment model instead of ma
 
 If you need a polished, finished commercial-grade skin-site frontend today, the current version is not there yet. The backend is the stable part; the admin frontend is still evolving.
 
-If you need multi-node object storage, S3/MinIO texture storage, multi-primary high availability, or a mature ban system, wait or plan to build that work. The production texture storage backend today is local. The S3 config shape is reserved, but the backend is not implemented yet.
+If you need multi-primary high availability, a mature ban system, or a finished commercial operations panel, wait or plan to build that work. Texture storage supports local, S3, and MinIO. S3/MinIO uses server-side streaming uploads and does not support client presigned uploads.
 
 If your target is Mojang official online mode, AsterYggdrasil is not designed for that scenario. It targets self-hosted Yggdrasil/authlib-injector integration.
 
@@ -50,7 +50,7 @@ Minecraft profile names support controlled renames through the user or administr
 
 Texture uploads accept PNG only. The server re-encodes uploads into sanitized PNG files and hashes the processed bytes. Raw uploads are not kept.
 
-Public texture URLs must be absolute URLs reachable by clients. In production, configure `public_site_url` or `yggdrasil_public_base_url`; otherwise profile texture responses can fail because the service cannot build a public URL.
+Public texture URLs must be absolute URLs reachable by clients. In production, configure `public_site_url` or `yggdrasil_public_base_url`; for a publicly readable object store or CDN, also configure `yggdrasil_texture_public_base_url`. Without a usable public URL, profile texture responses can fail because the service cannot build a public URL.
 
 Do not hand-edit the signing private key in the database. Use the admin config action to rotate it so the service generates and stores a matching RSA private/public key pair.
 

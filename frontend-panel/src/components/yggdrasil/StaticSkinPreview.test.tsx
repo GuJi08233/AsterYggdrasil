@@ -72,6 +72,10 @@ describe("StaticSkinPreview", () => {
 		expect(
 			screen.getByRole("img", { name: "Skin preview" }),
 		).toBeInTheDocument();
+		expect(screen.getByRole("img", { name: "Skin preview" })).toHaveAttribute(
+			"crossorigin",
+			"anonymous",
+		);
 		expect(
 			document.querySelectorAll('[data-slot="static-skin-preview-canvas"]'),
 		).toHaveLength(2);

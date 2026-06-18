@@ -9,6 +9,7 @@ use actix_web::web;
 pub mod audit_logs;
 pub mod config;
 pub mod external_auth;
+pub mod overview;
 pub mod profiles;
 pub mod system_info;
 pub mod tasks;
@@ -24,6 +25,7 @@ pub use external_auth::{
     list_external_auth_provider_kinds, list_external_auth_providers, test_external_auth_provider,
     test_external_auth_provider_params, update_external_auth_provider,
 };
+pub use overview::get_overview;
 pub use profiles::{
     delete_minecraft_profile, delete_minecraft_profile_texture, delete_minecraft_textures_by_hash,
     get_minecraft_profile, list_minecraft_profile_textures, list_minecraft_profiles,
@@ -48,6 +50,7 @@ pub fn routes(
             web::scope("").wrap(JwtAuth).service(
                 web::scope("")
                     .wrap(RequireAdmin)
+                    .route("/overview", web::get().to(get_overview))
                     .route("/audit-logs", web::get().to(list_audit_logs))
                     .route("/system-info", web::get().to(get_system_info))
                     .route("/config", web::get().to(list_config))

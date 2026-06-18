@@ -111,9 +111,10 @@ fn texture_property_value(
         entries.insert(
             texture.binding.texture_type.textures_property_key(),
             TexturePropertyItem {
-                url: yggdrasil_signature::required_texture_public_url(
+                url: yggdrasil_signature::required_texture_object_public_url(
                     policy,
                     &texture.texture.hash,
+                    &texture.texture.storage_key,
                 )?,
                 metadata,
             },

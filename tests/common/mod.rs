@@ -784,6 +784,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         texture_storage: base.texture_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
+        started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter: aster_yggdrasil::runtime::AppState::new_yggdrasil_rate_limiter(
             &base.config,
         ),
@@ -992,6 +993,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         texture_storage,
         mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
         metrics: aster_yggdrasil::metrics_core::NoopMetrics::arc(),
+        started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter,
         background_task_dispatch_wakeup:
             aster_yggdrasil::runtime::AppState::new_background_task_dispatch_wakeup(),

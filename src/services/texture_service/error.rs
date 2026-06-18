@@ -92,10 +92,7 @@ impl TextureError {
                 .detail
                 .clone()
                 .unwrap_or_else(|| "Invalid texture dimensions.".to_string()),
-            TextureErrorKind::Storage => self
-                .detail
-                .clone()
-                .unwrap_or_else(|| "Texture storage failed.".to_string()),
+            TextureErrorKind::Storage => "Texture storage failed.".to_string(),
         }
     }
 }
@@ -103,6 +100,32 @@ impl TextureError {
 impl From<AsterError> for TextureError {
     fn from(value: AsterError) -> Self {
         tracing::warn!(error = %value, "texture service failed");
-        Self::with_detail(TextureErrorKind::Storage, value.message())
+        Self::new(TextureErrorKind::Storage)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TextureError, TextureErrorKind};
+    use crate::errors::AsterError;
+
+    #[test]
+    fn storage_errors_do_not_expose_internal_details_to_clients() {
+        let error = TextureError::with_detail(
+            TextureErrorKind::Storage,
+            "S3 texture upload failed: endpoint=https://s3.internal, bucket=private",
+        );
+
+        assert_eq!(error.protocol_message(), "Texture storage failed.");
+    }
+
+    #[test]
+    fn aster_errors_are_logged_but_mapped_to_generic_storage_errors() {
+        let error = TextureError::from(AsterError::internal_error(
+            "S3 texture upload failed: source=connection refused",
+        ));
+
+        assert_eq!(error.kind(), TextureErrorKind::Storage);
+        assert_eq!(error.protocol_message(), "Texture storage failed.");
     }
 }

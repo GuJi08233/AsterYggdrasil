@@ -45,6 +45,7 @@ yggdrasil_max_texture_upload_bytes
 yggdrasil_max_texture_pixels
 yggdrasil_skin_domains
 yggdrasil_public_base_url
+yggdrasil_texture_public_base_url
 yggdrasil_signature_public_key
 yggdrasil_signature_private_key
 ```
@@ -88,6 +89,16 @@ https://skin.example.com/api/yggdrasil/textures/{hash}
 ```
 
 如果 `yggdrasil_public_base_url` 和 `public_site_url` 都没有可用值，Yggdrasil profile textures 响应会返回配置错误；协议响应不会输出相对 texture URL。
+
+`yggdrasil_texture_public_base_url` 是对象存储/CDN 直链覆盖项，适用于 S3 bucket 或 CDN 公开读、服务端私有写的部署。它是普通字符串，不是数组：
+
+```text
+https://cdn.example.com/env/production/textures
+```
+
+配置后，已上传材质会用 `{yggdrasil_texture_public_base_url}/{storage_key}`，例如 `https://cdn.example.com/env/production/textures/ab/abcdef...png`。默认皮肤不在对象存储里，仍通过 Yggdrasil API URL 返回。
+
+如果这个 URL 指向 S3 bucket 或 CDN，前端材质预览会从该域名直接加载图片。bucket/CDN 必须允许 `public_site_url` 中对外服务的站点来源执行匿名 `GET`/`HEAD` CORS 读取。这里不需要开放浏览器上传 CORS，因为上传始终由服务端 streaming 到对象存储。
 
 ## skinDomains
 

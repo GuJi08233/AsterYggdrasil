@@ -126,6 +126,7 @@ pub const YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY: &str = "yggdrasil_max_texture_
 pub const YGGDRASIL_MAX_TEXTURE_PIXELS_KEY: &str = "yggdrasil_max_texture_pixels";
 pub const YGGDRASIL_SKIN_DOMAINS_KEY: &str = "yggdrasil_skin_domains";
 pub const YGGDRASIL_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_public_base_url";
+pub const YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_texture_public_base_url";
 pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public_key";
 pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
 
@@ -983,6 +984,17 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_YGGDRASIL,
         description: "Externally reachable base URL candidates used to build Yggdrasil texture URLs",
+    },
+    ConfigDef {
+        key: YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
+        label_i18n_key: "settings_item_yggdrasil_texture_public_base_url_label",
+        description_i18n_key: "settings_item_yggdrasil_texture_public_base_url_desc",
+        value_type: SystemConfigValueType::String,
+        default_fn: String::new,
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL,
+        description: "Optional public object-storage or CDN base URL used for uploaded texture objects. When empty, texture URLs use the Yggdrasil API route",
     },
     ConfigDef {
         key: YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY,

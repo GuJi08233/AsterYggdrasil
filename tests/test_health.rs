@@ -27,6 +27,10 @@ async fn health_returns_ok() {
         "public health leaked build time"
     );
     assert!(
+        body.get("uptime_seconds").is_none(),
+        "public health leaked uptime"
+    );
+    assert!(
         body.get("data").is_none(),
         "public health should use a minimal probe response"
     );
@@ -74,12 +78,20 @@ async fn ready_checks_database() {
         "readiness leaked build time"
     );
     assert!(
+        body["data"].get("uptime_seconds").is_none(),
+        "readiness leaked uptime"
+    );
+    assert!(
         body.get("version").is_none(),
         "readiness leaked version outside data"
     );
     assert!(
         body.get("build_time").is_none(),
         "readiness leaked build time outside data"
+    );
+    assert!(
+        body.get("uptime_seconds").is_none(),
+        "readiness leaked uptime outside data"
     );
 }
 
@@ -132,7 +144,7 @@ async fn ready_redacts_database_error() {
 }
 
 #[actix_web::test]
-async fn admin_system_info_exposes_build_metadata_after_auth() {
+async fn admin_system_info_exposes_build_and_runtime_metadata_after_auth() {
     let state = common::setup().await;
     let app = create_test_app!(state);
     let (admin_token, _) = register_and_login!(app);
@@ -149,6 +161,7 @@ async fn admin_system_info_exposes_build_metadata_after_auth() {
     assert_eq!(body["code"], AsterErrorCode::Success.as_str());
     assert_eq!(body["data"]["version"], env!("CARGO_PKG_VERSION"));
     assert!(body["data"]["build_time"].as_str().is_some());
+    assert!(body["data"]["uptime_seconds"].as_u64().is_some());
     assert_eq!(body["data"]["status"], Value::Null);
     assert_eq!(body["data"].get("status"), None);
 }

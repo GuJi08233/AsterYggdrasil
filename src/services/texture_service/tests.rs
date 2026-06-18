@@ -64,6 +64,7 @@ async fn test_state(texture_root: String) -> AppState {
         texture_storage,
         mail_sender: crate::services::mail_service::memory_sender(),
         metrics: crate::metrics_core::NoopMetrics::arc(),
+        started_at: crate::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter,
         background_task_dispatch_wakeup:
             crate::runtime::AppState::new_background_task_dispatch_wakeup(),
@@ -179,7 +180,7 @@ async fn cleanup_orphan_texture_blobs_deletes_unreferenced_storage_keys_only() {
 }
 
 #[tokio::test]
-async fn check_texture_storage_consistency_reports_missing_and_hash_mismatch() {
+async fn check_texture_storage_consistency_reports_missing_and_storage_key_mismatch() {
     let root = std::env::temp_dir().join(format!(
         "asteryggdrasil-texture-consistency-{}",
         uuid::Uuid::new_v4()
@@ -187,12 +188,14 @@ async fn check_texture_storage_consistency_reports_missing_and_hash_mismatch() {
     let state = test_state(root.to_string_lossy().to_string()).await;
     let valid_bytes = png(64, 64);
     let valid_hash = hex::encode(sha2::Sha256::digest(&valid_bytes));
-    let valid_key = "aa/valid.png";
+    let valid_key = format!("{}/{}.png", &valid_hash[..2], valid_hash);
     let mismatch_key = "bb/mismatch.png";
     let missing_key = "cc/missing.png";
-    tokio::fs::create_dir_all(root.join("aa")).await.unwrap();
+    tokio::fs::create_dir_all(root.join(&valid_key).parent().unwrap())
+        .await
+        .unwrap();
     tokio::fs::create_dir_all(root.join("bb")).await.unwrap();
-    tokio::fs::write(root.join(valid_key), &valid_bytes)
+    tokio::fs::write(root.join(&valid_key), &valid_bytes)
         .await
         .unwrap();
     tokio::fs::write(root.join(mismatch_key), png(64, 64))
@@ -219,7 +222,11 @@ async fn check_texture_storage_consistency_reports_missing_and_hash_mismatch() {
     .await
     .unwrap();
     for (texture_type, hash, storage_key) in [
-        (MinecraftTextureType::Skin, valid_hash.as_str(), valid_key),
+        (
+            MinecraftTextureType::Skin,
+            valid_hash.as_str(),
+            valid_key.as_str(),
+        ),
         (
             MinecraftTextureType::Cape,
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",

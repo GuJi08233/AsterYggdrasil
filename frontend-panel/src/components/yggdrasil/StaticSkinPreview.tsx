@@ -40,7 +40,12 @@ export function StaticSkinPreview({
 				className,
 			)}
 		>
-			<img src={skinUrl} alt={alt} className="sr-only" />
+			<img
+				src={skinUrl}
+				alt={alt}
+				crossOrigin="anonymous"
+				className="sr-only"
+			/>
 			<StaticSkinCanvasGroup key={previewKey}>
 				{STATIC_SKIN_VIEWS.map((view) => (
 					<StaticSkinCanvas

@@ -34,7 +34,7 @@ Deletion handles:
 
 Minecraft clients and servers do not run inside your application process. They can only load the URL embedded in the `textures` property, so that URL must be reachable from the client machine.
 
-Local testing can skip this briefly. Production deployments must configure `public_site_url` or `yggdrasil_public_base_url`.
+Local testing can skip this briefly. Production deployments must configure `public_site_url` or `yggdrasil_public_base_url`. If uploaded textures are served directly from a publicly readable object store or CDN, also configure `yggdrasil_texture_public_base_url`.
 
 ## What is `skinDomains` for?
 
@@ -42,7 +42,7 @@ authlib-injector checks whether the texture URL host is covered by metadata `ski
 
 ## Can I use S3 or MinIO?
 
-The current production texture storage backend is local. The S3/MinIO config shape is reserved, but the backend is not implemented yet.
+Yes. `local`, `s3`, and `minio` are available texture storage backends. S3/MinIO uses server-side streaming uploads only and does not expose client presigned uploads.
 
 ## Can I delete texture files directly?
 

@@ -383,6 +383,7 @@ All keys belong to `CONFIG_CATEGORY_YGGDRASIL`:
 | `yggdrasil_max_texture_pixels` | Decoded texture pixel limit. |
 | `yggdrasil_skin_domains` | Extra texture domain allowlist entries. |
 | `yggdrasil_public_base_url` | Advanced override used to build public Yggdrasil/texture URLs. |
+| `yggdrasil_texture_public_base_url` | Object-storage/CDN direct URL override for uploaded textures only; default skins still use the Yggdrasil API. |
 | `yggdrasil_signature_public_key` | Optional public-key override. |
 | `yggdrasil_signature_private_key` | Private key for signing textures properties. Sensitive config. |
 

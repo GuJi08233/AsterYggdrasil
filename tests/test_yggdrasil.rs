@@ -11,14 +11,17 @@ use aster_yggdrasil::config::yggdrasil::{
     YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
     YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY, YGGDRASIL_PUBLIC_BASE_URL_KEY,
-    YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
+    YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
+    YGGDRASIL_TOKEN_TTL_DAYS_KEY,
 };
 use aster_yggdrasil::config::{RateLimitConfig, RateLimitTier};
 use aster_yggdrasil::db::repository::{minecraft_profile_repo, system_config_repo, user_repo};
 use aster_yggdrasil::entities::{
     audit_log, minecraft_profile_texture, minecraft_texture, yggdrasil_token,
 };
+use aster_yggdrasil::errors::{AsterError, Result};
 use aster_yggdrasil::services::audit_service;
+use aster_yggdrasil::texture_storage::{TextureBlobMetadata, TextureStorage};
 use aster_yggdrasil::types::MinecraftTextureModel;
 use aster_yggdrasil::utils::hash::sha256_hex;
 use base64::Engine;
@@ -27,13 +30,50 @@ use serde_json::Value;
 use std::{
     io::Cursor,
     num::{NonZeroU32, NonZeroU64},
+    path::Path,
     sync::Arc,
 };
+use tokio::io::AsyncRead;
 
 const DEFAULT_STEVE_SKIN_HASH: &str =
     "082fdbe1403d09fcf030464bf754439ee79e9287bb15efbe2f54d02f60108133";
 const DEFAULT_ALEX_SKIN_HASH: &str =
     "394b483392052fb28d6271c736ba0df0394223c93b6348f1f1d135fdb7412daa";
+
+struct FailingTextureStorage;
+
+#[async_trait::async_trait]
+impl TextureStorage for FailingTextureStorage {
+    fn backend_name(&self) -> &'static str {
+        "failing"
+    }
+
+    async fn put_file(&self, _storage_key: &str, _local_path: &Path) -> Result<String> {
+        Err(AsterError::internal_error(
+            "S3 texture upload failed: endpoint=https://s3.internal, bucket=private, source=connection refused",
+        ))
+    }
+
+    async fn get_stream(&self, _storage_key: &str) -> Result<Box<dyn AsyncRead + Unpin + Send>> {
+        Err(AsterError::internal_error("failing test storage"))
+    }
+
+    async fn delete(&self, _storage_key: &str) -> Result<()> {
+        Ok(())
+    }
+
+    async fn exists(&self, _storage_key: &str) -> Result<bool> {
+        Ok(false)
+    }
+
+    async fn metadata(&self, _storage_key: &str) -> Result<TextureBlobMetadata> {
+        Err(AsterError::internal_error("failing test storage"))
+    }
+
+    async fn list_keys(&self, _prefix: &str) -> Result<Vec<String>> {
+        Ok(Vec::new())
+    }
+}
 
 async fn setup_yggdrasil() -> aster_yggdrasil::runtime::AppState {
     let state = common::setup().await;
@@ -2019,6 +2059,103 @@ async fn yggdrasil_texture_upload_public_read_profile_property_and_delete_flow()
 }
 
 #[actix_web::test]
+async fn yggdrasil_uploaded_texture_property_can_use_public_object_storage_url() {
+    let state = setup_yggdrasil().await;
+    let saved = system_config_repo::upsert_with_options(
+        state.writer_db(),
+        YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
+        "https://cdn.example.test/env/production/textures",
+        None,
+        None,
+    )
+    .await
+    .expect("texture public base URL config should update");
+    state.runtime_config().apply(saved);
+
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+    let profile_id = create_profile!(&app, &access, "CdnSkinUser");
+    let login = ygg_login!(&app, "admin@example.com", "cdn-texture-client");
+
+    let req = test::TestRequest::get().uri("/api/yggdrasil/").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let metadata: Value = test::read_body_json(resp).await;
+    let skin_domains = metadata["skinDomains"]
+        .as_array()
+        .expect("skinDomains should be an array");
+    assert!(
+        skin_domains.iter().any(|domain| domain == ".minecraft.net"),
+        "metadata should keep default Minecraft skin domains"
+    );
+    assert!(
+        skin_domains.iter().any(|domain| domain == ".mojang.com"),
+        "metadata should keep default Mojang skin domains"
+    );
+    assert!(
+        skin_domains
+            .iter()
+            .any(|domain| domain == "cdn.example.test"),
+        "metadata should include the CDN host so authlib-injector accepts uploaded texture URLs"
+    );
+    assert!(
+        !skin_domains
+            .iter()
+            .any(|domain| domain == "cdn.example.test/env/production/textures"),
+        "skinDomains must contain only host rules, not CDN paths"
+    );
+
+    let resp = upload_texture_req!(
+        app,
+        &login.access_token,
+        &profile_id,
+        "skin",
+        Some("slim"),
+        &png_texture(64, 64)
+    );
+    assert_eq!(resp.status(), 204);
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/yggdrasil/sessionserver/session/minecraft/profile/{profile_id}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let profile_body: Value = test::read_body_json(resp).await;
+    let textures = decode_textures_property(&profile_body);
+    let texture_url = textures["textures"]["SKIN"]["url"].as_str().unwrap();
+    let texture_hash = texture_url
+        .strip_prefix("https://cdn.example.test/env/production/textures/")
+        .and_then(|storage_key| storage_key.strip_suffix(".png"))
+        .and_then(|storage_key| storage_key.split_once('/'))
+        .map(|(shard, hash)| {
+            assert_eq!(shard, &hash[..2]);
+            hash
+        })
+        .expect("CDN texture URL should include sharded storage key");
+    assert_eq!(texture_hash.len(), 64);
+    assert_eq!(textures["textures"]["SKIN"]["metadata"]["model"], "slim");
+
+    let default_profile_id = create_profile!(&app, &access, "CdnDefaultUser");
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/yggdrasil/sessionserver/session/minecraft/profile/{default_profile_id}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let profile_body: Value = test::read_body_json(resp).await;
+    let default_textures = decode_textures_property(&profile_body);
+    assert!(
+        default_textures["textures"]["SKIN"]["url"]
+            .as_str()
+            .unwrap()
+            .starts_with("http://localhost/api/yggdrasil/textures/")
+    );
+}
+
+#[actix_web::test]
 async fn yggdrasil_startup_generates_persistent_signature_key_once() {
     let state = setup_yggdrasil().await;
 
@@ -2296,7 +2433,7 @@ async fn yggdrasil_profile_textures_require_public_url_configuration() {
         resp,
         500,
         "InternalServerError",
-        "public_site_url or yggdrasil_public_base_url must be configured",
+        "yggdrasil_texture_public_base_url must be configured",
     )
     .await;
 }
@@ -4932,6 +5069,35 @@ async fn wardrobe_upload_rejects_streams_over_runtime_size_limit() {
             .unwrap()
             .contains("Texture upload exceeds")
     );
+}
+
+#[actix_web::test]
+async fn wardrobe_upload_storage_errors_hide_internal_details() {
+    let mut state = setup_yggdrasil().await;
+    state.texture_storage = Arc::new(FailingTextureStorage);
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+
+    let resp =
+        upload_wardrobe_texture_req!(app, &access, "skin", Some("default"), &png_texture(64, 64));
+    assert_eq!(resp.status(), 500);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_texture.storage_failed");
+    assert_eq!(body["msg"], "Texture storage failed.");
+
+    let response_text = body.to_string();
+    for hidden in [
+        "S3",
+        "s3.internal",
+        "bucket",
+        "private",
+        "connection refused",
+    ] {
+        assert!(
+            !response_text.contains(hidden),
+            "storage response must not expose internal detail {hidden:?}: {response_text}"
+        );
+    }
 }
 
 #[actix_web::test]

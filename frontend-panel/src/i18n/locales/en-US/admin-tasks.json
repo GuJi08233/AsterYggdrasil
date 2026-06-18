@@ -96,11 +96,15 @@
 				},
 				"component": {
 					"database": "Database",
+					"admin_overview": "Overview API",
 					"cache": "Cache",
 					"mail": "Mail",
 					"background_tasks": "Background tasks",
 					"storage": "Texture storage",
-					"yggdrasil": "Yggdrasil"
+					"texture_storage_consistency": "Texture storage consistency",
+					"yggdrasil": "Yggdrasil",
+					"yggdrasil_storage": "Yggdrasil storage",
+					"yggdrasil_storage_consistency": "Yggdrasil storage consistency"
 				}
 			},
 			"steps": {

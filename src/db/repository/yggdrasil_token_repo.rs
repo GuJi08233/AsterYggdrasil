@@ -4,8 +4,8 @@ use crate::entities::yggdrasil_token::{self, Entity as YggdrasilToken};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter,
-    QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, Set,
 };
 
 pub struct CreateYggdrasilToken<'a> {
@@ -48,6 +48,16 @@ pub async fn find_by_access_hash<C: ConnectionTrait>(
     YggdrasilToken::find()
         .filter(yggdrasil_token::Column::AccessTokenHash.eq(access_token_hash))
         .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_active<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    YggdrasilToken::find()
+        .filter(yggdrasil_token::Column::RevokedAt.is_null())
+        .filter(yggdrasil_token::Column::TemporarilyInvalidatedAt.is_null())
+        .filter(yggdrasil_token::Column::ExpiresAt.gt(Utc::now()))
+        .count(db)
         .await
         .map_aster_err(AsterError::database_operation)
 }

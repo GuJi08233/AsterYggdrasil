@@ -43,7 +43,8 @@ fn status_message(
         (TaskPayload::SystemRuntime(_), Some(TaskResult::SystemRuntime(result))) => result
             .system_health
             .as_ref()
-            .map(system_health_status_message),
+            .map(system_health_status_message)
+            .or_else(|| fallback_status_message(status, last_error)),
         _ => fallback_status_message(status, last_error),
     }
 }
@@ -224,6 +225,29 @@ mod tests {
         let status = presentation.status.as_ref().unwrap();
         assert_eq!(status.code, TaskPresentationCode::StatusTextFailed);
         assert_eq!(status.params["error"], "cleanup failed");
+    }
+
+    #[test]
+    fn failed_runtime_task_with_result_without_health_falls_back_to_error_status() {
+        let result = TaskResult::SystemRuntime(RuntimeTaskResult {
+            duration_ms: 10,
+            summary: Some("cleanup failed summary".to_string()),
+            system_health: None,
+        });
+
+        let presentation = build_task_presentation(
+            &TaskPayload::SystemRuntime(RuntimeTaskPayload {
+                task_name: RuntimeTaskName::from(SystemRuntimeTaskKind::TaskCleanup),
+            }),
+            Some(&result),
+            BackgroundTaskStatus::Failed,
+            Some("cleanup failed detail"),
+        )
+        .expect("presentation should be built");
+
+        let status = presentation.status.as_ref().unwrap();
+        assert_eq!(status.code, TaskPresentationCode::StatusTextFailed);
+        assert_eq!(status.params["error"], "cleanup failed detail");
     }
 
     #[test]

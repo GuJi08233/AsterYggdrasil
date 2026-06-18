@@ -71,10 +71,11 @@ fn status_response(status: &str) -> HealthResponse {
     }
 }
 
-pub fn system_info_response() -> crate::api::response::SystemInfoResponse {
+pub fn system_info_response(state: &AppState) -> crate::api::response::SystemInfoResponse {
     crate::api::response::SystemInfoResponse {
         version: env!("CARGO_PKG_VERSION").to_string(),
         build_time: compile_time().to_string(),
+        uptime_seconds: state.uptime().as_secs(),
     }
 }
 

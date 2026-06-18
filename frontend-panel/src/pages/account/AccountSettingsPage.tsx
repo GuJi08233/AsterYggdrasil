@@ -982,7 +982,7 @@ export default function AccountSettingsPage() {
 	const userProfileKey = `${user.id}:${user.profile?.display_name ?? ""}`;
 
 	return (
-		<div className="mx-auto grid w-full max-w-[104rem] gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_15rem] lg:px-7">
+		<div className="mx-auto grid w-full max-w-[104rem] gap-6 px-4 py-5 sm:px-6 lg:px-7 xl:grid-cols-[minmax(0,1fr)_15rem]">
 			<div className="min-w-0">
 				<div className="mb-5 border-b border-border/70 pb-5 dark:border-white/10">
 					<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -1009,22 +1009,6 @@ export default function AccountSettingsPage() {
 								</div>
 							</div>
 						</div>
-					</div>
-
-					<div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-						{sections.map((section) => (
-							<Button
-								key={section.id}
-								type="button"
-								size="sm"
-								variant={activeSection === section.id ? "default" : "outline"}
-								onClick={() => scrollToSettingsSection(section.id)}
-								className="shrink-0"
-							>
-								<Icon name={section.icon} className="mr-2 size-4" />
-								{section.label}
-							</Button>
-						))}
 					</div>
 				</div>
 
@@ -1093,7 +1077,7 @@ export default function AccountSettingsPage() {
 				</div>
 			</div>
 
-			<aside className="hidden lg:block">
+			<aside className="hidden xl:block">
 				<div className="sticky top-20 rounded-lg border border-border/70 bg-card p-2 shadow-sm dark:border-white/10 dark:bg-card/90 dark:shadow-none">
 					<div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 						{t("personalSettings.sectionNav")}

@@ -3,6 +3,7 @@
 		"workspaceTitle": "Admin Workspace",
 		"workspaceDescription": "Manage accounts, authentication services, runtime settings, and audit records",
 		"nav": {
+			"overview": "Overview",
 			"settings": "Settings",
 			"users": "Users",
 			"config": "Config",
@@ -20,6 +21,91 @@
 			"tasks": "Background task queue",
 			"about": "Instance version and build",
 			"developer": "API reference and diagnostics"
+		},
+		"overview": {
+			"title": "Admin Overview",
+			"welcome": "Welcome back, {{username}}",
+			"description": "Current players, profiles, texture assets, and authentication sessions in one place.",
+			"runningStatus": "System running normally",
+			"loadingStatus": "Syncing status",
+			"instanceVersion": "Server {{version}}",
+			"loadErrorTitle": "Failed to load overview",
+			"retry": "Retry",
+			"stats": {
+				"users": "Total players",
+				"profiles": "Profiles",
+				"textures": "Textures",
+				"tokens": "Active tokens"
+			},
+			"chartTitle": "Domain data",
+			"chartDescription": "Daily active users, active players, new textures, and Yggdrasil API calls over the last 7 days.",
+			"chartLoading": "Loading trend data...",
+			"chartEmpty": "No trend data available.",
+			"chartNoActivity": "No activity was recorded in this 7-day window.",
+			"chartTotal": "7-day total",
+			"chartAverage": "Daily average",
+			"chartLatest": "Latest day",
+			"chartPeak": "Peak day",
+			"chart": {
+				"users": "Active users",
+				"profiles": "Active players",
+				"textures": "New textures",
+				"yggdrasil": "Yggdrasil API calls"
+			},
+			"activityTitle": "Live activity",
+			"activityDescription": "Recent auth, account, and admin events.",
+			"viewAll": "View all",
+			"loadingActivity": "Loading activity...",
+			"emptyActivity": "No audit activity yet.",
+			"serviceTitle": "Service status",
+			"serviceDescription": "Current availability of core services.",
+			"loadingServices": "Reading service status...",
+			"emptyServices": "No service status.",
+			"service": {
+				"database": "Database",
+				"yggdrasil": "Yggdrasil auth",
+				"session": "Site sessions",
+				"texture_storage": "Texture storage",
+				"background_tasks": "Background tasks"
+			},
+			"serviceStatus": {
+				"ok": "Normal",
+				"warning": "Attention"
+			},
+			"quickTitle": "Quick actions",
+			"quick": {
+				"users": "Manage users",
+				"usersDesc": "Accounts, roles, and invitations",
+				"settings": "System settings",
+				"settingsDesc": "Auth and site policies",
+				"externalAuth": "External auth",
+				"externalAuthDesc": "Login provider setup",
+				"audit": "Audit logs",
+				"auditDesc": "Security event trail"
+			},
+			"systemTitle": "System info",
+			"system": {
+				"version": "Service version",
+				"buildTime": "Build time",
+				"uptime": "System uptime",
+				"tasks": "Processing / queued",
+				"unknown": "Unknown"
+			},
+			"systemHealth": {
+				"healthy": "Health check passed",
+				"degraded": "System health degraded",
+				"unhealthy": "System health requires attention",
+				"unknown": "Health check not available",
+				"healthyDesc": "All required runtime checks passed in the latest system health task.",
+				"unknownDesc": "No completed system health result is available yet.",
+				"checkedAt": "Checked",
+				"notChecked": "Not checked",
+				"issueSummary": "Affected checks: {{components}}.",
+				"issueSeparator": ", ",
+				"issueComponent": "{{component}}: {{status}}",
+				"noSummary": "The latest health check reported an issue without component details.",
+				"viewHistory": "View task history"
+			}
 		},
 		"showFilters": "Filters",
 		"hideFilters": "Hide filters",

@@ -184,6 +184,7 @@ where
         cors::CORS_MAX_AGE_SECS_KEY => cors::normalize_max_age_config_value(value),
         site_url::PUBLIC_SITE_URL_KEY => site_url::normalize_public_site_url_config_value(value),
         yggdrasil::YGGDRASIL_PUBLIC_BASE_URL_KEY
+        | yggdrasil::YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY
         | yggdrasil::YGGDRASIL_SKIN_DOMAINS_KEY
         | yggdrasil::YGGDRASIL_TOKEN_TTL_DAYS_KEY
         | yggdrasil::YGGDRASIL_MAX_ACTIVE_TOKENS_KEY

@@ -5,6 +5,7 @@ use crate::db::repository::search_query;
 use crate::entities::minecraft_profile::{self, Entity as MinecraftProfile};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::MinecraftTextureModel;
+use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, Set,
@@ -40,6 +41,26 @@ pub async fn create<C: ConnectionTrait>(
     .insert(db)
     .await
     .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    MinecraftProfile::find()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn count_created_between<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<u64> {
+    MinecraftProfile::find()
+        .filter(minecraft_profile::Column::CreatedAt.gte(start))
+        .filter(minecraft_profile::Column::CreatedAt.lt(end))
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
 }
 
 pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<minecraft_profile::Model> {

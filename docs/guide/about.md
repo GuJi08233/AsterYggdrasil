@@ -40,7 +40,7 @@ AsterYggdrasil 是一个自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-in
 
 如果你需要一个已经打磨完整的商业级皮肤站前端，当前版本还不适合直接拿来当最终产品。后端能力更扎实，前端管理面板仍在演进。
 
-如果你需要多节点对象存储、S3/MinIO 材质后端、多主高可用或复杂封禁系统，当前版本还不适合直接承担这些场景。当前生产可用的材质存储后端是 local；S3 配置形状已经预留，但 backend 还没有实现。
+如果你需要多主高可用、复杂封禁系统或完整商业级运营后台，当前版本还不适合直接承担这些场景。材质存储已经支持 local、S3 和 MinIO；S3/MinIO 走服务端 streaming 上传，不支持客户端 presigned 上传。
 
 如果目标是运行 Mojang 官方在线模式服务器，AsterYggdrasil 并不面向这个场景。它面向的是自建 Yggdrasil/authlib-injector 接入。
 
@@ -50,7 +50,7 @@ AsterYggdrasil 是一个自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-in
 
 材质上传只接受 PNG。服务端会重编码为安全 PNG，并以处理后的内容计算 hash。你上传的原始文件不会长期保存。
 
-公开材质 URL 必须是客户端能访问的绝对 URL。生产部署时应配置 `public_site_url` 或 `yggdrasil_public_base_url`；如果缺少可用公开 URL，profile textures 响应会因为无法生成公网 URL 而失败。
+公开材质 URL 必须是客户端能访问的绝对 URL。生产部署时应配置 `public_site_url` 或 `yggdrasil_public_base_url`；公开读对象存储/CDN 可以额外配置 `yggdrasil_texture_public_base_url`。如果缺少可用公开 URL，profile textures 响应会因为无法生成公网 URL 而失败。
 
 签名私钥不应手动写入数据库。生产环境应通过管理端 config action 轮换，让服务端生成并维护成对的 RSA 私钥和公钥。
 

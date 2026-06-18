@@ -7,6 +7,7 @@ use actix_web::test;
 use aster_yggdrasil::config::definitions::{
     BRANDING_TITLE_KEY, YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
     YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY,
+    YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
 };
 use serde_json::Value;
 
@@ -82,6 +83,7 @@ async fn admin_config_lists_schema_and_updates_runtime_value() {
 #[actix_web::test]
 async fn admin_config_validates_yggdrasil_values_and_auto_covers_texture_domains() {
     let state = common::setup().await;
+    let state_for_assert = state.clone();
     let app = create_test_app!(state);
     let token = setup_admin!(app);
 
@@ -100,6 +102,31 @@ async fn admin_config_validates_yggdrasil_values_and_auto_covers_texture_domains
     assert_eq!(
         body["data"]["config"]["value"],
         serde_json::json!(["https://skin.example.test/yggdrasil"])
+    );
+    assert_eq!(body["data"]["warnings"].as_array().unwrap().len(), 0);
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/admin/config/{YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY}"
+        ))
+        .insert_header(common::bearer_header(&token))
+        .set_json(serde_json::json!({
+            "value": " https://cdn.example.test/env/production/textures/ "
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["data"]["config"]["value"],
+        "https://cdn.example.test/env/production/textures"
+    );
+    assert_eq!(
+        state_for_assert
+            .runtime_config()
+            .get(YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY)
+            .as_deref(),
+        Some("https://cdn.example.test/env/production/textures")
     );
     assert_eq!(body["data"]["warnings"].as_array().unwrap().len(), 0);
 
@@ -136,6 +163,33 @@ async fn admin_config_validates_yggdrasil_values_and_auto_covers_texture_domains
             .unwrap()
             .contains("must use http or https")
     );
+
+    for invalid_value in [
+        "ftp://cdn.example.test/textures",
+        "https://cdn.example.test/textures?bucket=public",
+    ] {
+        let req = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/admin/config/{YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY}"
+            ))
+            .insert_header(common::bearer_header(&token))
+            .set_json(serde_json::json!({
+                "value": invalid_value
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 400);
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["code"], "bad_request");
+        assert_eq!(
+            state_for_assert
+                .runtime_config()
+                .get(YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY)
+                .as_deref(),
+            Some("https://cdn.example.test/env/production/textures"),
+            "invalid texture public base URL must not overwrite runtime config"
+        );
+    }
 
     let req = test::TestRequest::put()
         .uri(&format!(

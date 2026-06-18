@@ -26,6 +26,28 @@ pub fn texture_base_url(policy: &RuntimeYggdrasilPolicy, texture_hash: &str) -> 
     texture_public_url(policy, texture_hash).unwrap_or_else(|| texture_path(texture_hash))
 }
 
+pub fn texture_object_url(
+    policy: &RuntimeYggdrasilPolicy,
+    texture_hash: &str,
+    storage_key: &str,
+) -> String {
+    texture_object_public_url(policy, storage_key)
+        .unwrap_or_else(|| texture_base_url(policy, texture_hash))
+}
+
+pub fn texture_object_public_url(
+    policy: &RuntimeYggdrasilPolicy,
+    storage_key: &str,
+) -> Option<String> {
+    let base_url = policy.texture_public_base_url.as_deref()?;
+    // Only uploaded textures have storage keys in S3. Embedded default skins
+    // must keep using the hash-based Yggdrasil API URL.
+    Some(format!(
+        "{base_url}/{}",
+        storage_key.trim_start_matches('/')
+    ))
+}
+
 pub fn texture_public_url(policy: &RuntimeYggdrasilPolicy, texture_hash: &str) -> Option<String> {
     if let Some(base_url) = policy.public_base_urls.first() {
         tracing::debug!(
@@ -36,6 +58,25 @@ pub fn texture_public_url(policy: &RuntimeYggdrasilPolicy, texture_hash: &str) -
     }
     tracing::debug!(texture_hash, "no configured yggdrasil texture public url");
     None
+}
+
+pub fn required_texture_object_public_url(
+    policy: &RuntimeYggdrasilPolicy,
+    texture_hash: &str,
+    storage_key: &str,
+) -> Result<String> {
+    texture_object_public_url(policy, storage_key)
+        .or_else(|| texture_public_url(policy, texture_hash))
+        .ok_or_else(|| {
+            tracing::debug!(
+                texture_hash,
+                storage_key,
+                "required yggdrasil texture object public url is missing"
+            );
+            AsterError::config_error(
+                "public_site_url, yggdrasil_public_base_url, or yggdrasil_texture_public_base_url must be configured before serving Yggdrasil texture properties",
+            )
+        })
 }
 
 pub fn required_texture_public_url(
@@ -219,6 +260,7 @@ mod tests {
             max_texture_pixels: crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS,
             skin_domains: Vec::new(),
             public_base_urls: Vec::new(),
+            texture_public_base_url: None,
             signature_public_key: public_key.to_string(),
             signature_private_key: private_key.to_string(),
         }
@@ -276,6 +318,10 @@ mod tests {
             texture_base_url(&policy, "abc"),
             "/api/yggdrasil/textures/abc"
         );
+        assert_eq!(
+            texture_object_url(&policy, "abc", "ab/abc.png"),
+            "/api/yggdrasil/textures/abc"
+        );
         let error = required_texture_public_url(&policy, "abc").unwrap_err();
         assert!(matches!(error, AsterError::ConfigError(_)));
         assert!(
@@ -294,8 +340,36 @@ mod tests {
             "https://skin.example.test/yggdrasil/textures/abc"
         );
         assert_eq!(
+            texture_object_url(&policy, "abc", "ab/abc.png"),
+            "https://skin.example.test/yggdrasil/textures/abc"
+        );
+        assert_eq!(
             required_texture_public_url(&policy, "abc").unwrap(),
             "https://skin.example.test/yggdrasil/textures/abc"
+        );
+    }
+
+    #[test]
+    fn texture_object_url_prefers_public_storage_base_url_when_configured() {
+        let mut policy = policy_with_keys("", "");
+        policy.public_base_urls = vec!["https://skin.example.test/yggdrasil".to_string()];
+        policy.texture_public_base_url = Some("https://cdn.example.test/textures".to_string());
+
+        assert_eq!(
+            texture_object_public_url(&policy, "ab/abc.png").as_deref(),
+            Some("https://cdn.example.test/textures/ab/abc.png")
+        );
+        assert_eq!(
+            texture_object_url(&policy, "abc", "ab/abc.png"),
+            "https://cdn.example.test/textures/ab/abc.png"
+        );
+        assert_eq!(
+            required_texture_object_public_url(&policy, "abc", "ab/abc.png").unwrap(),
+            "https://cdn.example.test/textures/ab/abc.png"
+        );
+        assert_eq!(
+            required_texture_public_url(&policy, "default-skin").unwrap(),
+            "https://skin.example.test/yggdrasil/textures/default-skin"
         );
     }
 

@@ -71,6 +71,7 @@ async fn test_state() -> AppState {
         texture_storage,
         mail_sender: crate::services::mail_service::memory_sender(),
         metrics: crate::metrics_core::NoopMetrics::arc(),
+        started_at: AppState::new_started_at(),
         yggdrasil_rate_limiter,
         background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
     }

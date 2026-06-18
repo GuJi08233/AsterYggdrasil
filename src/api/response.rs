@@ -25,6 +25,7 @@ pub struct HealthResponse {
 pub struct SystemInfoResponse {
     pub version: String,
     pub build_time: String,
+    pub uptime_seconds: u64,
 }
 
 #[derive(Debug, Serialize)]

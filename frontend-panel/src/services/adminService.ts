@@ -5,6 +5,7 @@ import type {
 	AdminExternalAuthProviderListQuery,
 	AdminExternalAuthProviderPage,
 	AdminMinecraftProfileInfo,
+	AdminOverview,
 	AdminTaskCleanupRequest,
 	AdminTaskListQuery,
 	AdminTaskPage,
@@ -64,6 +65,10 @@ export const adminAuditService = {
 				sort_order: params.sort_order ?? "desc",
 			}),
 		),
+};
+
+export const adminOverviewService = {
+	get: () => api.get<AdminOverview>("/admin/overview"),
 };
 
 export const adminSystemService = {

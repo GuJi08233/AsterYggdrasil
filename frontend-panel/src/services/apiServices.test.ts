@@ -380,12 +380,14 @@ describe("admin services", () => {
 	it("loads authenticated system info from the admin endpoint", async () => {
 		apiMock.get.mockResolvedValue({
 			build_time: "2026-06-15T08:30:00.000Z",
+			uptime_seconds: 3723,
 			version: "0.0.0-alpha.1",
 		});
 		const { adminSystemService } = await import("./adminService");
 
 		await expect(adminSystemService.getInfo()).resolves.toEqual({
 			build_time: "2026-06-15T08:30:00.000Z",
+			uptime_seconds: 3723,
 			version: "0.0.0-alpha.1",
 		});
 		expect(apiMock.get).toHaveBeenCalledWith("/admin/system-info");

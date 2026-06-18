@@ -2,7 +2,8 @@
 
 use crate::api::response::ApiResponse;
 use crate::api::routes::health;
-use actix_web::HttpResponse;
+use crate::runtime::AppState;
+use actix_web::{HttpResponse, web};
 
 #[api_docs_macros::path(
     get,
@@ -16,6 +17,8 @@ use actix_web::HttpResponse;
     ),
     security(("bearer" = [])),
 )]
-pub async fn get_system_info() -> HttpResponse {
-    HttpResponse::Ok().json(ApiResponse::ok(health::system_info_response()))
+pub async fn get_system_info(state: web::Data<AppState>) -> HttpResponse {
+    HttpResponse::Ok().json(ApiResponse::ok(health::system_info_response(
+        state.get_ref(),
+    )))
 }

@@ -308,6 +308,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_admin_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system-info": {
         parameters: {
             query?: never;
@@ -1614,6 +1630,64 @@ export interface components {
             user_id?: number | null;
             uuid?: string | null;
         };
+        AdminOverviewResp: {
+            activity_trend: components["schemas"]["AdminOverviewTrendPoint"][];
+            recent_activity: components["schemas"]["AuditLogEntry"][];
+            services: components["schemas"]["AdminOverviewServiceStatus"][];
+            summary: components["schemas"]["AdminOverviewSummary"];
+            system_health: components["schemas"]["AdminOverviewSystemHealthSummary"];
+            system_info: components["schemas"]["SystemInfoResponse"];
+        };
+        AdminOverviewServiceStatus: {
+            detail?: string | null;
+            key: string;
+            metric?: string | null;
+            status: components["schemas"]["AdminOverviewServiceStatusKind"];
+        };
+        /** @enum {string} */
+        AdminOverviewServiceStatusKind: "ok" | "warning";
+        AdminOverviewSummary: {
+            /** Format: int64 */
+            active_session_count: number;
+            /** Format: int64 */
+            active_yggdrasil_token_count: number;
+            /** Format: int64 */
+            minecraft_profile_count: number;
+            /** Format: int64 */
+            pending_task_count: number;
+            /** Format: int64 */
+            processing_task_count: number;
+            /** Format: int64 */
+            texture_count: number;
+            /** Format: int64 */
+            total_users: number;
+        };
+        AdminOverviewSystemHealthComponent: {
+            message: string;
+            name: string;
+            status: components["schemas"]["AdminOverviewSystemHealthStatus"];
+        };
+        /** @enum {string} */
+        AdminOverviewSystemHealthStatus: "unknown" | "healthy" | "degraded" | "unhealthy";
+        AdminOverviewSystemHealthSummary: {
+            checked_at?: string | null;
+            components: components["schemas"]["AdminOverviewSystemHealthComponent"][];
+            status: components["schemas"]["AdminOverviewSystemHealthStatus"];
+            summary?: string | null;
+            /** Format: int64 */
+            task_id?: number | null;
+        };
+        AdminOverviewTrendPoint: {
+            /** Format: int64 */
+            active_players: number;
+            /** Format: int64 */
+            active_users: number;
+            date: string;
+            /** Format: int64 */
+            new_textures: number;
+            /** Format: int64 */
+            yggdrasil_api_calls: number;
+        };
         AdminTaskCleanupReq: {
             /** Format: date-time */
             finished_before: string;
@@ -2727,6 +2801,8 @@ export interface components {
         };
         SystemInfoResponse: {
             build_time: string;
+            /** Format: int64 */
+            uptime_seconds: number;
             version: string;
         };
         TaskCreatorSummary: {
@@ -4513,6 +4589,52 @@ export interface operations {
             };
         };
     };
+    get_admin_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Admin overview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            activity_trend: components["schemas"]["AdminOverviewTrendPoint"][];
+                            recent_activity: components["schemas"]["AuditLogEntry"][];
+                            services: components["schemas"]["AdminOverviewServiceStatus"][];
+                            summary: components["schemas"]["AdminOverviewSummary"];
+                            system_health: components["schemas"]["AdminOverviewSystemHealthSummary"];
+                            system_info: components["schemas"]["SystemInfoResponse"];
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_admin_system_info: {
         parameters: {
             query?: never;
@@ -4532,6 +4654,8 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             build_time: string;
+                            /** Format: int64 */
+                            uptime_seconds: number;
                             version: string;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];

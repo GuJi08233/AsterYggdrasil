@@ -1,6 +1,7 @@
 //! Minecraft texture storage abstraction.
 
 mod local;
+mod s3;
 
 use crate::errors::Result;
 use async_trait::async_trait;
@@ -9,6 +10,7 @@ use std::sync::Arc;
 use tokio::io::AsyncRead;
 
 pub use local::LocalTextureStorage;
+pub use s3::S3TextureStorage;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextureBlobMetadata {
@@ -32,9 +34,7 @@ pub fn create_texture_storage(
 ) -> Result<Arc<dyn TextureStorage>> {
     match config.backend.trim() {
         "" | "local" => Ok(Arc::new(LocalTextureStorage::new(&config.local_root))),
-        "s3" | "minio" => Err(crate::errors::AsterError::config_error(
-            "texture_storage backend 's3' is reserved but not implemented yet",
-        )),
+        "s3" | "minio" => Ok(Arc::new(S3TextureStorage::new(&config.s3)?)),
         backend => Err(crate::errors::AsterError::config_error(format!(
             "unsupported texture_storage backend '{backend}'"
         ))),
@@ -44,8 +44,7 @@ pub fn create_texture_storage(
 #[cfg(test)]
 mod tests {
     use super::create_texture_storage;
-    use crate::config::{S3TextureStorageConfig, TextureStorageConfig};
-    use tokio::io::AsyncReadExt;
+    use crate::config::TextureStorageConfig;
 
     #[test]
     fn creates_local_backend_from_explicit_config() {
@@ -61,18 +60,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_reserved_s3_backend_until_implemented() {
+    fn rejects_incomplete_s3_config() {
         let config = TextureStorageConfig {
             backend: "s3".to_string(),
             ..TextureStorageConfig::default()
         };
 
         let error = match create_texture_storage(&config) {
-            Ok(_) => panic!("s3 texture storage should not initialize before implementation"),
+            Ok(_) => panic!("s3 texture storage should reject incomplete config"),
             Err(error) => error,
         };
 
-        assert!(error.message().contains("reserved but not implemented"));
+        assert!(error.message().contains("texture_storage.s3.bucket"));
     }
 
     #[test]
@@ -92,74 +91,5 @@ mod tests {
                 .message()
                 .contains("unsupported texture_storage backend")
         );
-    }
-
-    fn todo_s3_config(backend: &str) -> TextureStorageConfig {
-        TextureStorageConfig {
-            backend: backend.to_string(),
-            s3: S3TextureStorageConfig {
-                endpoint: "http://127.0.0.1:9000".to_string(),
-                region: "us-east-1".to_string(),
-                bucket: "asteryggdrasil-texture-test".to_string(),
-                access_key_id: "minioadmin".to_string(),
-                secret_access_key: "minioadmin".to_string(),
-                force_path_style: true,
-            },
-            ..TextureStorageConfig::default()
-        }
-    }
-
-    #[tokio::test]
-    #[ignore = "TODO(storage): enable after implementing S3/minio TextureStorage backend and provisioning a test bucket"]
-    async fn s3_backend_satisfies_texture_storage_crud_metadata_and_listing_contract() {
-        let storage = create_texture_storage(&todo_s3_config("s3"))
-            .expect("S3 texture storage should initialize after implementation");
-        assert_eq!(storage.backend_name(), "s3");
-
-        let temp_dir = std::env::temp_dir().join(format!(
-            "asteryggdrasil-s3-storage-contract-{}",
-            uuid::Uuid::new_v4()
-        ));
-        tokio::fs::create_dir_all(&temp_dir).await.unwrap();
-        let source = temp_dir.join("source.png");
-        tokio::fs::write(&source, b"png-bytes").await.unwrap();
-
-        let key = format!("contract/{}/skin.png", uuid::Uuid::new_v4());
-        let sibling_key = key.replace("skin.png", "cape.png");
-        storage.put_file(&key, &source).await.unwrap();
-        storage.put_file(&sibling_key, &source).await.unwrap();
-
-        assert!(storage.exists(&key).await.unwrap());
-        let metadata = storage.metadata(&key).await.unwrap();
-        assert_eq!(metadata.size, 9);
-        assert_eq!(metadata.content_type, "image/png");
-
-        let mut stream = storage.get_stream(&key).await.unwrap();
-        let mut bytes = Vec::new();
-        stream.read_to_end(&mut bytes).await.unwrap();
-        assert_eq!(bytes, b"png-bytes");
-
-        let mut keys = storage
-            .list_keys(key.strip_suffix("skin.png").unwrap())
-            .await
-            .unwrap();
-        keys.sort();
-        assert_eq!(keys, vec![sibling_key.clone(), key.clone()]);
-
-        storage.delete(&key).await.unwrap();
-        storage.delete(&key).await.unwrap();
-        assert!(!storage.exists(&key).await.unwrap());
-        assert!(storage.exists(&sibling_key).await.unwrap());
-        storage.delete(&sibling_key).await.unwrap();
-        tokio::fs::remove_dir_all(temp_dir).await.unwrap();
-    }
-
-    #[test]
-    #[ignore = "TODO(storage): enable after minio alias maps to the S3-compatible backend"]
-    fn minio_backend_alias_initializes_s3_compatible_storage() {
-        let storage = create_texture_storage(&todo_s3_config("minio"))
-            .expect("minio texture storage alias should initialize after implementation");
-
-        assert_eq!(storage.backend_name(), "s3");
     }
 }

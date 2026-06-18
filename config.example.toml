@@ -36,6 +36,7 @@ local_root = "textures"
 endpoint = ""
 region = ""
 bucket = ""
+base_path = ""
 access_key_id = ""
 secret_access_key = ""
 force_path_style = false

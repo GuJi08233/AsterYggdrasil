@@ -148,7 +148,11 @@ where
         height: texture.texture.height,
         file_size: texture.texture.file_size,
         mime_type: texture.texture.mime_type.clone(),
-        url: crate::services::yggdrasil_signature::texture_base_url(&policy, &texture.texture.hash),
+        url: crate::services::yggdrasil_signature::texture_object_url(
+            &policy,
+            &texture.texture.hash,
+            &texture.texture.storage_key,
+        ),
         source: MinecraftTextureMetadataSource::Bound,
         created_at: texture.binding.created_at,
         updated_at: texture.binding.updated_at,
@@ -210,7 +214,11 @@ where
         height: texture.height,
         file_size: texture.file_size,
         mime_type: texture.mime_type.clone(),
-        url: crate::services::yggdrasil_signature::texture_base_url(&policy, &texture.hash),
+        url: crate::services::yggdrasil_signature::texture_object_url(
+            &policy,
+            &texture.hash,
+            &texture.storage_key,
+        ),
         created_at: texture.created_at,
         updated_at: texture.updated_at,
     }

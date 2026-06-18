@@ -15,6 +15,7 @@ use crate::services::mail_service::MailSender;
 use crate::texture_storage::TextureStorage;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 
 #[derive(Clone)]
@@ -26,11 +27,16 @@ pub struct AppState {
     pub texture_storage: Arc<dyn TextureStorage>,
     pub mail_sender: Arc<dyn MailSender>,
     pub metrics: SharedMetricsRecorder,
+    pub started_at: Instant,
     pub yggdrasil_rate_limiter: YggdrasilRateLimiter,
     pub background_task_dispatch_wakeup: Arc<Notify>,
 }
 
 impl AppState {
+    pub fn new_started_at() -> Instant {
+        Instant::now()
+    }
+
     pub fn new_background_task_dispatch_wakeup() -> Arc<Notify> {
         Arc::new(Notify::new())
     }
@@ -69,6 +75,10 @@ impl AppState {
 
     pub fn metrics(&self) -> &SharedMetricsRecorder {
         &self.metrics
+    }
+
+    pub fn uptime(&self) -> Duration {
+        self.started_at.elapsed()
     }
 
     pub fn yggdrasil_rate_limiter(&self) -> &YggdrasilRateLimiter {

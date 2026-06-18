@@ -383,6 +383,7 @@ Minecraft services 端点是例外：非内部错误统一映射成 `401 { "path
 | `yggdrasil_max_texture_pixels` | 解码后材质像素上限。 |
 | `yggdrasil_skin_domains` | 额外材质域名白名单。 |
 | `yggdrasil_public_base_url` | 高级覆盖项，用于生成公开 Yggdrasil/材质 URL。 |
+| `yggdrasil_texture_public_base_url` | 对象存储/CDN 直链覆盖项，仅用于已上传材质；默认皮肤仍走 Yggdrasil API。 |
 | `yggdrasil_signature_public_key` | 可选公钥覆盖。 |
 | `yggdrasil_signature_private_key` | textures property 签名私钥，敏感配置。 |
 

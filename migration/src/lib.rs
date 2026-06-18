@@ -11,6 +11,7 @@ mod m20260615_000003_passkeys;
 mod m20260616_000001_yggdrasil_token_temporary_invalidation;
 mod m20260618_000001_auth_email_registration_and_invitations;
 mod m20260618_000002_add_user_must_change_password;
+mod m20260618_000003_audit_log_activity_indexes;
 mod time;
 
 pub struct Migrator;
@@ -35,6 +36,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260616_000001_yggdrasil_token_temporary_invalidation::Migration),
             Box::new(m20260618_000001_auth_email_registration_and_invitations::Migration),
             Box::new(m20260618_000002_add_user_must_change_password::Migration),
+            Box::new(m20260618_000003_audit_log_activity_indexes::Migration),
         ]
     }
 }

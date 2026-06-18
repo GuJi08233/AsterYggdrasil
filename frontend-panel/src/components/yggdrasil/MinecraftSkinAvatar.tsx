@@ -74,6 +74,7 @@ function CroppedSkinLayer({
 			<img
 				src={src}
 				alt=""
+				crossOrigin="anonymous"
 				draggable={false}
 				className="absolute top-0 left-0 h-[800%] w-[800%] max-w-none object-fill [image-rendering:pixelated]"
 				data-testid={testId}

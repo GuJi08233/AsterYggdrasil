@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { DateTimeText } from "@/components/common/DateTimeText";
+import { StatusIndicator } from "@/components/common/StatusIndicator";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { LauncherSetupCard } from "@/components/yggdrasil/LauncherSetupCard";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -231,7 +232,7 @@ function RecentActivityPanel({ items }: { items: AuditLogEntry[] }) {
 						{t("account.recentActivityTitle")}
 					</h2>
 				</div>
-				<span className="mt-1 size-2.5 rounded-full bg-primary/80 shadow-[0_0_0_5px_color-mix(in_oklch,var(--primary)_16%,transparent)]" />
+				<StatusIndicator className="mt-1" glow size="md" />
 			</div>
 			{items.length > 0 ? (
 				<div className="mt-5 divide-y divide-border/60 dark:divide-white/10">
@@ -240,7 +241,7 @@ function RecentActivityPanel({ items }: { items: AuditLogEntry[] }) {
 						return (
 							<div key={item.id} className="py-3 first:pt-0 last:pb-0">
 								<div className="flex items-start gap-3">
-									<span className="mt-1.5 size-2 rounded-full bg-primary/75" />
+									<StatusIndicator className="mt-1.5" />
 									<div className="min-w-0 flex-1">
 										<div className="truncate text-sm font-semibold">
 											{formatAuditSummary(t, item)}

@@ -759,6 +759,7 @@ function TexturePreview({
 			<img
 				src={texture.url}
 				alt={alt}
+				crossOrigin="anonymous"
 				className="max-h-full max-w-full object-contain [image-rendering:pixelated]"
 			/>
 		</div>

@@ -109,6 +109,21 @@ export type AdminUserInvitationInfo =
 	components["schemas"]["AdminUserInvitationInfo"];
 export type AdminUserInvitationPage =
 	OperationData<"admin_list_user_invitations">;
+export type AdminOverview = OperationData<"get_admin_overview">;
+export type AdminOverviewServiceStatus =
+	components["schemas"]["AdminOverviewServiceStatus"];
+export type AdminOverviewServiceStatusKind =
+	components["schemas"]["AdminOverviewServiceStatusKind"];
+export type AdminOverviewSummary =
+	components["schemas"]["AdminOverviewSummary"];
+export type AdminOverviewSystemHealthComponent =
+	components["schemas"]["AdminOverviewSystemHealthComponent"];
+export type AdminOverviewSystemHealthStatus =
+	components["schemas"]["AdminOverviewSystemHealthStatus"];
+export type AdminOverviewSystemHealthSummary =
+	components["schemas"]["AdminOverviewSystemHealthSummary"];
+export type AdminOverviewTrendPoint =
+	components["schemas"]["AdminOverviewTrendPoint"];
 export type UserInvitationStatus =
 	components["schemas"]["UserInvitationStatus"];
 export type PublicUserInvitationInfo =

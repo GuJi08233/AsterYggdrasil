@@ -1,8 +1,7 @@
 use crate::db::repository::minecraft_texture_repo;
-use crate::errors::{AsterError, Result};
+use crate::errors::Result;
 use crate::runtime::{DatabaseRuntimeState, TextureStorageRuntimeState};
-use sha2::Digest;
-use tokio::io::AsyncReadExt;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OrphanTextureCleanupResult {
@@ -68,6 +67,8 @@ where
     S: DatabaseRuntimeState + TextureStorageRuntimeState,
 {
     let textures = minecraft_texture_repo::list_all(state.reader_db()).await?;
+    let storage_keys = state.texture_storage().list_keys("").await?;
+    let storage_key_set = storage_keys.into_iter().collect::<HashSet<_>>();
     let mut report = TextureStorageConsistencyReport {
         checked: crate::utils::numbers::usize_to_u64(
             textures.len(),
@@ -79,7 +80,7 @@ where
     };
 
     for texture in textures {
-        if !state.texture_storage().exists(&texture.storage_key).await? {
+        if !storage_key_set.contains(&texture.storage_key) {
             report.missing += 1;
             report.issues.push(TextureStorageConsistencyIssue {
                 texture_id: texture.id,
@@ -90,8 +91,7 @@ where
             continue;
         }
 
-        let actual_hash = hash_texture_storage_object(state, &texture.storage_key).await?;
-        if actual_hash != texture.hash {
+        if !texture_storage_key_matches_hash(&texture.storage_key, &texture.hash) {
             report.hash_mismatched += 1;
             report.issues.push(TextureStorageConsistencyIssue {
                 texture_id: texture.id,
@@ -103,6 +103,13 @@ where
     }
 
     Ok(report)
+}
+
+fn texture_storage_key_matches_hash(storage_key: &str, hash: &str) -> bool {
+    let Some(prefix) = hash.get(..2) else {
+        return false;
+    };
+    storage_key == format!("{prefix}/{hash}.png")
 }
 
 pub(super) async fn cleanup_texture_blob_if_unreferenced<S>(
@@ -171,23 +178,4 @@ where
     S: DatabaseRuntimeState,
 {
     minecraft_texture_repo::count_by_storage_key(state.writer_db(), storage_key).await
-}
-
-async fn hash_texture_storage_object<S>(state: &S, storage_key: &str) -> Result<String>
-where
-    S: TextureStorageRuntimeState,
-{
-    let mut stream = state.texture_storage().get_stream(storage_key).await?;
-    let mut hasher = sha2::Sha256::new();
-    let mut buffer = [0_u8; 8192];
-    loop {
-        let read = stream.read(&mut buffer).await.map_err(|error| {
-            AsterError::internal_error(format!("read texture storage object for hash: {error}"))
-        })?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Ok(hex::encode(hasher.finalize()))
 }

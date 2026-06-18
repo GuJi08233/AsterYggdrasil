@@ -232,6 +232,10 @@ pub struct S3TextureStorageConfig {
     pub region: String,
     #[serde(default)]
     pub bucket: String,
+    /// Optional bucket prefix. Stored texture keys stay prefix-free in the
+    /// database; the S3 backend prepends this only for object-storage calls.
+    #[serde(default)]
+    pub base_path: String,
     #[serde(default)]
     pub access_key_id: String,
     #[serde(default)]

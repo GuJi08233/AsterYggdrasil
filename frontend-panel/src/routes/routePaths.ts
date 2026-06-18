@@ -21,6 +21,7 @@ export const accountPaths = {
 
 export const adminPaths = {
 	home: "/admin",
+	overview: "/admin",
 	users: "/admin/users",
 	userInvitations: "/admin/users/invitations",
 	externalAuth: "/admin/external-auth",

@@ -3,6 +3,7 @@
 		"workspaceTitle": "管理工作台",
 		"workspaceDescription": "管理账号、认证服务、运行时配置和审计记录",
 		"nav": {
+			"overview": "概况",
 			"settings": "系统设置",
 			"users": "用户",
 			"config": "配置",
@@ -20,6 +21,91 @@
 			"tasks": "后台任务队列",
 			"about": "实例版本与构建信息",
 			"developer": "API 参考与调试入口"
+		},
+		"overview": {
+			"title": "管理端概况",
+			"welcome": "欢迎回来，{{username}}",
+			"description": "玩家、角色档案、材质资产和认证会话的当前状态集中在这里。",
+			"runningStatus": "系统运行正常",
+			"loadingStatus": "正在同步状态",
+			"instanceVersion": "服务端 {{version}}",
+			"loadErrorTitle": "概况加载失败",
+			"retry": "重试",
+			"stats": {
+				"users": "总玩家数",
+				"profiles": "角色档案",
+				"textures": "材质数量",
+				"tokens": "活跃令牌"
+			},
+			"chartTitle": "领域数据",
+			"chartDescription": "最近 7 天的活跃用户、活跃玩家、新增材质与 Yggdrasil API 调用趋势。",
+			"chartLoading": "正在加载趋势数据...",
+			"chartEmpty": "暂无趋势数据。",
+			"chartNoActivity": "最近 7 天没有记录到活动。",
+			"chartTotal": "7 天总量",
+			"chartAverage": "日均活动",
+			"chartLatest": "最近一天",
+			"chartPeak": "峰值日期",
+			"chart": {
+				"users": "活跃用户",
+				"profiles": "活跃玩家",
+				"textures": "新增材质",
+				"yggdrasil": "Yggdrasil API 调用量"
+			},
+			"activityTitle": "实时活动",
+			"activityDescription": "最近的认证、账号和管理事件。",
+			"viewAll": "查看全部",
+			"loadingActivity": "正在加载活动...",
+			"emptyActivity": "暂无审计活动。",
+			"serviceTitle": "服务状态",
+			"serviceDescription": "核心服务的当前可用状态。",
+			"loadingServices": "正在读取服务状态...",
+			"emptyServices": "暂无服务状态。",
+			"service": {
+				"database": "数据库",
+				"yggdrasil": "Yggdrasil 认证",
+				"session": "站点会话",
+				"texture_storage": "材质存储",
+				"background_tasks": "后台任务"
+			},
+			"serviceStatus": {
+				"ok": "正常",
+				"warning": "注意"
+			},
+			"quickTitle": "快速操作",
+			"quick": {
+				"users": "管理用户",
+				"usersDesc": "账号、权限与邀请",
+				"settings": "系统设置",
+				"settingsDesc": "认证与站点策略",
+				"externalAuth": "外部认证",
+				"externalAuthDesc": "登录提供方配置",
+				"audit": "审计日志",
+				"auditDesc": "安全事件追踪"
+			},
+			"systemTitle": "系统信息",
+			"system": {
+				"version": "服务版本",
+				"buildTime": "构建时间",
+				"uptime": "系统运行时间",
+				"tasks": "执行中 / 排队",
+				"unknown": "未知"
+			},
+			"systemHealth": {
+				"healthy": "健康检查通过",
+				"degraded": "系统健康状态已降级",
+				"unhealthy": "系统健康状态需要处理",
+				"unknown": "暂无健康检查结果",
+				"healthyDesc": "最近一次系统健康检查任务中，所有必需运行时检查都已通过。",
+				"unknownDesc": "当前还没有可用的系统健康检查结果。",
+				"checkedAt": "检查于",
+				"notChecked": "未检查",
+				"issueSummary": "受影响检查：{{components}}。",
+				"issueSeparator": "、",
+				"issueComponent": "{{component}}：{{status}}",
+				"noSummary": "最近一次健康检查报告了异常，但没有组件详情。",
+				"viewHistory": "查看任务历史"
+			}
 		},
 		"showFilters": "筛选",
 		"hideFilters": "收起筛选",

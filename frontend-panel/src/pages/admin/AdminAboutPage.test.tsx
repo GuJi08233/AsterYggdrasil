@@ -25,6 +25,7 @@ describe("AdminAboutPage", () => {
 		vi.mocked(adminSystemService.getInfo).mockResolvedValue({
 			version: "0.0.0-alpha.1",
 			build_time: "2026-06-15T08:30:00.000Z",
+			uptime_seconds: 3723,
 		});
 
 		render(<AdminAboutPage />);

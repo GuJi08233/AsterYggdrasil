@@ -172,6 +172,10 @@ describe("TextureWardrobePage", () => {
 		expect(screen.getByTestId("minecraft-preview")).toHaveTextContent(
 			"wardrobe.previewTitle",
 		);
+		const previewImage = document.querySelector(
+			'img[src="/textures/skin.png"]',
+		);
+		expect(previewImage).toHaveAttribute("crossorigin", "anonymous");
 	});
 
 	it("switches to cape filtering and passes the cape URL into MinecraftPreview", async () => {

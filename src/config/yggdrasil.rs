@@ -13,7 +13,8 @@ pub use crate::config::definitions::{
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
     YGGDRASIL_MAX_TEXTURE_PIXELS_KEY, YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
     YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SERVER_NAME_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
-    YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
+    YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY,
+    YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
 };
 
 pub const DEFAULT_YGGDRASIL_SERVER_NAME: &str = "AsterYggdrasil";
@@ -44,6 +45,7 @@ pub struct RuntimeYggdrasilPolicy {
     pub max_texture_pixels: u64,
     pub skin_domains: Vec<String>,
     pub public_base_urls: Vec<String>,
+    pub texture_public_base_url: Option<String>,
     pub signature_public_key: String,
     pub signature_private_key: String,
 }
@@ -51,7 +53,12 @@ pub struct RuntimeYggdrasilPolicy {
 impl RuntimeYggdrasilPolicy {
     pub fn from_runtime_config(runtime_config: &RuntimeConfig) -> Self {
         let public_base_urls = read_effective_public_base_urls(runtime_config);
-        let skin_domains = read_effective_skin_domains(runtime_config, &public_base_urls);
+        let texture_public_base_url = read_texture_public_base_url(runtime_config);
+        let skin_domains = read_effective_skin_domains(
+            runtime_config,
+            &public_base_urls,
+            &texture_public_base_url,
+        );
         Self {
             server_name: runtime_config
                 .get_string_or(YGGDRASIL_SERVER_NAME_KEY, DEFAULT_YGGDRASIL_SERVER_NAME),
@@ -97,6 +104,7 @@ impl RuntimeYggdrasilPolicy {
             ),
             skin_domains,
             public_base_urls,
+            texture_public_base_url,
             signature_public_key: runtime_config
                 .get_string_or(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, ""),
             signature_private_key: runtime_config
@@ -124,6 +132,9 @@ pub fn default_skin_domains_config() -> String {
 pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String> {
     match key {
         YGGDRASIL_PUBLIC_BASE_URL_KEY => normalize_public_base_url_config_value(value),
+        YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY => {
+            normalize_texture_public_base_url_config_value(value)
+        }
         YGGDRASIL_SKIN_DOMAINS_KEY => normalize_skin_domains_config_value(value),
         YGGDRASIL_TOKEN_TTL_DAYS_KEY
         | YGGDRASIL_MAX_ACTIVE_TOKENS_KEY
@@ -139,6 +150,17 @@ pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String
         }
         _ => Ok(value.to_string()),
     }
+}
+
+pub fn normalize_texture_public_base_url_config_value(value: &str) -> Result<String> {
+    crate::utils::url::normalize_http_base_url(
+        value,
+        "yggdrasil texture public base URL",
+        true,
+        true,
+        AsterError::validation_error,
+    )
+    .map(|normalized| normalized.unwrap_or_default())
 }
 
 pub fn normalize_positive_u64_config_value(key: &str, value: &str) -> Result<String> {
@@ -298,9 +320,29 @@ fn read_public_base_urls(runtime_config: &RuntimeConfig, key: &str) -> Vec<Strin
         })
 }
 
+fn read_texture_public_base_url(runtime_config: &RuntimeConfig) -> Option<String> {
+    runtime_config
+        .get(YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY)
+        .and_then(
+            |value| match normalize_texture_public_base_url_config_value(&value) {
+                Ok(value) if !value.is_empty() => Some(value),
+                Ok(_) => None,
+                Err(error) => {
+                    tracing::warn!(
+                        error = %error,
+                        key = YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
+                        "invalid yggdrasil texture public base URL; ignoring configured value"
+                    );
+                    None
+                }
+            },
+        )
+}
+
 fn read_effective_skin_domains(
     runtime_config: &RuntimeConfig,
     public_base_urls: &[String],
+    texture_public_base_url: &Option<String>,
 ) -> Vec<String> {
     DEFAULT_YGGDRASIL_SKIN_DOMAINS
         .iter()
@@ -316,6 +358,12 @@ fn read_effective_skin_domains(
                 .filter_map(|base_url| Url::parse(base_url).ok())
                 .filter_map(|url| url.host_str().map(|host| host.to_ascii_lowercase())),
         )
+        .chain(
+            texture_public_base_url
+                .iter()
+                .filter_map(|base_url| Url::parse(base_url).ok())
+                .filter_map(|url| url.host_str().map(|host| host.to_ascii_lowercase())),
+        )
         .fold(Vec::new(), |mut domains, domain| {
             if !domains.contains(&domain) {
                 domains.push(domain);
@@ -325,31 +373,24 @@ fn read_effective_skin_domains(
 }
 
 fn normalize_public_base_url(value: &str) -> Option<String> {
-    let trimmed = value.trim().trim_end_matches('/');
-    if trimmed.is_empty() {
-        return None;
-    }
-    let parsed = match Url::parse(trimmed) {
-        Ok(parsed) => parsed,
+    match crate::utils::url::normalize_http_base_url(
+        value,
+        "yggdrasil public base URL",
+        true,
+        true,
+        AsterError::validation_error,
+    ) {
+        Ok(normalized) => normalized,
         Err(error) => {
             tracing::warn!(
                 error = %error,
-                value = %trimmed,
+                value = %value.trim(),
                 key = YGGDRASIL_PUBLIC_BASE_URL_KEY,
                 "invalid yggdrasil public base URL; ignoring entry"
             );
-            return None;
+            None
         }
-    };
-    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        tracing::warn!(
-            value = %trimmed,
-            key = YGGDRASIL_PUBLIC_BASE_URL_KEY,
-            "invalid yggdrasil public base URL scheme or host; ignoring entry"
-        );
-        return None;
     }
-    Some(trimmed.to_string())
 }
 
 fn normalize_skin_domain(value: &str) -> Option<String> {
@@ -368,23 +409,14 @@ fn parse_string_array_config(value: &str, key: &str) -> Result<Vec<String>> {
 }
 
 fn normalize_required_public_base_url(value: &str) -> Result<String> {
-    let trimmed = value.trim().trim_end_matches('/');
-    if trimmed.is_empty() {
-        return Err(AsterError::validation_error(
-            "yggdrasil public base URL entries cannot be empty",
-        ));
-    }
-    let parsed = Url::parse(trimmed).map_err(|error| {
-        AsterError::validation_error(format!(
-            "yggdrasil public base URL must be an absolute http/https URL: {error}"
-        ))
-    })?;
-    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-        return Err(AsterError::validation_error(
-            "yggdrasil public base URL must use http or https and include a host",
-        ));
-    }
-    Ok(trimmed.to_string())
+    crate::utils::url::normalize_http_base_url(
+        value,
+        "yggdrasil public base URL",
+        false,
+        true,
+        AsterError::validation_error,
+    )
+    .map(|normalized| normalized.expect("required URL normalization cannot return empty"))
 }
 
 fn normalize_required_skin_domain(value: &str) -> Result<String> {
@@ -519,6 +551,40 @@ mod tests {
     }
 
     #[test]
+    fn texture_public_base_url_is_optional_normalized_and_included_in_skin_domains() {
+        let runtime_config = RuntimeConfig::new();
+        runtime_config.apply(config_model(
+            YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
+            " https://cdn.example.test/texture-root/ ",
+        ));
+
+        let policy = RuntimeYggdrasilPolicy::from_runtime_config(&runtime_config);
+
+        assert_eq!(
+            policy.texture_public_base_url.as_deref(),
+            Some("https://cdn.example.test/texture-root")
+        );
+        assert!(
+            policy
+                .skin_domains
+                .contains(&"cdn.example.test".to_string())
+        );
+        assert_eq!(
+            normalize_texture_public_base_url_config_value("  ").unwrap(),
+            ""
+        );
+        assert!(
+            normalize_texture_public_base_url_config_value("https://cdn.example.test/root?x=1")
+                .is_err()
+        );
+        assert!(
+            normalize_texture_public_base_url_config_value("https://cdn.example.test/root#frag")
+                .is_err()
+        );
+        assert!(normalize_texture_public_base_url_config_value("ftp://cdn.example.test").is_err());
+    }
+
+    #[test]
     fn uploadable_textures_follow_runtime_switches() {
         let runtime_config = RuntimeConfig::new();
         runtime_config.apply(system_config::Model {
@@ -647,6 +713,14 @@ mod tests {
             r#"["https://skin.example.test/yggdrasil"]"#
         );
         assert!(normalize_public_base_url_config_value(r#"["ftp://skin.example.test"]"#).is_err());
+        assert!(
+            normalize_public_base_url_config_value(r#"["https://skin.example.test/root?x=1"]"#)
+                .is_err()
+        );
+        assert!(
+            normalize_public_base_url_config_value(r#"["https://skin.example.test/root#frag"]"#)
+                .is_err()
+        );
 
         assert_eq!(
             normalize_skin_domains_config_value(

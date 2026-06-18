@@ -2,14 +2,15 @@
 
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Select,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, Select, sea_query::Expr,
 };
 
 use crate::api::pagination::{AuditLogSortBy, SortOrder};
 use crate::db::repository::sort::{order_by_column_with_id, order_by_id};
 use crate::entities::audit_log::{self, Entity as AuditLog};
 use crate::errors::{AsterError, Result};
+use crate::types::AuditAction;
 
 pub struct AuditLogQuery<'a> {
     pub user_id: Option<i64>,
@@ -99,6 +100,67 @@ pub async fn list_recent<C: ConnectionTrait>(
     Ok((items, total))
 }
 
+pub async fn count_created_between<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<u64> {
+    AuditLog::find()
+        .filter(audit_log::Column::CreatedAt.gte(start))
+        .filter(audit_log::Column::CreatedAt.lt(end))
+        .count(db)
+        .await
+        .map_err(AsterError::from)
+}
+
+pub async fn count_created_between_with_actions<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    actions: &[AuditAction],
+) -> Result<u64> {
+    if actions.is_empty() {
+        return Ok(0);
+    }
+
+    AuditLog::find()
+        .filter(audit_log::Column::CreatedAt.gte(start))
+        .filter(audit_log::Column::CreatedAt.lt(end))
+        .filter(audit_log::Column::Action.is_in(actions.iter().map(|action| action.as_str())))
+        .count(db)
+        .await
+        .map_err(AsterError::from)
+}
+
+pub async fn count_distinct_users_created_between_with_actions<C: ConnectionTrait>(
+    db: &C,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    actions: &[AuditAction],
+) -> Result<u64> {
+    if actions.is_empty() {
+        return Ok(0);
+    }
+
+    let count = AuditLog::find()
+        .select_only()
+        .column_as(
+            Expr::col(audit_log::Column::UserId).count_distinct(),
+            "distinct_user_count",
+        )
+        .filter(audit_log::Column::CreatedAt.gte(start))
+        .filter(audit_log::Column::CreatedAt.lt(end))
+        .filter(audit_log::Column::Action.is_in(actions.iter().map(|action| action.as_str())))
+        .filter(audit_log::Column::UserId.gt(0))
+        .into_tuple::<i64>()
+        .one(db)
+        .await
+        .map_err(AsterError::from)?
+        .unwrap_or(0);
+
+    crate::utils::numbers::i64_to_u64(count, "distinct audit log user count")
+}
+
 fn apply_audit_log_sort(
     query: Select<AuditLog>,
     sort_by: AuditLogSortBy,
@@ -157,7 +219,8 @@ pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) ->
 #[cfg(test)]
 mod tests {
     use super::{
-        AuditLogQuery, create, create_many, delete_before, find_with_filters, list_recent,
+        AuditLogQuery, count_distinct_users_created_between_with_actions, create, create_many,
+        delete_before, find_with_filters, list_recent,
     };
     use crate::api::pagination::{AuditLogSortBy, SortOrder};
     use crate::config::DatabaseConfig;
@@ -270,6 +333,81 @@ mod tests {
         assert_eq!(entry.ip_address.as_deref(), Some("127.0.0.1"));
         assert_eq!(all_audit_count(&db).await, 1);
 
+        db.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn count_distinct_users_created_between_with_actions_excludes_duplicates_and_system_user()
+    {
+        let db = build_test_db().await;
+        let base = Utc::now();
+        create_many(
+            &db,
+            vec![
+                audit_model(
+                    10,
+                    AuditAction::UserLogin,
+                    AuditEntityType::AuthSession,
+                    Some(1),
+                    "login-1",
+                    "192.0.2.10",
+                    base,
+                ),
+                audit_model(
+                    10,
+                    AuditAction::UserRefreshToken,
+                    AuditEntityType::AuthSession,
+                    Some(2),
+                    "refresh-duplicate",
+                    "192.0.2.10",
+                    base + Duration::seconds(1),
+                ),
+                audit_model(
+                    20,
+                    AuditAction::MinecraftTextureUpload,
+                    AuditEntityType::MinecraftTexture,
+                    Some(3),
+                    "texture",
+                    "192.0.2.20",
+                    base + Duration::seconds(2),
+                ),
+                audit_model(
+                    0,
+                    AuditAction::UserLogin,
+                    AuditEntityType::AuthSession,
+                    Some(4),
+                    "system-context",
+                    "192.0.2.30",
+                    base + Duration::seconds(3),
+                ),
+                audit_model(
+                    30,
+                    AuditAction::ConfigUpdate,
+                    AuditEntityType::SystemConfig,
+                    Some(5),
+                    "config",
+                    "192.0.2.40",
+                    base + Duration::seconds(4),
+                ),
+            ],
+        )
+        .await
+        .unwrap();
+
+        let count = count_distinct_users_created_between_with_actions(
+            &db,
+            base - Duration::seconds(1),
+            base + Duration::seconds(10),
+            &[
+                AuditAction::UserLogin,
+                AuditAction::UserRefreshToken,
+                AuditAction::MinecraftTextureUpload,
+            ],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(count, 2);
         db.close().await.unwrap();
     }
 

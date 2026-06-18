@@ -668,6 +668,7 @@ describe("frontend entry routes", () => {
 			"/account/wardrobe",
 			"/account/audit",
 			"/account/settings",
+			"/admin",
 			"/admin/users",
 			"/admin/external-auth",
 			"/admin/audit",
