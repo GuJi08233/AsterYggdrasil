@@ -7,6 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-alpha.4] - 2026-06-18
+
+### Added
+
+- **邮箱注册激活流程**：`POST /auth/register` 按 `auth_policy.register_activation_enabled` 分叉——开启且非首位用户时创建 `Active` 但 `email_verified_at` 为空的用户，事务内签发 `RegisterActivation` 校验 token 并 outbox 投递激活邮件，返回 `{ expires_in: 0, requires_activation: true }` 且不下发 cookie；首位用户（自动成为 Admin）与关闭激活的部署仍走旧即时登录路径。新增 `POST /auth/register/resend`（带 `register_activation_resend` 节流，响应不泄露账号是否存在），`GET /auth/contact-verification/confirm` 按 `VerificationPurpose` 分发：`RegisterActivation` 激活账号写 `UserConfirmRegistration` 审计并 302 到 `/login?contact_verification=register-activated`，`ContactChange` 提交 `pending_email`，`PasswordReset` 不在此消费。
+
+- **密码重置与改密**：新增 `POST /auth/password/reset/request`（按 email 发 `PasswordReset` token，受 `auth_password_reset_request_cooldown` 节流，响应固定文案不泄露账号存在性）、`POST /auth/password/reset/confirm`（消费 token，token 过期返回 410，写 `UserConfirmPasswordReset`）、`PUT /auth/password`（已登录改密，需账号已验证邮箱、校验当前密码、禁止新旧相同，事务内 `update_password_in_connection` + `revoke_sessions_for_user` 并重发 token，逻辑集中在新模块 `auth_service/password_change`，审计 `UserChangePassword`）。配套前端 `/reset-password`、`/force-password-change` 路由与状态横幅。
+
+- **用户邀请系统**：仅管理员可发起。新表 `user_invitations`（`token_hash` 唯一、`status` pending/accepted/expired/revoked、`invited_by` Cascade、`accepted_user_id` Set Null、四组索引），TTL 由新配置 `auth_user_invitation_ttl_secs`（默认 7 天）控制。管理端 `POST/GET /admin/users/invitations` 与 `POST /admin/users/invitations/{id}/revoke`，创建时事务内归一化邮箱 + 校验本地邮箱策略 + 生成 token + 吊销同邮箱旧 pending + outbox 投递邀请邮件，响应含 `invitation_url` 与 `mail_queued`；公开端 `GET /auth/invitations/{token}`（无需登录，返回 email / expires_at）、`POST /auth/invitations/{token}/accept`（无需登录，事务内校验 pending/未过期/邮箱策略/邮箱未占用，创建 `Active` 且邮箱已验证的普通用户，CAS `mark_accepted_if_pending` 防并发，审计 `UserRegister`，HTTP 201）。错误码 `AuthInvitationInvalid/Expired/Accepted/Revoked`。审计动作 `AdminCreateInvitation`/`AdminRevokeInvitation`，新增 `AuditEntityType::Invitation`。
+
+- **邀请邮件模板**：新增 `MailTemplateCode::UserInvitation`（`user_invitation`），模板文件 `user_invitation.html` + `user_invitation.subject.txt`，占位符 `{{email}}`、`{{invitation_url}}`、`{{site_name}}`、`{{expires_in}}`；新增可配置项 `mail_template_user_invitation_subject`（String）与 `mail_template_user_invitation_html`（Multiline），管理后台邮件模板分组可编辑，过期时长用 `format_mail_duration_seconds` 渲染。
+
+- **Contact verification token 基础设施**：新表 `contact_verification_tokens`（`channel` email / `purpose` register_activation|contact_change|password_reset / `token_hash` 唯一 / `consumed_at`），含 `idx_contact_verification_tokens_single_active` 表达式唯一索引（每用户每 channel+purpose 同时仅一个未消费 token，三库兼容写法）。Repository `contact_verification_token_repo` 提供 `create`/`find_by_token_hash`/`find_latest_active_for_user`/`delete_active_for_user`/`mark_consumed_if_unused`（CAS 防并发消费）/`delete_expired`。`VerificationChannel`、`VerificationPurpose` 落 `DeriveActiveEnum`。
+
+- **邮箱修改流程**：`users` 表新增 `pending_email`（唯一索引）。`POST /auth/email/change` 校验当前账号已验证邮箱、新邮箱通过本地策略且未被占用，事务内写 `pending_email` + 签发 `ContactChange` token + outbox 投递确认邮件，审计 `UserRequestEmailChange`；`POST /auth/email/change/resend` 带 resend 节流，审计 `UserResendEmailChange`；在 `confirm` 端点完成验证后提交 `pending_email` 为正式 email 并清空，审计 `UserConfirmEmailChange`。
+
+- **强制改密（must_change_password）**：`users` 表新增 `must_change_password`（独立迁移 `m20260618_000002`）。新模块 `auth_service/token_scope`：`must_change_password=true` 时签发的 token 带 `password_change` claim，请求仅放行 `(GET /auth/me, PUT /auth/password, POST /auth/logout)` 白名单，其余返回 `AuthPasswordChangeRequired`（错误码 `auth.password_change_required`）；`auth_service` 双向校验 claim 与 DB 状态一致。前端 `/force-password-change` 路由 + `AuthenticatedGate`/`GuestOnlyGate` 在检测到该标记时引导跳转。
+
+- **管理员创建用户：生成密码 + 强制改密**：`POST /admin/users` 的 `CreateAdminUserReq.password` 改为 `Option<String>`（不传则后端生成临时密码并强制 `must_change_password=true`），username 校验改用 `validate_auth_username`（与普通注册一致的 4-16 位规则）。响应改为 `CreateAdminUserOutput { user, generated_password }`。审计 details 增加 `temporary_password_generated`。前端 `GeneratedPasswordDialog` 一次性展示明文临时密码（只读 + 复制，提示不再展示）。`UpdateAdminUserReq` 同步支持 `must_change_password` 与统一的 8-128 密码上下限。admin user 写路径从 `auth_service` 抽到新模块 `admin_user_service`，并保护 `id=1` 超管不可改 role/status。
+
+- **用户删除（硬删 + 级联）**：`DELETE /admin/users/{id}` 调 `admin_user_service::delete_user`，`id=1` 超管禁止删除。级联清理顺序：删本地 avatar 文件 + 清字段 → 遍历该用户 minecraft profile 逐个 `delete_profile_for_user`（含解绑并清无引用 texture blob、撤销选中该 profile 的 yggdrasil token）→ 删全部衣柜材质（含 blob）→ 撤销所有浏览器 session → 撤销所有 launcher token → `users` 表删除（其余表由 FK `on_delete` 级联）。响应 `DeleteAdminUserOutput` 返回各级联清理计数。审计 `AdminDeleteUser`，前端 `audit.ts` 标为 `danger` tone。
+
+- **Yggdrasil 默认皮肤**：`steve.png` / `alex.png` 经 `include_bytes!` 内嵌进二进制（`texture_service/default_skin`），`for_profile_uuid` 按 UUID 最低位奇偶返回 Alex（Slim）/ Steve（Default），解析失败回退 Steve。`texture_metadata_for_profile` 在无 skin binding 时自动追加默认皮肤（`source = Default`），`properties.rs::texture_property_value` 改为无条件推 textures property 保证协议层可见，`texture_by_hash` 在 DB 未命中时以内嵌默认皮肤兜底返回（200 + `image/png` + immutable ETag + 304 支持）。默认皮肤 SHA-256 常量由测试守护。
+
+- **Minecraft Services 兼容层**：新增 Bearer token 鉴权、Mojang 风格 `{"path": "..."}` 错误体的兼容端点——`POST /minecraftservices/player/certificates`（即时生成 2048 位 RSA profile key，`expiresAt = now+48h`、`refreshedAfter = now+36h`，签名项用 dummy）、`GET /minecraftservices/privileges`（`permissive_privileges` 默认全开）、`GET /minecraftservices/player/attributes`、`GET /minecraftservices/privacy/blocklist`（空）、`GET /sessionserver/blockedservers`（404），未匹配路径统一 404。新增运行时配置开关 `yggdrasil_enable_profile_key`（默认 true）与 `yggdrasil_enable_mojang_anti_features`（默认 true）。
+
+- **Yggdrasil metadata 扩展**：`YggdrasilMeta` 新增 `links: { homepage, register? }`（homepage 基于 public_site_url；register 仅当 `allow_user_registration` 时出现），`feature` 新增 `enable_profile_key`、`enable_mojang_anti_features`、`username_check`（固定 true）。
+
+- **材质 source 字段 + ETag/条件请求**：`MinecraftTextureMetadata` 新增 `source`（`bound` / `default`）枚举。新模块 `api/cache` 提供 `weak_etag_for_*`、`request_etag_matches`（认弱/强 ETag、`*`、列表）、`conditional_bytes_response`（自动 ETag、命中 304）。前端静态资源、avatar、texture、默认皮肤全部接入 ETag + `If-None-Match` 304。
+
+- **材质尺寸校验**：后端 `validate_texture_dimensions` 按 type 校验——skin 需 64×32 或 64×64 等比放大，cape 需 64×32 或 22×17（22×17 旧式 cape 仍自动 padding 到 64×32）。新增前端 `minecraftTextureValidation.ts` 上传前预校验（MIME/大小/PNG 签名/像素数/尺寸，镜像后端规则），`PublicYggdrasilConfig` 新增 `max_texture_upload_bytes` 与 `max_texture_pixels` 透传给前端预校验。
+
+- **Profile / Wardrobe 搜索过滤**：`GET /profiles/minecraft` 新增 `query`（最多 64）走名字模糊匹配；`GET /wardrobe/textures` 新增 `keyword`（最多 96）与 `texture_type`，keyword 走 hash/mimetype 模糊 + 归一化后类型/模型名快捷匹配（输入 `skin`/`slim` 等触发对应列过滤）。query 解析错误经 `project_query_config` 转为 `RequestMalformed`，避免泄露 actix 原始错误体。
+
+- **皮肤头像组件**：新增 `MinecraftSkinAvatar`（从 skin texture URL 用两个 8 倍放大 + 像素化的 `<img>` 叠加裁出头部 8×8 区域，失败回退 User 图标并防重复重试），用于 account profiles 与 admin 用户/Profile 详情页；`MinecraftPreview` 改为 `lazy` 加载（three/skinview3d 拆独立 vendor chunk），`MinecraftPreviewPanel` 提供 Suspense + Skeleton 占位。
+
+- **公开法律页面**：新增 `/tos`、`/privacy` 路由与通用 `LegalPage`（含目录、Last updated 标签、中英 i18n `public.json.legal.*`），Footer 增加链接。
+
+- **侧边栏折叠**：桌面端 shell 侧边栏支持折叠/展开并持久化到 localStorage，新增 `AnimatedCollapsible` 高度动画容器用于 filter toolbar 与子项。
+
+- **前端基础设施**：新增 `lib/storage.ts`（统一 localStorage/sessionStorage JSON 访问 + SSR 守护）、`lib/validation.ts`（基于 `zod/v4` 的 username/email/password schema 集合）、`lib/contactVerificationRedirect.ts` / `passwordResetRedirect.ts`（URL 状态解析横幅）、`lib/user.ts`（`getUserDisplayName`）、`DateTimeText`（`<time dateTime title>` 包装的可访问时间组件，替换全站内联 `formatDateTime`）、`AuthFormPrimitives`（登录/初始化/重置/强制改密/邀请表单共享原子）、`GeneratedPasswordDialog`。
+
+- **Yggdrasil API 文档**：新增 `developer-docs/{en,zh-CN}/yggdrasil-api.md`（完整协议实现指南：路由根、metadata、authserver/sessionserver/texture API、Minecraft Services 兼容层、wire 字段、错误形状、运行时配置、OpenAPI、测试边界），`docs/guide/profiles.md` 改为推荐 controlled rename API 并警告禁止直改数据库。
+
+### Changed
+
+- **密码长度上限收紧（breaking）**：`validate_password` 由 8-256 改为 8-128（前端 `passwordSchema` 同步），admin 创建/更新用户密码校验统一走 `validate_optional_auth_password`。
+
+- **管理员创建用户响应结构（breaking）**：`POST /admin/users` 响应由 `AdminUserInfo` 改为 `CreateAdminUserOutput { user, generated_password }`，前端消费方需改读 `.user`。
+
+- **邮箱统一小写（breaking）**：`normalize_email` 在注册、邀请、admin 创建用户、email change 等入口统一归一化为小写后再落库与查询。
+
+- **Yggdrasil 认证要求已验证邮箱（breaking）**：`yggdrasil_service/auth::authenticate` 在密码校验前拒绝 `email_verified_at` 为空的账号（未激活账号无法走 Yggdrasil 登录），对外仍返回 `InvalidCredentials` 避免泄露状态。
+
+- **移除粗粒度外部认证开关（breaking）**：移除运行时配置项 `external_auth_enabled`、`external_auth_auto_register` 及 `external_auth` 分类常量（i18n key 同步删除）。外部认证 provider 本身的管理（AdminExternalAuthPage、相关路由与 repo）仍保留可用，依赖这两个 key 的现有部署需迁移。
+
+- **缓存策略统一**：`avatar_image_response` helper 删除，`AVATAR_CACHE_CONTROL`/`AVATAR_CONTENT_TYPE`/`TEXTURE_CACHE_CONTROL` 提升可见性，所有 avatar、静态资源、texture 路由改走 `conditional_bytes_response`。
+
+- **公开 Yggdrasil 配置**：`PublicYggdrasilConfig` 新增 `max_texture_upload_bytes`、`max_texture_pixels`，前端 `frontendConfigStore` 同步暴露驱动预校验。
+
+- **本地邮箱策略错误码**：allowlist/blocklist 拒绝改用带错误码的 `validation_error_code`（`AuthEmailNotAllowlisted`/`AuthEmailBlocked`），前端可针对性提示。
+
+- **审计动作扩展**：新增 9 个审计动作（`user_confirm_registration`、`user_request_email_change`、`user_resend_email_change`、`user_confirm_email_change`、`user_request_password_reset`、`user_confirm_password_reset`、`admin_create_invitation`、`admin_revoke_invitation`、`admin_delete_user`）与 `Invitation` entity type。
+
+- **注册端点响应类型**：前端 `authService.register` 由 `AuthTokenResponse` 改为 `RegisterResponse { expires_in, requires_activation }`，调用方需按 `requires_activation` 决定展示激活提示还是进工作台。
+
+- **properties 构建**：`build_profile_properties` 不再判断 `textures.is_empty()`，无条件构建 textures property 以支持默认皮肤注入。
+
+- **Admin settings / about 页面**：settings 页移除分类描述卡片与每个 group 标题旁的数量 Badge；about 页改链外部文档站、调整 brand mark 尺寸与资源链接图标。
+
+### Fixed
+
+- **错误响应一致性**：列表 query 解析错误统一经 `project_query_config` 转 `RequestMalformed`；本地邮箱策略拒绝改用带错误码响应，避免泄露 actix 原始错误体。
+
+- **可访问性**：全站时间戳改用 `<time dateTime title>` 包装（`DateTimeText`），屏幕阅读器与浏览器可获取机器可读时间，可见文本仍按 i18n locale 格式化。
+
+- **路由滚动行为**：`AppLayout` 路由切换（无 hash）自动滚顶，带 hash 锚点的链接保留位置。
+
+- **认证链路日志**：`auth::check`/`auth::me` 新增 `tracing::debug!`，便于排查 token 链路。
+
+### Removed
+
+- 移除配置项 `external_auth_enabled`、`external_auth_auto_register` 与 `external_auth` 分类（含对应 i18n key）。
+- 移除 `avatar_image_response` 内联 helper、全站内联 `formatDateTime` 调用（统一改 `DateTimeText`）。
+
+---
+
+**统计数据**：
+- 258 files changed, 29,992 insertions(+), 5,818 deletions(-)
+- 4 commits（4 功能）
+- 新增 2 个数据库迁移（`m20260618_000001`、`m20260618_000002`），新表 `contact_verification_tokens`、`user_invitations`，新字段 `users.pending_email`、`users.must_change_password`
+
 ## [v0.1.0-alpha.3] - 2026-06-16
 
 ### Added
@@ -229,7 +321,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...HEAD
+[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.4...HEAD
+[v0.1.0-alpha.4]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [v0.1.0-alpha.3]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [v0.1.0-alpha.2]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [v0.1.0-alpha.1]: https://github.com/AsterCommunity/AsterYggdrasil/releases/tag/v0.1.0-alpha.1
