@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-alpha.6] - 2026-06-19
+
+### Breaking Changes
+
+- **存储后端统一，旧头像与本地材质路径需迁移**：texture 与 avatar 存储合并到单一 `ObjectStorage` 后端。① 头像 storage_key 统一加 `avatar/` 前缀（`avatar/user/{id}/v{version}/{size}.webp`），升级后数据库里旧 key 的头像将无法读取（返回 `AvatarNotFound`），**用户需重新上传头像**；② `config.toml` 段 `[texture_storage]` 更名为 `[object_storage]`（旧段名经 `#[serde(alias = "texture_storage")]` 仍可加载），默认 `local_root` 由 `textures` 改为 `storage`——**本地部署升级前需把 `textures/` 目录迁移到 `storage/`，或显式配置 `local_root`**；③ 头像存储现在也支持 S3/MinIO（此前仅本地）。
+
+- **管理员鉴权模型变更**：所有 `/api/v1/admin/*` 端点不再仅要求 `Admin` 角色，改为 `Admin` **或** 持有对应 scope 的 `Operator`。使用普通 admin token 的第三方脚本不受影响；新增 operator 账号可访问原本 admin-only 端点的子集。
+
+- **管理员 avatar 端点路径迁移**：`GET /api/v1/admin/users/{id}/avatar/{size}` → `GET /api/v1/admin/avatars/users/{id}/{size}`，调用方需更新路径（前端 `adminService` 已同步）。
+
+- **系统配置分类细分**：`site` / `auth` / `network` / `audit` / `runtime` / `yggdrasil` 拆为多个子分类（如 `auth.session` / `auth.registration` / `auth.recovery` / `auth.login` / `auth.email_policy` / `yggdrasil.metadata` 等），管理后台设置 UI 分类与 `SYSTEM_CONFIG_ALLOWED_CATEGORIES` 白名单随之变化——按旧分类名查询的外部脚本需适配。
+
+### Added
+
+- **公共材质库（public texture library）**：面向所有用户的公共皮肤 / 披风浏览与选用体系。公共浏览无需登录：`GET /api/v1/texture-library/tags`（标签列表，支持 keyword 搜索 + 分页）、`GET /api/v1/texture-library/textures`（公共材质列表，支持 `keyword`、`texture_type`、`tag_ids` 逗号分隔最多 16 个、`tag_search_method`=`all`|`any` 默认 `all`）、`GET /api/v1/texture-library/textures/{texture_id}`（详情）。公共库过滤条件为 `is_wardrobe_item = true AND visibility = Public`。登录用户可 `POST /api/v1/texture-library/textures/{texture_id}/copy` 将公共材质复制到自己衣橱（body `CopyPublicTextureReq { display_name?: NullablePatch<String> }`，后端按 hash + user_id + texture_type + model 命中既有衣橱条目则复用，否则建 `visibility=Private` 副本并复制源材质全部标签绑定）。衣橱端点扩展：`GET /api/v1/wardrobe/tags`、`PATCH /api/v1/wardrobe/textures/{texture_id}`（更新 display_name / visibility）、`PUT /api/v1/wardrobe/textures/{texture_id}/tags`（批量替换标签），`POST /api/v1/wardrobe/textures/{texture_type}` 上传 multipart 新增可选 `name` / `display_name` 字段。数据层迁移 `m20260618_000004_texture_library_metadata`：给 `minecraft_textures` 加 `display_name`（VARCHAR 96，null）、`library_status`（VARCHAR 24，default `private`，索引 `idx_minecraft_textures_library_status`）；新建 `minecraft_texture_tags`（`normalizedName` unique、`color` default `#64748b`、`sortOrder`，索引 `idx_minecraft_texture_tags_name_unique` / `idx_minecraft_texture_tags_sort`）与 `minecraft_texture_tag_binding`（双向 CASCADE，复合 unique `idx_minecraft_texture_tag_bindings_unique(texture_id, tag_id)`）两张表。
+
+- **材质库审核工作流（review）**：`MinecraftTextureLibraryStatus` 状态机 `private` / `pending_review` / `published` / `rejected`。普通用户提交：`review_required=true` 走 `private`→`pending_review`，`false` 直接 →`published`（立即写 `library_reviewed_at`，reviewer 留空）；撤回回到 `private` 并清空时间戳。管理员（`RequireAdminOrScope(OperatorScope::TextureLibrary)`）端点：`GET /api/v1/admin/texture-library/textures`（支持 keyword / texture_type / visibility / library_status / published / tag_ids / tag_search_method 过滤）、`GET /api/v1/admin/texture-library/textures/{texture_id}`、`POST .../approve`（body `ReviewTextureLibraryTextureReq { review_note?, tag_ids? }`，要求 `visibility=public`）、`POST .../reject`（`review_note` 必填，≤512 字符）、`POST .../unpublish`（note 可选，副作用：调用 `handle_pending_for_texture` 把该材质所有 `pending` 举报自动置为 `accepted`）。迁移 `m20260618_000006_texture_library_review` 给 `minecraft_textures` 加 `library_submitted_at` / `library_reviewed_at` / `library_reviewer_user_id`（i64 null）/ `library_review_note`（text null）四列 + `idx_minecraft_textures_library_public` / `idx_minecraft_textures_library_review_queue` / `idx_minecraft_textures_user_library_status` 三索引。
+
+- **材质库举报工作流（reports）**：新表 `minecraft_texture_reports`（迁移 `m20260618_000007_texture_library_reports`，三 FK：texture CASCADE / reporter CASCADE / handler SET NULL，索引 `idx_texture_reports_status_created` / `idx_texture_reports_texture_status` / `idx_texture_reports_reporter_status`）。`MinecraftTextureReportReason`：`inappropriate` / `offensive` / `copyright` / `misleading` / `broken` / `spam` / `other`；`MinecraftTextureReportStatus`：`pending` / `accepted` / `rejected`。用户端点 `POST /api/v1/texture-library/textures/{texture_id}/reports`（body `CreateTextureReportReq { reason 必填, message? ≤1000 字符 }`），前置校验：材质须 `published` + `visibility=public`、不能举报自己、同用户同材质仅一条 `pending`。管理员端点 `GET /api/v1/admin/texture-library/reports`、`GET .../reports/{report_id}`、`POST .../reports/{report_id}/accept`（副作用：把被举报材质下架 `library_status`→`private`，即 accept = 自动 unpublish）、`POST .../reports/{report_id}/reject`（仅改举报状态）；accept/reject 均要求举报当前为 `pending`。
+
+- **衣橱→公共库提交工作流（wardrobe submission）**：普通用户把衣橱材质提交进公共库，挂 `/api/v1/wardrobe` scope——`POST /api/v1/wardrobe/textures/{texture_id}/library-submission`（前置 `texture_library_enabled=true`、材质须为当前用户衣橱项且 `visibility=public`，按 `texture_library_review_required` 决定进 `pending_review` 还是直接 `published`）、`DELETE /api/v1/wardrobe/textures/{texture_id}/library-submission`（撤回，清空审核字段回 `private`）。
+
+- **Operator 角色与细粒度管理 scope**：`UserRole` 新增 `Operator`（DB 值 `"operator"`），形成 `Admin` > `Operator` > `User` 三级。`OperatorScope` 枚举 8 值（snake_case，DB 长度 32）：`overview` / `users` / `profiles` / `texture_library` / `audit` / `tasks` / `settings` / `external_auth`。迁移 `m20260618_000005_operator_scopes` 新建 `user_operator_scopes` 表（`userId` + `scope` + 复合 unique `(user_id, scope)`，FK→users CASCADE）。新增鉴权中间件 `RequireAdminOrScope(OperatorScope)`：`role.is_admin() || (role == Operator && operator_scopes.contains(scope))`，否则 `auth_admin_required`；`/admin/*` 每个子路由独立挂载对应 scope。安全规则 `normalize_role_and_scopes`：请求同时给 `role=Admin` 且带 `operator_scopes` 时自动降级为 Operator（避免带 scope 的 super admin）；super admin（`id=1`）角色 / 状态 / scopes 修改一律拒绝且不可删除；`AuthUserInfo` 仅对 `Operator` 加载 scopes。前端经 `GET /auth/check` 的 `operator_scopes` 字段驱动导航。
+
+- **自托管图片验证码（captcha）系统**：基于 `captcha-rs` 本地渲染 JPEG base64（180×54~64 px），不依赖第三方服务；字符集剔除易混淆字符（仅 `2-9 A C D E F G H J K M N P Q R T W X Y`）。校验由 `RuntimeCaptchaPolicy` 在 `POST /auth/login`、`POST /auth/register`、`POST /auth/users/invitations/{token}/accept`、`POST /auth/register/resend-activation` 四端点按需触发 `verify_if_required`。挑战端点（公开）：`GET /auth/captcha/policy`（返回 `PublicCaptchaPolicyResp`，各 `*_required` = `enabled && 子开关`）、`POST /auth/captcha`（返回 `CaptchaChallengeResponse { challenge_id, image_base64, mime: "image/jpeg", expires_in }`）。挑战存缓存 key `auth:captcha:{challenge_id}`（SHA-256 answer hash + `attempts`/`max_attempts`/`expires_at`），失败累加达上限删除，answer 归一化（去空白 + 转大写）。配置组 `captcha`：`auth_captcha_enabled`（默认 `false`）、`auth_captcha_login_required` / `auth_captcha_register_required` / `auth_captcha_invitation_accept_required` / `auth_captcha_register_activation_resend_required`（默认均 `true`）、`auth_captcha_preset`（`readable` / `balanced` 默认 / `hardened`）、`auth_captcha_ttl_secs`（默认 120）、`auth_captcha_length`（4–8，默认 5）、`auth_captcha_max_attempts`（1–10，默认 3）。新增 config action `preview_captcha` 供管理后台预览不同参数下的图片（不写审计）。前端 `useCaptchaChallenge` + `CaptchaField` 组件接入登录 / 邀请 / 注册 / 重发激活表单。
+
+- **CPU 材质预览渲染**：新增独立 crate `aster-texture-renderer`（CPU-only，无 GPU 依赖），为材质库提供 2D / 3D 预览 PNG。公开端点 `GET /api/v1/texture-previews/{hash}/{file_name}` 返回 `image/png`（走 `conditional_bytes_response`）。新增 `texture_preview_*` 运行时配置：`texture_preview_engine`（`skin-3d` 默认 / `skin-2d`）、`texture_preview_quality_profile`（`fast` / `default` / `quality`）、`texture_preview_width` / `texture_preview_height` / `texture_preview_background` / `texture_preview_show_outer_layer`，及 3D 参数（`scale` / `pitch` / `front_yaw` / `back_yaw` / `spacing` / `x_offset` / `y_offset` / `center_y` / `supersampling`）与 2D 参数（`padding` / `spacing`）。
+
+- **审计动作与错误码扩展**：新增审计动作 `minecraft_texture_library_submit` / `_withdraw`（group `user`）、`minecraft_texture_library_approve` / `_reject` / `_unpublish`（group `admin`）、`minecraft_texture_report_create`（group `user`）、`minecraft_texture_report_accept` / `_reject`（group `admin`）。新增错误码：`auth.captcha_required` / `auth.captcha_invalid` / `auth.captcha_expired`、`wardrobe.texture_name_invalid` / `wardrobe.texture_name_taken`、`texture_library.tag_not_found` / `tag_name_invalid` / `tag_color_invalid` / `tag_name_taken` / `texture_not_found` / `disabled` / `texture_not_public` / `texture_not_pending` / `texture_not_published` / `review_note_invalid`、`texture_report.texture_not_reportable` / `self_report_not_allowed` / `pending_exists` / `message_invalid` / `not_found` / `not_pending`。
+
+- **材质库运行时配置**：新增 `texture_library_enabled`（默认 `true`）与 `texture_library_review_required`（默认 `true`），经 `PublicTextureLibraryConfig` 暴露到 `/api/v1/frontend-config`，前端据此控制侧栏 / 页脚 / 首页 CTA 可见性。
+
+### Changed
+
+- **存储后端统一（object_storage）**：`TextureStorage` trait 改名为 `ObjectStorage`，metadata 结构 `TextureBlobMetadata` → `ObjectBlobMetadata`，工厂 `create_object_storage()` 接受 `""` / `local` / `s3` / `minio`；`AppState.texture_storage` → `object_storage`，runtime trait `TextureStorageRuntimeState` → `ObjectStorageRuntimeState`。`avatar_storage.rs` 由 174 行瘦身到 74 行，删除本地目录清理逻辑（`cleanup_empty_avatar_dirs` / `normalize_absolute_path`），改用 `object_storage().put_file` / `get_stream` / `delete`。错误码 `MinecraftTextureStorageFailed` → `MinecraftObjectStorageFailed`，wire code 字符串 `minecraft_texture.storage_failed` 保持不变（协议层兼容）。无 schema 迁移，配置层变更经 `ensure_defaults` 的 `delete_deprecated_keys()` 启动清理。升级影响见上方 Breaking Changes。
+
+- **衣橱材质元数据响应结构**：`MinecraftWardrobeTextureMetadata` 新增 `name` / `display_name` / `library_status` / `tags` / `preview_url` 字段；上传 multipart 新增可选 `display_name` / `name` 字段。
+
+- **PWA 更新检测增强**：`usePwaUpdate` 抽出 `requestServiceWorkerUpdate(reg, reason)`（按 `registered` / `interval` / `visibility` reason 打 debug 日志并捕获 `update()` 失败），注册成功后立即检查一次，新增 `visibilitychange` 回前台检查，effect teardown 清理 interval 与监听；`vite.config.ts` 的 `VitePWA.registerType` 由 `prompt` 改为 `autoUpdate`，新版自动应用而非提示用户确认（附带修复了旧版注册 interval 永不清理的资源泄漏）。
+
+- **conditional_bytes_response 增加 `Content-Length` 响应头**，影响所有 bytes 响应（avatar / 静态资源 / texture / 默认皮肤）的客户端缓存与范围请求行为。
+
+- **新增系统配置值类型 `StringEnum`**（含 `string_enum_set` 存储），供 captcha preset 等单选枚举使用；直接读 `system_config` 表的外部工具需感知新类型。
+
+- **孤儿材质清理匹配收紧**：`maintenance.rs` 仅匹配合法的两位 hex 前缀 + 64 位 hex hash 的 storage key，避免误删。
+
+- **健壮性加固**：`src`、`main`、`migration`、`aster-texture-renderer` 四个 crate 启用 `clippy::panic` deny，shutdown / mail sender / rate limiter / external auth providers / config helpers 中的 `expect` / `unwrap` / `panic` 替换为错误传播。
+
+### Removed
+
+- 移除系统配置项 `avatar_dir`（含 `normalize_avatar_dir_config_value`、`DEFAULT_AVATAR_DIR`），启动时由 `delete_deprecated_keys()` 自动清理；头像根目录现由 `[object_storage]` 统一决定。
+
+---
+
+**统计数据**：
+- 275 files changed, 33,142 insertions(+), 3,866 deletions(-)
+- 4 commits（3 功能 + 1 重构）
+- 新增 4 个数据库迁移（`m20260618_000004` ~ `m20260618_000007`），新表 `minecraft_texture_tags` / `minecraft_texture_tag_binding` / `user_operator_scopes` / `minecraft_texture_reports`，新字段 `minecraft_textures.display_name` / `library_status` / `library_submitted_at` / `library_reviewed_at` / `library_reviewer_user_id` / `library_review_note`
+
 ## [v0.1.0-alpha.5] - 2026-06-18
 
 ### Added
@@ -362,7 +421,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.5...HEAD
+[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.6...HEAD
+[v0.1.0-alpha.6]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [v0.1.0-alpha.5]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [v0.1.0-alpha.4]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [v0.1.0-alpha.3]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.2...v0.1.0-alpha.3

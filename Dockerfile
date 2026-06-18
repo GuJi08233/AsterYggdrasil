@@ -19,6 +19,7 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY migration/ migration/
 COPY api-docs-macros/ api-docs-macros/
+COPY crates/ crates/
 
 # Pre-build dependencies as a cache layer.
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && \
