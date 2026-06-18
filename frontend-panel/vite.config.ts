@@ -104,7 +104,7 @@ export default defineConfig(({ command }) => {
 			react(),
 			tailwindcss(),
 			VitePWA({
-				registerType: "prompt",
+				registerType: "autoUpdate",
 				includeAssets: ["favicon.svg"],
 				devOptions: {
 					enabled: true,

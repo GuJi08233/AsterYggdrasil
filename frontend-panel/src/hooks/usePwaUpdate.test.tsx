@@ -1,6 +1,11 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePwaUpdate } from "@/hooks/usePwaUpdate";
+
+type RegisterOptions = {
+	onRegistered?: (registration: unknown) => void;
+	onRegisterError?: (error: unknown) => void;
+};
 
 const mockState = vi.hoisted(() => ({
 	needRefresh: false,
@@ -8,6 +13,7 @@ const mockState = vi.hoisted(() => ({
 	updateServiceWorker: vi.fn(),
 	toastInfo: vi.fn(),
 	translate: vi.fn((key: string) => `translated:${key}`),
+	registerOptions: null as RegisterOptions | null,
 	registration: {
 		scope: "/",
 		active: { scriptURL: "/sw.js" },
@@ -30,11 +36,8 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("virtual:pwa-register/react", () => ({
-	useRegisterSW: (options: {
-		onRegistered?: (registration: typeof mockState.registration) => void;
-		onRegisterError?: (error: unknown) => void;
-	}) => {
-		options.onRegistered?.(mockState.registration);
+	useRegisterSW: (options: RegisterOptions) => {
+		mockState.registerOptions = options;
 		return {
 			needRefresh: [mockState.needRefresh, vi.fn()],
 			offlineReady: [mockState.offlineReady, vi.fn()],
@@ -50,7 +53,9 @@ describe("usePwaUpdate", () => {
 		mockState.updateServiceWorker.mockReset();
 		mockState.toastInfo.mockReset();
 		mockState.translate.mockClear();
+		mockState.registerOptions = null;
 		mockState.registration.update.mockReset();
+		mockState.registration.update.mockResolvedValue(mockState.registration);
 	});
 
 	it("does not show an update toast when no refresh is pending", () => {
@@ -84,10 +89,18 @@ describe("usePwaUpdate", () => {
 		expect(mockState.updateServiceWorker).toHaveBeenCalledWith(true);
 	});
 
-	it("starts an hourly registration update poll", () => {
+	it("checks for updates after registration and starts an hourly update poll", async () => {
 		const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
 
 		renderHook(() => usePwaUpdate());
+
+		act(() => {
+			mockState.registerOptions?.onRegistered?.(mockState.registration);
+		});
+
+		await waitFor(() => {
+			expect(mockState.registration.update).toHaveBeenCalledTimes(1);
+		});
 
 		expect(setIntervalSpy).toHaveBeenCalledWith(
 			expect.any(Function),
@@ -97,7 +110,30 @@ describe("usePwaUpdate", () => {
 		const intervalCallback = setIntervalSpy.mock.calls[0]?.[0] as () => void;
 		intervalCallback();
 
-		expect(mockState.registration.update).toHaveBeenCalledTimes(1);
+		expect(mockState.registration.update).toHaveBeenCalledTimes(2);
 		setIntervalSpy.mockRestore();
+	});
+
+	it("checks for updates when the page becomes visible again", async () => {
+		const visibilitySpy = vi
+			.spyOn(document, "visibilityState", "get")
+			.mockReturnValue("visible");
+
+		renderHook(() => usePwaUpdate());
+
+		act(() => {
+			mockState.registerOptions?.onRegistered?.(mockState.registration);
+		});
+
+		await waitFor(() => {
+			expect(mockState.registration.update).toHaveBeenCalledTimes(1);
+		});
+
+		act(() => {
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+
+		expect(mockState.registration.update).toHaveBeenCalledTimes(2);
+		visibilitySpy.mockRestore();
 	});
 });
