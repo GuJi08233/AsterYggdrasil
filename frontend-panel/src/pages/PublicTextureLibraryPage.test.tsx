@@ -108,8 +108,16 @@ function publicTexture(
 		texture_type: "skin",
 		updated_at: "2026-06-15T00:00:00Z",
 		uploader: {
+			avatar: {
+				source: "gravatar",
+				url_1024: "https://example.test/avatar-1024.webp",
+				url_512: "https://example.test/avatar-512.webp",
+				version: 0,
+			},
+			id: 1,
 			name: "Texture Artist",
 			public_uuid: "user-public-uuid",
+			username: "artist",
 		},
 		url: "/textures/shared-slim.png",
 		visibility: "public",

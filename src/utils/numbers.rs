@@ -1,6 +1,16 @@
 //! 工具子模块：`numbers`。
 
+use std::num::{NonZeroU32, NonZeroU64};
+
 use crate::errors::{AsterError, MapAsterErr, Result};
+
+pub fn non_zero_u32(value: u32) -> NonZeroU32 {
+    NonZeroU32::new(value).unwrap_or(NonZeroU32::MIN)
+}
+
+pub fn non_zero_u64(value: u64) -> NonZeroU64 {
+    NonZeroU64::new(value).unwrap_or(NonZeroU64::MIN)
+}
 
 pub fn bytes_to_usize(bytes: i64, value_name: &str) -> Result<usize> {
     i64_to_usize(bytes, value_name)
@@ -150,6 +160,18 @@ mod tests {
     #[test]
     fn bytes_to_usize_accepts_positive_values() {
         assert_eq!(bytes_to_usize(5_242_880, "chunk_size").unwrap(), 5_242_880);
+    }
+
+    #[test]
+    fn non_zero_helpers_preserve_positive_values() {
+        assert_eq!(non_zero_u32(7).get(), 7);
+        assert_eq!(non_zero_u64(9).get(), 9);
+    }
+
+    #[test]
+    fn non_zero_helpers_fallback_to_min_for_zero() {
+        assert_eq!(non_zero_u32(0), NonZeroU32::MIN);
+        assert_eq!(non_zero_u64(0), NonZeroU64::MIN);
     }
 
     #[test]

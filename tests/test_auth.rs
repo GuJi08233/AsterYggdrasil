@@ -2933,11 +2933,22 @@ async fn admin_user_avatar_media_requires_users_scope() {
     let state = common::setup().await;
     let app = create_test_app!(state);
     let admin_token = setup_admin!(app);
+    admin_create_user_with_payload(
+        &app,
+        &admin_token,
+        serde_json::json!({
+            "username": "avatar-target",
+            "email": "avatar-target@example.com",
+            "password": "password123"
+        }),
+    )
+    .await;
+    let (target_token, _, _) = login_session!(app, "avatar-target", "password123");
 
     let boundary = "avatar-scope-boundary";
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/profile/avatar/upload")
-        .insert_header(common::bearer_header(&admin_token))
+        .insert_header(common::bearer_header(&target_token))
         .insert_header((
             "Content-Type",
             format!("multipart/form-data; boundary={boundary}"),
@@ -2951,8 +2962,8 @@ async fn admin_user_avatar_media_requires_users_scope() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
-    let admin_user_id = current_user_id(&app, &admin_token).await;
-    let avatar_url = format!("/api/v1/admin/avatars/users/{admin_user_id}/512");
+    let target_user_id = current_user_id(&app, &target_token).await;
+    let avatar_url = format!("/api/v1/admin/avatars/users/{target_user_id}/512");
 
     admin_create_user_with_payload(
         &app,

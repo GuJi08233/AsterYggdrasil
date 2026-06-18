@@ -74,6 +74,10 @@ impl KeyExtractor for AsterIpKeyExtractor {
 }
 
 /// 根据 tier 配置创建 Governor 实例
+#[expect(
+    clippy::expect_used,
+    reason = "actix-governor exposes fallible finish() for zero values; RateLimitTier stores both inputs as NonZero"
+)]
 pub fn build_governor(
     tier: &RateLimitTier,
     trusted_proxies: &[String],

@@ -167,6 +167,17 @@ define_error_codes! {
     TextureLibraryTagColorInvalid => "texture_library.tag_color_invalid",
     TextureLibraryTagNameTaken => "texture_library.tag_name_taken",
     TextureLibraryTextureNotFound => "texture_library.texture_not_found",
+    TextureLibraryDisabled => "texture_library.disabled",
+    TextureLibraryTextureNotPublic => "texture_library.texture_not_public",
+    TextureLibraryTextureNotPending => "texture_library.texture_not_pending",
+    TextureLibraryTextureNotPublished => "texture_library.texture_not_published",
+    TextureLibraryReviewNoteInvalid => "texture_library.review_note_invalid",
+    TextureReportTextureNotReportable => "texture_report.texture_not_reportable",
+    TextureReportSelfReportNotAllowed => "texture_report.self_report_not_allowed",
+    TextureReportPendingExists => "texture_report.pending_exists",
+    TextureReportMessageInvalid => "texture_report.message_invalid",
+    TextureReportNotFound => "texture_report.not_found",
+    TextureReportNotPending => "texture_report.not_pending",
 
     // Passkey / WebAuthn errors.
     PasskeyNameInvalid => "passkey.name_invalid",

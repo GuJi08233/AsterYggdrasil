@@ -39,7 +39,7 @@ where
     let storage_keys = state.object_storage().list_keys("").await?;
     let texture_storage_keys = storage_keys
         .into_iter()
-        .filter(|storage_key| !storage_key.starts_with("texture-previews/"))
+        .filter(|storage_key| is_texture_blob_storage_key(storage_key))
         .collect::<Vec<_>>();
     let mut result = OrphanTextureCleanupResult {
         scanned: crate::utils::numbers::usize_to_u64(
@@ -114,6 +114,22 @@ fn object_storage_key_matches_hash(storage_key: &str, hash: &str) -> bool {
         return false;
     };
     storage_key == format!("{prefix}/{hash}.png")
+}
+
+fn is_texture_blob_storage_key(storage_key: &str) -> bool {
+    let Some((prefix, file_name)) = storage_key.split_once('/') else {
+        return false;
+    };
+    if prefix.len() != 2 || !prefix.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return false;
+    }
+
+    let Some(hash) = file_name.strip_suffix(".png") else {
+        return false;
+    };
+    hash.len() == 64
+        && hash.starts_with(prefix)
+        && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 pub(super) async fn cleanup_texture_blob_if_unreferenced<S>(

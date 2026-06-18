@@ -41,6 +41,7 @@ import {
 	PiFileText,
 	PiFileVideo,
 	PiFileZip,
+	PiFlag,
 	PiFloppyDisk,
 	PiFolder,
 	PiFolderOpen,
@@ -146,6 +147,7 @@ export type IconName =
 	| "FileText"
 	| "FileVideo"
 	| "FileZip"
+	| "Flag"
 	| "FloppyDisk"
 	| "Folder"
 	| "FolderOpen"
@@ -253,6 +255,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	FileText: PiFileText,
 	FileVideo: PiFileVideo,
 	FileZip: PiFileZip,
+	Flag: PiFlag,
 	FloppyDisk: PiFloppyDisk,
 	Folder: PiFolder,
 	FolderOpen: PiFolderOpen,

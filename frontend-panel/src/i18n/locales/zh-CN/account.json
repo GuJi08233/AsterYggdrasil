@@ -186,6 +186,9 @@
 		"bindSuccess": "材质已绑定到 {{name}}",
 		"deleteSuccess": "材质已从衣柜删除",
 		"editSuccess": "材质信息已更新",
+		"librarySubmitSuccessPending": "材质已提交审核",
+		"librarySubmitSuccessPublished": "材质已发布到公开材质库",
+		"libraryWithdrawSuccess": "材质已退出公开材质库流程",
 		"bindToProfile": "绑定到角色",
 		"bindAction": "绑定",
 		"editAction": "编辑",
@@ -233,6 +236,27 @@
 		"noTagSearchResults": "没有匹配的标签。",
 		"selectedTags": "已选择 {{count}} 个",
 		"tagSearchMore": "还有 {{count}} 个标签，请搜索以缩小范围。",
+		"libraryStatusTitle": "公开材质库",
+		"libraryReviewNote": "审核备注：",
+		"librarySubmitReviewAction": "提交审核",
+		"libraryPublishAction": "发布到公开库",
+		"libraryWithdrawAction": "撤回申请",
+		"libraryUnpublishAction": "退出公开库",
+		"libraryStatus": {
+			"private": "未申请",
+			"pending_review": "待审核",
+			"published": "已发布",
+			"rejected": "已打回"
+		},
+		"libraryStatusDescription": {
+			"disabled": "当前实例已关闭公开材质库，暂时不能提交或发布材质。",
+			"privateVisibility": "公开材质库只接收访问权限为公开的材质。先在编辑面板里把访问权限改为公开。",
+			"pending": "这个材质正在等待管理员审核；审核通过前不会出现在公开材质库。",
+			"published": "这个材质已经展示在公开材质库中，其他用户可以浏览并复制到自己的衣柜。",
+			"rejected": "这个材质已被管理员打回。根据审核备注调整后，可以重新提交。",
+			"readyForReview": "这个公开材质可以提交给管理员审核，审核通过后会进入公开材质库。",
+			"readyToPublish": "当前配置允许直接发布；发布后会立即进入公开材质库。"
+		},
 		"visibility": {
 			"label": "访问权限",
 			"private": "私有",
@@ -252,6 +276,8 @@
 		"searchAction": "搜索",
 		"emptyTitle": "暂无公开材质",
 		"emptyDescription": "当用户把衣柜材质设为公开后，会出现在这里。",
+		"disabledTitle": "公开材质库已关闭",
+		"disabledDescription": "当前实例暂未开放公开材质库。",
 		"texturePreviewAlt": "{{type}}材质预览",
 		"detailTitle": "材质详情",
 		"detailDescription": "查看 {{name}} 的公开信息，并按需复制到自己的衣柜。",
@@ -275,6 +301,25 @@
 		"copyNameTaken": "衣柜里已经有同名材质，请换一个名称。",
 		"copying": "复制中",
 		"copySuccess": "已复制 {{name}} 到衣柜",
+		"reportAction": "举报",
+		"reportDialogTitle": "举报材质",
+		"reportDialogDescription": "告诉管理员为什么需要复核 {{name}}。",
+		"reportReasonLabel": "举报原因",
+		"reportMessageLabel": "补充说明",
+		"reportMessagePlaceholder": "可选，提供给管理员查看的说明",
+		"reportMessageHelp": "举报需要先登录；补充说明仅管理员可见。",
+		"reportSubmitAction": "提交举报",
+		"reportSubmitting": "提交中",
+		"reportSuccess": "举报已提交",
+		"reportReason": {
+			"inappropriate": "不适宜内容",
+			"offensive": "冒犯、仇恨或骚扰内容",
+			"copyright": "版权争议或搬运材质",
+			"misleading": "名称、预览或标签误导",
+			"broken": "材质损坏",
+			"spam": "垃圾或重复内容",
+			"other": "其他"
+		},
 		"type": {
 			"all": "全部"
 		}

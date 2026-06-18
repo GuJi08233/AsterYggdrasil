@@ -2,7 +2,6 @@ import {
 	type DragEvent,
 	type FormEvent,
 	type ReactNode,
-	type UIEvent,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -30,10 +29,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPanel";
 import { MinecraftTextureImagePreview } from "@/components/yggdrasil/MinecraftTextureImagePreview";
 import { TextureTagFilterPopover } from "@/components/yggdrasil/TextureTagFilterPopover";
+import {
+	TextureTagChips,
+	TextureTagPickerList,
+} from "@/components/yggdrasil/TextureTagList";
 import { TextureUploadForm } from "@/components/yggdrasil/TextureUploadForm";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTextureTagPager } from "@/hooks/useTextureTagPager";
 import { validateMinecraftTextureFile } from "@/lib/minecraftTextureValidation";
+import { formatBytes } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
 import { formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
@@ -70,6 +74,9 @@ export default function TextureWardrobePage() {
 	const [editTagIds, setEditTagIds] = useState<number[]>([]);
 	const [editTagQuery, setEditTagQuery] = useState("");
 	const yggdrasilConfig = useFrontendConfigStore((store) => store.yggdrasil);
+	const textureLibraryConfig = useFrontendConfigStore(
+		(store) => store.textureLibrary,
+	);
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const {
 		activeTexture,
@@ -426,6 +433,44 @@ export default function TextureWardrobePage() {
 		}
 	}
 
+	async function submitTextureLibrary(
+		texture: MinecraftWardrobeTextureMetadata,
+	) {
+		dispatch({ type: "submitting", value: true });
+		try {
+			const updated = await yggdrasilService.submitTextureLibraryReview(
+				texture.id,
+			);
+			dispatch({ type: "replaceTexture", value: updated });
+			toast.success(
+				updated.library_status === "published"
+					? t("wardrobe.librarySubmitSuccessPublished")
+					: t("wardrobe.librarySubmitSuccessPending"),
+			);
+		} catch (nextError) {
+			toast.error(formatUnknownError(nextError));
+		} finally {
+			dispatch({ type: "submitting", value: false });
+		}
+	}
+
+	async function withdrawTextureLibrary(
+		texture: MinecraftWardrobeTextureMetadata,
+	) {
+		dispatch({ type: "submitting", value: true });
+		try {
+			const updated = await yggdrasilService.withdrawTextureLibrarySubmission(
+				texture.id,
+			);
+			dispatch({ type: "replaceTexture", value: updated });
+			toast.success(t("wardrobe.libraryWithdrawSuccess"));
+		} catch (nextError) {
+			toast.error(formatUnknownError(nextError));
+		} finally {
+			dispatch({ type: "submitting", value: false });
+		}
+	}
+
 	function selectTab(tab: MinecraftTextureType) {
 		setActiveTab(tab);
 		setTextureOffset(0);
@@ -620,6 +665,8 @@ export default function TextureWardrobePage() {
 				</section>
 
 				<PreviewPanel
+					libraryConfig={textureLibraryConfig}
+					submitting={submitting}
 					texture={previewTexture}
 					total={textureTotal}
 					onBind={() => {
@@ -630,6 +677,12 @@ export default function TextureWardrobePage() {
 					}}
 					onEdit={() => {
 						if (previewTexture) openEditDialog(previewTexture);
+					}}
+					onSubmitLibrary={() => {
+						if (previewTexture) void submitTextureLibrary(previewTexture);
+					}}
+					onWithdrawLibrary={() => {
+						if (previewTexture) void withdrawTextureLibrary(previewTexture);
 					}}
 				/>
 			</div>
@@ -985,6 +1038,7 @@ function TextureCard({
 						<span className="rounded-md bg-background/80 px-1.5 py-0.5 text-[0.6875rem] text-muted-foreground">
 							{t(`wardrobe.type.${texture.texture_type}`)}
 						</span>
+						<LibraryStatusBadge status={texture.library_status} compact />
 						<Badge
 							variant="outline"
 							className={cn(
@@ -1003,28 +1057,39 @@ function TextureCard({
 					<span>{formatBytes(texture.file_size)}</span>
 					<span>{date}</span>
 				</div>
-				{texture.tags.length > 0 ? <TextureTags tags={texture.tags} /> : null}
+				<TextureTagChips tags={texture.tags} />
 			</div>
 		</button>
 	);
 }
 
 function PreviewPanel({
+	libraryConfig,
 	onBind,
 	onDelete,
 	onEdit,
+	onSubmitLibrary,
+	onWithdrawLibrary,
+	submitting,
 	texture,
 	total,
 }: {
+	libraryConfig: { enabled: boolean; review_required: boolean };
 	onBind: () => void;
 	onDelete: () => void;
 	onEdit: () => void;
+	onSubmitLibrary: () => void;
+	onWithdrawLibrary: () => void;
+	submitting: boolean;
 	texture: MinecraftWardrobeTextureMetadata | null;
 	total: number;
 }) {
 	const { t } = useTranslation();
 	const skinUrl = texture?.texture_type === "skin" ? texture.url : null;
 	const capeUrl = texture?.texture_type === "cape" ? texture.url : null;
+	const libraryAction = texture
+		? textureLibraryAction(texture, libraryConfig)
+		: null;
 
 	return (
 		<aside className="grid min-w-0 gap-3 xl:sticky xl:top-20 xl:self-start">
@@ -1048,6 +1113,47 @@ function PreviewPanel({
 			/>
 			<div className="grid gap-3 rounded-lg border border-border/70 bg-card/95 p-4 shadow-xs">
 				{texture ? <TextureSummary texture={texture} /> : null}
+				{texture ? (
+					<div className="grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-3 text-sm">
+						<div className="flex flex-wrap items-center justify-between gap-2">
+							<div className="font-medium">
+								{t("wardrobe.libraryStatusTitle")}
+							</div>
+							<LibraryStatusBadge status={texture.library_status} />
+						</div>
+						<p className="text-xs leading-5 text-muted-foreground">
+							{libraryStatusDescription(texture, libraryConfig, t)}
+						</p>
+						{texture.library_review_note ? (
+							<div className="rounded-md border border-border/70 bg-background/80 px-2.5 py-2 text-xs text-muted-foreground">
+								<span className="font-medium text-foreground">
+									{t("wardrobe.libraryReviewNote")}
+								</span>{" "}
+								{texture.library_review_note}
+							</div>
+						) : null}
+						{libraryAction ? (
+							<div className="flex flex-wrap gap-2">
+								<Button
+									type="button"
+									size="sm"
+									variant={libraryAction.variant}
+									disabled={submitting || libraryAction.disabled}
+									onClick={
+										libraryAction.kind === "withdraw"
+											? onWithdrawLibrary
+											: onSubmitLibrary
+									}
+								>
+									{submitting ? (
+										<Icon name="Spinner" className="size-4 animate-spin" />
+									) : null}
+									{t(libraryAction.labelKey)}
+								</Button>
+							</div>
+						) : null}
+					</div>
+				) : null}
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex flex-wrap gap-2">
 						<Button type="button" disabled={!texture} onClick={onBind}>
@@ -1133,29 +1239,97 @@ function TextureSummary({
 				>
 					{t(`wardrobe.visibility.${texture.visibility}`)}
 				</Badge>
+				<LibraryStatusBadge status={texture.library_status} />
 			</div>
-			{texture.tags.length > 0 ? <TextureTags tags={texture.tags} /> : null}
+			<TextureTagChips tags={texture.tags} />
 		</div>
 	);
 }
 
-function TextureTags({ tags }: { tags: MinecraftTextureTagInfo[] }) {
+function LibraryStatusBadge({
+	compact,
+	status,
+}: {
+	compact?: boolean;
+	status: MinecraftWardrobeTextureMetadata["library_status"];
+}) {
+	const { t } = useTranslation();
 	return (
-		<div className="flex flex-wrap gap-1">
-			{tags.map((tag) => (
-				<span
-					key={tag.id}
-					className="rounded-md border px-1.5 py-0.5 text-[0.6875rem] font-medium"
-					style={{
-						borderColor: `${tag.color}55`,
-						color: tag.color,
-					}}
-				>
-					{tag.name}
-				</span>
-			))}
-		</div>
+		<Badge
+			variant={status === "published" ? "default" : "outline"}
+			className={cn(
+				"rounded-md",
+				compact && "h-5 px-1.5 text-[0.6875rem]",
+				status === "pending_review" &&
+					"border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+				status === "rejected" &&
+					"border-destructive/35 bg-destructive/10 text-destructive",
+			)}
+		>
+			{t(`wardrobe.libraryStatus.${status}`)}
+		</Badge>
 	);
+}
+
+function textureLibraryAction(
+	texture: MinecraftWardrobeTextureMetadata,
+	config: { enabled: boolean; review_required: boolean },
+): {
+	disabled: boolean;
+	kind: "submit" | "withdraw";
+	labelKey: string;
+	variant: "default" | "outline";
+} | null {
+	if (!config.enabled) return null;
+	if (texture.library_status === "pending_review") {
+		return {
+			disabled: false,
+			kind: "withdraw",
+			labelKey: "wardrobe.libraryWithdrawAction",
+			variant: "outline",
+		};
+	}
+	if (texture.library_status === "published") {
+		return {
+			disabled: false,
+			kind: "withdraw",
+			labelKey: "wardrobe.libraryUnpublishAction",
+			variant: "outline",
+		};
+	}
+	return {
+		disabled: texture.visibility !== "public",
+		kind: "submit",
+		labelKey: config.review_required
+			? "wardrobe.librarySubmitReviewAction"
+			: "wardrobe.libraryPublishAction",
+		variant: "default",
+	};
+}
+
+function libraryStatusDescription(
+	texture: MinecraftWardrobeTextureMetadata,
+	config: { enabled: boolean; review_required: boolean },
+	t: ReturnType<typeof useTranslation>["t"],
+) {
+	if (!config.enabled) {
+		return t("wardrobe.libraryStatusDescription.disabled");
+	}
+	if (texture.visibility !== "public") {
+		return t("wardrobe.libraryStatusDescription.privateVisibility");
+	}
+	if (texture.library_status === "pending_review") {
+		return t("wardrobe.libraryStatusDescription.pending");
+	}
+	if (texture.library_status === "published") {
+		return t("wardrobe.libraryStatusDescription.published");
+	}
+	if (texture.library_status === "rejected") {
+		return t("wardrobe.libraryStatusDescription.rejected");
+	}
+	return config.review_required
+		? t("wardrobe.libraryStatusDescription.readyForReview")
+		: t("wardrobe.libraryStatusDescription.readyToPublish");
 }
 
 function TextureTagSelector({
@@ -1191,14 +1365,6 @@ function TextureTagSelector({
 		return () => window.clearTimeout(timer);
 	}, [onSearchQueryChange, query]);
 
-	function maybeLoadMore(event: UIEvent<HTMLDivElement>) {
-		if (loading || !hasMore) return;
-		const target = event.currentTarget;
-		if (target.scrollHeight - target.scrollTop - target.clientHeight < 56) {
-			onLoadMore();
-		}
-	}
-
 	return (
 		<div className="grid gap-1.5">
 			<div className="flex items-center justify-between gap-2">
@@ -1231,48 +1397,22 @@ function TextureTagSelector({
 							onChange={(event) => onQueryChange(event.currentTarget.value)}
 						/>
 					</div>
-					{tags.length > 0 ? (
-						<div
-							className="max-h-52 overflow-y-auto rounded-lg border border-border/70 bg-muted/20 p-2"
-							onScroll={maybeLoadMore}
-						>
-							<div className="grid gap-1">
-								{tags.map((tag) => (
-									<label
-										key={tag.id}
-										className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-background/70 has-disabled:cursor-not-allowed has-disabled:opacity-60"
-									>
-										<input
-											type="checkbox"
-											checked={selectedIds.includes(tag.id)}
-											disabled={disabled}
-											className="size-4 rounded border-border"
-											onChange={() => onToggle(tag.id)}
-										/>
-										<span
-											aria-hidden="true"
-											className="size-2.5 rounded-full"
-											style={{ backgroundColor: tag.color }}
-										/>
-										<span className="truncate">{tag.name}</span>
-									</label>
-								))}
-								{loading ? (
-									<div className="px-2 py-1 text-xs text-muted-foreground">
-										{t("common.loading")}
-									</div>
-								) : null}
-							</div>
-						</div>
-					) : (
-						<div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground">
-							{loading
-								? t("common.loading")
-								: hasQuery
-									? t("wardrobe.noTagSearchResults")
-									: t("wardrobe.noAvailableTags")}
-						</div>
-					)}
+					<TextureTagPickerList
+						className="max-h-52"
+						disabled={disabled}
+						emptyLabel={
+							hasQuery
+								? t("wardrobe.noTagSearchResults")
+								: t("wardrobe.noAvailableTags")
+						}
+						hasMore={hasMore}
+						loading={loading}
+						loadingLabel={t("common.loading")}
+						selectedIds={selectedIds}
+						tags={tags}
+						onLoadMore={onLoadMore}
+						onToggle={onToggle}
+					/>
 				</>
 			) : (
 				<div className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-sm text-muted-foreground">
@@ -1398,11 +1538,4 @@ function WardrobeEmptyState({
 
 function textureLabel(texture: MinecraftWardrobeTextureMetadata) {
 	return texture.name;
-}
-
-function formatBytes(value: number) {
-	if (value < 1024) return `${value} B`;
-	const kib = value / 1024;
-	if (kib < 1024) return `${kib.toFixed(1)} KiB`;
-	return `${(kib / 1024).toFixed(1)} MiB`;
 }

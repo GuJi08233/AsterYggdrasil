@@ -14,9 +14,10 @@ pub use details::{
     AdminTaskCleanupAuditDetails, AuthSessionAuditDetails, ConfigActionDetails,
     ConfigUpdateDetails, ExternalAuthProviderTestParamsAuditDetails, LoginAuditDetails,
     MailAuditDetails, MinecraftProfileAuditDetails, MinecraftProfileRenameAuditDetails,
-    MinecraftTextureAuditDetails, PasskeyAuditDetails, TaskRetryAuditDetails, UserAuditDetails,
-    UserSessionRevokeAuditDetails, YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails,
-    YggdrasilTokenAuditDetails, details,
+    MinecraftTextureAuditDetails, MinecraftTextureReportAuditDetails, PasskeyAuditDetails,
+    TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
+    YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails, YggdrasilTokenAuditDetails,
+    details,
 };
 pub use filters::{AuditLogFilterQuery, AuditLogFilters, AuditLogSortQuery};
 pub use manager::{

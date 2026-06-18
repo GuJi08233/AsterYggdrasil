@@ -9,7 +9,12 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(
     not(test),
-    deny(clippy::unwrap_used, clippy::unreachable, clippy::expect_used)
+    deny(
+        clippy::unwrap_used,
+        clippy::unreachable,
+        clippy::expect_used,
+        clippy::panic
+    )
 )]
 
 mod decoded;

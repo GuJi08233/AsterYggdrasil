@@ -112,15 +112,18 @@ const ownerUser = {
 function texture(overrides: Record<string, unknown> = {}) {
 	return {
 		created_at: "2026-06-15T00:00:00Z",
+		display_name: "Bound Skin",
 		file_size: 128,
 		hash: "texture-hash",
 		height: 64,
 		id: 7,
 		mime_type: "image/png",
+		name: "Bound Skin",
 		profile_id: 7,
 		profile_name: "AdminOld",
 		profile_uuid: "profile-uuid",
 		source: "bound",
+		texture_id: 107,
 		texture_model: "default",
 		texture_type: "skin",
 		updated_at: "2026-06-15T00:00:00Z",
@@ -204,8 +207,11 @@ describe("AdminMinecraftProfilePage rename workflow", () => {
 		adminMinecraftProfileServiceMock.listTextures.mockResolvedValueOnce([
 			texture({ texture_type: "skin", url: "/textures/skin.png" }),
 			texture({
+				display_name: "Bound Cape",
 				hash: "cape-hash",
 				id: 8,
+				name: "Bound Cape",
+				texture_id: 108,
 				texture_type: "cape",
 				url: "/textures/cape.png",
 			}),
@@ -225,6 +231,13 @@ describe("AdminMinecraftProfilePage rename workflow", () => {
 		expect(
 			screen.getByText("admin.minecraftProfilePage.textureList"),
 		).toBeInTheDocument();
+		expect(screen.getByText("Bound Skin")).toBeInTheDocument();
+		expect(screen.getByText("Bound Cape")).toBeInTheDocument();
+		expect(
+			screen.getAllByRole("link", {
+				name: "admin.minecraftProfilePage.openTexture",
+			})[0],
+		).toHaveAttribute("href", "/admin/texture-library/107");
 	});
 
 	it("shows the owner user like the admin users table identity cell", async () => {

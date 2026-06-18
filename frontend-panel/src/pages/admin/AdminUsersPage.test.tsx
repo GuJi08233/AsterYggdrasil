@@ -48,6 +48,10 @@ function renderPage() {
 		<MemoryRouter initialEntries={["/admin/users"]}>
 			<Routes>
 				<Route path="/admin/users" element={<AdminUsersPage />} />
+				<Route
+					path="/admin/users/invitations"
+					element={<div>invitations</div>}
+				/>
 				<Route path="/admin/users/:id" element={<div>user detail</div>} />
 			</Routes>
 		</MemoryRouter>,
@@ -90,5 +94,13 @@ describe("AdminUsersPage", () => {
 			await screen.findByText("Temporary password shown once"),
 		).toBeInTheDocument();
 		expect(screen.getByDisplayValue("TempPass-123456789!")).toBeInTheDocument();
+	});
+
+	it("shows invitation records as a users section link", async () => {
+		renderPage();
+
+		expect(
+			await screen.findByRole("link", { name: /Invitation records/ }),
+		).toHaveAttribute("href", "/admin/users/invitations");
 	});
 });

@@ -24,6 +24,7 @@ The backend currently includes:
 - External auth providers, OAuth/OIDC login, account linking, and email verification flows.
 - Minecraft profile creation, listing, deletion, and texture binding.
 - Wardrobe texture library for skin/cape upload, validation, storage, binding, and deletion.
+- Public texture library for wardrobe submission, review, publishing, unpublishing, tags, and signed-in user reports.
 - Yggdrasil/authlib-injector protocol routes for metadata, authenticate, refresh, validate, invalidate, signout, join, hasJoined, profile, and textures.
 - Admin APIs for config, users, Minecraft profiles, audit logs, external auth providers, background tasks, and system info.
 - Runtime config, mail outbox, audit, background tasks, metrics, CORS/CSRF, security headers, and rate limiting.
@@ -37,10 +38,10 @@ The frontend currently includes:
 - `/force-password-change` forced password-change entry.
 - `/account` account workbench.
 - `/account/profiles` Minecraft profile and launcher/texture workflow.
-- `/account/wardrobe` current-user texture library.
+- `/account/wardrobe` current-user texture library, public library submission state, and review/unpublish notes.
 - `/account/audit` current-user audit log.
 - `/account/settings` personal settings, sessions, and passkeys; `/settings/security` remains as a compatibility route for the old security settings entry.
-- `/admin/*` config, users, user invitations, Minecraft profiles, external auth, audit, task, and about pages.
+- `/admin/*` config, users, user invitations, Minecraft profiles, public texture library, external auth, audit, task, and about pages.
 - `/tos` and `/privacy` legal pages.
 
 ## Backend Extension Path
@@ -136,6 +137,7 @@ Use audit for:
 - mail send and mail delivery failure
 - Minecraft profile create and delete
 - Minecraft texture upload, bind, and delete
+- Public texture library submit, withdraw, approve, reject, unpublish, and report handling
 - Yggdrasil authenticate, refresh, invalidate, signout, and join server
 
 Audit entries should include structured details and presentation metadata. Frontend code should display `presentation` first and use raw `details` only as a fallback/debug surface.

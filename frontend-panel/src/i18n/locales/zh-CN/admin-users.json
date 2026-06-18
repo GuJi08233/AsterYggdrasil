@@ -3,6 +3,7 @@
 		"users": {
 			"title": "用户管理",
 			"description": "管理站点账号、管理员权限、账号状态和会话注销。",
+			"userList": "用户列表",
 			"create": "新增用户",
 			"invitations": "邀请",
 			"invitationRecords": "邀请记录",

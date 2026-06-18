@@ -27,6 +27,7 @@ pub use preview::{
 };
 pub use processing::{TextureProcessingResult, process_texture_file, sanitize_png_texture};
 pub use query::{
+    admin_texture_library_metadata, admin_texture_library_metadata_by_texture_ids,
     default_skin_metadata, download_texture, download_texture_blob,
     public_texture_library_metadata, public_texture_library_metadata_by_texture_ids,
     texture_blob_by_hash, texture_by_hash, texture_metadata, texture_metadata_for_profile,
@@ -37,19 +38,22 @@ pub use types::{
     DeletedMinecraftTexture, MinecraftTextureMetadata, MinecraftTextureMetadataSource,
     MinecraftTextureTagInfo, MinecraftTextureUploaderInfo, MinecraftWardrobeTextureMetadata,
     PublicTextureLibraryTextureMetadata, StoredTexture, StoredWardrobeTexture, TextureBlob,
-    TextureDownload, WardrobeRegistrationResult,
+    TextureDownload, TextureReportInfo, TextureReportUserInfo, WardrobeRegistrationResult,
 };
 
 use crate::api::pagination::OffsetPage;
 use crate::db::repository::{
     minecraft_profile_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
-    minecraft_texture_tag_repo,
+    minecraft_texture_report_repo, minecraft_texture_tag_repo, user_repo,
 };
-use crate::entities::{minecraft_profile, minecraft_texture, yggdrasil_token};
+use crate::entities::{
+    minecraft_profile, minecraft_texture, minecraft_texture_report, user, yggdrasil_token,
+};
 use crate::errors::{AsterError, Result};
 use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
 use crate::types::{
-    MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
+    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
+    MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
 };
 use futures::StreamExt;
 use serde::Serialize;
@@ -295,6 +299,694 @@ where
     )
     .await?;
     Ok(wardrobe_texture_metadata_with_tags(state, &texture, tags))
+}
+
+pub async fn submit_texture_library_review<S>(
+    state: &S,
+    user_id: i64,
+    texture_id: i64,
+) -> Result<MinecraftWardrobeTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = user_wardrobe_texture(state, user_id, texture_id).await?;
+    if texture.visibility != MinecraftTextureVisibility::Public {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotPublic,
+            "texture must be public before it can be submitted to the library",
+        ));
+    }
+
+    let now = chrono::Utc::now();
+    let policy = crate::config::texture_library::RuntimeTextureLibraryPolicy::from_runtime_config(
+        state.runtime_config(),
+    );
+    let next_status = if policy.review_required {
+        MinecraftTextureLibraryStatus::PendingReview
+    } else {
+        MinecraftTextureLibraryStatus::Published
+    };
+    let updated = minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: next_status,
+            library_submitted_at: Some(Some(now)),
+            library_reviewed_at: Some(if policy.review_required {
+                None
+            } else {
+                Some(now)
+            }),
+            library_reviewer_user_id: Some(None),
+            library_review_note: Some(None),
+        },
+    )
+    .await?;
+    wardrobe_texture_with_current_tags(state, &updated).await
+}
+
+pub async fn withdraw_texture_library_submission<S>(
+    state: &S,
+    user_id: i64,
+    texture_id: i64,
+) -> Result<MinecraftWardrobeTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = user_wardrobe_texture(state, user_id, texture_id).await?;
+    let updated = minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: MinecraftTextureLibraryStatus::Private,
+            library_submitted_at: Some(None),
+            library_reviewed_at: Some(None),
+            library_reviewer_user_id: Some(None),
+            library_review_note: Some(None),
+        },
+    )
+    .await?;
+    wardrobe_texture_with_current_tags(state, &updated).await
+}
+
+pub async fn list_admin_texture_library_textures_paginated<S>(
+    state: &S,
+    limit: u64,
+    offset: u64,
+    filter: minecraft_texture_repo::AdminTextureLibraryListFilter,
+) -> Result<OffsetPage<PublicTextureLibraryTextureMetadata>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let page = minecraft_texture_repo::list_admin_library_textures_paginated(
+        state.reader_db(),
+        limit,
+        offset,
+        filter,
+    )
+    .await?;
+    let textures = admin_texture_library_metadata_by_texture_ids(state, &page.items).await?;
+    Ok(OffsetPage::new(
+        textures,
+        page.total,
+        page.limit,
+        page.offset,
+    ))
+}
+
+pub async fn get_admin_texture_library_texture<S>(
+    state: &S,
+    texture_id: i64,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let texture = admin_wardrobe_texture(state, texture_id).await?;
+    admin_texture_library_metadata(state, &texture).await
+}
+
+pub async fn approve_texture_library_texture<S>(
+    state: &S,
+    reviewer_user_id: i64,
+    texture_id: i64,
+    review_note: Option<String>,
+    tag_ids: Option<&[i64]>,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = admin_wardrobe_texture(state, texture_id).await?;
+    if texture.library_status != MinecraftTextureLibraryStatus::PendingReview {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotPending,
+            "only pending texture library submissions can be approved",
+        ));
+    }
+    if texture.visibility != MinecraftTextureVisibility::Public {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotPublic,
+            "texture must be public before it can be published",
+        ));
+    }
+    if let Some(tag_ids) = tag_ids {
+        replace_library_texture_tags_for_admin(state, texture.id, tag_ids).await?;
+    }
+    let updated = minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: MinecraftTextureLibraryStatus::Published,
+            library_submitted_at: None,
+            library_reviewed_at: Some(Some(chrono::Utc::now())),
+            library_reviewer_user_id: Some(Some(reviewer_user_id)),
+            library_review_note: Some(normalize_review_note_optional(review_note)?),
+        },
+    )
+    .await?;
+    admin_texture_library_metadata(state, &updated).await
+}
+
+pub async fn reject_texture_library_texture<S>(
+    state: &S,
+    reviewer_user_id: i64,
+    texture_id: i64,
+    review_note: Option<String>,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = admin_wardrobe_texture(state, texture_id).await?;
+    if texture.library_status != MinecraftTextureLibraryStatus::PendingReview {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotPending,
+            "only pending texture library submissions can be rejected",
+        ));
+    }
+    let note = normalize_review_note_required(review_note)?;
+    let updated = minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: MinecraftTextureLibraryStatus::Rejected,
+            library_submitted_at: None,
+            library_reviewed_at: Some(Some(chrono::Utc::now())),
+            library_reviewer_user_id: Some(Some(reviewer_user_id)),
+            library_review_note: Some(Some(note)),
+        },
+    )
+    .await?;
+    admin_texture_library_metadata(state, &updated).await
+}
+
+pub async fn unpublish_texture_library_texture<S>(
+    state: &S,
+    reviewer_user_id: i64,
+    texture_id: i64,
+    review_note: Option<String>,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = admin_wardrobe_texture(state, texture_id).await?;
+    if texture.library_status != MinecraftTextureLibraryStatus::Published {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotPublished,
+            "only published texture library entries can be unpublished",
+        ));
+    }
+    let note = normalize_review_note_optional(review_note)?;
+    let now = chrono::Utc::now();
+    let updated = minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: MinecraftTextureLibraryStatus::Private,
+            library_submitted_at: Some(None),
+            library_reviewed_at: Some(Some(now)),
+            library_reviewer_user_id: Some(Some(reviewer_user_id)),
+            library_review_note: Some(note.clone()),
+        },
+    )
+    .await?;
+    minecraft_texture_report_repo::handle_pending_for_texture(
+        state.writer_db(),
+        texture_id,
+        minecraft_texture_report_repo::HandleTextureReport {
+            status: MinecraftTextureReportStatus::Accepted,
+            admin_note: note,
+            handled_by_user_id: reviewer_user_id,
+            handled_at: now,
+        },
+    )
+    .await?;
+    admin_texture_library_metadata(state, &updated).await
+}
+
+pub async fn create_texture_library_report<S>(
+    state: &S,
+    reporter_user_id: i64,
+    texture_id: i64,
+    reason: MinecraftTextureReportReason,
+    message: Option<String>,
+) -> Result<TextureReportInfo>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let texture = public_reportable_texture(state, texture_id).await?;
+    if texture.user_id == reporter_user_id {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureReportSelfReportNotAllowed,
+            "users cannot report their own texture library entries",
+        ));
+    }
+    if minecraft_texture_report_repo::find_pending_for_reporter_and_texture(
+        state.reader_db(),
+        reporter_user_id,
+        texture_id,
+    )
+    .await?
+    .is_some()
+    {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureReportPendingExists,
+            "a pending report already exists for this texture",
+        ));
+    }
+
+    let message = normalize_report_message(message)?;
+    let report = minecraft_texture_report_repo::create(
+        state.writer_db(),
+        minecraft_texture_report_repo::CreateTextureReport {
+            texture_id,
+            reporter_user_id,
+            reason,
+            message,
+        },
+    )
+    .await?;
+    texture_report_info(state, &report).await
+}
+
+pub async fn list_admin_texture_library_reports_paginated<S>(
+    state: &S,
+    limit: u64,
+    offset: u64,
+    filter: minecraft_texture_report_repo::AdminTextureReportListFilter,
+) -> Result<OffsetPage<TextureReportInfo>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let page =
+        minecraft_texture_report_repo::list_paginated(state.reader_db(), limit, offset, filter)
+            .await?;
+    let items = texture_report_infos_by_reports(state, &page.items).await?;
+    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+}
+
+pub async fn get_admin_texture_library_report<S>(
+    state: &S,
+    report_id: i64,
+) -> Result<TextureReportInfo>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let report = admin_texture_report(state, report_id).await?;
+    texture_report_info(state, &report).await
+}
+
+pub async fn accept_texture_library_report<S>(
+    state: &S,
+    handler_user_id: i64,
+    report_id: i64,
+    admin_note: Option<String>,
+) -> Result<TextureReportInfo>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let report = pending_admin_texture_report(state, report_id).await?;
+    let texture = admin_wardrobe_texture(state, report.texture_id).await?;
+    let note = normalize_admin_report_note(admin_note)?;
+    let now = chrono::Utc::now();
+    minecraft_texture_repo::update_library_review(
+        state.writer_db(),
+        texture,
+        minecraft_texture_repo::UpdateTextureLibraryReview {
+            library_status: MinecraftTextureLibraryStatus::Private,
+            library_submitted_at: Some(None),
+            library_reviewed_at: Some(Some(now)),
+            library_reviewer_user_id: Some(Some(handler_user_id)),
+            library_review_note: Some(note.clone()),
+        },
+    )
+    .await?;
+    let report = minecraft_texture_report_repo::handle(
+        state.writer_db(),
+        report,
+        minecraft_texture_report_repo::HandleTextureReport {
+            status: MinecraftTextureReportStatus::Accepted,
+            admin_note: note,
+            handled_by_user_id: handler_user_id,
+            handled_at: now,
+        },
+    )
+    .await?;
+    texture_report_info(state, &report).await
+}
+
+pub async fn reject_texture_library_report<S>(
+    state: &S,
+    handler_user_id: i64,
+    report_id: i64,
+    admin_note: Option<String>,
+) -> Result<TextureReportInfo>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let report = pending_admin_texture_report(state, report_id).await?;
+    let report = minecraft_texture_report_repo::handle(
+        state.writer_db(),
+        report,
+        minecraft_texture_report_repo::HandleTextureReport {
+            status: MinecraftTextureReportStatus::Rejected,
+            admin_note: normalize_admin_report_note(admin_note)?,
+            handled_by_user_id: handler_user_id,
+            handled_at: chrono::Utc::now(),
+        },
+    )
+    .await?;
+    texture_report_info(state, &report).await
+}
+
+async fn user_wardrobe_texture<S>(
+    state: &S,
+    user_id: i64,
+    texture_id: i64,
+) -> Result<minecraft_texture::Model>
+where
+    S: DatabaseRuntimeState,
+{
+    if texture_id <= 0 {
+        return Err(AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::WardrobeTextureNotFound,
+            "invalid wardrobe texture id",
+        ));
+    }
+    minecraft_texture_repo::find_by_id_for_user(state.reader_db(), texture_id, user_id)
+        .await?
+        .filter(|texture| texture.is_wardrobe_item)
+        .ok_or_else(|| {
+            AsterError::record_not_found_code(
+                crate::api::error_code::AsterErrorCode::WardrobeTextureNotFound,
+                format!("wardrobe texture '{texture_id}'"),
+            )
+        })
+}
+
+async fn admin_wardrobe_texture<S>(state: &S, texture_id: i64) -> Result<minecraft_texture::Model>
+where
+    S: DatabaseRuntimeState,
+{
+    if texture_id <= 0 {
+        return Err(AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,
+            "invalid texture library texture id",
+        ));
+    }
+    minecraft_texture_repo::find_by_id(state.reader_db(), texture_id)
+        .await?
+        .filter(|texture| texture.is_wardrobe_item)
+        .ok_or_else(|| {
+            AsterError::record_not_found_code(
+                crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,
+                format!("texture library texture '{texture_id}'"),
+            )
+        })
+}
+
+async fn public_reportable_texture<S>(
+    state: &S,
+    texture_id: i64,
+) -> Result<minecraft_texture::Model>
+where
+    S: DatabaseRuntimeState,
+{
+    if texture_id <= 0 {
+        return Err(AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,
+            "invalid texture library texture id",
+        ));
+    }
+    minecraft_texture_repo::find_public_wardrobe_by_id(state.reader_db(), texture_id)
+        .await?
+        .ok_or_else(|| {
+            AsterError::validation_error_code(
+                crate::api::error_code::AsterErrorCode::TextureReportTextureNotReportable,
+                "only published public texture library entries can be reported",
+            )
+        })
+}
+
+async fn admin_texture_report<S>(
+    state: &S,
+    report_id: i64,
+) -> Result<minecraft_texture_report::Model>
+where
+    S: DatabaseRuntimeState,
+{
+    if report_id <= 0 {
+        return Err(AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::TextureReportNotFound,
+            "invalid texture report id",
+        ));
+    }
+    minecraft_texture_report_repo::find_by_id(state.reader_db(), report_id)
+        .await?
+        .ok_or_else(|| {
+            AsterError::record_not_found_code(
+                crate::api::error_code::AsterErrorCode::TextureReportNotFound,
+                format!("texture report '{report_id}'"),
+            )
+        })
+}
+
+async fn pending_admin_texture_report<S>(
+    state: &S,
+    report_id: i64,
+) -> Result<minecraft_texture_report::Model>
+where
+    S: DatabaseRuntimeState,
+{
+    let report = admin_texture_report(state, report_id).await?;
+    if report.status != MinecraftTextureReportStatus::Pending {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureReportNotPending,
+            "only pending texture reports can be handled",
+        ));
+    }
+    Ok(report)
+}
+
+async fn wardrobe_texture_with_current_tags<S>(
+    state: &S,
+    texture: &minecraft_texture::Model,
+) -> Result<MinecraftWardrobeTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let tags = minecraft_texture_tag_repo::list_for_texture(state.reader_db(), texture.id).await?;
+    Ok(wardrobe_texture_metadata_with_tags(state, texture, tags))
+}
+
+async fn replace_library_texture_tags_for_admin<S>(
+    state: &S,
+    texture_id: i64,
+    tag_ids: &[i64],
+) -> Result<()>
+where
+    S: DatabaseRuntimeState,
+{
+    let unique_tag_ids = normalize_texture_tag_ids(tag_ids)?;
+    let tags = minecraft_texture_tag_repo::find_by_ids(state.reader_db(), &unique_tag_ids).await?;
+    if tags.len() != unique_tag_ids.len() {
+        return Err(AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryTagNotFound,
+            "one or more texture library tags were not found",
+        ));
+    }
+    minecraft_texture_tag_repo::replace_texture_tags(state.writer_db(), texture_id, &unique_tag_ids)
+        .await
+}
+
+async fn texture_report_info<S>(
+    state: &S,
+    report: &minecraft_texture_report::Model,
+) -> Result<TextureReportInfo>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let infos = texture_report_infos_by_reports(state, std::slice::from_ref(report)).await?;
+    infos.into_iter().next().ok_or_else(|| {
+        AsterError::record_not_found_code(
+            crate::api::error_code::AsterErrorCode::TextureReportNotFound,
+            format!("texture report '{}'", report.id),
+        )
+    })
+}
+
+async fn texture_report_infos_by_reports<S>(
+    state: &S,
+    reports: &[minecraft_texture_report::Model],
+) -> Result<Vec<TextureReportInfo>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    use std::collections::HashMap;
+
+    if reports.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let texture_ids = reports
+        .iter()
+        .map(|report| report.texture_id)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let mut user_ids = BTreeSet::new();
+    for report in reports {
+        user_ids.insert(report.reporter_user_id);
+        if let Some(handler_user_id) = report.handled_by_user_id {
+            user_ids.insert(handler_user_id);
+        }
+    }
+    let textures = minecraft_texture_repo::find_by_ids(state.reader_db(), &texture_ids).await?;
+    let users =
+        user_repo::find_by_ids(state.reader_db(), &user_ids.into_iter().collect::<Vec<_>>())
+            .await?;
+
+    let textures_by_id = textures
+        .into_iter()
+        .map(|texture| (texture.id, texture))
+        .collect::<HashMap<_, _>>();
+    let users_by_id = users
+        .into_iter()
+        .map(|user| (user.id, user))
+        .collect::<HashMap<_, _>>();
+
+    let existing_textures = reports
+        .iter()
+        .filter_map(|report| textures_by_id.get(&report.texture_id).cloned())
+        .collect::<Vec<_>>();
+    let texture_metadata =
+        admin_texture_library_metadata_by_texture_ids(state, &existing_textures).await?;
+    let texture_metadata_by_id = texture_metadata
+        .into_iter()
+        .map(|texture| (texture.id, texture))
+        .collect::<HashMap<_, _>>();
+
+    Ok(reports
+        .iter()
+        .map(|report| TextureReportInfo {
+            id: report.id,
+            texture_id: report.texture_id,
+            reason: report.reason,
+            message: report.message.clone(),
+            status: report.status,
+            admin_note: report.admin_note.clone(),
+            texture: texture_metadata_by_id.get(&report.texture_id).cloned(),
+            reporter: users_by_id
+                .get(&report.reporter_user_id)
+                .map(texture_report_user_info),
+            handler: report
+                .handled_by_user_id
+                .and_then(|user_id| users_by_id.get(&user_id))
+                .map(texture_report_user_info),
+            handled_at: report.handled_at,
+            created_at: report.created_at,
+            updated_at: report.updated_at,
+        })
+        .collect())
+}
+
+fn texture_report_user_info(user: &user::Model) -> TextureReportUserInfo {
+    TextureReportUserInfo {
+        public_uuid: user.public_uuid.clone(),
+        name: user.username.clone(),
+    }
+}
+
+fn ensure_texture_library_enabled<S>(state: &S) -> Result<()>
+where
+    S: RuntimeConfigRuntimeState,
+{
+    let policy = crate::config::texture_library::RuntimeTextureLibraryPolicy::from_runtime_config(
+        state.runtime_config(),
+    );
+    if !policy.enabled {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryDisabled,
+            "public texture library is disabled",
+        ));
+    }
+    Ok(())
+}
+
+fn normalize_review_note_optional(value: Option<String>) -> Result<Option<String>> {
+    match value {
+        Some(value) => normalize_review_note(&value),
+        None => Ok(None),
+    }
+}
+
+fn normalize_review_note_required(value: Option<String>) -> Result<String> {
+    normalize_review_note_optional(value)?
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AsterError::validation_error_code(
+                crate::api::error_code::AsterErrorCode::TextureLibraryReviewNoteInvalid,
+                "review note is required when rejecting a texture library submission",
+            )
+        })
+}
+
+fn normalize_review_note(value: &str) -> Result<Option<String>> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    if value.chars().count() > 512 {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::TextureLibraryReviewNoteInvalid,
+            "review note must not exceed 512 characters",
+        ));
+    }
+    Ok(Some(value.to_string()))
+}
+
+fn normalize_report_message(value: Option<String>) -> Result<Option<String>> {
+    match value {
+        Some(value) => {
+            let value = value.trim();
+            if value.is_empty() {
+                return Ok(None);
+            }
+            if value.chars().count() > 1000 {
+                return Err(AsterError::validation_error_code(
+                    crate::api::error_code::AsterErrorCode::TextureReportMessageInvalid,
+                    "report message must not exceed 1000 characters",
+                ));
+            }
+            Ok(Some(value.to_string()))
+        }
+        None => Ok(None),
+    }
+}
+
+fn normalize_admin_report_note(value: Option<String>) -> Result<Option<String>> {
+    match value {
+        Some(value) => {
+            let value = value.trim();
+            if value.is_empty() {
+                return Ok(None);
+            }
+            if value.chars().count() > 512 {
+                return Err(AsterError::validation_error_code(
+                    crate::api::error_code::AsterErrorCode::TextureReportMessageInvalid,
+                    "admin note must not exceed 512 characters",
+                ));
+            }
+            Ok(Some(value.to_string()))
+        }
+        None => Ok(None),
+    }
 }
 
 fn normalize_texture_display_name_patch(value: NullablePatch<String>) -> Result<Option<String>> {
@@ -886,8 +1578,9 @@ pub async fn list_public_texture_library_paginated<S>(
     filter: minecraft_texture_repo::WardrobeTextureListFilter,
 ) -> Result<OffsetPage<minecraft_texture::Model>>
 where
-    S: DatabaseRuntimeState,
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    ensure_texture_library_enabled(state)?;
     let page = minecraft_texture_repo::list_public_wardrobe_paginated(
         state.reader_db(),
         limit,
@@ -912,6 +1605,7 @@ pub async fn get_public_texture_library_texture<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    ensure_texture_library_enabled(state)?;
     if texture_id <= 0 {
         return Err(AsterError::record_not_found_code(
             crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,
@@ -938,6 +1632,7 @@ pub async fn copy_public_texture_to_wardrobe<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    ensure_texture_library_enabled(state)?;
     if texture_id <= 0 {
         return Err(AsterError::record_not_found_code(
             crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,

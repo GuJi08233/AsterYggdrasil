@@ -2,7 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility};
-use crate::types::{MinecraftTextureModel, MinecraftTextureType};
+use crate::types::{
+    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
+    MinecraftTextureReportStatus, MinecraftTextureType,
+};
 use crate::types::{UserRole, UserStatus};
 
 #[derive(Serialize)]
@@ -137,6 +140,20 @@ pub struct MinecraftTextureAuditDetails<'a> {
     pub height: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_status: Option<MinecraftTextureLibraryStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_note: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+pub struct MinecraftTextureReportAuditDetails {
+    pub texture_id: i64,
+    pub report_id: i64,
+    pub reason: MinecraftTextureReportReason,
+    pub report_status: MinecraftTextureReportStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub library_status: Option<MinecraftTextureLibraryStatus>,
 }
 
 #[derive(Serialize)]

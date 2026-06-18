@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 import { useCallback, useMemo, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
 import { InviteUserDialog } from "@/components/admin/admin-users-page/InviteUserDialog";
@@ -9,6 +9,7 @@ import {
 	UserInvitationsTableHeader,
 	UserInvitationsTableRow,
 } from "@/components/admin/admin-users-page/UserInvitationsTable";
+import { UsersSectionNav } from "@/components/admin/UsersSectionNav";
 import { AdminTableList } from "@/components/common/AdminTableList";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
@@ -18,10 +19,8 @@ import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
 import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { ADMIN_CONTROL_HEIGHT_CLASS } from "@/lib/constants";
 import { parsePageSizeOption } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
-import { adminPaths } from "@/routes/routePaths";
 import { adminUserService } from "@/services/adminService";
 import type {
 	AdminUserInvitationInfo,
@@ -112,7 +111,6 @@ function isValidEmail(value: string) {
 
 export default function AdminUserInvitationsPage() {
 	const { t } = useTranslation();
-	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [inviteState, dispatchInvite] = useReducer(
 		inviteReducer,
@@ -279,20 +277,10 @@ export default function AdminUserInvitationsPage() {
 				description={t("admin.users.invitationsDescription")}
 				actions={
 					<>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className={ADMIN_CONTROL_HEIGHT_CLASS}
-							onClick={() => navigate(adminPaths.users)}
-						>
-							<Icon name="CaretLeft" className="mr-2 size-4" />
-							{t("admin.users.backToUsers")}
-						</Button>
+						<UsersSectionNav active="invitations" />
 						<Button
 							type="button"
 							size="sm"
-							className={ADMIN_CONTROL_HEIGHT_CLASS}
 							onClick={() =>
 								dispatchInvite({ type: "openDialog", value: true })
 							}
@@ -304,7 +292,6 @@ export default function AdminUserInvitationsPage() {
 							type="button"
 							variant="outline"
 							size="sm"
-							className={ADMIN_CONTROL_HEIGHT_CLASS}
 							disabled={loading}
 							onClick={() => void reload()}
 						>

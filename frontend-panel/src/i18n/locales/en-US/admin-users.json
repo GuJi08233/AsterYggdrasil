@@ -3,6 +3,7 @@
 		"users": {
 			"title": "User Management",
 			"description": "Manage site accounts, administrator access, account status, and session revocation.",
+			"userList": "Users",
 			"create": "Add user",
 			"invitations": "Invitations",
 			"invitationRecords": "Invitation records",

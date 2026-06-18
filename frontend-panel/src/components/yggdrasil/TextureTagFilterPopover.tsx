@@ -1,9 +1,13 @@
-import { type RefObject, type UIEvent, useEffect, useState } from "react";
+import { type RefObject, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import {
+	TextureTagChips,
+	TextureTagPickerList,
+} from "@/components/yggdrasil/TextureTagList";
 import { cn } from "@/lib/utils";
 import type {
 	MinecraftTextureTagInfo,
@@ -154,14 +158,6 @@ export function TextureTagFilterPopover({
 		);
 	}
 
-	function maybeLoadMore(event: UIEvent<HTMLDivElement>) {
-		if (loading || !hasMore) return;
-		const target = event.currentTarget;
-		if (target.scrollHeight - target.scrollTop - target.clientHeight < 56) {
-			onLoadMore();
-		}
-	}
-
 	const popover = open
 		? createPortal(
 				<div
@@ -199,7 +195,9 @@ export function TextureTagFilterPopover({
 						) : null}
 					</div>
 					{selectedTags.length > 0 ? (
-						<TextureTagChips tags={selectedTags} />
+						<div className="max-h-[10.5rem] overflow-y-auto pr-1">
+							<TextureTagChips tags={selectedTags} />
+						</div>
 					) : (
 						<div className="text-xs text-muted-foreground">
 							{t("wardrobe.tagFilterAll")}
@@ -235,49 +233,21 @@ export function TextureTagFilterPopover({
 							onChange={(event) => setQuery(event.currentTarget.value)}
 						/>
 					</div>
-					{tags.length === 0 && loading ? (
-						<div className="rounded-lg border border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
-							{t("common.loading")}
-						</div>
-					) : tags.length === 0 ? (
-						<div className="rounded-lg border border-dashed border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
-							{debouncedQuery
+					<TextureTagPickerList
+						className="min-h-0 max-h-[18rem]"
+						emptyLabel={
+							debouncedQuery
 								? t("wardrobe.noTagSearchResults")
-								: t("wardrobe.noAvailableTags")}
-						</div>
-					) : (
-						<div
-							className="min-h-0 max-h-[18rem] overflow-y-auto rounded-lg border border-border/70 bg-muted/20 p-2"
-							onScroll={maybeLoadMore}
-						>
-							<div className="grid gap-1">
-								{tags.map((tag) => (
-									<label
-										key={tag.id}
-										className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-background/70"
-									>
-										<input
-											type="checkbox"
-											checked={selectedIds.includes(tag.id)}
-											className="size-4 rounded border-border"
-											onChange={() => toggleTag(tag.id)}
-										/>
-										<span
-											aria-hidden="true"
-											className="size-2.5 rounded-full"
-											style={{ backgroundColor: tag.color }}
-										/>
-										<span className="truncate">{tag.name}</span>
-									</label>
-								))}
-								{loading ? (
-									<div className="px-2 py-1.5 text-xs text-muted-foreground">
-										{t("common.loading")}
-									</div>
-								) : null}
-							</div>
-						</div>
-					)}
+								: t("wardrobe.noAvailableTags")
+						}
+						hasMore={hasMore}
+						loading={loading}
+						loadingLabel={t("common.loading")}
+						selectedIds={selectedIds}
+						tags={tags}
+						onLoadMore={onLoadMore}
+						onToggle={toggleTag}
+					/>
 					<div className="text-xs leading-5 text-muted-foreground">
 						{t(`wardrobe.tagFilterHint.${searchMethod}`)}
 					</div>
@@ -303,27 +273,6 @@ export function TextureTagFilterPopover({
 				<Icon name={open ? "CaretUp" : "CaretDown"} className="size-4" />
 			</Button>
 			{popover}
-		</div>
-	);
-}
-
-function TextureTagChips({ tags }: { tags: MinecraftTextureTagInfo[] }) {
-	return (
-		<div className="max-h-[10.5rem] overflow-y-auto pr-1">
-			<div className="flex flex-wrap gap-1">
-				{tags.map((tag) => (
-					<span
-						key={tag.id}
-						className="rounded-md border px-1.5 py-0.5 text-[0.6875rem] font-medium"
-						style={{
-							borderColor: `${tag.color}55`,
-							color: tag.color,
-						}}
-					>
-						{tag.name}
-					</span>
-				))}
-			</div>
 		</div>
 	);
 }

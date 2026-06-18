@@ -4,7 +4,7 @@
 
 > **快速开发版本提醒**
 >
-> 当前版本是 `0.1.0-alpha.1`，仍处于快速开发阶段。后端协议、账号、玩家档案、材质、配置、审计和维护任务已经具备可验证的基础能力，但前端体验、部署文档和部分运维能力还会继续调整。请不要把当前 alpha 当成长期稳定接口；生产部署前先阅读文档并做好备份。
+> 当前目标版本是 `0.1.0-alpha.6`，仍处于快速开发阶段。项目已经具备账号、分权 operator、公开认证流程图形验证码、Minecraft profile、Yggdrasil 协议端点、wardrobe 材质、公共材质库、运行时配置、审计日志和后台维护任务等完整链路。请不要把当前 alpha 当成长期稳定接口；生产部署前先阅读文档并做好备份。
 
 - English README: [README.md](README.md)
 - 文档首页: [docs/index.md](docs/index.md)
@@ -24,6 +24,8 @@ AsterYggdrasil 把 Minecraft 私有部署里常见的身份和材质链路放进
 - 启动器登录、token refresh/validate/invalidate/signout。
 - Minecraft join / hasJoined / profile 查询。
 - skin/cape 上传、PNG 重编码、旧式 cape 兼容、hash 公开读取和 local/S3/MinIO 对象存储。
+- wardrobe 材质管理，以及公共材质库提交、审核、发布、标签、复制、举报和下架。
+- 管理员和分权 operator 工作流，覆盖用户、profile、公共材质库审核、配置、审计、任务和外部认证。
 - 运行时配置、Yggdrasil 签名密钥轮换、审计日志和周期维护任务。
 
 它不是云盘、私有云、服务器面板或通用 SaaS 模板。项目域已经明确收敛到 Minecraft/Yggdrasil：账号、玩家档案、皮肤、披风、启动器登录、服务端进服验证、签名密钥、对象存储和管理员运维。
@@ -41,7 +43,7 @@ AsterYggdrasil 适合这些场景：
 
 当前版本不适合这些场景：
 
-- 需要成熟商业级皮肤站前端，开箱即可给大量用户长期使用。
+- 需要成熟商业级运营后台，且不打算自己做上线前验证。
 - 需要客户端直接向 S3/MinIO presigned 上传。当前上传统一走服务端 streaming。
 - 需要多主高可用、自动故障切换、复杂封禁系统或企业合规承诺。
 - 需要游戏服务器管理、文件存储、WebDAV、WOPI、团队分享或云盘功能。
@@ -57,7 +59,7 @@ AsterYggdrasil 适合这些场景：
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`
-- 会话管理、Passkey、头像、外部认证 provider 地基。
+- 会话管理、Passkey、头像、外部认证 provider、分权 operator 和图形验证码策略。
 - 项目 API 使用统一 envelope 和稳定 `AsterErrorCode`。
 
 ### Yggdrasil 协议 API
@@ -118,10 +120,11 @@ GET    /api/v1/admin/users/{user_id}/minecraft-profiles
 GET    /api/v1/admin/minecraft-profiles/{uuid}/textures
 DELETE /api/v1/admin/minecraft-profiles/{uuid}/textures/{skin|cape}
 DELETE /api/v1/admin/minecraft-textures/{hash}
+PUT    /api/v1/admin/minecraft-profiles/{uuid}/name
 DELETE /api/v1/admin/minecraft-profiles/{uuid}
 ```
 
-profile name 创建后不可改名。需要换名时删除旧 profile，创建新 profile，然后重新登录启动器。
+profile name 支持通过用户或管理员 API 受控改名。改名会保留 UUID、材质绑定和审计链路，并临时失效绑定该 profile 的 Yggdrasil token，让启动器通过 refresh 获取新名称。
 
 ### 材质系统
 
@@ -145,10 +148,38 @@ GET    /api/yggdrasil/textures/{hash}
 
 上传文件必须是 PNG。服务端会校验 MIME、尺寸、上传开关和 profile 所属关系，把图片重编码为安全 PNG，再按处理后的内容计算 hash。
 
+公共材质库 API 支持用户发布和复用 wardrobe 材质：
+
+```text
+GET    /api/v1/texture-library/tags
+GET    /api/v1/texture-library/textures
+GET    /api/v1/texture-library/textures/{texture_id}
+POST   /api/v1/texture-library/textures/{texture_id}/copy
+POST   /api/v1/texture-library/textures/{texture_id}/reports
+POST   /api/v1/wardrobe/textures/{texture_id}/library-submission
+DELETE /api/v1/wardrobe/textures/{texture_id}/library-submission
+```
+
+管理员和拥有 `texture_library` scope 的 operator 可以审核提交、管理标签、处理举报和下架公共材质：
+
+```text
+GET  /api/v1/admin/texture-library/textures
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+
+GET  /api/v1/admin/texture-library/reports
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+```
+
 ### 配置、审计和任务
 
 - `system_config` 管理运行时配置。
+- `texture_library_enabled` 和 `texture_library_review_required` 控制公共材质库。
+- `auth_captcha_*` 控制图形验证码策略和预览。
 - `POST /api/v1/admin/config/yggdrasil/action` 用于 Yggdrasil 签名密钥轮换。
+- `POST /api/v1/admin/config/auth_captcha/action` 用于预览验证码渲染效果。
 - `GET /api/v1/admin/audit-logs` 查询审计日志。
 - `GET /api/v1/admin/tasks`、`POST /api/v1/admin/tasks/{id}/retry`、`POST /api/v1/admin/tasks/cleanup` 管理后台任务。
 - runtime task 覆盖 token 清理、材质对象清理、存储一致性检查、审计清理和 task artifact 清理。
@@ -213,6 +244,7 @@ docker run -d \
 - Yggdrasil 签名私钥属于敏感配置。使用 config action 轮换，不要直接手写数据库。
 - 多实例部署时，只让一个实例使用 `start_mode = "primary"` 执行周期维护任务。
 - 当前生产可用的 object storage backend 是 local、S3 或 MinIO。材质和上传头像都会走同一个 backend。
+- 对公开读的 S3/MinIO bucket 或 CDN，可以配置 `yggdrasil_texture_public_base_url` 让已上传材质 URL 直接指向对象存储；默认皮肤仍走 Yggdrasil API。
 
 ## 常用开发命令
 
@@ -257,7 +289,7 @@ src/types/                   共享枚举和 DB wrapper 类型
 src/utils/                   crypto、ID、path、number、email、RAII 等工具
 migration/                   SeaORM migration crate
 api-docs-macros/             OpenAPI 辅助宏
-frontend-panel/              React + Vite 管理前端
+frontend-panel/              React + Vite 产品前端和管理后台
 developer-docs/              开发说明
 docs/                        用户/部署文档站
 tests/                       集成测试和 OpenAPI 导出测试

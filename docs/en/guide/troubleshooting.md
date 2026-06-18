@@ -133,8 +133,8 @@ GET /api/yggdrasil/textures/{hash}
 If it returns 404:
 
 - Confirm the hash comes from the current profile textures property.
-- Confirm local object storage is mounted.
-- Confirm storage files were not deleted directly.
-- Confirm the database and texture directory are from the same backup point.
+- Confirm the object storage backend is reachable: the local directory is mounted, or S3/MinIO bucket, credentials, and `base_path` are configured correctly.
+- Confirm object storage files were not deleted directly.
+- Confirm the database and object storage are from the same backup point.
 
-If `yggdrasil-storage-consistency-check` reports failures, do not run cleanup first. Confirm whether a backup restore missed the texture directory or someone manually deleted storage files.
+If `yggdrasil-storage-consistency-check` reports failures, do not run cleanup first. Confirm whether a backup restore missed object storage or someone manually deleted storage files.

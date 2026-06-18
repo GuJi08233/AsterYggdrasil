@@ -70,6 +70,14 @@ fn summary_message(
         | AuditAction::MinecraftTextureUpload
         | AuditAction::MinecraftTextureBind
         | AuditAction::MinecraftTextureDelete
+        | AuditAction::MinecraftTextureLibrarySubmit
+        | AuditAction::MinecraftTextureLibraryWithdraw
+        | AuditAction::MinecraftTextureLibraryApprove
+        | AuditAction::MinecraftTextureLibraryReject
+        | AuditAction::MinecraftTextureLibraryUnpublish
+        | AuditAction::MinecraftTextureReportCreate
+        | AuditAction::MinecraftTextureReportAccept
+        | AuditAction::MinecraftTextureReportReject
         | AuditAction::YggdrasilAuthenticate
         | AuditAction::YggdrasilRefreshToken
         | AuditAction::YggdrasilInvalidateToken
@@ -81,6 +89,9 @@ fn summary_message(
             copy_string_param(details, &mut params, "new_profile_name");
             copy_string_param(details, &mut params, "texture_type");
             copy_string_param(details, &mut params, "texture_hash");
+            copy_string_param(details, &mut params, "library_status");
+            copy_string_param(details, &mut params, "reason");
+            copy_string_param(details, &mut params, "report_status");
             copy_string_param(details, &mut params, "selected_profile_name");
             copy_string_param(details, &mut params, "selected_profile_uuid");
         }
@@ -242,6 +253,28 @@ fn detail_message(
             copy_param(details, &mut params, "texture_type");
             copy_param(details, &mut params, "texture_hash");
             Some(message("minecraft_texture_deleted", params))
+        }
+        AuditAction::MinecraftTextureLibrarySubmit
+        | AuditAction::MinecraftTextureLibraryWithdraw
+        | AuditAction::MinecraftTextureLibraryApprove
+        | AuditAction::MinecraftTextureLibraryReject
+        | AuditAction::MinecraftTextureLibraryUnpublish => {
+            copy_param(details, &mut params, "texture_type");
+            copy_param(details, &mut params, "texture_hash");
+            copy_param(details, &mut params, "texture_model");
+            copy_param(details, &mut params, "library_status");
+            copy_param(details, &mut params, "review_note");
+            Some(message("minecraft_texture_library_review_changed", params))
+        }
+        AuditAction::MinecraftTextureReportCreate
+        | AuditAction::MinecraftTextureReportAccept
+        | AuditAction::MinecraftTextureReportReject => {
+            copy_param(details, &mut params, "texture_id");
+            copy_param(details, &mut params, "report_id");
+            copy_param(details, &mut params, "reason");
+            copy_param(details, &mut params, "report_status");
+            copy_param(details, &mut params, "library_status");
+            Some(message("minecraft_texture_report_changed", params))
         }
         AuditAction::YggdrasilAuthenticate => {
             copy_param(details, &mut params, "identifier");

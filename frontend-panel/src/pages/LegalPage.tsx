@@ -55,6 +55,16 @@ const legalPages = {
 				bodyKeys: [
 					"legal.tos.sections.account.body.0",
 					"legal.tos.sections.account.body.1",
+					"legal.tos.sections.account.body.2",
+				],
+			},
+			{
+				id: "profiles",
+				icon: "Key",
+				titleKey: "legal.tos.sections.profiles.title",
+				bodyKeys: [
+					"legal.tos.sections.profiles.body.0",
+					"legal.tos.sections.profiles.body.1",
 				],
 			},
 			{
@@ -64,6 +74,17 @@ const legalPages = {
 				bodyKeys: [
 					"legal.tos.sections.textures.body.0",
 					"legal.tos.sections.textures.body.1",
+					"legal.tos.sections.textures.body.2",
+				],
+			},
+			{
+				id: "library",
+				icon: "Images",
+				titleKey: "legal.tos.sections.library.title",
+				bodyKeys: [
+					"legal.tos.sections.library.body.0",
+					"legal.tos.sections.library.body.1",
+					"legal.tos.sections.library.body.2",
 				],
 			},
 			{
@@ -73,6 +94,16 @@ const legalPages = {
 				bodyKeys: [
 					"legal.tos.sections.launcher.body.0",
 					"legal.tos.sections.launcher.body.1",
+					"legal.tos.sections.launcher.body.2",
+				],
+			},
+			{
+				id: "security",
+				icon: "Lock",
+				titleKey: "legal.tos.sections.security.title",
+				bodyKeys: [
+					"legal.tos.sections.security.body.0",
+					"legal.tos.sections.security.body.1",
 				],
 			},
 			{
@@ -82,6 +113,7 @@ const legalPages = {
 				bodyKeys: [
 					"legal.tos.sections.operations.body.0",
 					"legal.tos.sections.operations.body.1",
+					"legal.tos.sections.operations.body.2",
 				],
 			},
 			{
@@ -91,6 +123,15 @@ const legalPages = {
 				bodyKeys: [
 					"legal.tos.sections.changes.body.0",
 					"legal.tos.sections.changes.body.1",
+				],
+			},
+			{
+				id: "contact",
+				icon: "EnvelopeSimple",
+				titleKey: "legal.tos.sections.contact.title",
+				bodyKeys: [
+					"legal.tos.sections.contact.body.0",
+					"legal.tos.sections.contact.body.1",
 				],
 			},
 		],
@@ -109,6 +150,25 @@ const legalPages = {
 				bodyKeys: [
 					"legal.privacy.sections.collected.body.0",
 					"legal.privacy.sections.collected.body.1",
+					"legal.privacy.sections.collected.body.2",
+				],
+			},
+			{
+				id: "auth",
+				icon: "Key",
+				titleKey: "legal.privacy.sections.auth.title",
+				bodyKeys: [
+					"legal.privacy.sections.auth.body.0",
+					"legal.privacy.sections.auth.body.1",
+				],
+			},
+			{
+				id: "profiles-textures",
+				icon: "Images",
+				titleKey: "legal.privacy.sections.profilesTextures.title",
+				bodyKeys: [
+					"legal.privacy.sections.profilesTextures.body.0",
+					"legal.privacy.sections.profilesTextures.body.1",
 				],
 			},
 			{
@@ -127,6 +187,16 @@ const legalPages = {
 				bodyKeys: [
 					"legal.privacy.sections.public.body.0",
 					"legal.privacy.sections.public.body.1",
+					"legal.privacy.sections.public.body.2",
+				],
+			},
+			{
+				id: "logs",
+				icon: "ClipboardText",
+				titleKey: "legal.privacy.sections.logs.title",
+				bodyKeys: [
+					"legal.privacy.sections.logs.body.0",
+					"legal.privacy.sections.logs.body.1",
 				],
 			},
 			{
@@ -145,6 +215,7 @@ const legalPages = {
 				bodyKeys: [
 					"legal.privacy.sections.sharing.body.0",
 					"legal.privacy.sections.sharing.body.1",
+					"legal.privacy.sections.sharing.body.2",
 				],
 			},
 			{
@@ -154,6 +225,24 @@ const legalPages = {
 				bodyKeys: [
 					"legal.privacy.sections.retention.body.0",
 					"legal.privacy.sections.retention.body.1",
+				],
+			},
+			{
+				id: "rights",
+				icon: "Scale",
+				titleKey: "legal.privacy.sections.rights.title",
+				bodyKeys: [
+					"legal.privacy.sections.rights.body.0",
+					"legal.privacy.sections.rights.body.1",
+				],
+			},
+			{
+				id: "contact",
+				icon: "EnvelopeSimple",
+				titleKey: "legal.privacy.sections.contact.title",
+				bodyKeys: [
+					"legal.privacy.sections.contact.body.0",
+					"legal.privacy.sections.contact.body.1",
 				],
 			},
 		],

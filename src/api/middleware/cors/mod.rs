@@ -101,13 +101,13 @@ where
 
                 let mut response = HttpResponse::NoContent().finish();
                 apply_origin_headers(response.headers_mut(), &policy, &origin)?;
-                apply_preflight_headers(response.headers_mut(), &policy);
+                apply_preflight_headers(response.headers_mut(), &policy)?;
                 return Ok(req.into_response(response).map_into_right_body());
             }
 
             let mut response = svc.call(req).await?.map_into_left_body();
             apply_origin_headers(response.headers_mut(), &policy, &origin)?;
-            apply_actual_headers(response.headers_mut(), &policy);
+            apply_actual_headers(response.headers_mut(), &policy)?;
             Ok(response)
         })
     }
@@ -216,36 +216,48 @@ fn apply_origin_headers(
     Ok(())
 }
 
-fn apply_preflight_headers(headers: &mut HeaderMap, policy: &RuntimeCorsPolicy) {
+fn apply_preflight_headers(
+    headers: &mut HeaderMap,
+    policy: &RuntimeCorsPolicy,
+) -> Result<(), AsterError> {
     let allow_methods = ALLOWED_METHODS.join(", ");
     let allow_headers = ALLOWED_HEADERS.join(", ");
 
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_METHODS,
-        HeaderValue::from_str(&allow_methods)
-            .expect("CORS allow methods should always be a valid header value"),
+        HeaderValue::from_str(&allow_methods).map_aster_err_with(|| {
+            AsterError::internal_error("failed to serialize Access-Control-Allow-Methods")
+        })?,
     );
     headers.insert(
         header::ACCESS_CONTROL_ALLOW_HEADERS,
-        HeaderValue::from_str(&allow_headers)
-            .expect("CORS allow headers should always be a valid header value"),
+        HeaderValue::from_str(&allow_headers).map_aster_err_with(|| {
+            AsterError::internal_error("failed to serialize Access-Control-Allow-Headers")
+        })?,
     );
     headers.insert(
         header::ACCESS_CONTROL_MAX_AGE,
-        HeaderValue::from_str(&policy.max_age_secs.to_string())
-            .expect("CORS max age should always be a valid header value"),
+        HeaderValue::from_str(&policy.max_age_secs.to_string()).map_aster_err_with(|| {
+            AsterError::internal_error("failed to serialize Access-Control-Max-Age")
+        })?,
     );
-    ensure_vary(headers, "Access-Control-Request-Method").ok();
-    ensure_vary(headers, "Access-Control-Request-Headers").ok();
+    ensure_vary(headers, "Access-Control-Request-Method")?;
+    ensure_vary(headers, "Access-Control-Request-Headers")?;
+    Ok(())
 }
 
-fn apply_actual_headers(headers: &mut HeaderMap, _policy: &RuntimeCorsPolicy) {
+fn apply_actual_headers(
+    headers: &mut HeaderMap,
+    _policy: &RuntimeCorsPolicy,
+) -> Result<(), AsterError> {
     let expose_headers = EXPOSE_HEADERS.join(", ");
     headers.insert(
         header::ACCESS_CONTROL_EXPOSE_HEADERS,
-        HeaderValue::from_str(&expose_headers)
-            .expect("CORS expose headers should always be a valid header value"),
+        HeaderValue::from_str(&expose_headers).map_aster_err_with(|| {
+            AsterError::internal_error("failed to serialize Access-Control-Expose-Headers")
+        })?,
     );
+    Ok(())
 }
 
 fn ensure_vary(headers: &mut HeaderMap, value: &str) -> Result<(), AsterError> {

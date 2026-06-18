@@ -4,7 +4,7 @@ Self-hosted Minecraft skin site and Yggdrasil/authlib-injector authentication se
 
 > **Fast development version**
 >
-> The current version is `0.1.0-alpha.1` and is still moving quickly. The backend already has verifiable foundations for accounts, profiles, Yggdrasil protocol endpoints, textures, runtime config, audit logs, and maintenance tasks, but the frontend experience, deployment docs, and some operational capabilities will continue to change. Do not treat this alpha as a long-term stable API; read the docs and plan backups before production use.
+> The current target version is `0.1.0-alpha.6` and development is still moving quickly. The project now has implemented flows for accounts, scoped operators, captcha-protected public auth flows, Minecraft profiles, Yggdrasil protocol endpoints, wardrobe textures, the public texture library, runtime config, audit logs, and maintenance tasks. Do not treat this alpha as a long-term stable API; read the docs and plan backups before production use.
 
 - 中文 README: [README.zh.md](README.zh.md)
 - Docs home: [docs/index.md](docs/index.md)
@@ -24,6 +24,8 @@ AsterYggdrasil puts the identity and texture flow needed by private Minecraft de
 - Launcher login plus token refresh/validate/invalidate/signout.
 - Minecraft join / hasJoined / profile lookup.
 - Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local/S3/MinIO object storage.
+- Wardrobe texture management plus public texture library submission, review, publishing, tags, copying, reporting, and unpublishing.
+- Admin and scoped operator workflows for users, profiles, texture library moderation, config, audit, tasks, and external authentication.
 - Runtime config, Yggdrasil signing key rotation, audit logs, and periodic maintenance tasks.
 
 It is not a file drive, private cloud, game server panel, or generic SaaS template. The product domain is Minecraft/Yggdrasil: accounts, player profiles, skins, capes, launcher login, server join verification, signing keys, object storage, and admin operations.
@@ -41,7 +43,7 @@ AsterYggdrasil is a good fit when:
 
 The current version is not the right fit when:
 
-- You need a polished commercial-grade skin site frontend ready for large long-term user traffic.
+- You need a finished commercial-grade operations panel ready for large long-term public traffic without your own validation.
 - You need client-side presigned uploads directly to S3/MinIO. Uploads are server-side streaming only.
 - You need multi-primary high availability, automatic failover, a complete ban system, or enterprise compliance guarantees.
 - You need game server management, file storage, WebDAV, WOPI, team sharing, or cloud-drive features.
@@ -57,7 +59,7 @@ The current version is not the right fit when:
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/auth/me`
-- Session management, passkeys, avatars, and external-auth provider foundations.
+- Session management, passkeys, avatars, external-auth providers, scoped operators, and visual captcha policy.
 - Project APIs use the standard envelope and stable `AsterErrorCode` values.
 
 ### Yggdrasil Protocol API
@@ -118,10 +120,11 @@ GET    /api/v1/admin/users/{user_id}/minecraft-profiles
 GET    /api/v1/admin/minecraft-profiles/{uuid}/textures
 DELETE /api/v1/admin/minecraft-profiles/{uuid}/textures/{skin|cape}
 DELETE /api/v1/admin/minecraft-textures/{hash}
+PUT    /api/v1/admin/minecraft-profiles/{uuid}/name
 DELETE /api/v1/admin/minecraft-profiles/{uuid}
 ```
 
-Profile names cannot be changed after creation. To change a name, delete the old profile, create a new one, and log in from the launcher again.
+Profile names support controlled renames through the user or administrator API. A rename keeps the UUID, texture bindings, and audit chain, then temporarily invalidates Yggdrasil tokens bound to that profile so launchers can refresh into the new name.
 
 ### Textures
 
@@ -145,10 +148,38 @@ GET    /api/yggdrasil/textures/{hash}
 
 Uploads must be PNG files. The server validates MIME type, dimensions, upload policy, and profile ownership, then re-encodes the image as a sanitized PNG and hashes the processed bytes.
 
+Public texture library APIs let users publish and reuse wardrobe textures:
+
+```text
+GET    /api/v1/texture-library/tags
+GET    /api/v1/texture-library/textures
+GET    /api/v1/texture-library/textures/{texture_id}
+POST   /api/v1/texture-library/textures/{texture_id}/copy
+POST   /api/v1/texture-library/textures/{texture_id}/reports
+POST   /api/v1/wardrobe/textures/{texture_id}/library-submission
+DELETE /api/v1/wardrobe/textures/{texture_id}/library-submission
+```
+
+Admins and scoped texture-library operators can review submissions, manage tags, handle reports, and unpublish public textures:
+
+```text
+GET  /api/v1/admin/texture-library/textures
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+
+GET  /api/v1/admin/texture-library/reports
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+```
+
 ### Config, Audit, and Tasks
 
 - `system_config` stores runtime config.
+- `texture_library_enabled` and `texture_library_review_required` control the public texture library.
+- `auth_captcha_*` keys control visual captcha policy and preview.
 - `POST /api/v1/admin/config/yggdrasil/action` rotates the Yggdrasil signing key.
+- `POST /api/v1/admin/config/auth_captcha/action` previews captcha rendering.
 - `GET /api/v1/admin/audit-logs` lists audit logs.
 - `GET /api/v1/admin/tasks`, `POST /api/v1/admin/tasks/{id}/retry`, and `POST /api/v1/admin/tasks/cleanup` manage background tasks.
 - Runtime tasks cover token cleanup, texture object cleanup, storage consistency checks, audit cleanup, and task artifact cleanup.
@@ -213,6 +244,7 @@ See [docs/deployment/docker.md](docs/deployment/docker.md) for full deployment n
 - Treat the Yggdrasil signing private key as sensitive config. Rotate it through the config action instead of editing database rows directly.
 - In multi-instance deployments, only one instance should use `start_mode = "primary"` for periodic maintenance.
 - The production object storage backend can be local, S3, or MinIO. Textures and uploaded avatars use the same backend.
+- For publicly readable S3/MinIO buckets or CDNs, `yggdrasil_texture_public_base_url` can make uploaded texture URLs point directly at object storage while default skins still use the Yggdrasil API.
 
 ## Common Development Commands
 
@@ -257,7 +289,7 @@ src/types/                   Shared enums and DB wrapper types
 src/utils/                   crypto, ID, path, number, email, RAII helpers
 migration/                   SeaORM migration crate
 api-docs-macros/             OpenAPI helper macros
-frontend-panel/              React + Vite admin frontend
+frontend-panel/              React + Vite product frontend and admin UI
 developer-docs/              Developer notes
 docs/                        User/deployment docs site
 tests/                       Integration tests and OpenAPI export tests

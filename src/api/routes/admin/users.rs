@@ -115,13 +115,15 @@ pub async fn create_user(
     );
     let output = admin_user_service::create_user(
         state.get_ref(),
-        &body.username,
-        &body.email,
-        body.password.as_deref(),
-        body.role.unwrap_or(UserRole::User),
-        body.operator_scopes.clone(),
-        body.status.unwrap_or(UserStatus::Active),
-        body.must_change_password,
+        admin_user_service::AdminCreateUserInput {
+            username: body.username.clone(),
+            email: body.email.clone(),
+            password: body.password.clone(),
+            role: body.role.unwrap_or(UserRole::User),
+            operator_scopes: body.operator_scopes.clone(),
+            status: body.status.unwrap_or(UserStatus::Active),
+            must_change_password: body.must_change_password,
+        },
     )
     .await?;
     let user = &output.user;

@@ -22,6 +22,7 @@ const toastMock = vi.hoisted(() => ({
 
 const yggdrasilServiceMock = vi.hoisted(() => ({
 	copyPublicTextureToWardrobe: vi.fn(),
+	createTextureReport: vi.fn(),
 	getPublicTextureLibraryTexture: vi.fn(),
 }));
 
@@ -29,10 +30,9 @@ const authServiceMock = vi.hoisted(() => ({
 	me: vi.fn(),
 }));
 
-vi.mock("react-i18next", () => ({
-	useTranslation: () => ({
-		i18n: { language: "en-US" },
-		t: (
+const tMock = vi.hoisted(
+	() =>
+		(
 			key: string,
 			values?: Record<string, string | number | null | undefined>,
 		) => {
@@ -42,6 +42,12 @@ vi.mock("react-i18next", () => ({
 					: "";
 			return `${key}${suffix}`;
 		},
+);
+
+vi.mock("react-i18next", () => ({
+	useTranslation: () => ({
+		i18n: { language: "en-US" },
+		t: tMock,
 	}),
 }));
 
@@ -113,8 +119,16 @@ function publicTexture(
 		texture_type: "skin",
 		updated_at: "2026-06-15T00:00:00Z",
 		uploader: {
+			avatar: {
+				source: "gravatar",
+				url_1024: "https://example.test/avatar-1024.webp",
+				url_512: "https://example.test/avatar-512.webp",
+				version: 0,
+			},
+			id: 1,
 			name: "Texture Artist",
 			public_uuid: "user-public-uuid",
+			username: "artist",
 		},
 		url: "/textures/shared-slim.png",
 		visibility: "public",
@@ -191,6 +205,20 @@ describe("PublicTextureDetailPage", () => {
 		yggdrasilServiceMock.copyPublicTextureToWardrobe.mockResolvedValue(
 			copiedTexture(),
 		);
+		yggdrasilServiceMock.createTextureReport.mockResolvedValue({
+			id: 5,
+			texture_id: 21,
+			reason: "copyright",
+			message: "copied",
+			status: "pending",
+			admin_note: null,
+			texture: publicTexture(),
+			reporter: { name: "alex", public_uuid: "user-public-uuid" },
+			handler: null,
+			handled_at: null,
+			created_at: "2026-06-15T00:00:00Z",
+			updated_at: "2026-06-15T00:00:00Z",
+		});
 	});
 
 	it("loads public texture details with the 3D preview and metadata", async () => {
@@ -202,10 +230,12 @@ describe("PublicTextureDetailPage", () => {
 		expect(
 			screen.getByRole("link", { name: "library.backToLibrary" }),
 		).toHaveAttribute("href", "/textures");
-		expect(screen.getByTestId("minecraft-preview-panel")).toHaveTextContent(
+		expect(screen.getByTestId("public-texture-detail-preview")).toHaveAttribute(
+			"data-skin-url",
 			"/textures/shared-slim.png",
 		);
-		expect(screen.getByTestId("minecraft-preview-panel")).toHaveTextContent(
+		expect(screen.getByTestId("public-texture-detail-preview")).toHaveAttribute(
+			"data-model",
 			"slim",
 		);
 		expect(screen.getAllByText("Texture Artist").length).toBeGreaterThan(0);
@@ -273,6 +303,75 @@ describe("PublicTextureDetailPage", () => {
 		expect(
 			within(copyDialog).getByLabelText("library.copyNameLabel"),
 		).toHaveValue("Shared Slim");
+	});
+
+	it("requires sign-in before reporting a texture", async () => {
+		await renderPage();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "library.reportAction" }),
+		);
+
+		expect(yggdrasilServiceMock.createTextureReport).not.toHaveBeenCalled();
+		expect(
+			screen.queryByText("library.reportDialogTitle"),
+		).not.toBeInTheDocument();
+	});
+
+	it("submits a texture report for signed-in users", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			email_verified: true,
+			must_change_password: false,
+			operator_scopes: [],
+			pending_email: null,
+			profile: {
+				display_name: null,
+				avatar: {
+					source: "none",
+					url_512: null,
+					url_1024: null,
+					version: 0,
+				},
+			},
+			role: "user",
+			status: "active",
+		} as const;
+		authServiceMock.me.mockResolvedValue(user);
+		useAuthStore.setState({
+			user,
+			isAuthenticated: true,
+		});
+		await renderPage();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "library.reportAction" }),
+		);
+		const reportDialog = topDialog();
+		fireEvent.change(
+			within(reportDialog).getByLabelText("library.reportMessageLabel"),
+			{
+				target: { value: "  copied from another site  " },
+			},
+		);
+		fireEvent.click(
+			within(reportDialog)
+				.getByText("library.reportSubmitAction")
+				.closest("button") as HTMLButtonElement,
+		);
+
+		await waitFor(() => {
+			expect(yggdrasilServiceMock.createTextureReport).toHaveBeenCalledWith(
+				21,
+				{
+					message: "copied from another site",
+					reason: "inappropriate",
+				},
+			);
+		});
+		expect(toastMock.success).toHaveBeenCalledWith("library.reportSuccess");
 	});
 
 	it("rejects invalid route params without calling the backend", async () => {

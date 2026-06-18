@@ -29,7 +29,7 @@ description: AsterYggdrasil 部署总览，按上线前准备、公开 URL、反
 - 首页 `/` 保留 `X-Authlib-Injector-API-Location` 响应头。
 - `public_site_url` 或 `yggdrasil_public_base_url` 能生成客户端可访问的材质 URL。
 - `skinDomains` 覆盖材质 URL 的 host。
-- 数据库、`config.toml` 和 local object storage 已经持久化。
+- 数据库、`config.toml` 和 object storage backend 已经持久化或可恢复。
 
 ## 推荐部署路径
 
@@ -38,7 +38,7 @@ description: AsterYggdrasil 部署总览，按上线前准备、公开 URL、反
 3. 按 [Docker 部署](/deployment/docker) 挂载 `/data`。
 4. 配置 `public_site_url`，需要高级路径时再配 `yggdrasil_public_base_url`。
 5. 用真实启动器登录一次，并进一次测试服务器。
-6. 备份数据库、`config.toml` 和材质目录。
+6. 备份数据库、`config.toml` 和 object storage backend。
 
 ## 公开 URL 是核心
 
@@ -67,6 +67,6 @@ start_mode = "primary"
 
 - 数据库。
 - `config.toml` 或等价的 secret/config 管理记录。
-- local object storage 目录，默认类似 `data/storage`。
+- object storage backend。local backend 默认类似 `data/storage`；S3/MinIO backend 需要备份桶内对象和对应配置。
 
-数据库和材质目录要作为一组恢复。只恢复数据库会出现 missing object；只恢复材质目录会出现 orphan object。
+数据库和 object storage 要作为一组恢复。只恢复数据库会出现 missing object；只恢复对象存储会出现 orphan object。

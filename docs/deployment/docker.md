@@ -36,6 +36,24 @@ backend = "memory"
 
 如果 `config.toml` 位于 `/data/config.toml`，`local_root = "storage"` 会解析为 `/data/storage`。材质和用户上传头像都会写入这个对象存储目录。
 
+如果使用 S3 或 MinIO，对象不会写入 `/data/storage`，但数据库和 `config.toml` 仍然必须持久化。示例：
+
+```toml
+[object_storage]
+backend = "s3"
+
+[object_storage.s3]
+endpoint = "https://s3.example.com"
+region = "auto"
+bucket = "asteryggdrasil"
+base_path = "production"
+access_key_id = "..."
+secret_access_key = "..."
+force_path_style = false
+```
+
+材质和上传头像都会走同一个 object storage backend。S3/MinIO 上传由服务端 streaming 完成，不需要给浏览器开放 presigned 上传。
+
 ## 反向代理
 
 生产环境通常通过 Nginx、Caddy 或 Traefik 暴露 HTTPS。必须保证外部访问路径和运行时配置一致：
@@ -52,6 +70,8 @@ yggdrasil_skin_domains = ["skin.example.com"]
 ```
 
 authlib-injector 会检查材质 URL host 是否在 `skinDomains` 中。public base URL 和 skinDomains 不一致时，启动器或服务端可能拒绝材质。
+
+如果 S3 bucket 或前置 CDN 允许公开读，可以额外配置运行时 `yggdrasil_texture_public_base_url`，让已上传材质的 URL 直接指向对象存储/CDN。此时 bucket/CDN 需要允许站点来源匿名 `GET`/`HEAD` 读取；默认皮肤仍走 Yggdrasil API。
 
 ## ALI
 

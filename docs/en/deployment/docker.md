@@ -36,6 +36,24 @@ backend = "memory"
 
 If `config.toml` lives at `/data/config.toml`, `local_root = "storage"` resolves to `/data/storage`. Textures and uploaded user avatars are written through this object storage directory.
 
+If you use S3 or MinIO, objects are not written to `/data/storage`, but the database and `config.toml` still must be persisted. Example:
+
+```toml
+[object_storage]
+backend = "s3"
+
+[object_storage.s3]
+endpoint = "https://s3.example.com"
+region = "auto"
+bucket = "asteryggdrasil"
+base_path = "production"
+access_key_id = "..."
+secret_access_key = "..."
+force_path_style = false
+```
+
+Textures and uploaded avatars use the same object storage backend. S3/MinIO uploads are performed by server-side streaming and do not require browser presigned uploads.
+
 ## Reverse Proxy
 
 Production deployments usually expose HTTPS through Nginx, Caddy, or Traefik. Make sure the external path matches runtime config:
@@ -52,6 +70,8 @@ yggdrasil_skin_domains = ["skin.example.com"]
 ```
 
 authlib-injector verifies that texture URL hosts are covered by `skinDomains`. If public base URL and skinDomains do not match, launchers or servers may reject textures.
+
+If the S3 bucket or a frontend CDN is publicly readable, you can additionally configure runtime `yggdrasil_texture_public_base_url` so uploaded texture URLs point directly at object storage/CDN. In that mode, the bucket/CDN must allow anonymous `GET`/`HEAD` reads from the site origin; default skins still use the Yggdrasil API.
 
 ## ALI
 

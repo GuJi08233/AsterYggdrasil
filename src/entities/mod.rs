@@ -12,6 +12,7 @@ pub mod mail_outbox;
 pub mod minecraft_profile;
 pub mod minecraft_profile_texture;
 pub mod minecraft_texture;
+pub mod minecraft_texture_report;
 pub mod minecraft_texture_tag;
 pub mod minecraft_texture_tag_binding;
 pub mod passkey;

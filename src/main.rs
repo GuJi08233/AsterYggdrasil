@@ -2,7 +2,12 @@
 #![deny(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 #![cfg_attr(
     not(test),
-    deny(clippy::unwrap_used, clippy::unreachable, clippy::expect_used)
+    deny(
+        clippy::unwrap_used,
+        clippy::unreachable,
+        clippy::expect_used,
+        clippy::panic
+    )
 )]
 
 use actix_web::{App, HttpServer, middleware, web};
@@ -122,7 +127,9 @@ async fn main() -> std::io::Result<()> {
     let handle = server.handle();
     let shutdown_signal = shutdown_token.clone();
     tokio::spawn(async move {
-        aster_yggdrasil::runtime::shutdown::wait_for_signal().await;
+        if let Err(error) = aster_yggdrasil::runtime::shutdown::wait_for_signal().await {
+            tracing::error!(%error, "shutdown signal listener failed");
+        }
         shutdown_signal.cancel();
         handle.stop(true).await;
     });

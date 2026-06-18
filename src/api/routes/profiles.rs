@@ -227,6 +227,8 @@ pub async fn unbind_minecraft_profile_texture(
                 width: deleted.as_ref().map(|item| item.texture.texture.width),
                 height: deleted.as_ref().map(|item| item.texture.texture.height),
                 file_size: deleted.as_ref().map(|item| item.texture.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )
@@ -620,6 +622,8 @@ pub(crate) async fn log_profile_texture_audit(
                 width: Some(stored.texture.texture.width),
                 height: Some(stored.texture.texture.height),
                 file_size: Some(stored.texture.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )

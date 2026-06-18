@@ -38,8 +38,11 @@ pub use profiles::{
 pub use system_info::get_system_info;
 pub use tasks::{cleanup_tasks, list_tasks, retry_task};
 pub use texture_library::{
-    create_texture_library_tag, delete_texture_library_tag, list_texture_library_tags,
-    update_texture_library_tag,
+    accept_texture_library_report, approve_texture_library_texture, create_texture_library_tag,
+    delete_texture_library_tag, get_texture_library_report, get_texture_library_texture,
+    list_texture_library_reports, list_texture_library_tags, list_texture_library_textures,
+    reject_texture_library_report, reject_texture_library_texture,
+    unpublish_texture_library_texture, update_texture_library_tag,
 };
 pub use users::{
     create_user, create_user_invitation, delete_user, get_user, list_user_invitations, list_users,
@@ -96,8 +99,38 @@ pub fn routes(
                 .service(
                     web::scope("/texture-library")
                         .wrap(RequireAdminOrScope::new(OperatorScope::TextureLibrary))
+                        .route("/reports", web::get().to(list_texture_library_reports))
+                        .route(
+                            "/reports/{report_id}",
+                            web::get().to(get_texture_library_report),
+                        )
+                        .route(
+                            "/reports/{report_id}/accept",
+                            web::post().to(accept_texture_library_report),
+                        )
+                        .route(
+                            "/reports/{report_id}/reject",
+                            web::post().to(reject_texture_library_report),
+                        )
                         .route("/tags", web::get().to(list_texture_library_tags))
                         .route("/tags", web::post().to(create_texture_library_tag))
+                        .route("/textures", web::get().to(list_texture_library_textures))
+                        .route(
+                            "/textures/{texture_id}",
+                            web::get().to(get_texture_library_texture),
+                        )
+                        .route(
+                            "/textures/{texture_id}/approve",
+                            web::post().to(approve_texture_library_texture),
+                        )
+                        .route(
+                            "/textures/{texture_id}/reject",
+                            web::post().to(reject_texture_library_texture),
+                        )
+                        .route(
+                            "/textures/{texture_id}/unpublish",
+                            web::post().to(unpublish_texture_library_texture),
+                        )
                         .route(
                             "/tags/{tag_id}",
                             web::patch().to(update_texture_library_tag),
@@ -215,6 +248,9 @@ mod tests {
             "/admin/config",
             "/admin/tasks",
             "/admin/texture-library/tags",
+            "/admin/texture-library/textures",
+            "/admin/texture-library/textures/1",
+            "/admin/texture-library/textures/1/approve",
             "/admin/users",
             "/admin/avatars/users/1/512",
             "/admin/minecraft-profiles",

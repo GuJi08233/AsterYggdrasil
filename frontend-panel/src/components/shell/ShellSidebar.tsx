@@ -21,6 +21,7 @@ export function ShellSidebar({
 	desktopCollapsed,
 	isAdmin,
 	operatorScopes,
+	textureLibraryEnabled,
 	mobileOpen,
 	onMobileClose,
 }: {
@@ -28,11 +29,16 @@ export function ShellSidebar({
 	desktopCollapsed: boolean;
 	isAdmin: boolean;
 	operatorScopes: readonly OperatorScope[];
+	textureLibraryEnabled: boolean;
 	mobileOpen: boolean;
 	onMobileClose: () => void;
 }) {
 	const { t } = useTranslation();
-	const navSections = getShellNavSections({ isAdmin, operatorScopes });
+	const navSections = getShellNavSections({
+		isAdmin,
+		operatorScopes,
+		textureLibraryEnabled,
+	});
 
 	return (
 		<>

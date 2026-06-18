@@ -1,6 +1,7 @@
 //! 配置子模块：`auth_runtime`。
 
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
@@ -68,7 +69,7 @@ impl CaptchaRenderPreset {
         }
     }
 
-    pub fn from_str(value: &str) -> Option<Self> {
+    fn parse_value(value: &str) -> Option<Self> {
         match value.trim() {
             "readable" => Some(Self::Readable),
             "balanced" => Some(Self::Balanced),
@@ -104,6 +105,18 @@ impl CaptchaRenderPreset {
                 distortion: 4,
             },
         }
+    }
+}
+
+impl FromStr for CaptchaRenderPreset {
+    type Err = AsterError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        Self::parse_value(value).ok_or_else(|| {
+            AsterError::validation_error(
+                "captcha render preset must be one of: readable, balanced, hardened",
+            )
+        })
     }
 }
 
@@ -546,7 +559,7 @@ fn parse_captcha_preset_selection(value: &str) -> Result<CaptchaRenderPreset> {
     } else {
         trimmed.to_string()
     };
-    CaptchaRenderPreset::from_str(&preset).ok_or_else(|| {
+    preset.parse::<CaptchaRenderPreset>().map_err(|_| {
         AsterError::validation_error(format!(
             "{AUTH_CAPTCHA_PRESET_KEY} must be one of: readable, balanced, hardened",
         ))

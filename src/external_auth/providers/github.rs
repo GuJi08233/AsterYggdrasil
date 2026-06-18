@@ -113,15 +113,15 @@ impl ExternalAuthProviderDriver for GitHubProviderDriver {
         let authorization_url = provider
             .authorization_url
             .as_deref()
-            .expect("GitHub authorization URL should be set");
+            .ok_or_else(|| AsterError::validation_error("GitHub authorization URL is missing"))?;
         let token_url = provider
             .token_url
             .as_deref()
-            .expect("GitHub token URL should be set");
+            .ok_or_else(|| AsterError::validation_error("GitHub token URL is missing"))?;
         let userinfo_url = provider
             .userinfo_url
             .as_deref()
-            .expect("GitHub userinfo URL should be set");
+            .ok_or_else(|| AsterError::validation_error("GitHub userinfo URL is missing"))?;
         validate_url(
             authorization_url,
             "authorization_url",

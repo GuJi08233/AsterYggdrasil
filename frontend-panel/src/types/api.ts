@@ -83,6 +83,8 @@ export type PublicBranding = components["schemas"]["PublicBranding"];
 export type PublicCaptchaConfig = components["schemas"]["PublicCaptchaConfig"];
 export type PublicYggdrasilConfig =
 	components["schemas"]["PublicYggdrasilConfig"];
+export type PublicTextureLibraryConfig =
+	components["schemas"]["PublicTextureLibraryConfig"];
 export type PublicFrontendConfig =
 	components["schemas"]["PublicFrontendConfig"];
 
@@ -210,6 +212,8 @@ export type MinecraftTextureModel =
 	components["schemas"]["MinecraftTextureModel"];
 export type MinecraftTextureMetadata =
 	components["schemas"]["MinecraftTextureMetadata"];
+export type MinecraftTextureLibraryStatus =
+	components["schemas"]["MinecraftTextureLibraryStatus"];
 export type MinecraftTextureTagInfo =
 	components["schemas"]["MinecraftTextureTagInfo"];
 export type MinecraftTextureType =
@@ -238,6 +242,25 @@ export type AdminTextureLibraryTagPage =
 	OperationData<"admin_list_texture_library_tags">;
 export type AdminTextureLibraryTagQuery =
 	OperationQuery<"admin_list_texture_library_tags">;
+export type AdminTextureLibraryPage =
+	OperationData<"admin_list_texture_library_textures">;
+export type AdminTextureLibraryQuery =
+	OperationQuery<"admin_list_texture_library_textures">;
+export type ReviewTextureLibraryTextureRequest =
+	OperationRequestBody<"admin_approve_texture_library_texture">;
+export type MinecraftTextureReportReason =
+	components["schemas"]["MinecraftTextureReportReason"];
+export type MinecraftTextureReportStatus =
+	components["schemas"]["MinecraftTextureReportStatus"];
+export type TextureReportInfo = components["schemas"]["TextureReportInfo"];
+export type AdminTextureReportPage =
+	OperationData<"admin_list_texture_library_reports">;
+export type AdminTextureReportQuery =
+	OperationQuery<"admin_list_texture_library_reports">;
+export type CreateTextureReportRequest =
+	OperationRequestBody<"create_public_texture_library_texture_report">;
+export type HandleTextureReportRequest =
+	OperationRequestBody<"admin_accept_texture_library_report">;
 export type CreateMinecraftTextureTagRequest =
 	OperationRequestBody<"admin_create_texture_library_tag">;
 export type UpdateMinecraftTextureTagRequest =

@@ -89,7 +89,7 @@ export const adminNavItems: ShellNavItem[] = [
 		labelKey: "admin.nav.textureLibrary",
 		icon: "Images",
 		operatorScope: "texture_library",
-		preload: () => import("@/pages/admin/AdminTextureLibraryPage"),
+		preload: () => import("@/pages/admin/AdminTextureLibraryTexturesPage"),
 	},
 	{
 		to: adminPaths.audit,
@@ -124,15 +124,20 @@ export const adminNavItems: ShellNavItem[] = [
 export function getShellNavSections({
 	isAdmin,
 	operatorScopes,
+	textureLibraryEnabled = true,
 }: {
 	isAdmin: boolean;
 	operatorScopes: readonly OperatorScope[];
+	textureLibraryEnabled?: boolean;
 }): ShellNavSection[] {
+	const visibleAccountItems = accountNavItems.filter(
+		(item) => item.to !== publicPaths.textureLibrary || textureLibraryEnabled,
+	);
 	const sections: ShellNavSection[] = [
 		{
 			id: "account",
 			labelKey: "shell.sections.account",
-			items: [...accountNavItems, personalSettingsNavItem],
+			items: [...visibleAccountItems, personalSettingsNavItem],
 		},
 	];
 

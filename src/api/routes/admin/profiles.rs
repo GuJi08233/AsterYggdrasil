@@ -407,6 +407,8 @@ pub async fn delete_minecraft_profile_texture(
                 width: Some(deleted.texture.texture.width),
                 height: Some(deleted.texture.texture.height),
                 file_size: Some(deleted.texture.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )
@@ -465,6 +467,8 @@ pub async fn delete_minecraft_textures_by_hash(
                     width: Some(item.texture.texture.width),
                     height: Some(item.texture.texture.height),
                     file_size: Some(item.texture.texture.file_size),
+                    library_status: None,
+                    review_note: None,
                 })
             },
         )

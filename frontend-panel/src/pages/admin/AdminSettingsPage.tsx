@@ -8,6 +8,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AdminNumberUnitInput } from "@/components/admin/AdminNumberUnitInput";
 import { AnimatedCollapsible } from "@/components/common/AnimatedCollapsible";
@@ -38,11 +39,13 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import type { NumberUnitOption } from "@/lib/numberUnit";
 import { convertNumberUnitValueToBaseUnit } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
+import { adminSettingsCategoryPath } from "@/routes/routePaths";
 import { adminConfigService } from "@/services/adminService";
 import type {
 	ConfigSchemaItem,
 	SetConfigRequest,
 	SystemConfig,
+	SystemConfigPage,
 	SystemConfigValue,
 	TemplateVariableGroup,
 	TemplateVariableItem,
@@ -78,7 +81,6 @@ type SaveBarPhaseState = {
 };
 
 type AdminSettingsState = {
-	activeCategory: string;
 	activeTemplateVariableGroupCode: string | null;
 	configs: SystemConfig[];
 	drafts: Record<string, DraftValue>;
@@ -103,7 +105,6 @@ type AdminSettingsAction =
 			templateVariableGroups: TemplateVariableGroup[];
 	  }
 	| { type: "load_finished" }
-	| { type: "set_active_category"; value: string }
 	| { type: "set_active_template_variable_group_code"; value: string | null }
 	| { type: "set_draft"; key: string; draft: DraftValue }
 	| { type: "discard_changes" }
@@ -119,7 +120,6 @@ type AdminSettingsAction =
 	| { type: "toggle_template_group"; groupKey: string; open: boolean };
 
 const initialAdminSettingsState: AdminSettingsState = {
-	activeCategory: "site",
 	activeTemplateVariableGroupCode: null,
 	configs: [],
 	drafts: {},
@@ -142,6 +142,23 @@ function draftsFromConfigs(configs: SystemConfig[]) {
 	);
 }
 
+async function loadAllConfigs() {
+	const items: SystemConfig[] = [];
+	let offset = 0;
+	let latestPage: SystemConfigPage | null = null;
+
+	do {
+		latestPage = await adminConfigService.list({
+			limit: CONFIG_PAGE_SIZE,
+			offset,
+		});
+		items.push(...latestPage.items);
+		offset += latestPage.items.length;
+	} while (latestPage.items.length > 0 && offset < latestPage.total);
+
+	return items;
+}
+
 function adminSettingsReducer(
 	state: AdminSettingsState,
 	action: AdminSettingsAction,
@@ -160,8 +177,6 @@ function adminSettingsReducer(
 		}
 		case "load_finished":
 			return { ...state, loading: false };
-		case "set_active_category":
-			return { ...state, activeCategory: action.value };
 		case "set_active_template_variable_group_code":
 			return { ...state, activeTemplateVariableGroupCode: action.value };
 		case "set_draft":
@@ -236,6 +251,7 @@ function adminSettingsReducer(
 const SAVE_BAR_ENTER_DURATION_MS = 150;
 const SAVE_BAR_EXIT_DURATION_MS = 140;
 const SAVE_BAR_EXIT_UNMOUNT_GRACE_MS = 50;
+const CONFIG_PAGE_SIZE = 100;
 
 const categoryOrder = [
 	"site",
@@ -348,12 +364,13 @@ const timeDisplayUnits: Record<TimeConfigBaseUnit, readonly TimeDisplayUnit[]> =
 
 export default function AdminSettingsPage() {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
+	const { category: routeCategory } = useParams<{ category?: string }>();
 	const [state, dispatch] = useReducer(
 		adminSettingsReducer,
 		initialAdminSettingsState,
 	);
 	const {
-		activeCategory,
 		activeTemplateVariableGroupCode,
 		configs,
 		drafts,
@@ -375,15 +392,15 @@ export default function AdminSettingsPage() {
 	useEffect(() => {
 		let cancelled = false;
 		Promise.all([
-			adminConfigService.list({ limit: 500 }),
+			loadAllConfigs(),
 			adminConfigService.schema(),
 			adminConfigService.templateVariables(),
 		])
-			.then(([page, nextSchema, nextTemplateVariableGroups]) => {
+			.then(([configs, nextSchema, nextTemplateVariableGroups]) => {
 				if (cancelled) return;
 				dispatch({
 					type: "loaded",
-					configs: page.items,
+					configs,
 					schema: nextSchema,
 					templateVariableGroups: nextTemplateVariableGroups,
 				});
@@ -410,11 +427,28 @@ export default function AdminSettingsPage() {
 		);
 		return categoryOrder.filter((category) => present.has(category));
 	}, [configs]);
-	const active = categories.includes(
-		activeCategory as (typeof categoryOrder)[number],
-	)
-		? activeCategory
+	const requestedCategory = normalizeRouteCategory(routeCategory);
+	const fallbackCategory = categories.includes("site")
+		? "site"
 		: (categories[0] ?? "site");
+	const active =
+		requestedCategory && isKnownCategory(requestedCategory)
+			? requestedCategory
+			: fallbackCategory;
+
+	useEffect(() => {
+		if (loading || categories.length === 0) return;
+		if (requestedCategory == null) {
+			navigate(adminSettingsCategoryPath(fallbackCategory), { replace: true });
+			return;
+		}
+		if (
+			!categories.includes(requestedCategory as (typeof categoryOrder)[number])
+		) {
+			navigate(adminSettingsCategoryPath(fallbackCategory), { replace: true });
+		}
+	}, [categories, fallbackCategory, loading, navigate, requestedCategory]);
+
 	const filteredConfigs = useMemo(() => {
 		return configs.filter((config) => {
 			return rootCategory(config.category) === active;
@@ -500,8 +534,8 @@ export default function AdminSettingsPage() {
 	}
 
 	async function reloadConfigs() {
-		const page = await adminConfigService.list({ limit: 500 });
-		dispatch({ type: "reloaded", configs: page.items });
+		const configs = await loadAllConfigs();
+		dispatch({ type: "reloaded", configs });
 	}
 
 	async function sendTestEmail() {
@@ -643,7 +677,6 @@ function SettingsPageLayout({
 					active={active}
 					categories={categories}
 					configs={configs}
-					onSelect={(value) => dispatch({ type: "set_active_category", value })}
 				/>
 				<SettingsCategoryContent
 					drafts={drafts}
@@ -708,12 +741,10 @@ function SettingsCategoryNav({
 	active,
 	categories,
 	configs,
-	onSelect,
 }: {
 	active: string;
 	categories: readonly string[];
 	configs: SystemConfig[];
-	onSelect: (category: string) => void;
 }) {
 	const { t } = useTranslation();
 
@@ -739,7 +770,6 @@ function SettingsCategoryNav({
 									(config) => rootCategory(config.category) === category,
 								).length
 							}
-							onClick={() => onSelect(category)}
 						/>
 					))}
 				</nav>
@@ -1855,12 +1885,10 @@ function CategoryButton({
 	active,
 	category,
 	count,
-	onClick,
 }: {
 	active: boolean;
 	category: string;
 	count: number;
-	onClick: () => void;
 }) {
 	const { t } = useTranslation();
 	const meta = categoryMeta[category] ?? {
@@ -1871,9 +1899,9 @@ function CategoryButton({
 	};
 	return (
 		<Button
-			type="button"
+			render={<Link to={adminSettingsCategoryPath(category)} />}
 			variant={active ? "default" : "ghost"}
-			onClick={onClick}
+			aria-current={active ? "page" : undefined}
 			className={cn(
 				"h-auto w-full justify-start whitespace-normal px-3 py-2.5 text-left",
 				active
@@ -2191,6 +2219,15 @@ function formatTemplateVariableGroupLabel(
 function rootCategory(category: string) {
 	const [root] = category.split(".");
 	return root || "other";
+}
+
+function normalizeRouteCategory(category: string | undefined) {
+	const normalized = category?.trim().toLowerCase();
+	return normalized ? normalized : null;
+}
+
+function isKnownCategory(category: string) {
+	return categoryOrder.includes(category as (typeof categoryOrder)[number]);
 }
 
 function buildSetConfigRequest(

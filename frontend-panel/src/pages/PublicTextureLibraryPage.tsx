@@ -29,11 +29,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPanel";
-import { MinecraftSkinAvatar } from "@/components/yggdrasil/MinecraftSkinAvatar";
 import { MinecraftTextureImagePreview } from "@/components/yggdrasil/MinecraftTextureImagePreview";
+import { TextureLibraryTextureAvatar } from "@/components/yggdrasil/TextureLibraryTextureAvatar";
 import { TextureTagFilterPopover } from "@/components/yggdrasil/TextureTagFilterPopover";
+import { TextureTagChips } from "@/components/yggdrasil/TextureTagList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTextureTagPager } from "@/hooks/useTextureTagPager";
+import { formatBytes } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
 import { publicPaths, publicTexturePath } from "@/routes/routePaths";
 import { ApiError, formatUnknownError } from "@/services/http";
@@ -53,6 +55,9 @@ const TAG_FILTER_APPLY_DEBOUNCE_MS = 240;
 export default function PublicTextureLibraryPage() {
 	const { t } = useTranslation();
 	const branding = useFrontendConfigStore((state) => state.branding);
+	const textureLibraryEnabled = useFrontendConfigStore(
+		(state) => state.textureLibrary.enabled,
+	);
 	const user = useAuthStore((state) => state.user);
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const hydrate = useAuthStore((state) => state.hydrate);
@@ -99,6 +104,12 @@ export default function PublicTextureLibraryPage() {
 	} = tagPager;
 
 	const loadTextures = useCallback(async () => {
+		if (!textureLibraryEnabled) {
+			setTextures([]);
+			setTotal(0);
+			setLoading(false);
+			return;
+		}
 		setLoading(true);
 		try {
 			const page = await yggdrasilService.listPublicTextureLibraryTextures({
@@ -124,6 +135,7 @@ export default function PublicTextureLibraryPage() {
 		selectedTagIds,
 		tagSearchMethod,
 		textureType,
+		textureLibraryEnabled,
 	]);
 
 	useEffect(() => {
@@ -131,10 +143,10 @@ export default function PublicTextureLibraryPage() {
 	}, [loadTextures]);
 
 	useEffect(() => {
-		if (tagFilterOpen) {
+		if (textureLibraryEnabled && tagFilterOpen) {
 			ensureTagsLoaded();
 		}
-	}, [ensureTagsLoaded, tagFilterOpen]);
+	}, [ensureTagsLoaded, tagFilterOpen, textureLibraryEnabled]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
@@ -216,173 +228,202 @@ export default function PublicTextureLibraryPage() {
 						</div>
 					</header>
 
-					<section className="overflow-hidden rounded-xl border border-black/10 bg-white/76 shadow-2xl shadow-emerald-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07] dark:shadow-black/25">
-						<div className="flex flex-col gap-3 border-black/10 border-b bg-white/54 p-3 dark:border-white/10 dark:bg-white/[0.04] lg:flex-row lg:items-center lg:justify-between">
-							<div className="flex min-w-0 flex-wrap items-center gap-1">
-								<LibraryTypeButton
-									active={textureType === "all"}
-									onClick={() => {
-										setTextureType("all");
-										setOffset(0);
-									}}
-								>
-									{t("library.type.all")}
-								</LibraryTypeButton>
-								<LibraryTypeButton
-									active={textureType === "skin"}
-									onClick={() => {
-										setTextureType("skin");
-										setOffset(0);
-									}}
-								>
-									{t("wardrobe.type.skin")}
-								</LibraryTypeButton>
-								<LibraryTypeButton
-									active={textureType === "cape"}
-									onClick={() => {
-										setTextureType("cape");
-										setOffset(0);
-									}}
-								>
-									{t("wardrobe.type.cape")}
-								</LibraryTypeButton>
-							</div>
-							<form
-								className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
-								onSubmit={submitSearch}
-							>
-								<div className="relative sm:w-80">
-									<Icon
-										name="MagnifyingGlass"
-										aria-hidden="true"
-										className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-									/>
-									<Input
-										value={query}
-										placeholder={t("library.searchPlaceholder")}
-										className="bg-white/82 pl-8 dark:bg-white/8"
-										onChange={(event) => setQuery(event.currentTarget.value)}
-									/>
-								</div>
-								<TextureTagFilterPopover
-									open={tagFilterOpen}
-									popoverRef={tagFilterPopoverRef}
-									searchMethod={tagSearchMethod}
-									selectedIds={draftTagIds}
-									selectedTags={selectedTags}
-									hasMore={hasMoreTags}
-									loading={tagLoading}
-									tags={tags}
-									testId="library-tag-filter-popover"
-									triggerRef={tagFilterTriggerRef}
-									onClear={clearTagFilter}
-									onLoadMore={loadMoreTags}
-									onOpenChange={setTagFilterOpen}
-									onSearchQueryChange={searchTags}
-									onSearchMethodChange={changeTagSearchMethod}
-									onSelectedIdsChange={setDraftTagIds}
-								/>
-								<Button type="submit" variant="outline" size="sm">
-									{t("library.searchAction")}
-								</Button>
-								<Button
-									type="button"
-									size="sm"
-									disabled={loading}
-									onClick={() => void loadTextures()}
-								>
-									{loading ? t("common.loading") : t("common.refresh")}
-								</Button>
-							</form>
-						</div>
+					{textureLibraryEnabled ? null : <TextureLibraryDisabledPanel />}
 
-						<div className="min-h-[28rem] p-3">
-							{loading ? (
-								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-									{Array.from(
-										{ length: 8 },
-										(_, index) => `texture-library-skeleton-${index}`,
-									).map((key) => (
-										<Skeleton key={key} className="h-72 rounded-lg" />
-									))}
+					{textureLibraryEnabled ? (
+						<section className="overflow-hidden rounded-xl border border-black/10 bg-white/76 shadow-2xl shadow-emerald-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07] dark:shadow-black/25">
+							<div className="flex flex-col gap-3 border-black/10 border-b bg-white/54 p-3 dark:border-white/10 dark:bg-white/[0.04] lg:flex-row lg:items-center lg:justify-between">
+								<div className="flex min-w-0 flex-wrap items-center gap-1">
+									<LibraryTypeButton
+										active={textureType === "all"}
+										onClick={() => {
+											setTextureType("all");
+											setOffset(0);
+										}}
+									>
+										{t("library.type.all")}
+									</LibraryTypeButton>
+									<LibraryTypeButton
+										active={textureType === "skin"}
+										onClick={() => {
+											setTextureType("skin");
+											setOffset(0);
+										}}
+									>
+										{t("wardrobe.type.skin")}
+									</LibraryTypeButton>
+									<LibraryTypeButton
+										active={textureType === "cape"}
+										onClick={() => {
+											setTextureType("cape");
+											setOffset(0);
+										}}
+									>
+										{t("wardrobe.type.cape")}
+									</LibraryTypeButton>
 								</div>
-							) : textures.length === 0 ? (
-								<div className="grid min-h-[24rem] place-items-center rounded-lg border border-dashed border-black/15 bg-white/45 px-4 text-center dark:border-white/15 dark:bg-white/[0.04]">
-									<div className="max-w-md">
-										<h2 className="text-lg font-semibold tracking-normal">
-											{t("library.emptyTitle")}
-										</h2>
-										<p className="mt-2 text-sm leading-6 text-muted-foreground">
-											{t("library.emptyDescription")}
-										</p>
+								<form
+									className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
+									onSubmit={submitSearch}
+								>
+									<div className="relative sm:w-80">
+										<Icon
+											name="MagnifyingGlass"
+											aria-hidden="true"
+											className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+										/>
+										<Input
+											value={query}
+											placeholder={t("library.searchPlaceholder")}
+											className="bg-white/82 pl-8 dark:bg-white/8"
+											onChange={(event) => setQuery(event.currentTarget.value)}
+										/>
+									</div>
+									<TextureTagFilterPopover
+										open={tagFilterOpen}
+										popoverRef={tagFilterPopoverRef}
+										searchMethod={tagSearchMethod}
+										selectedIds={draftTagIds}
+										selectedTags={selectedTags}
+										hasMore={hasMoreTags}
+										loading={tagLoading}
+										tags={tags}
+										testId="library-tag-filter-popover"
+										triggerRef={tagFilterTriggerRef}
+										onClear={clearTagFilter}
+										onLoadMore={loadMoreTags}
+										onOpenChange={setTagFilterOpen}
+										onSearchQueryChange={searchTags}
+										onSearchMethodChange={changeTagSearchMethod}
+										onSelectedIdsChange={setDraftTagIds}
+									/>
+									<Button type="submit" variant="outline" size="sm">
+										{t("library.searchAction")}
+									</Button>
+									<Button
+										type="button"
+										size="sm"
+										disabled={loading}
+										onClick={() => void loadTextures()}
+									>
+										{loading ? t("common.loading") : t("common.refresh")}
+									</Button>
+								</form>
+							</div>
+
+							<div className="min-h-[28rem] p-3">
+								{loading ? (
+									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+										{Array.from(
+											{ length: 8 },
+											(_, index) => `texture-library-skeleton-${index}`,
+										).map((key) => (
+											<Skeleton key={key} className="h-72 rounded-lg" />
+										))}
+									</div>
+								) : textures.length === 0 ? (
+									<div className="grid min-h-[24rem] place-items-center rounded-lg border border-dashed border-black/15 bg-white/45 px-4 text-center dark:border-white/15 dark:bg-white/[0.04]">
+										<div className="max-w-md">
+											<h2 className="text-lg font-semibold tracking-normal">
+												{t("library.emptyTitle")}
+											</h2>
+											<p className="mt-2 text-sm leading-6 text-muted-foreground">
+												{t("library.emptyDescription")}
+											</p>
+										</div>
+									</div>
+								) : (
+									<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+										{textures.map((texture) => (
+											<PublicTextureCard key={texture.id} texture={texture} />
+										))}
+									</div>
+								)}
+							</div>
+
+							{total > 0 ? (
+								<div className="flex flex-col gap-3 border-black/10 border-t bg-white/45 px-4 py-3 dark:border-white/10 dark:bg-white/[0.035] sm:flex-row sm:items-center sm:justify-between">
+									<div className="text-sm text-muted-foreground">
+										{t("admin.pagination.entriesPage", {
+											current: currentPage,
+											pages: totalPages,
+											total,
+										})}
+									</div>
+									<div className="flex flex-wrap items-center gap-2">
+										<label className="flex items-center gap-2 text-sm text-muted-foreground">
+											<span>{t("admin.pagination.pageSize")}</span>
+											<select
+												value={pageSize}
+												aria-label={t("admin.pagination.pageSize")}
+												className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+												onChange={(event) => {
+													setPageSize(Number(event.currentTarget.value));
+													setOffset(0);
+												}}
+											>
+												{LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
+													<option key={option} value={option}>
+														{t("admin.pagination.pageSizeOption", {
+															count: option,
+														})}
+													</option>
+												))}
+											</select>
+										</label>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={offset === 0}
+											onClick={() =>
+												setOffset((current) => Math.max(0, current - pageSize))
+											}
+										>
+											{t("admin.pagination.previous")}
+										</Button>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={offset + pageSize >= total}
+											onClick={() => setOffset((current) => current + pageSize)}
+										>
+											{t("admin.pagination.next")}
+										</Button>
 									</div>
 								</div>
-							) : (
-								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-									{textures.map((texture) => (
-										<PublicTextureCard key={texture.id} texture={texture} />
-									))}
-								</div>
-							)}
-						</div>
-
-						{total > 0 ? (
-							<div className="flex flex-col gap-3 border-black/10 border-t bg-white/45 px-4 py-3 dark:border-white/10 dark:bg-white/[0.035] sm:flex-row sm:items-center sm:justify-between">
-								<div className="text-sm text-muted-foreground">
-									{t("admin.pagination.entriesPage", {
-										current: currentPage,
-										pages: totalPages,
-										total,
-									})}
-								</div>
-								<div className="flex flex-wrap items-center gap-2">
-									<label className="flex items-center gap-2 text-sm text-muted-foreground">
-										<span>{t("admin.pagination.pageSize")}</span>
-										<select
-											value={pageSize}
-											aria-label={t("admin.pagination.pageSize")}
-											className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-											onChange={(event) => {
-												setPageSize(Number(event.currentTarget.value));
-												setOffset(0);
-											}}
-										>
-											{LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
-												<option key={option} value={option}>
-													{t("admin.pagination.pageSizeOption", {
-														count: option,
-													})}
-												</option>
-											))}
-										</select>
-									</label>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										disabled={offset === 0}
-										onClick={() =>
-											setOffset((current) => Math.max(0, current - pageSize))
-										}
-									>
-										{t("admin.pagination.previous")}
-									</Button>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										disabled={offset + pageSize >= total}
-										onClick={() => setOffset((current) => current + pageSize)}
-									>
-										{t("admin.pagination.next")}
-									</Button>
-								</div>
-							</div>
-						) : null}
-					</section>
+							) : null}
+						</section>
+					) : null}
 				</div>
 			</main>
 		</PublicEntryShell>
+	);
+}
+
+export function TextureLibraryDisabledPanel() {
+	const { t } = useTranslation();
+	return (
+		<section className="grid min-h-[22rem] place-items-center rounded-xl border border-black/10 bg-white/76 px-4 text-center shadow-2xl shadow-emerald-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07] dark:shadow-black/25">
+			<div className="max-w-md">
+				<div className="mx-auto flex size-11 items-center justify-center rounded-xl border border-emerald-700/16 bg-emerald-600/10 text-emerald-700 dark:border-emerald-300/18 dark:bg-emerald-400/12 dark:text-emerald-200">
+					<Icon name="Images" className="size-5" />
+				</div>
+				<h1 className="mt-4 text-xl font-semibold tracking-normal">
+					{t("library.disabledTitle")}
+				</h1>
+				<p className="mt-2 text-sm leading-6 text-muted-foreground">
+					{t("library.disabledDescription")}
+				</p>
+				<Link
+					to={publicPaths.home}
+					className={cn(buttonVariants({ variant: "outline" }), "mt-5")}
+				>
+					{t("errorPage.backHome")}
+				</Link>
+			</div>
+		</section>
 	);
 }
 
@@ -464,22 +505,7 @@ function PublicTextureCard({
 						</span>
 						<span>{formatBytes(texture.file_size)}</span>
 					</div>
-					{texture.tags.length > 0 ? (
-						<div className="flex flex-wrap gap-1">
-							{texture.tags.map((tag) => (
-								<span
-									key={tag.id}
-									className="rounded-md border px-1.5 py-0.5 text-[0.6875rem] font-medium"
-									style={{
-										borderColor: `${tag.color}55`,
-										color: tag.color,
-									}}
-								>
-									{tag.name}
-								</span>
-							))}
-						</div>
-					) : null}
+					<TextureTagChips tags={texture.tags} />
 				</div>
 			</div>
 		</Link>
@@ -491,38 +517,13 @@ function PublicTextureCardAvatar({
 }: {
 	texture: PublicTextureLibraryTextureMetadata;
 }) {
-	const { t } = useTranslation();
-
-	if (texture.texture_type === "skin") {
-		return (
-			<MinecraftSkinAvatar
-				name={texture.name}
-				skinUrl={texture.url}
-				className="size-12 rounded-lg"
-				testId={`public-texture-card-avatar-${texture.id}`}
-				imageTestId={`public-texture-card-avatar-image-${texture.id}`}
-			/>
-		);
-	}
-
 	return (
-		<span
-			aria-hidden="true"
-			className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-background/70 p-2 shadow-xs dark:bg-white/7"
-			data-testid={`public-texture-card-avatar-${texture.id}`}
-			title={texture.name}
-		>
-			<img
-				src={texture.url}
-				alt={t("library.texturePreviewAlt", {
-					type: t(`wardrobe.type.${texture.texture_type}`),
-				})}
-				crossOrigin="anonymous"
-				draggable={false}
-				className="max-h-full max-w-full object-contain [image-rendering:pixelated]"
-				data-testid={`public-texture-card-avatar-image-${texture.id}`}
-			/>
-		</span>
+		<TextureLibraryTextureAvatar
+			texture={texture}
+			className="size-12 rounded-lg bg-background/70"
+			testId={`public-texture-card-avatar-${texture.id}`}
+			imageTestId={`public-texture-card-avatar-image-${texture.id}`}
+		/>
 	);
 }
 
@@ -537,24 +538,32 @@ export function PublicTextureDetail({
 
 	return (
 		<div className="grid gap-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
-			<MinecraftPreviewPanel
-				label={t("wardrobe.previewTitle")}
-				playerName={texture.name}
-				skinUrl={skinUrl}
-				capeUrl={capeUrl}
-				compactHeader
-				model={texture.texture_model}
-				emptyTitle={t("wardrobe.previewEmptyTitle")}
-				emptyDescription={t("wardrobe.previewEmptyDescription")}
-				failedTitle={t("profiles.previewFailedTitle")}
-				failedDescription={t("profiles.previewFailedDescription")}
-				noSkinLabel={t("profiles.noSkinTexture")}
-				idleLabel={t("profiles.motionIdle")}
-				walkLabel={t("profiles.motionWalk")}
-				frameClassName="h-72 sm:h-80"
-				skeletonClassName="h-[23rem]"
-				containerClassName="min-w-0"
-			/>
+			<div
+				data-testid="public-texture-detail-preview"
+				data-cape-url={capeUrl ?? ""}
+				data-model={texture.texture_model}
+				data-player-name={texture.name}
+				data-skin-url={skinUrl ?? ""}
+			>
+				<MinecraftPreviewPanel
+					label={t("wardrobe.previewTitle")}
+					playerName={texture.name}
+					skinUrl={skinUrl}
+					capeUrl={capeUrl}
+					compactHeader
+					model={texture.texture_model}
+					emptyTitle={t("wardrobe.previewEmptyTitle")}
+					emptyDescription={t("wardrobe.previewEmptyDescription")}
+					failedTitle={t("profiles.previewFailedTitle")}
+					failedDescription={t("profiles.previewFailedDescription")}
+					noSkinLabel={t("profiles.noSkinTexture")}
+					idleLabel={t("profiles.motionIdle")}
+					walkLabel={t("profiles.motionWalk")}
+					frameClassName="h-72 sm:h-80"
+					skeletonClassName="h-[23rem]"
+					containerClassName="min-w-0"
+				/>
+			</div>
 			<div className="grid content-start gap-3">
 				<DetailRow label={t("library.textureName")} value={texture.name} />
 				<DetailRow
@@ -593,20 +602,7 @@ export function PublicTextureDetail({
 						{t("library.tags")}
 					</div>
 					{texture.tags.length > 0 ? (
-						<div className="flex flex-wrap gap-1">
-							{texture.tags.map((tag) => (
-								<span
-									key={tag.id}
-									className="rounded-md border px-1.5 py-0.5 text-[0.6875rem] font-medium"
-									style={{
-										borderColor: `${tag.color}55`,
-										color: tag.color,
-									}}
-								>
-									{tag.name}
-								</span>
-							))}
-						</div>
+						<TextureTagChips tags={texture.tags} />
 					) : (
 						<div className="text-sm text-muted-foreground">
 							{t("library.noTags")}
@@ -803,16 +799,4 @@ export function formatTextureKind(
 			? t("profiles.slimModel")
 			: t("profiles.defaultModel")
 	}`;
-}
-
-export function formatBytes(bytes: number) {
-	if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-	const units = ["B", "KiB", "MiB", "GiB"] as const;
-	let value = bytes;
-	let index = 0;
-	while (value >= 1024 && index < units.length - 1) {
-		value /= 1024;
-		index += 1;
-	}
-	return `${value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[index]}`;
 }

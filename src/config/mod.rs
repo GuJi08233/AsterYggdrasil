@@ -16,6 +16,7 @@ mod runtime_config;
 mod schema;
 pub mod site_url;
 pub mod system_config;
+pub mod texture_library;
 pub mod texture_preview;
 pub mod yggdrasil;
 
@@ -43,6 +44,10 @@ pub fn init_config() -> crate::errors::Result<Arc<Config>> {
     Ok(cfg)
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "route registration is only reached after init_config() succeeds during process startup"
+)]
 pub fn get_config() -> Arc<Config> {
     CONFIG
         .get()

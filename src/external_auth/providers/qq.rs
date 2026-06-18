@@ -144,15 +144,15 @@ impl ExternalAuthProviderDriver for QqProviderDriver {
         let authorization_url = provider
             .authorization_url
             .as_deref()
-            .expect("QQ authorization URL should be set");
+            .ok_or_else(|| AsterError::validation_error("QQ authorization URL is missing"))?;
         let token_url = provider
             .token_url
             .as_deref()
-            .expect("QQ token URL should be set");
+            .ok_or_else(|| AsterError::validation_error("QQ token URL is missing"))?;
         let userinfo_url = provider
             .userinfo_url
             .as_deref()
-            .expect("QQ userinfo URL should be set");
+            .ok_or_else(|| AsterError::validation_error("QQ userinfo URL is missing"))?;
         validate_url(
             authorization_url,
             "authorization_url",

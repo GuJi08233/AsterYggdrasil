@@ -1,4 +1,4 @@
-use crate::config::{auth_runtime, branding, site_url, yggdrasil};
+use crate::config::{auth_runtime, branding, site_url, texture_library, yggdrasil};
 use crate::runtime::{RuntimeConfigRuntimeState, SharedRuntimeState};
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -44,11 +44,19 @@ pub struct PublicYggdrasilConfig {
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct PublicTextureLibraryConfig {
+    pub enabled: bool,
+    pub review_required: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct PublicFrontendConfig {
     pub version: i32,
     pub branding: PublicBranding,
     pub captcha: PublicCaptchaConfig,
     pub yggdrasil: PublicYggdrasilConfig,
+    pub texture_library: PublicTextureLibraryConfig,
 }
 
 pub fn get_public_branding(state: &impl RuntimeConfigRuntimeState) -> PublicBranding {
@@ -93,11 +101,23 @@ pub fn get_public_yggdrasil_config(
     }
 }
 
+pub fn get_public_texture_library_config(
+    state: &impl RuntimeConfigRuntimeState,
+) -> PublicTextureLibraryConfig {
+    let policy =
+        texture_library::RuntimeTextureLibraryPolicy::from_runtime_config(state.runtime_config());
+    PublicTextureLibraryConfig {
+        enabled: policy.enabled,
+        review_required: policy.review_required,
+    }
+}
+
 pub fn get_public_frontend_config(state: &impl SharedRuntimeState) -> PublicFrontendConfig {
     PublicFrontendConfig {
         version: 1,
         branding: get_public_branding(state),
         captcha: get_public_captcha_config(state),
         yggdrasil: get_public_yggdrasil_config(state),
+        texture_library: get_public_texture_library_config(state),
     }
 }

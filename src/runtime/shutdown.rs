@@ -1,32 +1,37 @@
 //! Graceful shutdown helpers.
 
 use crate::db::DbHandles;
+use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::runtime::tasks::BackgroundTasks;
 
-pub async fn wait_for_signal() {
-    wait_for_termination_signal().await;
+pub async fn wait_for_signal() -> Result<()> {
+    wait_for_termination_signal().await
 }
 
 #[cfg(unix)]
-async fn wait_for_termination_signal() {
+async fn wait_for_termination_signal() -> Result<()> {
     use tokio::signal::unix::{SignalKind, signal};
 
-    let mut sigint = signal(SignalKind::interrupt()).expect("failed to install SIGINT handler");
-    let mut sigterm = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+    let mut sigint = signal(SignalKind::interrupt())
+        .map_aster_err_ctx("install SIGINT handler", AsterError::internal_error)?;
+    let mut sigterm = signal(SignalKind::terminate())
+        .map_aster_err_ctx("install SIGTERM handler", AsterError::internal_error)?;
 
     tokio::select! {
         _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully..."),
         _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully..."),
     }
+    Ok(())
 }
 
 #[cfg(not(unix))]
-async fn wait_for_termination_signal() {
+async fn wait_for_termination_signal() -> Result<()> {
     tokio::signal::ctrl_c()
         .await
-        .expect("failed to install Ctrl+C handler");
+        .map_aster_err_ctx("install Ctrl+C handler", AsterError::internal_error)?;
     tracing::info!("received Ctrl+C, shutting down gracefully...");
+    Ok(())
 }
 
 pub async fn perform_shutdown(background_tasks: BackgroundTasks, db_handles: DbHandles) {

@@ -26,6 +26,8 @@ const yggdrasilServiceMock = vi.hoisted(() => ({
 	listProfiles: vi.fn(),
 	listWardrobeTextures: vi.fn(),
 	replaceWardrobeTextureTags: vi.fn(),
+	submitTextureLibraryReview: vi.fn(),
+	withdrawTextureLibrarySubmission: vi.fn(),
 	updateWardrobeTexture: vi.fn(),
 	uploadWardrobeTexture: vi.fn(),
 }));
@@ -220,6 +222,20 @@ describe("TextureWardrobePage", () => {
 				id: 7,
 				name: "Edited Skin",
 				tags: [textureTags()[0]],
+				visibility: "public",
+			}),
+		);
+		yggdrasilServiceMock.submitTextureLibraryReview.mockResolvedValue(
+			texture({
+				id: 7,
+				library_status: "pending_review",
+				visibility: "public",
+			}),
+		);
+		yggdrasilServiceMock.withdrawTextureLibrarySubmission.mockResolvedValue(
+			texture({
+				id: 7,
+				library_status: "private",
 				visibility: "public",
 			}),
 		);
@@ -537,9 +553,12 @@ describe("TextureWardrobePage", () => {
 			});
 		});
 		await waitFor(() => {
+			expect(within(dialog).getByText("Featured")).toBeInTheDocument();
+			expect(within(dialog).queryByText("Rare Nether")).not.toBeInTheDocument();
+			expect(within(dialog).queryByText("Classic 1")).not.toBeInTheDocument();
 			expect(
-				within(dialog).getByText("wardrobe.noTagSearchResults"),
-			).toBeInTheDocument();
+				within(dialog).queryByText("wardrobe.noTagSearchResults"),
+			).not.toBeInTheDocument();
 		});
 	});
 
@@ -790,6 +809,70 @@ describe("TextureWardrobePage", () => {
 		).toBeInTheDocument();
 		expect(screen.queryByText("Edited Skin")).not.toBeInTheDocument();
 		expect(screen.getAllByText("skin-texture-has").length).toBeGreaterThan(0);
+	});
+
+	it("submits a public wardrobe texture for library review and updates progress", async () => {
+		yggdrasilServiceMock.listWardrobeTextures.mockResolvedValue(
+			wardrobePage([
+				texture({
+					library_status: "private",
+					visibility: "public",
+				}),
+			]),
+		);
+		await renderPage();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "wardrobe.librarySubmitReviewAction",
+			}),
+		);
+
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.submitTextureLibraryReview,
+			).toHaveBeenCalledWith(7);
+		});
+		await waitFor(() => {
+			expect(
+				screen.getAllByText("wardrobe.libraryStatus.pending_review").length,
+			).toBeGreaterThan(0);
+		});
+		expect(toastMock.success).toHaveBeenCalledWith(
+			"wardrobe.librarySubmitSuccessPending",
+		);
+	});
+
+	it("withdraws a pending texture library submission from the wardrobe", async () => {
+		yggdrasilServiceMock.listWardrobeTextures.mockResolvedValue(
+			wardrobePage([
+				texture({
+					library_status: "pending_review",
+					visibility: "public",
+				}),
+			]),
+		);
+		await renderPage();
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "wardrobe.libraryWithdrawAction",
+			}),
+		);
+
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.withdrawTextureLibrarySubmission,
+			).toHaveBeenCalledWith(7);
+		});
+		await waitFor(() => {
+			expect(
+				screen.getAllByText("wardrobe.libraryStatus.private").length,
+			).toBeGreaterThan(0);
+		});
+		expect(toastMock.success).toHaveBeenCalledWith(
+			"wardrobe.libraryWithdrawSuccess",
+		);
 	});
 
 	it("lets users choose 10 or 20 textures per page", async () => {

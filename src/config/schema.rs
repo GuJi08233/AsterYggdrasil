@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
 
+use crate::utils::numbers::{non_zero_u32, non_zero_u64};
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Config {
     #[serde(default)]
@@ -336,26 +338,26 @@ impl RateLimitConfig {
     }
     fn default_auth() -> RateLimitTier {
         RateLimitTier {
-            seconds_per_request: NonZeroU64::new(2).expect("rate limit default must be non-zero"),
-            burst_size: NonZeroU32::new(5).expect("rate limit default must be non-zero"),
+            seconds_per_request: non_zero_u64(2),
+            burst_size: non_zero_u32(5),
         }
     }
     fn default_public() -> RateLimitTier {
         RateLimitTier {
-            seconds_per_request: NonZeroU64::new(1).expect("rate limit default must be non-zero"),
-            burst_size: NonZeroU32::new(30).expect("rate limit default must be non-zero"),
+            seconds_per_request: non_zero_u64(1),
+            burst_size: non_zero_u32(30),
         }
     }
     fn default_api() -> RateLimitTier {
         RateLimitTier {
-            seconds_per_request: NonZeroU64::new(1).expect("rate limit default must be non-zero"),
-            burst_size: NonZeroU32::new(120).expect("rate limit default must be non-zero"),
+            seconds_per_request: non_zero_u64(1),
+            burst_size: non_zero_u32(120),
         }
     }
     fn default_write() -> RateLimitTier {
         RateLimitTier {
-            seconds_per_request: NonZeroU64::new(2).expect("rate limit default must be non-zero"),
-            burst_size: NonZeroU32::new(10).expect("rate limit default must be non-zero"),
+            seconds_per_request: non_zero_u64(2),
+            burst_size: non_zero_u32(10),
         }
     }
 }
@@ -379,10 +381,10 @@ impl Default for RateLimitTier {
 
 impl RateLimitTier {
     fn default_seconds() -> NonZeroU64 {
-        NonZeroU64::new(1).expect("rate limit default must be non-zero")
+        non_zero_u64(1)
     }
     fn default_burst() -> NonZeroU32 {
-        NonZeroU32::new(60).expect("rate limit default must be non-zero")
+        non_zero_u32(60)
     }
 }
 

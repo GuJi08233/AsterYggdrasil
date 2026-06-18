@@ -33,6 +33,12 @@ pub struct Model {
     pub display_name: Option<String>,
     pub library_status: MinecraftTextureLibraryStatus,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_submitted_at: Option<DateTimeUtc>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_reviewed_at: Option<DateTimeUtc>,
+    pub library_reviewer_user_id: Option<i64>,
+    pub library_review_note: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
     pub created_at: DateTimeUtc,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
     pub updated_at: DateTimeUtc,

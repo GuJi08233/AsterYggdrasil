@@ -31,6 +31,21 @@ POST /api/v1/auth/setup
 
 第一个账号会成为管理员。之后管理员可以管理用户、运行时配置、Minecraft profiles、审计日志和后台任务。
 
+## 管理员和 operator
+
+`admin` 拥有全部管理权限。`operator` 是分权管理角色，只能访问授予的 scope。当前 scope 包括：
+
+- `overview`
+- `users`
+- `profiles`
+- `texture_library`
+- `audit`
+- `tasks`
+- `settings`
+- `external_auth`
+
+创建或更新用户时可以设置角色和 operator scopes。没有对应 scope 的 operator 不能访问相关管理 API，也不会在前端看到对应管理入口。
+
 ## 管用户和 profile
 
 用户是站点登录身份，Minecraft profile 是进服身份。一个用户可以拥有多个 profile。
@@ -68,6 +83,41 @@ DELETE /api/v1/admin/minecraft-textures/{hash}
 
 删除会走服务层引用计数。不要直接删 storage 文件，否则一致性检查会报告 missing object。
 
+## 管公共材质库
+
+公共材质库是 wardrobe 之上的发布层。用户先把材质上传到自己的 wardrobe，再把材质设置为公开并提交到公共库。
+
+管理员后台目前分成几类页面：
+
+- 全部材质：查看用户上传到系统的材质，按公开库状态、可见性、是否发布等条件筛选。
+- 审核队列：处理用户提交的待审核材质。
+- 举报队列：处理登录用户对已发布公共材质的举报。
+- 标签管理：维护公共材质库标签。
+
+管理员 API：
+
+```text
+GET  /api/v1/admin/texture-library/textures
+GET  /api/v1/admin/texture-library/textures/{texture_id}
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+
+GET  /api/v1/admin/texture-library/reports
+GET  /api/v1/admin/texture-library/reports/{report_id}
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+
+GET    /api/v1/admin/texture-library/tags
+POST   /api/v1/admin/texture-library/tags
+PATCH  /api/v1/admin/texture-library/tags/{tag_id}
+DELETE /api/v1/admin/texture-library/tags/{tag_id}
+```
+
+审核通过会把材质设为 `published`。审核打回会把材质设为 `rejected`，并把审核意见展示给材质所有者。下架会把已发布材质移出公共库，用户 wardrobe 中仍保留该材质，并能看到下架说明。
+
+举报成立会下架对应材质；举报驳回不会改变材质发布状态。如果管理员直接下架一个已发布材质，系统会把该材质尚未处理的 pending 举报同步标记为成立，避免举报队列残留过期记录。
+
 ## 管配置
 
 运行时配置通过 Admin Config API 修改：
@@ -85,6 +135,9 @@ POST   /api/v1/admin/config/{key}/action
 - `public_site_url`
 - `yggdrasil_public_base_url`
 - `yggdrasil_skin_domains`
+- `texture_library_enabled`
+- `texture_library_review_required`
+- `auth_captcha_enabled`
 - `yggdrasil_allow_skin_upload`
 - `yggdrasil_allow_cape_upload`
 - `yggdrasil_token_ttl_days`
@@ -113,4 +166,4 @@ POST /api/v1/admin/tasks/{id}/retry
 - `yggdrasil-texture-cleanup`
 - `yggdrasil-storage-consistency-check`
 
-如果一致性检查失败，先确认数据库和材质目录是否被人工改动或只恢复了一半备份。
+如果一致性检查失败，先确认数据库和 object storage 是否被人工改动或只恢复了一半备份。

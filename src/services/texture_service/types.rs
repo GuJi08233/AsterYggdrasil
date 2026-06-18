@@ -3,9 +3,10 @@ use tokio_util::io::ReaderStream;
 
 use crate::db::repository::minecraft_profile_texture_repo;
 use crate::entities::{minecraft_profile, minecraft_texture};
+use crate::services::profile_service::AvatarInfo;
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
-    MinecraftTextureVisibility,
+    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
+    MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -32,6 +33,9 @@ pub struct StoredWardrobeTexture {
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
 pub struct MinecraftTextureMetadata {
     pub id: i64,
+    pub texture_id: i64,
+    pub name: String,
+    pub display_name: Option<String>,
     pub profile_id: i64,
     pub profile_uuid: String,
     pub profile_name: String,
@@ -63,6 +67,11 @@ pub struct MinecraftWardrobeTextureMetadata {
     pub texture_model: MinecraftTextureModel,
     pub visibility: MinecraftTextureVisibility,
     pub library_status: MinecraftTextureLibraryStatus,
+    pub library_review_note: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_submitted_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_reviewed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub tags: Vec<MinecraftTextureTagInfo>,
     pub width: i32,
     pub height: i32,
@@ -79,8 +88,11 @@ pub struct MinecraftWardrobeTextureMetadata {
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
 pub struct MinecraftTextureUploaderInfo {
+    pub id: i64,
+    pub username: String,
     pub public_uuid: String,
     pub name: String,
+    pub avatar: AvatarInfo,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -94,6 +106,11 @@ pub struct PublicTextureLibraryTextureMetadata {
     pub texture_model: MinecraftTextureModel,
     pub visibility: MinecraftTextureVisibility,
     pub library_status: MinecraftTextureLibraryStatus,
+    pub library_review_note: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_submitted_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub library_reviewed_at: Option<chrono::DateTime<chrono::Utc>>,
     pub tags: Vec<MinecraftTextureTagInfo>,
     pub uploader: Option<MinecraftTextureUploaderInfo>,
     pub width: i32,
@@ -102,6 +119,33 @@ pub struct PublicTextureLibraryTextureMetadata {
     pub mime_type: String,
     pub url: String,
     pub preview_url: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
+pub struct TextureReportUserInfo {
+    pub public_uuid: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
+pub struct TextureReportInfo {
+    pub id: i64,
+    pub texture_id: i64,
+    pub reason: MinecraftTextureReportReason,
+    pub message: Option<String>,
+    pub status: MinecraftTextureReportStatus,
+    pub admin_note: Option<String>,
+    pub texture: Option<PublicTextureLibraryTextureMetadata>,
+    pub reporter: Option<TextureReportUserInfo>,
+    pub handler: Option<TextureReportUserInfo>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub handled_at: Option<chrono::DateTime<chrono::Utc>>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]

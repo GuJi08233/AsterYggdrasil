@@ -5,6 +5,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminTextureLibraryPage, {
 	tagColorForName,
@@ -79,7 +80,11 @@ function tagPage(items = [tag()]) {
 }
 
 async function renderPage() {
-	render(<AdminTextureLibraryPage />);
+	render(
+		<MemoryRouter>
+			<AdminTextureLibraryPage />
+		</MemoryRouter>,
+	);
 	await screen.findByText("Featured");
 }
 
@@ -112,6 +117,26 @@ describe("AdminTextureLibraryPage", () => {
 			limit: 20,
 			offset: 0,
 		});
+		expect(
+			screen.getByRole("link", {
+				name: /admin.textureLibraryTexturesPage.allTextures/,
+			}),
+		).toHaveAttribute("href", "/admin/texture-library");
+		expect(
+			screen.getByRole("link", {
+				name: /admin.textureLibraryTexturesPage.reviewQueue/,
+			}),
+		).toHaveAttribute("href", "/admin/texture-library/reviews");
+		expect(
+			screen.getByRole("link", {
+				name: /admin.textureLibraryReportsPage.reports/,
+			}),
+		).toHaveAttribute("href", "/admin/texture-library/reports");
+		expect(
+			screen.getByRole("link", {
+				name: /admin.textureLibraryTexturesPage.tags/,
+			}),
+		).toHaveAttribute("href", "/admin/texture-library/tags");
 		expect(screen.getByText("Featured")).toBeInTheDocument();
 		expect(screen.getByText("#228855")).toBeInTheDocument();
 	});

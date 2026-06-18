@@ -60,18 +60,23 @@ pub struct MemoryMailSender {
 
 impl MemoryMailSender {
     pub fn messages(&self) -> Vec<MailMessage> {
-        self.outbox
-            .lock()
-            .expect("memory mail sender poisoned")
-            .clone()
+        match self.outbox.lock() {
+            Ok(outbox) => outbox.clone(),
+            Err(error) => {
+                tracing::error!(%error, "memory mail sender lock poisoned");
+                Vec::new()
+            }
+        }
     }
 
     pub fn last_message(&self) -> Option<MailMessage> {
-        self.outbox
-            .lock()
-            .expect("memory mail sender poisoned")
-            .last()
-            .cloned()
+        match self.outbox.lock() {
+            Ok(outbox) => outbox.last().cloned(),
+            Err(error) => {
+                tracing::error!(%error, "memory mail sender lock poisoned");
+                None
+            }
+        }
     }
 }
 
@@ -80,7 +85,9 @@ impl MailSender for MemoryMailSender {
     async fn send(&self, message: MailMessage) -> Result<()> {
         self.outbox
             .lock()
-            .expect("memory mail sender poisoned")
+            .map_err(|error| {
+                AsterError::internal_error(format!("memory mail sender poisoned: {error}"))
+            })?
             .push(message);
         Ok(())
     }

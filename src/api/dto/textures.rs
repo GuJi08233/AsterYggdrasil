@@ -5,7 +5,7 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
 
-use crate::types::{MinecraftTextureVisibility, NullablePatch};
+use crate::types::{MinecraftTextureReportReason, MinecraftTextureVisibility, NullablePatch};
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -68,4 +68,28 @@ pub struct UpdateMinecraftTextureTagReq {
     #[validate(length(min = 4, max = 16, message = "tag color must be 4-16 characters"))]
     pub color: Option<String>,
     pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct ReviewTextureLibraryTextureReq {
+    #[validate(length(max = 512, message = "review note must not exceed 512 characters"))]
+    pub review_note: Option<String>,
+    #[validate(length(max = 16, message = "tag_ids must not contain more than 16 items"))]
+    pub tag_ids: Option<Vec<i64>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct CreateTextureReportReq {
+    pub reason: MinecraftTextureReportReason,
+    #[validate(length(max = 1000, message = "report message must not exceed 1000 characters"))]
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct HandleTextureReportReq {
+    #[validate(length(max = 512, message = "admin note must not exceed 512 characters"))]
+    pub admin_note: Option<String>,
 }

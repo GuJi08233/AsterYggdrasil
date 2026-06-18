@@ -29,6 +29,7 @@ pub use auth::{
 pub use external_auth::{ExternalAuthCallbackQuery, StartExternalAuthReq};
 pub use textures::{
     BindMinecraftTextureReq, CopyPublicTextureReq, CreateMinecraftTextureTagReq,
-    ReplaceWardrobeTextureTagsReq, UpdateMinecraftTextureTagReq, UpdateWardrobeTextureReq,
+    CreateTextureReportReq, HandleTextureReportReq, ReplaceWardrobeTextureTagsReq,
+    ReviewTextureLibraryTextureReq, UpdateMinecraftTextureTagReq, UpdateWardrobeTextureReq,
 };
 pub(crate) use validation::validate_request;

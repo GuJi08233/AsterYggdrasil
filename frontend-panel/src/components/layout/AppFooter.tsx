@@ -24,9 +24,15 @@ function scrollToPageTop() {
 export function AppFooter() {
 	const { t } = useTranslation();
 	const branding = useFrontendConfigStore((state) => state.branding);
+	const textureLibraryEnabled = useFrontendConfigStore(
+		(state) => state.textureLibrary.enabled,
+	);
 	const title = branding.title || t("brand.name");
 	const description = branding.description || t("footer.description");
 	const year = new Date().getFullYear();
+	const visibleFooterLinks = footerLinks.filter(
+		(link) => link.id !== "texture-library" || textureLibraryEnabled,
+	);
 
 	return (
 		<footer className="min-w-0 overflow-x-clip border-black/10 border-t bg-white/72 text-slate-700 backdrop-blur-xl dark:border-white/10 dark:bg-[#050b09] dark:text-slate-300">
@@ -60,7 +66,7 @@ export function AppFooter() {
 						{t("footer.navigation")}
 					</div>
 					<div className="grid gap-2">
-						{footerLinks.map((link) => (
+						{visibleFooterLinks.map((link) => (
 							<Link
 								key={link.id}
 								to={link.to}

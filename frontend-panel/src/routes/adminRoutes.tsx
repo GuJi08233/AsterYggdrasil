@@ -25,6 +25,12 @@ const AdminExternalAuthPage = lazyWithPreload(
 const AdminTextureLibraryPage = lazyWithPreload(
 	() => import("@/pages/admin/AdminTextureLibraryPage"),
 );
+const AdminTextureLibraryTexturesPage = lazyWithPreload(
+	() => import("@/pages/admin/AdminTextureLibraryTexturesPage"),
+);
+const AdminTextureLibraryReportsPage = lazyWithPreload(
+	() => import("@/pages/admin/AdminTextureLibraryReportsPage"),
+);
 const AdminUsersPage = lazyWithPreload(
 	() => import("@/pages/admin/AdminUsersPage"),
 );
@@ -75,6 +81,22 @@ export const adminRoutes = [
 					},
 					{
 						path: adminPaths.textureLibrary,
+						element: <AdminTextureLibraryTexturesPage mode="all" />,
+					},
+					{
+						path: adminPaths.textureLibraryDetail,
+						element: <AdminTextureLibraryTexturesPage mode="detail" />,
+					},
+					{
+						path: adminPaths.textureLibraryReviews,
+						element: <AdminTextureLibraryTexturesPage mode="reviews" />,
+					},
+					{
+						path: adminPaths.textureLibraryReports,
+						element: <AdminTextureLibraryReportsPage />,
+					},
+					{
+						path: adminPaths.textureLibraryTags,
 						element: <AdminTextureLibraryPage />,
 					},
 					{
@@ -83,6 +105,10 @@ export const adminRoutes = [
 					},
 					{
 						path: adminPaths.settings,
+						element: <AdminSettingsPage />,
+					},
+					{
+						path: adminPaths.settingsCategory,
 						element: <AdminSettingsPage />,
 					},
 					{

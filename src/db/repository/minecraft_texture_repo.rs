@@ -37,10 +37,30 @@ pub struct WardrobeTextureListFilter {
     pub keyword: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct AdminTextureLibraryListFilter {
+    pub texture_type: Option<MinecraftTextureType>,
+    pub visibility: Option<MinecraftTextureVisibility>,
+    pub library_status: Option<MinecraftTextureLibraryStatus>,
+    pub published: Option<bool>,
+    pub tag_ids: Vec<i64>,
+    pub tag_search_method: TextureTagSearchMethod,
+    pub keyword: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct UpdateWardrobeTextureMetadata {
     pub display_name: Option<Option<String>>,
     pub visibility: Option<MinecraftTextureVisibility>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateTextureLibraryReview {
+    pub library_status: MinecraftTextureLibraryStatus,
+    pub library_submitted_at: Option<Option<DateTime<Utc>>>,
+    pub library_reviewed_at: Option<Option<DateTime<Utc>>>,
+    pub library_reviewer_user_id: Option<Option<i64>>,
+    pub library_review_note: Option<Option<String>>,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -104,6 +124,31 @@ pub async fn find_by_id_for_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
+pub async fn find_by_id<C: ConnectionTrait>(
+    db: &C,
+    id: i64,
+) -> Result<Option<minecraft_texture::Model>> {
+    MinecraftTexture::find_by_id(id)
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_ids<C: ConnectionTrait>(
+    db: &C,
+    ids: &[i64],
+) -> Result<Vec<minecraft_texture::Model>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    MinecraftTexture::find()
+        .filter(minecraft_texture::Column::Id.is_in(ids.iter().copied()))
+        .order_by_asc(minecraft_texture::Column::Id)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
 pub async fn find_public_wardrobe_by_id<C: ConnectionTrait>(
     db: &C,
     id: i64,
@@ -112,6 +157,9 @@ pub async fn find_public_wardrobe_by_id<C: ConnectionTrait>(
         .filter(minecraft_texture::Column::Id.eq(id))
         .filter(minecraft_texture::Column::IsWardrobeItem.eq(true))
         .filter(minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public))
+        .filter(
+            minecraft_texture::Column::LibraryStatus.eq(MinecraftTextureLibraryStatus::Published),
+        )
         .one(db)
         .await
         .map_aster_err(AsterError::database_operation)
@@ -186,13 +234,100 @@ pub async fn list_public_wardrobe_paginated<C: ConnectionTrait>(
     load_offset_page(limit, offset, 100, |limit, offset| async move {
         let mut query = MinecraftTexture::find()
             .filter(minecraft_texture::Column::IsWardrobeItem.eq(true))
-            .filter(minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public));
+            .filter(minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public))
+            .filter(
+                minecraft_texture::Column::LibraryStatus
+                    .eq(MinecraftTextureLibraryStatus::Published),
+            );
 
         if let Some(texture_type) = filter.texture_type {
             query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
         }
 
         query = apply_tag_filter(query, &filter);
+
+        if let Some(keyword) = filter
+            .keyword
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            query = query.filter(texture_keyword_condition(keyword));
+        }
+
+        let query = query
+            .order_by_desc(minecraft_texture::Column::UpdatedAt)
+            .order_by_desc(minecraft_texture::Column::Id);
+        let total = query
+            .clone()
+            .count(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        let items = query
+            .limit(limit)
+            .offset(offset)
+            .all(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+        Ok((items, total))
+    })
+    .await
+}
+
+pub async fn list_admin_library_textures_paginated<C: ConnectionTrait>(
+    db: &C,
+    limit: u64,
+    offset: u64,
+    filter: AdminTextureLibraryListFilter,
+) -> Result<OffsetPage<minecraft_texture::Model>> {
+    load_offset_page(limit, offset, 100, |limit, offset| async move {
+        let mut query =
+            MinecraftTexture::find().filter(minecraft_texture::Column::IsWardrobeItem.eq(true));
+
+        if let Some(texture_type) = filter.texture_type {
+            query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
+        }
+        if let Some(visibility) = filter.visibility {
+            query = query.filter(minecraft_texture::Column::Visibility.eq(visibility));
+        }
+        if let Some(library_status) = filter.library_status {
+            query = query.filter(minecraft_texture::Column::LibraryStatus.eq(library_status));
+        }
+        if let Some(published) = filter.published {
+            if published {
+                query = query
+                    .filter(
+                        minecraft_texture::Column::Visibility
+                            .eq(MinecraftTextureVisibility::Public),
+                    )
+                    .filter(
+                        minecraft_texture::Column::LibraryStatus
+                            .eq(MinecraftTextureLibraryStatus::Published),
+                    );
+            } else {
+                query = query.filter(
+                    Condition::any()
+                        .add(
+                            minecraft_texture::Column::Visibility
+                                .ne(MinecraftTextureVisibility::Public),
+                        )
+                        .add(
+                            minecraft_texture::Column::LibraryStatus
+                                .ne(MinecraftTextureLibraryStatus::Published),
+                        ),
+                );
+            }
+        }
+
+        query = apply_tag_filter(
+            query,
+            &WardrobeTextureListFilter {
+                texture_type: None,
+                tag_ids: filter.tag_ids,
+                tag_search_method: filter.tag_search_method,
+                keyword: None,
+            },
+        );
 
         if let Some(keyword) = filter
             .keyword
@@ -390,12 +525,46 @@ pub async fn update_wardrobe_metadata_for_user<C: ConnectionTrait>(
     }
     if let Some(visibility) = input.visibility {
         active.visibility = Set(visibility);
+        if visibility == MinecraftTextureVisibility::Private {
+            active.library_status = Set(MinecraftTextureLibraryStatus::Private);
+            active.library_submitted_at = Set(None);
+            active.library_reviewed_at = Set(None);
+            active.library_reviewer_user_id = Set(None);
+            active.library_review_note = Set(None);
+        }
     }
     active.updated_at = Set(now);
     active
         .update(db)
         .await
         .map(Some)
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn update_library_review<C: ConnectionTrait>(
+    db: &C,
+    texture: minecraft_texture::Model,
+    input: UpdateTextureLibraryReview,
+) -> Result<minecraft_texture::Model> {
+    let now = chrono::Utc::now();
+    let mut active: minecraft_texture::ActiveModel = texture.into();
+    active.library_status = Set(input.library_status);
+    if let Some(submitted_at) = input.library_submitted_at {
+        active.library_submitted_at = Set(submitted_at);
+    }
+    if let Some(reviewed_at) = input.library_reviewed_at {
+        active.library_reviewed_at = Set(reviewed_at);
+    }
+    if let Some(reviewer_user_id) = input.library_reviewer_user_id {
+        active.library_reviewer_user_id = Set(reviewer_user_id);
+    }
+    if let Some(review_note) = input.library_review_note {
+        active.library_review_note = Set(review_note);
+    }
+    active.updated_at = Set(now);
+    active
+        .update(db)
+        .await
         .map_aster_err(AsterError::database_operation)
 }
 

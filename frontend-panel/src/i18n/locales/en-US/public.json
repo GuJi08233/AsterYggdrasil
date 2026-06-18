@@ -43,54 +43,87 @@
 		"common": {
 			"contents": "Page contents",
 			"lastUpdatedLabel": "Last updated",
-			"lastUpdatedValue": "2026-06-18"
+			"lastUpdatedValue": "2026-06-19"
 		},
 		"tos": {
 			"pageTitle": "Terms of Service",
 			"badge": "Site rules",
 			"heading": "Terms of Service",
-			"lead": "By using this site account, Minecraft profiles, texture hosting, or Yggdrasil authentication endpoints, you accept these baseline rules.",
+			"lead": "By using this site account, Minecraft profiles, texture wardrobe, public texture library, or Yggdrasil authentication endpoints, you agree to these Terms of Service and any supplemental rules published by the site administrators.",
 			"sections": {
 				"scope": {
-					"title": "Service scope",
+					"title": "1. Service Scope and Status",
 					"body": {
-						"0": "This site provides a self-hosted Minecraft skin site, player profile management, and authlib-injector compatible Yggdrasil authentication.",
-						"1": "This site is not an official Mojang, Microsoft, or Minecraft service. Minecraft-related trademarks, game clients, and official accounts remain owned by their respective rights holders."
+						"0": "This site provides a self-hosted Minecraft skin site, account workbench, player profile management, texture upload and preview, public texture library, and authlib-injector compatible Yggdrasil authentication. The exact available features depend on the configuration enabled by this site's administrators.",
+						"1": "This site is not an official Mojang, Microsoft, or Minecraft service and does not replace the official account system. Minecraft names, trademarks, game clients, official skin services, and related assets remain owned by their respective rights holders."
 					}
 				},
 				"account": {
-					"title": "Accounts and profiles",
+					"title": "2. Accounts, Invitations, and Credentials",
 					"body": {
-						"0": "You should use login credentials that you control, and you are responsible for profile, launcher session, and texture actions made through your account.",
-						"1": "Do not impersonate others, bypass access controls, abuse registration, or use automated requests in a way that harms authentication service stability."
+						"0": "You should use an email address, username, password, passkey, external login identity, or invitation link that you control. You are responsible for player profiles, launcher sessions, texture uploads, reports, and administration actions made through your account.",
+						"1": "Do not impersonate others, steal accounts, share sensitive credentials, sell accounts, register in bulk, abuse invitations, bypass CAPTCHA or access controls, or use automated requests in a way that harms authentication, texture delivery, mail, or background task stability.",
+						"2": "Administrators may require password changes or email verification, revoke sessions, disable accounts, revoke invitations, adjust user roles, or restrict operator scopes according to the site's security policy."
+					}
+				},
+				"profiles": {
+					"title": "3. Minecraft Player Profiles",
+					"body": {
+						"0": "You may create, rename, or delete Minecraft player profiles under your account. Profile names, UUIDs, bound textures, and audit records are used for launcher login, server session verification, and public profile presentation.",
+						"1": "Profile names must not impersonate others, create confusion, violate community rules, or infringe third-party rights. Administrators may rename, freeze, or delete profiles for security, compliance, abuse handling, or dispute resolution; renames and deletion may invalidate related Yggdrasil tokens."
 					}
 				},
 				"textures": {
-					"title": "Texture content",
+					"title": "4. Texture Wardrobe and Uploaded Content",
 					"body": {
-						"0": "Skins, capes, or other textures you upload should be content you are allowed to use, and must not be illegal, infringing, harassing, hateful, or clearly harmful to the community experience.",
-						"1": "To let Minecraft clients and launchers read textures, texture URLs bound to public profiles may be publicly accessible and cached."
+						"0": "Skins, capes, avatars, or other image content you upload should be content you are allowed to use, and must satisfy this site's validation rules for file size, MIME type, PNG format, dimensions, model type, name, and tags.",
+						"1": "Do not upload content that is illegal, infringing, malicious, hateful, harassing, sexual, threatening, doxxing, misleadingly impersonating, or clearly harmful to the community experience.",
+						"2": "Textures may be private or public depending on your settings, bound profiles, public library status, and administrator actions. To let Minecraft clients, launchers, and servers read them correctly, bound or public texture URLs may be publicly accessible, previewed, cached, or copied."
+					}
+				},
+				"library": {
+					"title": "5. Public Texture Library, Review, and Reports",
+					"body": {
+						"0": "When you submit a texture to the public texture library, you allow this site to display that texture, its name, type, model, tags, hash, dimensions, uploader information, and previews, and to let other users copy it to their own wardrobe when the feature permits.",
+						"1": "Administrators may review, approve, reject, unpublish, reclassify, or adjust public texture library entries and tags according to site rules. Review notes, report reasons, handling results, and related actions may be stored in audit records.",
+						"2": "You may report violating public library content, but you must not report maliciously, harass repeatedly, fabricate evidence, or use the reporting workflow to attack other users. Administrators may accept or reject reports and retain handling records as needed."
 					}
 				},
 				"launcher": {
-					"title": "Launcher and protocol access",
+					"title": "6. Launcher and Yggdrasil Protocol Access",
 					"body": {
-						"0": "The Yggdrasil endpoints are provided for compatible launchers, servers, and authlib-injector workflows. Do not share access tokens, client tokens, or session information with others.",
-						"1": "Protocol compatibility may change with Minecraft, authlib-injector, or this site. Administrators may limit, pause, or invalidate sessions for security and maintenance reasons."
+						"0": "This site's Yggdrasil endpoints, authlib-injector add-server URI, texture signatures, sessionserver lookups, join/hasJoined checks, and launcher upload endpoints are provided only for compatible Minecraft launchers, clients, servers, and related tools.",
+						"1": "Do not disclose access tokens, client tokens, browser sessions, passkeys, or other authentication material to others. Do not forge requests, replay tokens, bypass rate limits, scan private endpoints, or interfere with other players' login flow.",
+						"2": "Protocol compatibility may change with Minecraft, authlib-injector, or this site. Administrators may limit, pause, refresh, or invalidate sessions for security, maintenance, key rotation, profile changes, or abuse handling."
+					}
+				},
+				"security": {
+					"title": "7. Security and Prohibited Conduct",
+					"body": {
+						"0": "Do not attempt unauthorized access, privilege escalation, injection, brute force, denial of service, CSRF/CORS/rate-limit bypass, malformed file abuse, cache poisoning, token theft, non-public data scraping, or audit trail tampering.",
+						"1": "If you discover a vulnerability, contact an administrator promptly without expanding impact, accessing unrelated data, or publishing exploit details. Administrators may temporarily restrict accounts, IPs, endpoints, or related features while investigating risk."
 					}
 				},
 				"operations": {
-					"title": "Operations and administration",
+					"title": "8. Operations, Administration, and Availability",
 					"body": {
-						"0": "Administrators may review account status, remove textures, rename profiles, or freeze profiles for security, abuse handling, compliance, or service maintenance.",
-						"1": "The service may be temporarily unavailable during upgrades, incidents, migrations, or security events. Administrators should reduce impact where practical, but uninterrupted service is not guaranteed."
+						"0": "Administrators and authorized operators may manage users, invitations, external login providers, runtime configuration, CAPTCHA, mail, signing keys, the texture library, reports, background tasks, system information, and audit records within their granted permissions.",
+						"1": "The service may be temporarily unavailable during upgrades, incidents, migrations, backups, third-party outages, configuration errors, or security events. Administrators should reduce impact where practical, but uninterrupted, error-free, or universal client compatibility is not guaranteed.",
+						"2": "To the extent permitted by law, the site is provided as is. Losses caused by your violation of these terms, use of untrusted clients, credential disclosure, prohibited uploads, or reliance on unstable interfaces are your responsibility."
 					}
 				},
 				"changes": {
-					"title": "Policy changes",
+					"title": "9. Changes to These Terms",
 					"body": {
-						"0": "Administrators may update these terms as features, deployment environments, or community rules change. Important changes should be announced in the site or community channel.",
-						"1": "If you do not agree with updated terms, stop using the site and contact an administrator about your account, profiles, or texture data."
+						"0": "Administrators may update these terms as features, deployment environments, community rules, security requirements, or legal requirements change. Material changes should be announced through the site interface, notices, or community channels.",
+						"1": "If you do not agree with updated terms, stop using the site and contact an administrator about your account, player profiles, textures, public library entries, or other related data."
+					}
+				},
+				"contact": {
+					"title": "10. Contact and Disputes",
+					"body": {
+						"0": "Questions about accounts, texture rights, report handling, data requests, or security issues should be directed to this site's administrators with enough information to locate the issue, such as account name, profile UUID, texture ID, report ID, or time of occurrence.",
+						"1": "These terms are site service rules and are not legal advice. If the administrators publish more specific community rules, server rules, or compliance notices, those rules should be read together with these terms."
 					}
 				}
 			}
@@ -99,48 +132,86 @@
 			"pageTitle": "Privacy Policy",
 			"badge": "Data notice",
 			"heading": "Privacy Policy",
-			"lead": "This page explains what data this site handles for account login, player profiles, texture hosting, and authentication protocol compatibility.",
+			"lead": "This policy explains what data this site handles for account login, Minecraft player profiles, texture hosting, the public texture library, report review, and Yggdrasil protocol compatibility.",
 			"sections": {
 				"collected": {
-					"title": "Data we process",
+					"title": "1. Data We Process",
 					"body": {
-						"0": "This site may store usernames, email addresses, password hashes, permission status, Minecraft profile names, UUIDs, texture files, texture hashes, login sessions, and security settings.",
-						"1": "The server may also record IP addresses, user agents, request times, admin actions, error logs, and audit events for security investigation and abuse handling."
+						"0": "This site may store usernames, email addresses, email verification status, password hashes, roles, operator scopes, avatars, language preferences, account status, invitation records, and security settings.",
+						"1": "This site may store Minecraft player profile names, UUIDs, profile ownership, skin and cape bindings, texture files, texture names, types, models, hashes, dimensions, MIME types, tags, visibility, public library status, review notes, report reasons, and report handling records.",
+						"2": "The server may also record IP addresses, user agents, request times, request paths, login sessions, necessary Yggdrasil token verification data, administration actions, error logs, background task state, mail delivery records, and audit events."
+					}
+				},
+				"auth": {
+					"title": "2. Authentication, Passkeys, and External Login",
+					"body": {
+						"0": "Browser login generally relies on secure cookies, CSRF tokens, and necessary local cache to maintain sessions, reduce repeated requests, and show recent user state. The site may also store session expiry time, device names, and token hashes.",
+						"1": "If you use passkeys or external login, this site stores the public credential identifiers, provider kind, external identity identifiers, link state, and last-use times needed to complete authentication. The site should not store raw biometric data or third-party account passwords."
+					}
+				},
+				"profilesTextures": {
+					"title": "3. Player Profile and Texture Data",
+					"body": {
+						"0": "Player profile and texture data is used so launchers, Minecraft clients, and servers can identify your character, read skins and capes, verify sessionserver responses, and display preview and management state in the workbench.",
+						"1": "Texture previews, avatar rendering, image validation, and public library display may produce derived images, cache entries, or statistics. Deletion, rename, or unpublishing actions may not immediately disappear from every client cache, browser cache, or reverse proxy cache."
 					}
 				},
 				"use": {
-					"title": "How data is used",
+					"title": "4. How Data Is Used",
 					"body": {
-						"0": "This data is used for login verification, launcher authentication, profile binding, texture delivery, permission control, notifications, security audit, and troubleshooting.",
-						"1": "Administrators should not use data for purposes unrelated to site identity, texture, and authentication services unless you have consented or the law requires it."
+						"0": "This data is used for account registration and login, invitation acceptance, password reset, email verification, passkey management, external login linking, launcher authentication, profile management, texture upload, texture delivery, public library review, report handling, permission control, notifications, security audit, and troubleshooting.",
+						"1": "Administrators should not use data for purposes unrelated to site identity, texture, authentication, community governance, and service operations unless you have consented, it is necessary to protect users or the service, or the law requires it."
 					}
 				},
 				"public": {
-					"title": "Publicly visible information",
+					"title": "5. Publicly Visible Information",
 					"body": {
-						"0": "Profile names, UUIDs, and bound skins or capes may appear through Yggdrasil responses, texture URLs, or public read endpoints for launchers, Minecraft clients, and servers.",
-						"1": "Do not upload texture content that you do not want other players, servers, or cache nodes to see."
+						"0": "Player profile names, UUIDs, and bound skins or capes may be visible through Yggdrasil metadata, sessionserver responses, texture URLs, public read endpoints, launchers, Minecraft clients, and servers.",
+						"1": "Approved public texture library entries may show texture names, types, models, tags, previews, uploader public identifiers, creation times, and update times, and may be copied by other users into their own wardrobe.",
+						"2": "Do not upload texture content that you do not want other players, servers, launchers, browser caches, CDNs, reverse proxies, or search and archive tools to see."
+					}
+				},
+				"logs": {
+					"title": "6. Logs, Audit, and Background Tasks",
+					"body": {
+						"0": "This site records security and operational events such as login, logout, token refresh, password change, passkey operations, external login linking, profile changes, texture upload/bind/delete, public library submission/review/unpublishing, report submission/handling, configuration changes, mail delivery, and task retries.",
+						"1": "Audit records may include the actor, target object, time, action type, result, short details, and presentation metadata. Administrators use these records to troubleshoot issues, handle abuse, trace permissioned actions, and satisfy necessary compliance requirements."
 					}
 				},
 				"security": {
-					"title": "Security protection",
+					"title": "7. Security Protection",
 					"body": {
-						"0": "Passwords and sensitive tokens should be stored only as hashes or encrypted required values. Plain credentials should not be written to logs, audit records, or error messages.",
-						"1": "If you suspect your account, tokens, or email address have been compromised, change your password, sign out other sessions, and contact a site administrator."
+						"0": "Passwords, Yggdrasil tokens, session secrets, client tokens, signing private keys, and other sensitive material should be stored only as hashes, encrypted values, or the minimum form required to run the service. Plain credentials should not be written to logs, audit records, or error messages.",
+						"1": "If you suspect your account, tokens, email address, passkey, or external login identity have been compromised, change your password, revoke other sessions, delete suspicious passkeys or external links, and contact a site administrator."
 					}
 				},
 				"sharing": {
-					"title": "Data sharing",
+					"title": "8. Data Sharing and Third-Party Processing",
 					"body": {
-						"0": "This site does not actively sell your personal data. Databases, object storage, cache services, mail services, or reverse proxies required to run the service may process necessary data.",
-						"1": "When required for law, abuse handling, security incidents, or community governance, administrators may inspect or export relevant logs and account records."
+						"0": "This site does not actively sell your personal data. Databases, object storage, cache services, mail services, CAPTCHA components, reverse proxies, logging systems, backup systems, or hosting environments required to run the service may process necessary data.",
+						"1": "If you use external login, the relevant provider may process your login request, identity identifier, callback address, and authorization state under its own policies. This site only controls the data it stores and processes.",
+						"2": "When required for law, security incidents, abuse handling, rights complaints, community governance, or service migration, administrators may inspect, export, or provide relevant logs, account records, texture records, and report records."
 					}
 				},
 				"retention": {
-					"title": "Retention and deletion",
+					"title": "9. Retention and Deletion",
 					"body": {
-						"0": "Accounts, profiles, textures, audit records, and logs are retained according to site configuration and administrator policy. Some security logs may remain for a period after account or profile deletion.",
-						"1": "You may contact an administrator to request export, correction, or deletion of data related to your account. The practical scope depends on site capabilities, security requirements, and applicable rules."
+						"0": "Accounts, player profiles, textures, public library entries, reports, audit records, mail records, and logs are retained according to site configuration, backup cycles, administrator policy, and applicable rules. Some security logs, audit records, backups, and caches may remain for a period after account, profile, or texture deletion.",
+						"1": "Because texture URLs, public library content, and Yggdrasil responses may be cached by clients, servers, browsers, or proxies, deletion or unpublishing does not guarantee that data already delivered to external environments becomes unavailable immediately."
+					}
+				},
+				"rights": {
+					"title": "10. Your Choices and Requests",
+					"body": {
+						"0": "You can manage account details, password, sessions, passkeys, external login links, player profiles, texture wardrobe, tags, and public library submissions in the workbench when the corresponding features are enabled by administrators.",
+						"1": "You may contact an administrator to request access, correction, export, deletion, or restriction of data related to your account. Administrators will handle requests according to identity verification, site capabilities, security requirements, backup limits, and applicable rules."
+					}
+				},
+				"contact": {
+					"title": "11. Contact and Policy Updates",
+					"body": {
+						"0": "For privacy, data deletion, security incidents, texture rights, or report handling questions, contact this site's administrators and provide an account, email address, profile UUID, texture ID, report ID, or relevant time range so the issue can be located.",
+						"1": "Administrators may update this policy as features, deployment environments, data processing methods, or legal requirements change. Continued use of the site means you have been informed of the updated data handling notice."
 					}
 				}
 			}

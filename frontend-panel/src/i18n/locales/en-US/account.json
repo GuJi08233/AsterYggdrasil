@@ -188,6 +188,9 @@
 		"bindSuccess": "Texture bound to {{name}}",
 		"deleteSuccess": "Texture deleted from wardrobe",
 		"editSuccess": "Texture updated",
+		"librarySubmitSuccessPending": "Texture submitted for review",
+		"librarySubmitSuccessPublished": "Texture published to the public library",
+		"libraryWithdrawSuccess": "Texture removed from the public library flow",
 		"bindToProfile": "Bind to profile",
 		"bindAction": "Bind",
 		"editAction": "Edit",
@@ -235,6 +238,27 @@
 		"noTagSearchResults": "No tags match this search.",
 		"selectedTags": "{{count}} selected",
 		"tagSearchMore": "{{count}} more tags. Search to narrow results.",
+		"libraryStatusTitle": "Public texture library",
+		"libraryReviewNote": "Review note:",
+		"librarySubmitReviewAction": "Submit for review",
+		"libraryPublishAction": "Publish to library",
+		"libraryWithdrawAction": "Withdraw request",
+		"libraryUnpublishAction": "Remove from library",
+		"libraryStatus": {
+			"private": "Not submitted",
+			"pending_review": "Pending review",
+			"published": "Published",
+			"rejected": "Rejected"
+		},
+		"libraryStatusDescription": {
+			"disabled": "The public texture library is disabled for this instance.",
+			"privateVisibility": "Only public textures can enter the public library. Change visibility to public in the edit panel first.",
+			"pending": "This texture is waiting for administrator review and is not visible in the public library yet.",
+			"published": "This texture is visible in the public library. Other users can browse and copy it into their wardrobes.",
+			"rejected": "This texture was rejected by an administrator. Review the note, adjust it, then submit again.",
+			"readyForReview": "This public texture can be submitted for administrator review. It appears in the public library after approval.",
+			"readyToPublish": "Current policy allows direct publishing. Publishing will immediately add it to the public library."
+		},
 		"visibility": {
 			"label": "Visibility",
 			"private": "Private",
@@ -254,6 +278,8 @@
 		"searchAction": "Search",
 		"emptyTitle": "No public textures yet",
 		"emptyDescription": "Textures appear here after users publish wardrobe items publicly.",
+		"disabledTitle": "Public texture library is disabled",
+		"disabledDescription": "This instance is not exposing the public texture library right now.",
 		"texturePreviewAlt": "{{type}} texture preview",
 		"detailTitle": "Texture details",
 		"detailDescription": "Review public information for {{name}}, then copy it into your wardrobe if needed.",
@@ -277,6 +303,25 @@
 		"copyNameTaken": "A wardrobe texture already uses this name. Choose another name.",
 		"copying": "Copying",
 		"copySuccess": "Copied {{name}} to your wardrobe",
+		"reportAction": "Report",
+		"reportDialogTitle": "Report texture",
+		"reportDialogDescription": "Tell administrators why {{name}} should be reviewed.",
+		"reportReasonLabel": "Reason",
+		"reportMessageLabel": "Additional context",
+		"reportMessagePlaceholder": "Optional details for administrators",
+		"reportMessageHelp": "Reports require a signed-in account. Your note is only visible to administrators.",
+		"reportSubmitAction": "Submit report",
+		"reportSubmitting": "Submitting",
+		"reportSuccess": "Report submitted",
+		"reportReason": {
+			"inappropriate": "Inappropriate content",
+			"offensive": "Offensive or hateful content",
+			"copyright": "Copyright or copied texture",
+			"misleading": "Misleading name, preview, or tags",
+			"broken": "Broken texture",
+			"spam": "Spam or duplicate",
+			"other": "Other"
+		},
 		"type": {
 			"all": "All"
 		}

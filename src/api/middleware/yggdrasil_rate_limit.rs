@@ -6,7 +6,6 @@ use governor::clock::{Clock, DefaultClock, QuantaInstant};
 use governor::middleware::NoOpMiddleware;
 use governor::state::keyed::DefaultKeyedStateStore;
 use governor::{NotUntil, Quota, RateLimiter};
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -83,12 +82,14 @@ impl YggdrasilRateLimitRejection {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "governor exposes with_period() as fallible for zero durations; RateLimitTier seconds_per_request is NonZero"
+)]
 fn build_keyed_limiter(tier: &RateLimitTier) -> KeyedLimiter {
     let quota = Quota::with_period(Duration::from_secs(tier.seconds_per_request.get()))
         .expect("non-zero rate limit tier should always build")
-        .allow_burst(
-            NonZeroU32::new(tier.burst_size.get()).expect("burst size should be non-zero"),
-        );
+        .allow_burst(tier.burst_size);
     RateLimiter::keyed(quota)
 }
 

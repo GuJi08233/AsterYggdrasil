@@ -21,6 +21,79 @@ DELETE /api/v1/profiles/minecraft/{uuid}/textures/{skin|cape}
 
 Yggdrasil 协议接口返回协议格式，不使用项目 API envelope。`/api/v1/...` 站点和管理接口继续返回统一 envelope。
 
+## Wardrobe 和公共材质库
+
+Wardrobe 是用户自己的材质库。上传到 wardrobe 的材质默认只属于当前用户，用户可以把其中一张绑定到自己的 Minecraft profile，也可以把材质设置为公开并提交到公共材质库。
+
+公共材质库由运行时配置控制：
+
+- `texture_library_enabled`: 是否启用公共材质库。
+- `texture_library_review_required`: 用户发布材质到公共材质库时是否必须经过管理员审核。
+
+用户侧常用流程：
+
+1. 上传 skin/cape 到 wardrobe。
+2. 把材质 visibility 改为 `public`。
+3. 提交公共材质库。
+4. 如果需要审核，等待管理员通过；如果不需要审核，提交后直接成为 `published`。
+5. 其他登录用户可以从公共材质库复制该材质到自己的 wardrobe。
+
+公共材质库只展示已经发布的公开材质。私有材质、待审核材质、被打回材质和已下架材质不会出现在公共列表或公共详情里。
+
+公共材质库相关站点 API：
+
+```text
+GET    /api/v1/texture-library/tags
+GET    /api/v1/texture-library/textures
+GET    /api/v1/texture-library/textures/{texture_id}
+POST   /api/v1/texture-library/textures/{texture_id}/copy
+POST   /api/v1/texture-library/textures/{texture_id}/reports
+POST   /api/v1/wardrobe/textures/{texture_id}/library-submission
+DELETE /api/v1/wardrobe/textures/{texture_id}/library-submission
+```
+
+复制公共材质需要登录。复制后会在当前用户 wardrobe 中创建或复用一条材质记录，默认保持私有，不会自动再次发布。
+
+## 审核、下架和举报
+
+材质的公共库状态由 `library_status` 表示。当前主要状态包括：
+
+- `private`: 不在公共材质库中。
+- `pending_review`: 已提交，等待管理员审核。
+- `published`: 已发布到公共材质库。
+- `rejected`: 管理员打回。
+
+管理员可以在材质库后台处理提交：
+
+```text
+GET  /api/v1/admin/texture-library/textures
+GET  /api/v1/admin/texture-library/textures/{texture_id}
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+```
+
+用户可以举报已经发布的公共材质。举报必须登录，不能举报自己的材质，不能举报私有、待审核、打回或已下架材质。同一用户对同一材质只能保留一条 pending 举报。
+
+举报有独立状态，不和材质的 `library_status` 混用：
+
+- `pending`: 等待管理员处理。
+- `accepted`: 举报成立。
+- `rejected`: 举报被驳回。
+
+管理员可以在举报队列中成立或驳回举报：
+
+```text
+GET  /api/v1/admin/texture-library/reports
+GET  /api/v1/admin/texture-library/reports/{report_id}
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+```
+
+举报成立会把对应材质从公共材质库下架，并把处理备注写入材质的审核意见。材质所有者在 wardrobe 里可以看到下架状态和处理说明。
+
+如果管理员没有从举报队列处理，而是直接从材质管理页下架一个已发布材质，系统也会把该材质现有 pending 举报标记为 `accepted`，并复用下架备注作为举报处理备注。这样举报队列不会残留已经被直接处理的 pending 记录。
+
 ## 上传校验
 
 上传文件必须是 `image/png`。服务端会先读取 PNG header 获取尺寸，再解码图像，避免在尺寸校验前把潜在 PNG bomb 完整读入内存。

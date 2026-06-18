@@ -118,20 +118,28 @@ async fn cleanup_orphan_texture_blobs_deletes_unreferenced_storage_keys_only() {
         uuid::Uuid::new_v4()
     ));
     let state = test_state(root.to_string_lossy().to_string()).await;
-    let referenced_key = "aa/referenced.png";
-    let orphan_key = "bb/orphan.png";
-    let referenced_path = root.join(referenced_key);
-    let orphan_path = root.join(orphan_key);
+    let referenced_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let orphan_hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    let referenced_key = format!("aa/{referenced_hash}.png");
+    let orphan_key = format!("bb/{orphan_hash}.png");
+    let avatar_key = "avatar/user/1/v1/512.webp";
+    let referenced_path = root.join(&referenced_key);
+    let orphan_path = root.join(&orphan_key);
+    let avatar_path = root.join(avatar_key);
     tokio::fs::create_dir_all(referenced_path.parent().unwrap())
         .await
         .unwrap();
     tokio::fs::create_dir_all(orphan_path.parent().unwrap())
         .await
         .unwrap();
+    tokio::fs::create_dir_all(avatar_path.parent().unwrap())
+        .await
+        .unwrap();
     tokio::fs::write(&referenced_path, png(64, 64))
         .await
         .unwrap();
     tokio::fs::write(&orphan_path, png(64, 64)).await.unwrap();
+    tokio::fs::write(&avatar_path, b"avatar").await.unwrap();
 
     let user = user_repo::create(
         state.writer_db(),
@@ -157,8 +165,8 @@ async fn cleanup_orphan_texture_blobs_deletes_unreferenced_storage_keys_only() {
         user.id,
         profile.id,
         MinecraftTextureType::Skin,
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        referenced_key,
+        referenced_hash,
+        &referenced_key,
         false,
     )
     .await;
@@ -175,6 +183,7 @@ async fn cleanup_orphan_texture_blobs_deletes_unreferenced_storage_keys_only() {
     );
     assert!(tokio::fs::try_exists(referenced_path).await.unwrap());
     assert!(!tokio::fs::try_exists(orphan_path).await.unwrap());
+    assert!(tokio::fs::try_exists(avatar_path).await.unwrap());
     if let Err(error) = tokio::fs::remove_dir_all(root).await {
         assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
     }

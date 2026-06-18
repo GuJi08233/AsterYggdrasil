@@ -4,13 +4,13 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use serde::{Deserialize, Deserializer};
 use validator::Validate;
 
-use crate::api::dto::{CopyPublicTextureReq, validate_request};
+use crate::api::dto::{CopyPublicTextureReq, CreateTextureReportReq, validate_request};
 use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_texture_repo::WardrobeTextureListFilter;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
-use crate::services::{auth_service, texture_service};
+use crate::services::{audit_service, auth_service, texture_service};
 use crate::types::{MinecraftTextureType, TextureTagSearchMethod};
 
 const TEXTURE_TAG_FILTER_LIMIT: usize = 16;
@@ -70,6 +70,10 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .route(
                 "/textures/{texture_id}/copy",
                 web::post().to(copy_public_texture),
+            )
+            .route(
+                "/textures/{texture_id}/reports",
+                web::post().to(create_texture_report),
             ),
     );
 }
@@ -244,4 +248,78 @@ pub async fn copy_public_texture(
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(texture)))
+}
+
+#[api_docs_macros::path(
+    post,
+    path = "/api/v1/texture-library/textures/{texture_id}/reports",
+    tag = "texture-library",
+    operation_id = "create_public_texture_library_texture_report",
+    request_body = CreateTextureReportReq,
+    params(("texture_id" = i64, Path, description = "Public texture ID")),
+    responses(
+        (status = 200, description = "Created texture report", body = inline(ApiResponse<texture_service::TextureReportInfo>)),
+        (status = 400, description = "Invalid report request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Public texture not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn create_texture_report(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+    body: web::Json<CreateTextureReportReq>,
+) -> Result<HttpResponse> {
+    validate_request(&*body)?;
+    let texture_id = path.into_inner();
+    let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let report = texture_service::create_texture_library_report(
+        state.get_ref(),
+        user.id,
+        texture_id,
+        body.reason,
+        body.message.clone(),
+    )
+    .await?;
+    log_texture_report_audit(
+        state.get_ref(),
+        &req,
+        user.id,
+        audit_service::AuditAction::MinecraftTextureReportCreate,
+        &report,
+    )
+    .await;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(report)))
+}
+
+async fn log_texture_report_audit(
+    state: &AppState,
+    req: &HttpRequest,
+    actor_user_id: i64,
+    action: audit_service::AuditAction,
+    report: &texture_service::TextureReportInfo,
+) {
+    let ctx = audit_service::AuditContext::from_request(req, actor_user_id);
+    audit_service::log_with_details(
+        state,
+        &ctx,
+        action,
+        audit_service::AuditEntityType::MinecraftTexture,
+        Some(report.texture_id),
+        report.texture.as_ref().map(|texture| texture.name.as_str()),
+        || {
+            audit_service::details(audit_service::MinecraftTextureReportAuditDetails {
+                texture_id: report.texture_id,
+                report_id: report.id,
+                reason: report.reason,
+                report_status: report.status,
+                library_status: report
+                    .texture
+                    .as_ref()
+                    .map(|texture| texture.library_status),
+            })
+        },
+    )
+    .await;
 }

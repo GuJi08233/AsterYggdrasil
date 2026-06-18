@@ -11,7 +11,7 @@ use crate::db::repository::{
     audit_log_repo, auth_session_repo, background_task_repo, minecraft_profile_repo,
     minecraft_texture_repo, user_repo, yggdrasil_token_repo,
 };
-use crate::errors::Result;
+use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::audit_service::{self, AuditLogEntry};
 use crate::services::task_service;
@@ -248,7 +248,7 @@ async fn load_activity_trend(state: &AppState) -> Result<Vec<AdminOverviewTrendP
         let day = today - chrono::Duration::days(day_offset);
         let start = day
             .and_hms_opt(0, 0, 0)
-            .expect("midnight should be valid")
+            .ok_or_else(|| AsterError::internal_error("midnight should be valid"))?
             .and_utc();
         let end = start + chrono::Duration::days(1);
 

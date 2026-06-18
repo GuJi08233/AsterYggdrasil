@@ -29,7 +29,7 @@ Before launch, verify:
 - The homepage `/` keeps the `X-Authlib-Injector-API-Location` response header.
 - `public_site_url` or `yggdrasil_public_base_url` can produce client-reachable texture URLs.
 - `skinDomains` covers the host used by texture URLs.
-- The database, `config.toml`, and local object storage are persisted.
+- The database, `config.toml`, and object storage backend are persisted or recoverable.
 
 ## Recommended Path
 
@@ -38,7 +38,7 @@ Before launch, verify:
 3. Mount `/data` using [Docker Deployment](/en/deployment/docker).
 4. Configure `public_site_url`; use `yggdrasil_public_base_url` only when you need an advanced path or host override.
 5. Log in with a real launcher and join a test server once.
-6. Back up the database, `config.toml`, and texture directory.
+6. Back up the database, `config.toml`, and object storage backend.
 
 ## Public URLs Matter Most
 
@@ -67,6 +67,6 @@ Back up at least:
 
 - Database.
 - `config.toml` or equivalent secret/config records.
-- Local object storage directory, usually similar to `data/storage`.
+- Object storage backend. The local backend usually uses a path similar to `data/storage`; S3/MinIO deployments must back up bucket objects and matching config.
 
-Restore the database and texture directory as a set. Restoring only the database can produce missing objects; restoring only textures can produce orphan objects.
+Restore the database and object storage as a set. Restoring only the database can produce missing objects; restoring only objects can produce orphan objects.

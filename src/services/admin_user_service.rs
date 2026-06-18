@@ -58,6 +58,17 @@ pub struct CreateAdminUserOutput {
     pub generated_password: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct AdminCreateUserInput {
+    pub username: String,
+    pub email: String,
+    pub password: Option<String>,
+    pub role: UserRole,
+    pub operator_scopes: Option<Vec<OperatorScope>>,
+    pub status: UserStatus,
+    pub must_change_password: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct DeleteAdminUserOutput {
@@ -233,26 +244,29 @@ where
         .ok_or_else(|| AsterError::internal_error("admin user hydration returned no item"))
 }
 
-pub async fn create_user<S>(
-    state: &S,
-    username: &str,
-    email: &str,
-    password: Option<&str>,
-    role: UserRole,
-    operator_scopes: Option<Vec<OperatorScope>>,
-    status: UserStatus,
-    must_change_password: Option<bool>,
-) -> Result<CreateAdminUserOutput>
+pub async fn create_user<S>(state: &S, input: AdminCreateUserInput) -> Result<CreateAdminUserOutput>
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
-    tracing::debug!(
+    let AdminCreateUserInput {
         username,
+        email,
+        password,
+        role,
+        operator_scopes,
+        status,
+        must_change_password,
+    } = input;
+    tracing::debug!(
+        username = %username,
         role = ?role,
         status = ?status,
         "creating admin user"
     );
-    let explicit_password = password.map(str::trim).filter(|value| !value.is_empty());
+    let explicit_password = password
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let generated_password = explicit_password
         .is_none()
         .then(generate_temporary_password);
@@ -260,7 +274,7 @@ where
         .as_deref()
         .or(explicit_password)
         .ok_or_else(|| AsterError::internal_error("temporary password generation failed"))?;
-    let email = validate_identity_input(username, email, password)?;
+    let email = validate_identity_input(&username, &email, password)?;
     let password_hash = hash_password(password)?;
     let must_change_password =
         generated_password.is_some() || must_change_password.unwrap_or(false);
@@ -732,19 +746,41 @@ mod tests {
             .expect("admin user test user count should load")
     }
 
+    fn create_input(
+        username: &str,
+        email: &str,
+        password: Option<&str>,
+        role: UserRole,
+        operator_scopes: Option<Vec<OperatorScope>>,
+        status: UserStatus,
+        must_change_password: Option<bool>,
+    ) -> AdminCreateUserInput {
+        AdminCreateUserInput {
+            username: username.to_string(),
+            email: email.to_string(),
+            password: password.map(str::to_string),
+            role,
+            operator_scopes,
+            status,
+            must_change_password,
+        }
+    }
+
     #[tokio::test]
     async fn create_list_get_and_update_user_cover_admin_workflow() {
         let ctx = test_context().await;
         let _super_admin = insert_user(&ctx.state, "root-user").await;
         let created = create_user(
             &ctx.state,
-            " new-user ",
-            " NEW-USER@EXAMPLE.COM ",
-            None,
-            UserRole::User,
-            None,
-            UserStatus::Active,
-            None,
+            create_input(
+                " new-user ",
+                " NEW-USER@EXAMPLE.COM ",
+                None,
+                UserRole::User,
+                None,
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap();
@@ -829,17 +865,19 @@ mod tests {
 
         let operator = create_user(
             &ctx.state,
-            "operator-user",
-            "operator@example.com",
-            Some("operator-password"),
-            UserRole::Operator,
-            Some(vec![
-                OperatorScope::Users,
-                OperatorScope::TextureLibrary,
-                OperatorScope::Users,
-            ]),
-            UserStatus::Active,
-            None,
+            create_input(
+                "operator-user",
+                "operator@example.com",
+                Some("operator-password"),
+                UserRole::Operator,
+                Some(vec![
+                    OperatorScope::Users,
+                    OperatorScope::TextureLibrary,
+                    OperatorScope::Users,
+                ]),
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap();
@@ -852,13 +890,15 @@ mod tests {
 
         let admin_with_scopes = create_user(
             &ctx.state,
-            "scoped-admin",
-            "scoped-admin@example.com",
-            Some("scoped-admin-password"),
-            UserRole::Admin,
-            Some(vec![OperatorScope::Audit]),
-            UserStatus::Active,
-            None,
+            create_input(
+                "scoped-admin",
+                "scoped-admin@example.com",
+                Some("scoped-admin-password"),
+                UserRole::Admin,
+                Some(vec![OperatorScope::Audit]),
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap();
@@ -871,13 +911,15 @@ mod tests {
 
         let user_with_scopes = create_user(
             &ctx.state,
-            "scoped-user",
-            "scoped-user@example.com",
-            Some("scoped-user-password"),
-            UserRole::User,
-            Some(vec![OperatorScope::Tasks]),
-            UserStatus::Active,
-            None,
+            create_input(
+                "scoped-user",
+                "scoped-user@example.com",
+                Some("scoped-user-password"),
+                UserRole::User,
+                Some(vec![OperatorScope::Tasks]),
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap();
@@ -901,13 +943,15 @@ mod tests {
         let _super_admin = insert_user(&ctx.state, "root-user").await;
         let target = create_user(
             &ctx.state,
-            "target-user",
-            "target@example.com",
-            Some("target-password"),
-            UserRole::Admin,
-            None,
-            UserStatus::Active,
-            None,
+            create_input(
+                "target-user",
+                "target@example.com",
+                Some("target-password"),
+                UserRole::Admin,
+                None,
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap()
@@ -1055,26 +1099,30 @@ mod tests {
         let _super_admin = insert_user(&ctx.state, "root-user").await;
         let operator = create_user(
             &ctx.state,
-            "auth-operator",
-            "auth-operator@example.com",
-            Some("auth-operator-password"),
-            UserRole::Operator,
-            Some(vec![OperatorScope::TextureLibrary]),
-            UserStatus::Active,
-            None,
+            create_input(
+                "auth-operator",
+                "auth-operator@example.com",
+                Some("auth-operator-password"),
+                UserRole::Operator,
+                Some(vec![OperatorScope::TextureLibrary]),
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap()
         .user;
         let user = create_user(
             &ctx.state,
-            "auth-user",
-            "auth-user@example.com",
-            Some("auth-user-password"),
-            UserRole::User,
-            Some(vec![OperatorScope::Users]),
-            UserStatus::Active,
-            None,
+            create_input(
+                "auth-user",
+                "auth-user@example.com",
+                Some("auth-user-password"),
+                UserRole::User,
+                Some(vec![OperatorScope::Users]),
+                UserStatus::Active,
+                None,
+            ),
         )
         .await
         .unwrap()

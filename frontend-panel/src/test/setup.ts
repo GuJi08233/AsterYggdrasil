@@ -35,6 +35,16 @@ Object.defineProperty(window, "matchMedia", {
 	})),
 });
 
+Object.defineProperty(navigator, "language", {
+	configurable: true,
+	value: "en-US",
+});
+
+Object.defineProperty(navigator, "languages", {
+	configurable: true,
+	value: ["en-US"],
+});
+
 Object.defineProperty(window, "ResizeObserver", {
 	writable: true,
 	value: ResizeObserverMock,

@@ -21,7 +21,9 @@ The current code already includes:
 - Site account setup, registration, login, refresh, logout, and admin bootstrap.
 - The `/api/yggdrasil` protocol root with metadata, authserver, sessionserver, profile lookup, and public texture reads.
 - Separate Minecraft profile records, so one site account can own multiple profiles.
-- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local object storage.
+- Skin/cape upload, PNG re-encoding, legacy cape compatibility, hash-based public reads, and local/S3/MinIO object storage.
+- Wardrobe and public texture library workflows for submission, review, tags, copying, reports, and unpublishing.
+- Scoped operators and visual captcha policy.
 - Runtime config, signing key rotation, audit logs, and periodic maintenance tasks.
 
 These are implemented backend capabilities, not roadmap promises. The docs should stay within that boundary and avoid presenting unfinished work as available functionality.
@@ -38,7 +40,7 @@ It is also a good fit if you want a single-binary deployment model instead of ma
 
 ## Who Should Wait
 
-If you need a polished, finished commercial-grade skin-site frontend today, the current version is not there yet. The backend is the stable part; the admin frontend is still evolving.
+If you need a finished commercial-grade operations panel and do not plan to validate it yourself before launch, the current version is not the right final product yet. The product frontend now covers core account, profile, wardrobe, public texture library, and admin workflows, but it is still alpha.
 
 If you need multi-primary high availability, a mature ban system, or a finished commercial operations panel, wait or plan to build that work. Object storage supports local, S3, and MinIO; textures and uploaded avatars use the same backend. S3/MinIO uses server-side streaming uploads and does not support client presigned uploads.
 

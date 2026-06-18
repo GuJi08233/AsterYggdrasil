@@ -232,6 +232,14 @@ where
         | texture_preview::TEXTURE_PREVIEW_2D_SPACING_KEY => {
             texture_preview::normalize_texture_preview_config_value(key, value)
         }
+        crate::config::definitions::TEXTURE_LIBRARY_ENABLED_KEY
+        | crate::config::definitions::TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY => parse_bool_like(value)
+            .map(|value| value.to_string())
+            .ok_or_else(|| {
+                crate::errors::AsterError::validation_error(format!(
+                    "{key} must be a boolean value"
+                ))
+            }),
         branding::BRANDING_TITLE_KEY => branding::normalize_title_config_value(value),
         branding::BRANDING_DESCRIPTION_KEY => branding::normalize_description_config_value(value),
         branding::BRANDING_FAVICON_URL_KEY => branding::normalize_favicon_url_config_value(value),

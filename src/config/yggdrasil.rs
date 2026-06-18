@@ -125,8 +125,10 @@ impl RuntimeYggdrasilPolicy {
 }
 
 pub fn default_skin_domains_config() -> String {
-    serde_json::to_string(DEFAULT_YGGDRASIL_SKIN_DOMAINS)
-        .expect("default Yggdrasil skin domains should serialize")
+    serde_json::to_string(DEFAULT_YGGDRASIL_SKIN_DOMAINS).unwrap_or_else(|error| {
+        tracing::error!(%error, "failed to serialize default Yggdrasil skin domains");
+        "[]".to_string()
+    })
 }
 
 pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String> {
@@ -416,7 +418,11 @@ fn normalize_required_public_base_url(value: &str) -> Result<String> {
         true,
         AsterError::validation_error,
     )
-    .map(|normalized| normalized.expect("required URL normalization cannot return empty"))
+    .and_then(|normalized| {
+        normalized.ok_or_else(|| {
+            AsterError::validation_error("yggdrasil public base URL cannot be empty")
+        })
+    })
 }
 
 fn normalize_required_skin_domain(value: &str) -> Result<String> {

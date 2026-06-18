@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { adminTextureLibraryPath } from "@/routes/routePaths";
 import type { MinecraftTextureMetadata } from "./types";
 
 export function ProfileTextureList({
@@ -46,6 +47,7 @@ export function ProfileTextureList({
 				{textures.length ? (
 					textures.map((texture) => {
 						const isDefaultTexture = texture.source === "default";
+						const textureName = textureDisplayName(texture);
 						return (
 							<div
 								key={`${texture.texture_type}-${texture.hash}`}
@@ -53,8 +55,8 @@ export function ProfileTextureList({
 							>
 								<div className="min-w-0 max-w-full">
 									<div className="flex flex-wrap items-center gap-2">
-										<span className="font-medium">
-											{texture.texture_type.toUpperCase()}
+										<span className="min-w-0 truncate font-medium">
+											{textureName}
 										</span>
 										<Badge
 											variant="outline"
@@ -80,10 +82,23 @@ export function ProfileTextureList({
 										size="sm"
 										className="w-full sm:w-auto"
 										render={
-											<Link to={texture.url} target="_blank" rel="noreferrer" />
+											isDefaultTexture ? (
+												<Link
+													to={texture.url}
+													target="_blank"
+													rel="noreferrer"
+												/>
+											) : (
+												<Link
+													to={adminTextureLibraryPath(texture.texture_id)}
+												/>
+											)
 										}
 									>
-										<Icon name="ArrowSquareOut" className="size-4" />
+										<Icon
+											name={isDefaultTexture ? "ArrowSquareOut" : "FileImage"}
+											className="size-4"
+										/>
 										{t("admin.minecraftProfilePage.openTexture")}
 									</Button>
 									<Button
@@ -111,4 +126,8 @@ export function ProfileTextureList({
 			</div>
 		</>
 	);
+}
+
+function textureDisplayName(texture: MinecraftTextureMetadata) {
+	return texture.display_name?.trim() || texture.name || texture.hash;
 }

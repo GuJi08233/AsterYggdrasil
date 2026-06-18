@@ -50,6 +50,27 @@ yggdrasil_signature_public_key
 yggdrasil_signature_private_key
 ```
 
+公共材质库也使用运行时配置：
+
+```text
+texture_library_enabled
+texture_library_review_required
+```
+
+公开认证流程的图形验证码也使用运行时配置：
+
+```text
+auth_captcha_enabled
+auth_captcha_login_required
+auth_captcha_register_required
+auth_captcha_invitation_accept_required
+auth_captcha_register_activation_resend_required
+auth_captcha_preset
+auth_captcha_ttl_secs
+auth_captcha_length
+auth_captcha_max_attempts
+```
+
 管理端通过 Admin Config API 修改：
 
 ```text
@@ -61,6 +82,34 @@ POST   /api/v1/admin/config/yggdrasil/action
 ```
 
 配置写入会经过类型化 normalizer/validator。不要绕过服务层直接写 `system_config`。
+
+## 公共材质库配置
+
+`texture_library_enabled` 控制公共材质库总开关。关闭后，公共材质库入口、列表、详情、复制和举报流程都应被前端隐藏或禁用；后端公共材质库接口也会拒绝相关业务请求。
+
+`texture_library_review_required` 控制发布是否需要审核：
+
+- `true`: 用户提交公开材质后进入 `pending_review`，需要管理员审核通过才会出现在公共库。
+- `false`: 用户提交公开材质后直接进入 `published`。
+
+这两个配置会通过 public frontend config 返回给前端，用于控制公共入口、Footer 链接和用户侧材质库操作。不要只在前端写死开关，后端配置仍然是最终判断依据。
+
+## 图形验证码配置
+
+`auth_captcha_enabled` 是总开关。启用后，可以分别要求以下公开认证流程完成验证码：
+
+- 本地密码登录。
+- 自助注册。
+- 接受邀请创建账号。
+- 重发注册激活邮件。
+
+验证码挑战由服务端生成，前端通过公开 captcha policy 判断当前流程是否需要显示验证码。验证码渲染强度由 `auth_captcha_preset` 控制，可选值是 `readable`、`balanced`、`hardened`。
+
+管理端可以通过 config action 预览当前验证码渲染效果：
+
+```text
+POST /api/v1/admin/config/auth_captcha/action
+```
 
 ## public base URL
 

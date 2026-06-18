@@ -5,6 +5,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import { adminConfigService } from "@/services/adminService";
@@ -179,6 +180,50 @@ const userAvatarConfig = {
 	value_type: "string",
 } satisfies SystemConfig;
 
+const textureLibraryEnabledConfig = {
+	...config,
+	category: "texture.library",
+	id: 13,
+	key: "texture_library_enabled",
+	namespace: "texture",
+	value: "true",
+	value_type: "boolean",
+} satisfies SystemConfig;
+
+const textureLibraryReviewRequiredConfig = {
+	...config,
+	category: "texture.library",
+	id: 14,
+	key: "texture_library_review_required",
+	namespace: "texture",
+	value: "true",
+	value_type: "boolean",
+} satisfies SystemConfig;
+
+const textureLibraryEnabledSchema = {
+	category: "texture.library",
+	description: "Enable the public texture library",
+	description_i18n_key: "settings_item_texture_library_enabled_desc",
+	is_sensitive: false,
+	key: "texture_library_enabled",
+	label_i18n_key: "settings_item_texture_library_enabled_label",
+	options: [],
+	requires_restart: false,
+	value_type: "boolean",
+} satisfies ConfigSchemaItem;
+
+const textureLibraryReviewRequiredSchema = {
+	category: "texture.library",
+	description: "Require review before publishing",
+	description_i18n_key: "settings_item_texture_library_review_required_desc",
+	is_sensitive: false,
+	key: "texture_library_review_required",
+	label_i18n_key: "settings_item_texture_library_review_required_label",
+	options: [],
+	requires_restart: false,
+	value_type: "boolean",
+} satisfies ConfigSchemaItem;
+
 const unknownCategoryConfig = {
 	...config,
 	category: "legacy.cloud",
@@ -213,7 +258,7 @@ function mockSettingsLoad({
 }) {
 	vi.mocked(adminConfigService.list).mockResolvedValue({
 		items,
-		limit: 500,
+		limit: 100,
 		offset: 0,
 		total: items.length,
 	});
@@ -221,6 +266,26 @@ function mockSettingsLoad({
 	vi.mocked(adminConfigService.templateVariables).mockResolvedValue(
 		variableGroups,
 	);
+}
+
+function renderPage(initialEntry = "/admin/settings") {
+	return render(
+		<MemoryRouter initialEntries={[initialEntry]}>
+			<Routes>
+				<Route path="/admin/settings" element={<AdminSettingsPage />} />
+				<Route
+					path="/admin/settings/:category"
+					element={<AdminSettingsPage />}
+				/>
+			</Routes>
+			<LocationProbe />
+		</MemoryRouter>,
+	);
+}
+
+function LocationProbe() {
+	const location = useLocation();
+	return <div data-testid="location-pathname">{location.pathname}</div>;
 }
 
 describe("AdminSettingsPage", () => {
@@ -237,7 +302,7 @@ describe("AdminSettingsPage", () => {
 	it("keeps string-array input focused while editing a row", async () => {
 		mockSettingsLoad({ items: [config], nextSchema: [schema] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		const input = await screen.findByDisplayValue("https://example.com");
 		input.focus();
@@ -252,7 +317,7 @@ describe("AdminSettingsPage", () => {
 	it("does not render a duplicate active-category summary above the setting groups", async () => {
 		mockSettingsLoad({ items: [config], nextSchema: [schema] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		await screen.findByDisplayValue("https://example.com");
 
@@ -267,7 +332,7 @@ describe("AdminSettingsPage", () => {
 	it("does not show the current group item count in the main content header", async () => {
 		mockSettingsLoad({ items: [config], nextSchema: [schema] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		const heading = await screen.findByRole("heading", { name: "Site Public" });
 		const groupHeader = heading.closest(".border-b");
@@ -285,7 +350,7 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		const input = await screen.findByDisplayValue("https://example.com");
 		fireEvent.change(input, {
@@ -321,7 +386,7 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		const input = await screen.findByDisplayValue("hello");
 		fireEvent.change(input, {
@@ -340,7 +405,7 @@ describe("AdminSettingsPage", () => {
 		vi.mocked(adminConfigService.schema).mockResolvedValue([]);
 		vi.mocked(adminConfigService.templateVariables).mockResolvedValue([]);
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		expect(await screen.findByText("settings_empty_title")).toBeInTheDocument();
 		expect(screen.getByText("settings_empty_desc")).toBeInTheDocument();
@@ -349,7 +414,7 @@ describe("AdminSettingsPage", () => {
 	it("keeps unsupported root categories out of the editable panel", async () => {
 		mockSettingsLoad({ items: [unknownCategoryConfig] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		expect(await screen.findByText("settings_empty_title")).toBeInTheDocument();
 		expect(screen.queryByDisplayValue("enabled")).not.toBeInTheDocument();
@@ -358,10 +423,10 @@ describe("AdminSettingsPage", () => {
 	it("shows user avatar settings under the user category", async () => {
 		mockSettingsLoad({ items: [userAvatarConfig] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", {
+			await screen.findByRole("link", {
 				name: /settings_category_user/i,
 			}),
 		);
@@ -371,6 +436,150 @@ describe("AdminSettingsPage", () => {
 		).toBeInTheDocument();
 		expect(
 			screen.getByDisplayValue("https://www.gravatar.com/avatar"),
+		).toBeInTheDocument();
+	});
+
+	it("opens a settings category directly from the URL", async () => {
+		mockSettingsLoad({
+			items: [config, textureLibraryEnabledConfig],
+			nextSchema: [schema, textureLibraryEnabledSchema],
+		});
+
+		renderPage("/admin/settings/texture");
+
+		expect(
+			await screen.findByRole("heading", { name: "Texture Library" }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByDisplayValue("https://example.com"),
+		).not.toBeInTheDocument();
+		expect(screen.getByTestId("location-pathname")).toHaveTextContent(
+			"/admin/settings/texture",
+		);
+	});
+
+	it("redirects the settings root to the site category", async () => {
+		mockSettingsLoad({ items: [config, userAvatarConfig] });
+
+		renderPage();
+
+		expect(
+			await screen.findByDisplayValue("https://example.com"),
+		).toBeInTheDocument();
+		await waitFor(() =>
+			expect(screen.getByTestId("location-pathname")).toHaveTextContent(
+				"/admin/settings/site",
+			),
+		);
+	});
+
+	it("updates the browser URL when a settings category is selected", async () => {
+		mockSettingsLoad({ items: [config, userAvatarConfig] });
+
+		renderPage();
+
+		fireEvent.click(
+			await screen.findByRole("link", {
+				name: /settings_category_user/i,
+			}),
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: "User Avatar" }),
+		).toBeInTheDocument();
+		expect(screen.getByTestId("location-pathname")).toHaveTextContent(
+			"/admin/settings/user",
+		);
+	});
+
+	it("replaces an unsupported settings category URL with the first available category", async () => {
+		mockSettingsLoad({ items: [config, userAvatarConfig] });
+
+		renderPage("/admin/settings/legacy");
+
+		expect(
+			await screen.findByDisplayValue("https://example.com"),
+		).toBeInTheDocument();
+		await waitFor(() =>
+			expect(screen.getByTestId("location-pathname")).toHaveTextContent(
+				"/admin/settings/site",
+			),
+		);
+	});
+
+	it("shows public texture library settings under the texture category", async () => {
+		mockSettingsLoad({
+			items: [textureLibraryEnabledConfig, textureLibraryReviewRequiredConfig],
+			nextSchema: [
+				textureLibraryEnabledSchema,
+				textureLibraryReviewRequiredSchema,
+			],
+		});
+
+		renderPage();
+
+		const textureCategory = await screen.findByRole("link", {
+			name: /settings_category_texture/i,
+		});
+		fireEvent.click(textureCategory);
+
+		await waitFor(() => {
+			expect(screen.getAllByText("settings_value_on")).toHaveLength(2);
+		});
+		expect(
+			screen.getByRole("heading", { name: "Texture Library" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Texture Library Enabled")).toBeInTheDocument();
+		expect(
+			screen.getByText("Texture Library Review Required"),
+		).toBeInTheDocument();
+	});
+
+	it("loads later config pages so texture library settings are not hidden by pagination", async () => {
+		vi.mocked(adminConfigService.list)
+			.mockResolvedValueOnce({
+				items: [config],
+				limit: 100,
+				offset: 0,
+				total: 3,
+			})
+			.mockResolvedValueOnce({
+				items: [
+					textureLibraryEnabledConfig,
+					textureLibraryReviewRequiredConfig,
+				],
+				limit: 100,
+				offset: 1,
+				total: 3,
+			});
+		vi.mocked(adminConfigService.schema).mockResolvedValue([
+			schema,
+			textureLibraryEnabledSchema,
+			textureLibraryReviewRequiredSchema,
+		]);
+		vi.mocked(adminConfigService.templateVariables).mockResolvedValue([]);
+
+		renderPage();
+
+		const textureCategory = await screen.findByRole("link", {
+			name: /settings_category_texture/i,
+		});
+		fireEvent.click(textureCategory);
+
+		expect(adminConfigService.list).toHaveBeenNthCalledWith(1, {
+			limit: 100,
+			offset: 0,
+		});
+		expect(adminConfigService.list).toHaveBeenNthCalledWith(2, {
+			limit: 100,
+			offset: 1,
+		});
+		expect(
+			await screen.findByRole("heading", { name: "Texture Library" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Texture Library Enabled")).toBeInTheDocument();
+		expect(
+			screen.getByText("Texture Library Review Required"),
 		).toBeInTheDocument();
 	});
 
@@ -384,10 +593,10 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_auth/i }),
+			await screen.findByRole("link", { name: /settings_category_auth/i }),
 		);
 		expect(screen.queryByDisplayValue("stored-secret")).not.toBeInTheDocument();
 
@@ -413,10 +622,10 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", {
+			await screen.findByRole("link", {
 				name: /settings_category_runtime/i,
 			}),
 		);
@@ -433,10 +642,10 @@ describe("AdminSettingsPage", () => {
 	it("renders time unit selectors with translated labels", async () => {
 		mockSettingsLoad({ items: [authAccessTokenTtlConfig] });
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_auth/i }),
+			await screen.findByRole("link", { name: /settings_category_auth/i }),
 		);
 
 		expect(
@@ -455,7 +664,7 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		const input = await screen.findByDisplayValue("https://example.com");
 		fireEvent.change(input, {
@@ -490,10 +699,10 @@ describe("AdminSettingsPage", () => {
 			warnings: [],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", {
+			await screen.findByRole("link", {
 				name: /settings_category_network/i,
 			}),
 		);
@@ -522,10 +731,10 @@ describe("AdminSettingsPage", () => {
 			variableGroups: [templateVariableGroup],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_mail/i }),
+			await screen.findByRole("link", { name: /settings_category_mail/i }),
 		);
 
 		const groupButton = await screen.findByRole("button", {
@@ -553,10 +762,10 @@ describe("AdminSettingsPage", () => {
 			variableGroups: [templateVariableGroup],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_mail/i }),
+			await screen.findByRole("link", { name: /settings_category_mail/i }),
 		);
 		fireEvent.click(
 			await screen.findByRole("button", { name: /Password reset/i }),
@@ -575,10 +784,10 @@ describe("AdminSettingsPage", () => {
 			items: [mailTemplateSubjectConfig, mailTemplateHtmlConfig],
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_mail/i }),
+			await screen.findByRole("link", { name: /settings_category_mail/i }),
 		);
 		fireEvent.click(
 			await screen.findByRole("button", { name: /Password reset/i }),
@@ -602,10 +811,10 @@ describe("AdminSettingsPage", () => {
 			value: null,
 		});
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: /settings_category_mail/i }),
+			await screen.findByRole("link", { name: /settings_category_mail/i }),
 		);
 		fireEvent.click(
 			await screen.findByRole("button", { name: /mail_send_test_email/i }),
@@ -632,13 +841,13 @@ describe("AdminSettingsPage", () => {
 		vi.mocked(adminConfigService.list)
 			.mockResolvedValueOnce({
 				items: [yggdrasilConfig],
-				limit: 500,
+				limit: 100,
 				offset: 0,
 				total: 1,
 			})
 			.mockResolvedValueOnce({
 				items: [yggdrasilConfig],
-				limit: 500,
+				limit: 100,
 				offset: 0,
 				total: 1,
 			});
@@ -651,7 +860,7 @@ describe("AdminSettingsPage", () => {
 			},
 		);
 
-		render(<AdminSettingsPage />);
+		renderPage();
 
 		fireEvent.click(
 			await screen.findByRole("button", {

@@ -2,7 +2,12 @@
 #![deny(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 #![cfg_attr(
     not(test),
-    deny(clippy::unwrap_used, clippy::unreachable, clippy::expect_used)
+    deny(
+        clippy::unwrap_used,
+        clippy::unreachable,
+        clippy::expect_used,
+        clippy::panic
+    )
 )]
 
 pub use sea_orm_migration::prelude::*;
@@ -17,6 +22,8 @@ mod m20260618_000002_add_user_must_change_password;
 mod m20260618_000003_audit_log_activity_indexes;
 mod m20260618_000004_texture_library_metadata;
 mod m20260618_000005_operator_scopes;
+mod m20260618_000006_texture_library_review;
+mod m20260618_000007_texture_library_reports;
 mod time;
 
 pub struct Migrator;
@@ -44,6 +51,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260618_000003_audit_log_activity_indexes::Migration),
             Box::new(m20260618_000004_texture_library_metadata::Migration),
             Box::new(m20260618_000005_operator_scopes::Migration),
+            Box::new(m20260618_000006_texture_library_review::Migration),
+            Box::new(m20260618_000007_texture_library_reports::Migration),
         ]
     }
 }

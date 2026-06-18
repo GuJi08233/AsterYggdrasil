@@ -60,6 +60,9 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 	const operatorScopes = useAuthStore((state) => state.operatorScopes);
 	const logout = useAuthStore((state) => state.logout);
 	const branding = useFrontendConfigStore((state) => state.branding);
+	const textureLibraryEnabled = useFrontendConfigStore(
+		(state) => state.textureLibrary.enabled,
+	);
 	const pathname = location.pathname;
 	const hash = location.hash;
 	const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -140,6 +143,7 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 					desktopCollapsed={!desktopSidebarExpanded}
 					isAdmin={isAdmin}
 					operatorScopes={operatorScopes}
+					textureLibraryEnabled={textureLibraryEnabled}
 					mobileOpen={mobileSidebarOpen}
 					onMobileClose={handleMobileSidebarClose}
 				/>

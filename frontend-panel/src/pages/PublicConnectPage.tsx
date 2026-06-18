@@ -64,6 +64,9 @@ const audienceKeys = [
 export default function PublicConnectPage() {
 	const { t } = useTranslation();
 	const branding = useFrontendConfigStore((state) => state.branding);
+	const textureLibraryEnabled = useFrontendConfigStore(
+		(state) => state.textureLibrary.enabled,
+	);
 	const user = useAuthStore((state) => state.user);
 	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 	const hydrate = useAuthStore((state) => state.hydrate);
@@ -136,16 +139,18 @@ export default function PublicConnectPage() {
 										{t("home.primaryAction")}
 									</Link>
 								)}
-								<Link
-									to={publicPaths.textureLibrary}
-									className={cn(
-										buttonVariants({ variant: "outline", size: "lg" }),
-										"h-12 min-w-40 rounded-lg border-black/12 bg-white/70 px-5 text-[#102118] backdrop-blur hover:border-black/18 hover:bg-white/85 dark:border-white/22 dark:bg-white/7 dark:text-white dark:hover:border-white/38 dark:hover:bg-white/13",
-									)}
-								>
-									<Icon name="Images" className="size-5" />
-									{t("home.textureLibraryAction")}
-								</Link>
+								{textureLibraryEnabled ? (
+									<Link
+										to={publicPaths.textureLibrary}
+										className={cn(
+											buttonVariants({ variant: "outline", size: "lg" }),
+											"h-12 min-w-40 rounded-lg border-black/12 bg-white/70 px-5 text-[#102118] backdrop-blur hover:border-black/18 hover:bg-white/85 dark:border-white/22 dark:bg-white/7 dark:text-white dark:hover:border-white/38 dark:hover:bg-white/13",
+										)}
+									>
+										<Icon name="Images" className="size-5" />
+										{t("home.textureLibraryAction")}
+									</Link>
+								) : null}
 								{isAuthenticated ? (
 									<Link
 										to={accountPaths.home}

@@ -5,6 +5,7 @@ use aster_texture_renderer::{
 };
 use image::Rgba;
 use serde::Serialize;
+use std::str::FromStr;
 
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
@@ -55,12 +56,22 @@ impl TexturePreviewEngine {
         }
     }
 
-    pub fn from_str(value: &str) -> Option<Self> {
+    fn parse_value(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "skin-3d" | "3d" => Some(Self::Skin3d),
             "skin-2d" | "2d" => Some(Self::Skin2d),
             _ => None,
         }
+    }
+}
+
+impl FromStr for TexturePreviewEngine {
+    type Err = AsterError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        Self::parse_value(value).ok_or_else(|| {
+            AsterError::validation_error("texture preview engine must be one of: skin-3d, skin-2d")
+        })
     }
 }
 
@@ -83,13 +94,25 @@ impl TexturePreviewQualityProfile {
         }
     }
 
-    pub fn from_str(value: &str) -> Option<Self> {
+    fn parse_value(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "fast" => Some(Self::Fast),
             "default" => Some(Self::Default),
             "quality" => Some(Self::Quality),
             _ => None,
         }
+    }
+}
+
+impl FromStr for TexturePreviewQualityProfile {
+    type Err = AsterError;
+
+    fn from_str(value: &str) -> Result<Self> {
+        Self::parse_value(value).ok_or_else(|| {
+            AsterError::validation_error(
+                "texture preview quality profile must be one of: fast, default, quality",
+            )
+        })
     }
 }
 
@@ -353,7 +376,7 @@ fn parse_engine(value: &str) -> Result<TexturePreviewEngine> {
         value,
         TEXTURE_PREVIEW_ENGINE_KEY,
         "skin-3d or skin-2d",
-        TexturePreviewEngine::from_str,
+        |value| value.parse::<TexturePreviewEngine>().ok(),
     )
 }
 
@@ -362,7 +385,7 @@ fn parse_profile(value: &str) -> Result<TexturePreviewQualityProfile> {
         value,
         TEXTURE_PREVIEW_PROFILE_KEY,
         "fast, default, or quality",
-        TexturePreviewQualityProfile::from_str,
+        |value| value.parse::<TexturePreviewQualityProfile>().ok(),
     )
 }
 

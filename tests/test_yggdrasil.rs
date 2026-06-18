@@ -7,6 +7,9 @@ use actix_web::{http::header, test};
 use aster_yggdrasil::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
 use aster_yggdrasil::config::auth_runtime::AUTH_ALLOW_USER_REGISTRATION_KEY;
 use aster_yggdrasil::config::definitions::PUBLIC_SITE_URL_KEY;
+use aster_yggdrasil::config::texture_library::{
+    TEXTURE_LIBRARY_ENABLED_KEY, TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY,
+};
 use aster_yggdrasil::config::yggdrasil::{
     YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
@@ -21,8 +24,8 @@ use aster_yggdrasil::entities::{
 };
 use aster_yggdrasil::errors::{AsterError, Result};
 use aster_yggdrasil::object_storage::{ObjectBlobMetadata, ObjectStorage};
-use aster_yggdrasil::services::audit_service;
-use aster_yggdrasil::types::MinecraftTextureModel;
+use aster_yggdrasil::services::{audit_service, profile_service};
+use aster_yggdrasil::types::{AvatarSource, MinecraftTextureModel};
 use aster_yggdrasil::utils::hash::sha256_hex;
 use base64::Engine;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
@@ -112,6 +115,96 @@ async fn configure_yggdrasil_public_site_url(state: &aster_yggdrasil::runtime::A
     .await
     .expect("public_site_url config should update");
     state.runtime_config().apply(saved);
+}
+
+async fn create_operator_user<S, B>(
+    app: &S,
+    admin_access: &str,
+    username: &str,
+    email: &str,
+    scopes: &[&str],
+) -> String
+where
+    S: actix_web::dev::Service<
+            actix_http::Request,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = actix_web::Error,
+        >,
+    B: actix_web::body::MessageBody,
+{
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users")
+        .insert_header(common::bearer_header(admin_access))
+        .set_json(serde_json::json!({
+            "username": username,
+            "email": email,
+            "password": "password1234",
+            "role": "operator",
+            "operator_scopes": scopes
+        }))
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 201);
+    login_user!(app, username, "password1234")
+}
+
+async fn publish_test_library_texture<S, B>(
+    app: &S,
+    admin_access: &str,
+    owner_access: &str,
+    name: &str,
+    color: image::Rgba<u8>,
+) -> i64
+where
+    S: actix_web::dev::Service<
+            actix_http::Request,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = actix_web::Error,
+        >,
+    B: actix_web::body::MessageBody,
+{
+    let skin = png_texture_with_color(64, 64, color);
+    let (content_type, body) = texture_multipart_body_with_name(Some("default"), Some(name), &skin);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(owner_access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 200);
+    let upload_body: Value = test::read_body_json(resp).await;
+    let texture_id = upload_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(owner_access))
+        .set_json(serde_json::json!({ "visibility": "public" }))
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(owner_access))
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(admin_access))
+        .set_json(serde_json::json!({ "review_note": "publish for report test" }))
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 200);
+    let approved_body: Value = test::read_body_json(resp).await;
+    assert_eq!(approved_body["data"]["library_status"], "published");
+    texture_id
 }
 
 macro_rules! create_profile {
@@ -245,6 +338,33 @@ macro_rules! upload_wardrobe_texture_req {
 }
 
 macro_rules! list_wardrobe_textures_req {
+    ($app:expr, $access_token:expr, $uri:expr) => {{
+        let req = test::TestRequest::get()
+            .uri($uri)
+            .insert_header(common::bearer_header($access_token))
+            .to_request();
+        test::call_service(&$app, req).await
+    }};
+}
+
+macro_rules! post_texture_report_req {
+    ($app:expr, $access_token:expr, $texture_id:expr, $reason:expr, $message:expr) => {{
+        let req = test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/texture-library/textures/{}/reports",
+                $texture_id
+            ))
+            .insert_header(common::bearer_header($access_token))
+            .set_json(serde_json::json!({
+                "reason": $reason,
+                "message": $message
+            }))
+            .to_request();
+        test::call_service(&$app, req).await
+    }};
+}
+
+macro_rules! admin_list_texture_reports_req {
     ($app:expr, $access_token:expr, $uri:expr) => {{
         let req = test::TestRequest::get()
             .uri($uri)
@@ -1191,7 +1311,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(page_items[0]["id"], max_profile);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/profiles/minecraft?query=b1")
+        .uri("/api/v1/profiles/minecraft?query=Ab1")
         .insert_header(common::bearer_header(&access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -1943,7 +2063,11 @@ async fn yggdrasil_texture_upload_public_read_profile_property_and_delete_flow()
     let profile_id = create_profile!(&app, &access, "SkinUser");
     let login = ygg_login!(&app, "admin@example.com", "texture-client");
 
-    let (content_type, body) = texture_multipart_body(Some("slim"), &png_texture(64, 64));
+    let (content_type, body) = texture_multipart_body_with_name(
+        Some("slim"),
+        Some("  Wardrobe Jacket  "),
+        &png_texture(64, 64),
+    );
     let req = test::TestRequest::put()
         .uri(&format!(
             "/api/yggdrasil/api/user/profile/{profile_id}/skin"
@@ -3754,12 +3878,26 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     assert_eq!(resp.status(), 200);
     let tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(tags_body["data"]["total"], 2);
-    assert_eq!(tags_body["data"]["limit"], 50);
+    assert_eq!(tags_body["data"]["limit"], 30);
     assert_eq!(tags_body["data"]["offset"], 0);
     let tags = tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(tags.len(), 2);
     assert_eq!(tags[0]["id"], event_id);
     assert_eq!(tags[1]["id"], classic_id);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/wardrobe/tags?limit=30&offset=0&keyword=cla")
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let filtered_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(filtered_tags_body["data"]["total"], 1);
+    assert_eq!(filtered_tags_body["data"]["limit"], 30);
+    assert_eq!(filtered_tags_body["data"]["offset"], 0);
+    let filtered_tags = filtered_tags_body["data"]["items"].as_array().unwrap();
+    assert_eq!(filtered_tags.len(), 1);
+    assert_eq!(filtered_tags[0]["id"], classic_id);
 
     let req = test::TestRequest::get()
         .uri("/api/v1/wardrobe/tags?limit=1&offset=1")
@@ -3774,6 +3912,37 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let paged_tags = paged_tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(paged_tags.len(), 1);
     assert_eq!(paged_tags[0]["id"], classic_id);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/wardrobe/tags?limit=30&offset=999")
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let empty_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(empty_tags_body["data"]["total"], 2);
+    assert_eq!(empty_tags_body["data"]["limit"], 30);
+    assert_eq!(empty_tags_body["data"]["offset"], 999);
+    assert_eq!(
+        empty_tags_body["data"]["items"].as_array().unwrap().len(),
+        0
+    );
+
+    let long_keyword = "a".repeat(97);
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/wardrobe/tags?keyword={long_keyword}"))
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let invalid_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(invalid_tags_body["code"], "bad_request");
+    assert!(
+        invalid_tags_body["msg"]
+            .as_str()
+            .unwrap()
+            .contains("keyword must not exceed 96 characters")
+    );
 
     let skin = png_texture_with_color(64, 64, image::Rgba([72, 80, 180, 255]));
     let (content_type, body) =
@@ -3852,6 +4021,18 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
         list_body["data"]["items"][0]["tags"][0]["id"], event_id,
         "wardrobe list should include bound tag metadata"
     );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures?keyword=Renamed&tag_ids={event_id},999999&tag_search_method=any"
+        ))
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let any_body: Value = test::read_body_json(resp).await;
+    assert_eq!(any_body["data"]["total"], 1);
+    assert_eq!(any_body["data"]["items"][0]["id"], texture_id);
 
     let req = test::TestRequest::patch()
         .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
@@ -4155,7 +4336,7 @@ async fn wardrobe_texture_admin_tag_crud_handles_update_pagination_and_missing_e
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let user_tags_body: Value = test::read_body_json(resp).await;
-    let user_tags = user_tags_body["data"].as_array().unwrap();
+    let user_tags = user_tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(user_tags.len(), 1);
     assert_eq!(user_tags[0]["id"], beta_id);
     assert_eq!(user_tags[0]["name"], "Beta");
@@ -4198,19 +4379,60 @@ async fn minecraft_texture_metadata_apis_list_current_user_and_admin_views() {
     let app = create_test_app!(state);
     let access = setup_admin!(app);
     let profile_id = create_profile!(&app, &access, "MetaSkin");
-    let login = ygg_login!(&app, "admin@example.com", "metadata-client");
 
-    let resp = upload_texture_req!(
-        app,
-        &login.access_token,
-        &profile_id,
-        "skin",
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/profiles/minecraft/{profile_id}/textures"))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let default_body: Value = test::read_body_json(resp).await;
+    let default_items = default_body["data"]
+        .as_array()
+        .expect("default texture metadata should be an array");
+    assert_eq!(default_items.len(), 1);
+    assert_eq!(default_items[0]["id"], 0);
+    assert_eq!(default_items[0]["texture_id"], 0);
+    assert_eq!(default_items[0]["name"], "Default skin");
+    assert_eq!(default_items[0]["display_name"], Value::Null);
+    assert_eq!(default_items[0]["source"], "default");
+    assert_eq!(default_items[0]["texture_type"], "skin");
+
+    let (content_type, body) = texture_multipart_body_with_name(
         Some("slim"),
-        &png_texture(64, 64)
+        Some("  Metadata Skin  "),
+        &png_texture(64, 64),
     );
-    assert_eq!(resp.status(), 204);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let upload_body: Value = test::read_body_json(resp).await;
+    let wardrobe_texture_id = upload_body["data"]["id"].as_i64().unwrap();
+    let texture_hash = upload_body["data"]["hash"].as_str().unwrap().to_string();
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/profiles/minecraft/{profile_id}/textures/skin"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "texture_id": wardrobe_texture_id }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let bind_body: Value = test::read_body_json(resp).await;
+    let binding_id = bind_body["data"]["id"].as_i64().unwrap();
+    assert!(binding_id > 0);
+    assert_eq!(bind_body["data"]["texture_id"], wardrobe_texture_id);
+    assert_eq!(bind_body["data"]["name"], "Metadata Skin");
+    assert_eq!(bind_body["data"]["display_name"], "Metadata Skin");
+
     let textures = profile_textures!(app, &profile_id);
-    let texture_hash = texture_hash_from_property(&textures, "SKIN").to_string();
+    assert_eq!(texture_hash_from_property(&textures, "SKIN"), texture_hash);
 
     for uri in [
         format!("/api/v1/profiles/minecraft/{profile_id}/textures"),
@@ -4227,6 +4449,10 @@ async fn minecraft_texture_metadata_apis_list_current_user_and_admin_views() {
             .as_array()
             .expect("textures should be an array");
         assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"], binding_id);
+        assert_eq!(items[0]["texture_id"], wardrobe_texture_id);
+        assert_eq!(items[0]["name"], "Metadata Skin");
+        assert_eq!(items[0]["display_name"], "Metadata Skin");
         assert_eq!(items[0]["profile_uuid"], profile_id);
         assert_eq!(items[0]["profile_name"], "MetaSkin");
         assert_eq!(items[0]["hash"], texture_hash);
@@ -4243,6 +4469,29 @@ async fn minecraft_texture_metadata_apis_list_current_user_and_admin_views() {
         assert!(items[0]["created_at"].as_str().is_some());
         assert!(items[0]["updated_at"].as_str().is_some());
     }
+
+    let resp =
+        upload_wardrobe_texture_req!(app, &access, "skin", Some("default"), &png_texture(64, 64));
+    assert_eq!(resp.status(), 200);
+    let unnamed_body: Value = test::read_body_json(resp).await;
+    let unnamed_texture_id = unnamed_body["data"]["id"].as_i64().unwrap();
+    let unnamed_hash = unnamed_body["data"]["hash"].as_str().unwrap().to_string();
+    assert_eq!(unnamed_body["data"]["display_name"], Value::Null);
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/profiles/minecraft/{profile_id}/textures/skin"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "texture_id": unnamed_texture_id }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let unnamed_bind_body: Value = test::read_body_json(resp).await;
+    assert_eq!(unnamed_bind_body["data"]["id"], binding_id);
+    assert_eq!(unnamed_bind_body["data"]["texture_id"], unnamed_texture_id);
+    assert_eq!(unnamed_bind_body["data"]["display_name"], Value::Null);
+    assert_eq!(unnamed_bind_body["data"]["name"], unnamed_hash[..16]);
 
     let req = test::TestRequest::get()
         .uri("/api/v1/profiles/minecraft/not-a-uuid/textures")
@@ -5379,7 +5628,8 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let access = setup_admin!(app);
     let profile_id = create_profile!(&app, &access, "WardrobeUser");
 
-    let (content_type, body) = texture_multipart_body(Some("slim"), &png_texture(64, 64));
+    let (content_type, body) =
+        texture_multipart_body_with_name(Some("slim"), Some("Wardrobe Jacket"), &png_texture(64, 64));
     let req = test::TestRequest::post()
         .uri("/api/v1/wardrobe/textures/skin")
         .insert_header(common::bearer_header(&access))
@@ -5391,6 +5641,8 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let upload_body: Value = test::read_body_json(resp).await;
     let wardrobe_texture_id = upload_body["data"]["id"].as_i64().unwrap();
     let wardrobe_hash = upload_body["data"]["hash"].as_str().unwrap().to_string();
+    assert_eq!(upload_body["data"]["name"], "Wardrobe Jacket");
+    assert_eq!(upload_body["data"]["display_name"], "Wardrobe Jacket");
     assert_eq!(upload_body["data"]["texture_type"], "skin");
     assert_eq!(upload_body["data"]["texture_model"], "slim");
     assert_eq!(upload_body["data"]["visibility"], "private");
@@ -5433,8 +5685,29 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let bind_body: Value = test::read_body_json(resp).await;
+    let binding_id = bind_body["data"]["id"].as_i64().unwrap();
+    assert!(binding_id > 0);
+    assert_eq!(bind_body["data"]["texture_id"], wardrobe_texture_id);
+    assert_eq!(bind_body["data"]["name"], "Wardrobe Jacket");
+    assert_eq!(bind_body["data"]["display_name"], "Wardrobe Jacket");
     assert_eq!(bind_body["data"]["hash"], wardrobe_hash);
     assert_eq!(bind_body["data"]["profile_uuid"], profile_id);
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/minecraft-profiles/{profile_id}/textures"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let admin_textures_body: Value = test::read_body_json(resp).await;
+    let admin_items = admin_textures_body["data"].as_array().unwrap();
+    assert_eq!(admin_items.len(), 1);
+    assert_eq!(admin_items[0]["id"], binding_id);
+    assert_eq!(admin_items[0]["texture_id"], wardrobe_texture_id);
+    assert_eq!(admin_items[0]["name"], "Wardrobe Jacket");
+    assert_eq!(admin_items[0]["display_name"], "Wardrobe Jacket");
 
     let textures = profile_textures!(app, &profile_id);
     assert_eq!(texture_hash_from_property(&textures, "SKIN"), wardrobe_hash);
@@ -5531,6 +5804,16 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
+    let replacement_bind_body: Value = test::read_body_json(resp).await;
+    let replacement_binding_id = replacement_bind_body["data"]["id"].as_i64().unwrap();
+    assert!(replacement_binding_id > binding_id);
+    assert_eq!(replacement_bind_body["data"]["texture_id"], replacement_id);
+    assert_eq!(replacement_bind_body["data"]["display_name"], Value::Null);
+    assert_eq!(
+        replacement_bind_body["data"]["name"],
+        replacement_hash[..16],
+        "metadata name should fall back to hash prefix when display_name is absent"
+    );
 
     let req = test::TestRequest::delete()
         .uri(&format!(
@@ -5763,6 +6046,70 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
         "public tag list must not expose uploader data"
     );
 
+    let req = test::TestRequest::get()
+        .uri("/api/v1/texture-library/tags?limit=30&offset=0&keyword=fea")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let filtered_public_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(filtered_public_tags_body["data"]["total"], 1);
+    assert_eq!(filtered_public_tags_body["data"]["limit"], 30);
+    assert_eq!(filtered_public_tags_body["data"]["offset"], 0);
+    let filtered_public_tags = filtered_public_tags_body["data"]["items"]
+        .as_array()
+        .unwrap();
+    assert_eq!(filtered_public_tags.len(), 1);
+    assert_eq!(filtered_public_tags[0]["id"], tag_id);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/texture-library/tags?limit=30&offset=0&keyword=missing")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let missing_public_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(missing_public_tags_body["data"]["total"], 0);
+    assert_eq!(
+        missing_public_tags_body["data"]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/texture-library/tags?limit=30&offset=999")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let empty_public_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(empty_public_tags_body["data"]["total"], 1);
+    assert_eq!(empty_public_tags_body["data"]["limit"], 30);
+    assert_eq!(empty_public_tags_body["data"]["offset"], 999);
+    assert_eq!(
+        empty_public_tags_body["data"]["items"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+
+    let long_keyword = "a".repeat(97);
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/tags?keyword={long_keyword}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let invalid_public_tags_body: Value = test::read_body_json(resp).await;
+    assert_eq!(invalid_public_tags_body["code"], "bad_request");
+    assert!(
+        invalid_public_tags_body["msg"]
+            .as_str()
+            .unwrap()
+            .contains("keyword must not exceed 96 characters")
+    );
+
     let public_skin = png_texture_with_color(64, 64, image::Rgba([170, 44, 55, 255]));
     let (content_type, body) =
         texture_multipart_body_with_name(Some("slim"), Some("  Public Jacket  "), &public_skin);
@@ -5788,6 +6135,36 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{public_texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&publisher_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let submission_body: Value = test::read_body_json(resp).await;
+    assert_eq!(submission_body["data"]["library_status"], "pending_review");
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{public_texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({
+            "review_note": "good texture",
+            "tag_ids": [tag_id]
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let approved_body: Value = test::read_body_json(resp).await;
+    assert_eq!(approved_body["data"]["library_status"], "published");
+    assert_eq!(
+        approved_body["data"]["uploader"]["avatar"]["url_512"],
+        Value::Null
+    );
 
     let req = test::TestRequest::put()
         .uri(&format!(
@@ -5835,6 +6212,25 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{fallback_texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&fallback_publisher_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{fallback_texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({ "review_note": "fallback ok" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
     let req = test::TestRequest::get()
         .uri(&format!(
             "/api/v1/texture-library/textures?texture_type=skin&keyword=Public&tag_ids={tag_id}&tag_search_method=all"
@@ -5853,13 +6249,58 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
         public_items[0]["uploader"]["public_uuid"],
         publisher.public_uuid
     );
+    assert_eq!(public_items[0]["uploader"]["id"], publisher.id);
+    assert_eq!(public_items[0]["uploader"]["username"], "publisher");
     assert_eq!(public_items[0]["uploader"]["name"], "Texture Artist");
+    assert_eq!(public_items[0]["uploader"]["avatar"]["source"], "none");
+    assert_eq!(
+        public_items[0]["uploader"]["avatar"]["url_512"],
+        Value::Null
+    );
     assert_eq!(public_items[0]["uploader"]["email"], Value::Null);
     assert!(
         !library_body
             .to_string()
             .contains("texture-publisher@example.com"),
         "public library response must not expose uploader email"
+    );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures?texture_type=skin&keyword=Public&tag_ids={tag_id},999999&tag_search_method=any"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let any_library_body: Value = test::read_body_json(resp).await;
+    assert_eq!(any_library_body["data"]["total"], 1);
+    assert_eq!(
+        any_library_body["data"]["items"][0]["id"],
+        public_texture_id
+    );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures?texture_type=skin&keyword=Public&tag_ids={tag_id},999999&tag_search_method=all"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let all_public_miss_body: Value = test::read_body_json(resp).await;
+    assert_eq!(all_public_miss_body["data"]["total"], 0);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/texture-library/textures?tag_ids=-1")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let invalid_tag_ids_body: Value = test::read_body_json(resp).await;
+    assert_eq!(invalid_tag_ids_body["code"], "validation.failed");
+    assert!(
+        invalid_tag_ids_body["msg"]
+            .as_str()
+            .unwrap()
+            .contains("tag_ids must contain positive integers")
     );
 
     let req = test::TestRequest::get()
@@ -5878,7 +6319,14 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
         detail_body["data"]["uploader"]["public_uuid"],
         publisher.public_uuid
     );
+    assert_eq!(detail_body["data"]["uploader"]["id"], publisher.id);
+    assert_eq!(detail_body["data"]["uploader"]["username"], "publisher");
     assert_eq!(detail_body["data"]["uploader"]["name"], "Texture Artist");
+    assert_eq!(detail_body["data"]["uploader"]["avatar"]["source"], "none");
+    assert_eq!(
+        detail_body["data"]["uploader"]["avatar"]["url_512"],
+        Value::Null
+    );
     assert!(
         !detail_body
             .to_string()
@@ -6088,6 +6536,780 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
         .collect::<Vec<_>>();
     assert_eq!(copied_items.len(), 1);
     assert_eq!(copied_items[0]["id"], copied_id);
+}
+
+#[actix_web::test]
+async fn texture_library_submission_respects_review_and_enabled_config() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+
+    let skin = png_texture_with_color(64, 64, image::Rgba([90, 120, 150, 255]));
+    let (content_type, body) =
+        texture_multipart_body_with_name(Some("default"), Some("Review Skin"), &skin);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let upload_body: Value = test::read_body_json(resp).await;
+    let texture_id = upload_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let private_body: Value = test::read_body_json(resp).await;
+    assert_eq!(private_body["code"], "texture_library.texture_not_public");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "visibility": "public" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let pending_body: Value = test::read_body_json(resp).await;
+    assert_eq!(pending_body["data"]["library_status"], "pending_review");
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/texture-library/textures/{texture_id}"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/reject"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "review_note": "needs cleanup" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let rejected_body: Value = test::read_body_json(resp).await;
+    assert_eq!(rejected_body["data"]["library_status"], "rejected");
+    assert_eq!(
+        rejected_body["data"]["library_review_note"],
+        "needs cleanup"
+    );
+
+    let saved = system_config_repo::upsert_with_options(
+        state.writer_db(),
+        TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY,
+        "false",
+        None,
+        None,
+    )
+    .await
+    .expect("texture library review config should update");
+    state.runtime_config().apply(saved);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let published_body: Value = test::read_body_json(resp).await;
+    assert_eq!(published_body["data"]["library_status"], "published");
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/texture-library/textures/{texture_id}"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let saved = system_config_repo::upsert_with_options(
+        state.writer_db(),
+        TEXTURE_LIBRARY_ENABLED_KEY,
+        "false",
+        None,
+        None,
+    )
+    .await
+    .expect("texture library enabled config should update");
+    state.runtime_config().apply(saved);
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/texture-library/textures/{texture_id}"))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let disabled_body: Value = test::read_body_json(resp).await;
+    assert_eq!(disabled_body["code"], "texture_library.disabled");
+}
+
+#[actix_web::test]
+async fn texture_library_admin_filters_permissions_and_state_edges() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let admin_access = setup_admin!(app);
+    let texture_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "texture-reviewer",
+        "texture-reviewer@example.com",
+        &["texture_library"],
+    )
+    .await;
+    let users_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "users-reviewer",
+        "users-reviewer@example.com",
+        &["users"],
+    )
+    .await;
+    let user_access = register_user!(
+        app,
+        "libraryedgeuser",
+        "library-edge-user@example.com",
+        "password1234"
+    );
+    let other_access = register_user!(
+        app,
+        "libraryother",
+        "library-other@example.com",
+        "password1234"
+    );
+    let owner = user_repo::find_by_identifier(state.reader_db(), "library-edge-user@example.com")
+        .await
+        .unwrap()
+        .expect("library owner should exist");
+    profile_service::set_avatar_source(&state, owner.id, AvatarSource::Gravatar)
+        .await
+        .expect("owner avatar source should update");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/texture-library/tags")
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({
+            "name": "Edge",
+            "color": "#2277aa",
+            "sort_order": 1
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let tag_body: Value = test::read_body_json(resp).await;
+    let tag_id = tag_body["data"]["id"].as_i64().unwrap();
+
+    let skin = png_texture_with_color(64, 64, image::Rgba([22, 44, 66, 255]));
+    let (content_type, body) =
+        texture_multipart_body_with_name(Some("default"), Some("Edge Review"), &skin);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&user_access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let upload_body: Value = test::read_body_json(resp).await;
+    let texture_id = upload_body["data"]["id"].as_i64().unwrap();
+    let texture_hash = upload_body["data"]["hash"].as_str().unwrap().to_string();
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({ "visibility": "public" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}/tags"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({ "tag_ids": [tag_id] }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&other_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(&users_operator_access))
+        .set_json(serde_json::json!({ "review_note": "blocked" }))
+        .to_request();
+    let error = test::try_call_service(&app, req)
+        .await
+        .expect_err("operator without texture_library scope should be rejected");
+    assert!(error.to_string().contains("admin permission required"));
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/reject"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "review_note": "   " }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let blank_reject_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        blank_reject_body["code"],
+        "texture_library.review_note_invalid"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/admin/texture-library/textures?library_status=pending_review&visibility=public&published=false")
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let pending_list: Value = test::read_body_json(resp).await;
+    assert_eq!(pending_list["data"]["total"], 1);
+    assert_eq!(pending_list["data"]["items"][0]["id"], texture_id);
+    assert_eq!(
+        pending_list["data"]["items"][0]["uploader"]["avatar"]["url_512"],
+        "https://www.gravatar.com/avatar/3fcb49d34400dab425783471044923f4?d=identicon&s=512&r=g"
+    );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures?texture_type=skin&tag_ids={tag_id}&tag_search_method=all&keyword=Edge"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let filtered_list: Value = test::read_body_json(resp).await;
+    assert_eq!(filtered_list["data"]["total"], 1);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({
+            "review_note": "approved",
+            "tag_ids": [tag_id, tag_id]
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let approved_body: Value = test::read_body_json(resp).await;
+    assert_eq!(approved_body["data"]["library_status"], "published");
+    assert_eq!(approved_body["data"]["library_review_note"], "approved");
+    assert_eq!(
+        approved_body["data"]["uploader"]["avatar"]["url_512"],
+        "https://www.gravatar.com/avatar/3fcb49d34400dab425783471044923f4?d=identicon&s=512&r=g"
+    );
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/approve"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "review_note": "again" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let approve_again_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        approve_again_body["code"],
+        "texture_library.texture_not_pending"
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/admin/texture-library/textures?published=true&library_status=published")
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let published_list: Value = test::read_body_json(resp).await;
+    assert_eq!(published_list["data"]["total"], 1);
+
+    let req = test::TestRequest::delete()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let withdrawn_body: Value = test::read_body_json(resp).await;
+    assert_eq!(withdrawn_body["data"]["library_status"], "private");
+    assert_eq!(withdrawn_body["data"]["library_review_note"], Value::Null);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}/unpublish"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "review_note": "not published" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let unpublish_private_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        unpublish_private_body["code"],
+        "texture_library.texture_not_published"
+    );
+
+    let saved = system_config_repo::upsert_with_options(
+        state.writer_db(),
+        TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY,
+        "false",
+        None,
+        None,
+    )
+    .await
+    .expect("texture library review config should update");
+    state.runtime_config().apply(saved);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/wardrobe/textures/{texture_id}/library-submission"
+        ))
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({ "visibility": "private" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let private_body: Value = test::read_body_json(resp).await;
+    assert_eq!(private_body["data"]["visibility"], "private");
+    assert_eq!(private_body["data"]["library_status"], "private");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures?keyword={}",
+            &texture_hash[..16]
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let hidden_list: Value = test::read_body_json(resp).await;
+    assert_eq!(hidden_list["data"]["total"], 0);
+}
+
+#[actix_web::test]
+async fn texture_library_reports_require_login_and_follow_moderation_edges() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let admin_access = setup_admin!(app);
+    let texture_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "report-reviewer",
+        "report-reviewer@example.com",
+        &["texture_library"],
+    )
+    .await;
+    let users_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "reportuserop",
+        "report-users-reviewer@example.com",
+        &["users"],
+    )
+    .await;
+    let publisher_access = register_user!(
+        app,
+        "reportpublisher",
+        "report-publisher@example.com",
+        "password1234"
+    );
+    let reporter_access = register_user!(
+        app,
+        "reporter",
+        "texture-reporter@example.com",
+        "password1234"
+    );
+    let second_reporter_access = register_user!(
+        app,
+        "secondreporter",
+        "texture-second-reporter@example.com",
+        "password1234"
+    );
+    let reject_reporter_access = register_user!(
+        app,
+        "rejectreporter",
+        "texture-reject-reporter@example.com",
+        "password1234"
+    );
+    let unpublish_reporter_access = register_user!(
+        app,
+        "unpubreporter",
+        "texture-unpublish-reporter@example.com",
+        "password1234"
+    );
+
+    let reported_texture_id = publish_test_library_texture(
+        &app,
+        &admin_access,
+        &publisher_access,
+        "Report Target",
+        image::Rgba([201, 41, 82, 255]),
+    )
+    .await;
+    let reject_texture_id = publish_test_library_texture(
+        &app,
+        &admin_access,
+        &publisher_access,
+        "Reject Target",
+        image::Rgba([202, 42, 83, 255]),
+    )
+    .await;
+    let unpublish_texture_id = publish_test_library_texture(
+        &app,
+        &admin_access,
+        &publisher_access,
+        "Unpublish Target",
+        image::Rgba([203, 43, 84, 255]),
+    )
+    .await;
+
+    let private_skin = png_texture_with_color(64, 64, image::Rgba([204, 44, 85, 255]));
+    let (content_type, body) =
+        texture_multipart_body_with_name(Some("default"), Some("Private Target"), &private_skin);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&publisher_access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let private_upload_body: Value = test::read_body_json(resp).await;
+    let private_texture_id = private_upload_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/texture-library/textures/{reported_texture_id}/reports"
+        ))
+        .set_json(serde_json::json!({
+            "reason": "inappropriate",
+            "message": "must sign in"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401);
+
+    let resp = post_texture_report_req!(
+        app,
+        &reporter_access,
+        private_texture_id,
+        "broken",
+        "private texture should not be reportable"
+    );
+    assert_eq!(resp.status(), 400);
+    let private_report_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        private_report_body["code"],
+        "texture_report.texture_not_reportable"
+    );
+
+    let resp = post_texture_report_req!(
+        app,
+        &publisher_access,
+        reported_texture_id,
+        "spam",
+        "self report"
+    );
+    assert_eq!(resp.status(), 400);
+    let self_report_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        self_report_body["code"],
+        "texture_report.self_report_not_allowed"
+    );
+
+    let resp = post_texture_report_req!(
+        app,
+        &reporter_access,
+        reported_texture_id,
+        "copyright",
+        "copied texture"
+    );
+    assert_eq!(resp.status(), 200);
+    let report_body: Value = test::read_body_json(resp).await;
+    let report_id = report_body["data"]["id"].as_i64().unwrap();
+    assert_eq!(report_body["data"]["texture_id"], reported_texture_id);
+    assert_eq!(report_body["data"]["reason"], "copyright");
+    assert_eq!(report_body["data"]["message"], "copied texture");
+    assert_eq!(report_body["data"]["status"], "pending");
+    assert_eq!(report_body["data"]["texture"]["id"], reported_texture_id);
+    assert_eq!(report_body["data"]["reporter"]["name"], "reporter");
+    assert!(report_body["data"]["handler"].is_null());
+
+    let resp = post_texture_report_req!(
+        app,
+        &reporter_access,
+        reported_texture_id,
+        "copyright",
+        "duplicate pending"
+    );
+    assert_eq!(resp.status(), 400);
+    let duplicate_body: Value = test::read_body_json(resp).await;
+    assert_eq!(duplicate_body["code"], "texture_report.pending_exists");
+
+    let resp = post_texture_report_req!(
+        app,
+        &second_reporter_access,
+        reported_texture_id,
+        "spam",
+        "also suspicious"
+    );
+    assert_eq!(resp.status(), 200);
+    let second_report_body: Value = test::read_body_json(resp).await;
+    let second_report_id = second_report_body["data"]["id"].as_i64().unwrap();
+    assert_eq!(second_report_body["data"]["status"], "pending");
+
+    let resp = admin_list_texture_reports_req!(
+        app,
+        &texture_operator_access,
+        "/api/v1/admin/texture-library/reports?limit=20&offset=0&status=pending&reason=copyright"
+    );
+    assert_eq!(resp.status(), 200);
+    let pending_copyright_body: Value = test::read_body_json(resp).await;
+    assert_eq!(pending_copyright_body["data"]["total"], 1);
+    assert_eq!(pending_copyright_body["data"]["items"][0]["id"], report_id);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/reports/{report_id}/accept"
+        ))
+        .insert_header(common::bearer_header(&users_operator_access))
+        .set_json(serde_json::json!({ "admin_note": "blocked" }))
+        .to_request();
+    let error = test::try_call_service(&app, req)
+        .await
+        .expect_err("operator without texture_library scope should be rejected");
+    assert!(error.to_string().contains("admin permission required"));
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/reports/{report_id}/accept"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "admin_note": "confirmed copied" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let accepted_body: Value = test::read_body_json(resp).await;
+    assert_eq!(accepted_body["data"]["id"], report_id);
+    assert_eq!(accepted_body["data"]["status"], "accepted");
+    assert_eq!(accepted_body["data"]["admin_note"], "confirmed copied");
+    assert_eq!(accepted_body["data"]["handler"]["name"], "report-reviewer");
+    assert_eq!(
+        accepted_body["data"]["texture"]["library_status"],
+        "private"
+    );
+    assert!(accepted_body["data"]["handled_at"].as_str().is_some());
+
+    let resp = list_wardrobe_textures_req!(
+        app,
+        &publisher_access,
+        "/api/v1/wardrobe/textures?limit=100"
+    );
+    assert_eq!(resp.status(), 200);
+    let wardrobe_body: Value = test::read_body_json(resp).await;
+    let accepted_texture = wardrobe_body["data"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == reported_texture_id)
+        .expect("publisher wardrobe should still include the unpublished texture");
+    assert_eq!(accepted_texture["library_status"], "private");
+    assert_eq!(accepted_texture["library_review_note"], "confirmed copied");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures/{reported_texture_id}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/reports/{report_id}/reject"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "admin_note": "too late" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let handled_again_body: Value = test::read_body_json(resp).await;
+    assert_eq!(handled_again_body["code"], "texture_report.not_pending");
+
+    let resp = admin_list_texture_reports_req!(
+        app,
+        &texture_operator_access,
+        &format!("/api/v1/admin/texture-library/reports/{second_report_id}")
+    );
+    assert_eq!(resp.status(), 200);
+    let second_after_accept_body: Value = test::read_body_json(resp).await;
+    assert_eq!(second_after_accept_body["data"]["status"], "pending");
+    assert_eq!(
+        second_after_accept_body["data"]["texture"]["library_status"],
+        "private"
+    );
+
+    let resp = post_texture_report_req!(
+        app,
+        &reject_reporter_access,
+        reject_texture_id,
+        "misleading",
+        "wrong tags"
+    );
+    assert_eq!(resp.status(), 200);
+    let reject_report_body: Value = test::read_body_json(resp).await;
+    let reject_report_id = reject_report_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/reports/{reject_report_id}/reject"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "admin_note": "looks fine" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let rejected_body: Value = test::read_body_json(resp).await;
+    assert_eq!(rejected_body["data"]["status"], "rejected");
+    assert_eq!(
+        rejected_body["data"]["texture"]["library_status"],
+        "published"
+    );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures/{reject_texture_id}"
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let resp = post_texture_report_req!(
+        app,
+        &unpublish_reporter_access,
+        unpublish_texture_id,
+        "offensive",
+        "bad content"
+    );
+    assert_eq!(resp.status(), 200);
+    let unpublish_report_body: Value = test::read_body_json(resp).await;
+    let unpublish_report_id = unpublish_report_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{unpublish_texture_id}/unpublish"
+        ))
+        .insert_header(common::bearer_header(&texture_operator_access))
+        .set_json(serde_json::json!({ "review_note": "direct moderation takedown" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let unpublished_body: Value = test::read_body_json(resp).await;
+    assert_eq!(unpublished_body["data"]["library_status"], "private");
+
+    let resp = admin_list_texture_reports_req!(
+        app,
+        &texture_operator_access,
+        &format!("/api/v1/admin/texture-library/reports/{unpublish_report_id}")
+    );
+    assert_eq!(resp.status(), 200);
+    let auto_accepted_body: Value = test::read_body_json(resp).await;
+    assert_eq!(auto_accepted_body["data"]["status"], "accepted");
+    assert_eq!(
+        auto_accepted_body["data"]["admin_note"],
+        "direct moderation takedown"
+    );
+    assert_eq!(
+        auto_accepted_body["data"]["handler"]["name"],
+        "report-reviewer"
+    );
+    assert!(auto_accepted_body["data"]["handled_at"].as_str().is_some());
+
+    let resp = admin_list_texture_reports_req!(
+        app,
+        &texture_operator_access,
+        &format!(
+            "/api/v1/admin/texture-library/reports?status=accepted&texture_id={unpublish_texture_id}"
+        )
+    );
+    assert_eq!(resp.status(), 200);
+    let accepted_reports_body: Value = test::read_body_json(resp).await;
+    assert_eq!(accepted_reports_body["data"]["total"], 1);
+    assert_eq!(
+        accepted_reports_body["data"]["items"][0]["id"],
+        unpublish_report_id
+    );
+
+    audit_service::flush_global_audit_log_manager().await;
+    let report_create_count = audit_log::Entity::find()
+        .filter(
+            audit_log::Column::Action.eq(audit_service::AuditAction::MinecraftTextureReportCreate),
+        )
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(report_create_count, 4);
+    let report_accept_count = audit_log::Entity::find()
+        .filter(
+            audit_log::Column::Action.eq(audit_service::AuditAction::MinecraftTextureReportAccept),
+        )
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(
+        report_accept_count, 1,
+        "direct texture unpublish should update pending reports without fabricating a report accept audit entry"
+    );
 }
 
 #[actix_web::test]

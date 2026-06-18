@@ -39,7 +39,7 @@ features:
 
 AsterYggdrasil is a self-hosted Minecraft skin site and Yggdrasil/authlib-injector authentication server. It lets you host site accounts, Minecraft profiles, skin/cape textures, launcher login, and server join verification on your own service.
 
-The current codebase already includes account auth, external auth, Minecraft profiles, wardrobe textures, Yggdrasil protocol endpoints, texture processing, runtime config, audit logs, and maintenance tasks. The docs describe those implemented capabilities instead of presenting future roadmap items as available features.
+The current codebase already includes account auth, external auth, visual captcha, Minecraft profiles, wardrobe textures, the public texture library, Yggdrasil protocol endpoints, texture processing, runtime config, audit logs, and maintenance tasks. The docs describe those implemented capabilities instead of presenting future roadmap items as available features.
 
 ## Choose Your Path
 
@@ -47,7 +47,7 @@ The current codebase already includes account auth, external auth, Minecraft pro
 
 Start with [Getting Started](/en/guide/getting-started). It walks through starting the backend, creating the first admin, checking `/api/yggdrasil` metadata, creating a profile, and verifying texture upload and public reads.
 
-For production, continue to [Deployment Overview](/en/deployment/) and [Docker Deployment](/en/deployment/docker). Public URLs, reverse proxy headers, cached signing keys, and texture directory backups are the common failure points.
+For production, continue to [Deployment Overview](/en/deployment/) and [Docker Deployment](/en/deployment/docker). Public URLs, reverse proxy headers, cached signing keys, and object storage backups are the common failure points.
 
 ### I am a player
 
@@ -87,4 +87,4 @@ Read [Docs Contributing](/en/guide/docs-contributing) first. These docs are for 
 - Deleting a profile handles texture bindings, reference counts, related Yggdrasil tokens, and audit records.
 - Yggdrasil protocol endpoints return protocol-shaped responses; site and admin APIs use `{ "code": "success", "msg": "", "data": ... }`.
 - Available object storage backends are local, S3, and MinIO. Textures and uploaded avatars use the same object storage backend; S3/MinIO supports server-side streaming uploads only.
-- The admin frontend is still evolving; docs prioritize stable backend behavior and deployable semantics.
+- The product frontend now covers core account, profile, wardrobe, public texture library, and admin workflows, but this is still an alpha release; run full validation for your own deployment before public use.

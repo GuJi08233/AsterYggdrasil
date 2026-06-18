@@ -703,6 +703,156 @@ describe("admin services", () => {
 			"/admin/texture-library/tags/3",
 		);
 	});
+
+	it("manages texture library moderation textures through administrator APIs", async () => {
+		apiMock.get.mockResolvedValueOnce(offsetPage([], 20, 0, 0));
+		apiMock.get.mockResolvedValueOnce({
+			created_at: "2026-06-15T00:00:00Z",
+			display_name: "Review Skin",
+			file_size: 3,
+			hash: "hash-review",
+			height: 64,
+			id: 12,
+			library_review_note: null,
+			library_reviewed_at: "2026-06-15T01:00:00Z",
+			library_status: "pending_review",
+			library_submitted_at: "2026-06-15T00:30:00Z",
+			mime_type: "image/png",
+			name: "Review Skin",
+			tags: [],
+			texture_model: "slim",
+			texture_type: "skin",
+			updated_at: "2026-06-15T00:00:00Z",
+			uploader: {
+				avatar: {
+					source: "none",
+					url_1024: null,
+					url_512: null,
+					version: 0,
+				},
+				id: 1,
+				name: "Steve",
+				public_uuid: "user-public-uuid",
+				username: "steve",
+			},
+			url: "/textures/hash-review.png",
+			visibility: "public",
+			width: 64,
+		});
+		apiMock.post.mockResolvedValue({
+			created_at: "2026-06-15T00:00:00Z",
+			display_name: "Review Skin",
+			file_size: 3,
+			hash: "hash-review",
+			height: 64,
+			id: 12,
+			library_review_note: "ok",
+			library_reviewed_at: "2026-06-15T01:00:00Z",
+			library_status: "published",
+			library_submitted_at: "2026-06-15T00:30:00Z",
+			mime_type: "image/png",
+			name: "Review Skin",
+			tags: [],
+			texture_model: "slim",
+			texture_type: "skin",
+			updated_at: "2026-06-15T00:00:00Z",
+			uploader: {
+				avatar: {
+					source: "none",
+					url_1024: null,
+					url_512: null,
+					version: 0,
+				},
+				id: 1,
+				name: "Steve",
+				public_uuid: "user-public-uuid",
+				username: "steve",
+			},
+			url: "/textures/hash-review.png",
+			visibility: "public",
+			width: 64,
+		});
+		const { adminTextureLibraryService } = await import("./adminService");
+
+		await adminTextureLibraryService.listTextures({
+			keyword: "Review",
+			library_status: "pending_review",
+			limit: 20,
+			offset: 0,
+			published: false,
+			tag_ids: [3, 4],
+			tag_search_method: "any",
+			texture_type: "skin",
+			visibility: "public",
+		});
+		await adminTextureLibraryService.getTexture(12);
+		await adminTextureLibraryService.approveTexture(12, {
+			review_note: "ok",
+			tag_ids: [3],
+		});
+		await adminTextureLibraryService.rejectTexture(12, {
+			review_note: "bad dimensions",
+		});
+		await adminTextureLibraryService.unpublishTexture(12, {
+			review_note: null,
+		});
+		await adminTextureLibraryService.listReports({
+			limit: 20,
+			offset: 0,
+			reason: "copyright",
+			status: "pending",
+			texture_id: 12,
+		});
+		await adminTextureLibraryService.getReport(7);
+		await adminTextureLibraryService.acceptReport(7, {
+			admin_note: "confirmed",
+		});
+		await adminTextureLibraryService.rejectReport(8, {
+			admin_note: "not enough evidence",
+		});
+
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			1,
+			"/admin/texture-library/textures?limit=20&offset=0&keyword=Review&texture_type=skin&visibility=public&library_status=pending_review&published=false&tag_ids=3%2C4&tag_search_method=any",
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			2,
+			"/admin/texture-library/textures/12",
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			3,
+			"/admin/texture-library/reports?limit=20&offset=0&status=pending&reason=copyright&texture_id=12",
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			4,
+			"/admin/texture-library/reports/7",
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			1,
+			"/admin/texture-library/textures/12/approve",
+			{ review_note: "ok", tag_ids: [3] },
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			2,
+			"/admin/texture-library/textures/12/reject",
+			{ review_note: "bad dimensions" },
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			3,
+			"/admin/texture-library/textures/12/unpublish",
+			{ review_note: null },
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			4,
+			"/admin/texture-library/reports/7/accept",
+			{ admin_note: "confirmed" },
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			5,
+			"/admin/texture-library/reports/8/reject",
+			{ admin_note: "not enough evidence" },
+		);
+	});
 });
 
 describe("systemService", () => {
@@ -1212,6 +1362,12 @@ describe("yggdrasilService", () => {
 		await yggdrasilService.copyPublicTextureToWardrobe(12, {
 			display_name: "Shared Copy",
 		});
+		await yggdrasilService.createTextureReport(12, {
+			message: "copied from another site",
+			reason: "copyright",
+		});
+		await yggdrasilService.submitTextureLibraryReview(12);
+		await yggdrasilService.withdrawTextureLibrarySubmission(12);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
 			"/texture-library/textures?keyword=Shared&limit=12&offset=24&tag_ids=3&tag_search_method=all&texture_type=skin",
@@ -1223,6 +1379,16 @@ describe("yggdrasilService", () => {
 		expect(apiMock.post).toHaveBeenCalledWith(
 			"/texture-library/textures/12/copy",
 			{ display_name: "Shared Copy" },
+		);
+		expect(apiMock.post).toHaveBeenCalledWith(
+			"/texture-library/textures/12/reports",
+			{ message: "copied from another site", reason: "copyright" },
+		);
+		expect(apiMock.post).toHaveBeenCalledWith(
+			"/wardrobe/textures/12/library-submission",
+		);
+		expect(apiMock.deleteRequest).toHaveBeenCalledWith(
+			"/wardrobe/textures/12/library-submission",
 		);
 	});
 

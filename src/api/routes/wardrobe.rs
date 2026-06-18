@@ -86,6 +86,14 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 web::put().to(replace_wardrobe_texture_tags),
             )
             .route(
+                "/textures/{texture_id}/library-submission",
+                web::post().to(submit_texture_library_review),
+            )
+            .route(
+                "/textures/{texture_id}/library-submission",
+                web::delete().to(withdraw_texture_library_submission),
+            )
+            .route(
                 "/textures/{texture_id}",
                 web::delete().to(delete_wardrobe_texture),
             ),
@@ -314,6 +322,107 @@ pub async fn replace_wardrobe_texture_tags(
 
 #[api_docs_macros::path(
     post,
+    path = "/api/v1/wardrobe/textures/{texture_id}/library-submission",
+    tag = "profiles",
+    operation_id = "submit_current_user_texture_library_review",
+    params(("texture_id" = i64, Path, description = "Wardrobe texture ID")),
+    responses(
+        (status = 200, description = "Submitted or published wardrobe texture", body = inline(ApiResponse<texture_service::MinecraftWardrobeTextureMetadata>)),
+        (status = 400, description = "Invalid texture state"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Wardrobe texture not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn submit_texture_library_review(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let texture_id = path.into_inner();
+    let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let texture =
+        texture_service::submit_texture_library_review(state.get_ref(), user.id, texture_id)
+            .await?;
+    let ctx = audit_service::AuditContext::from_request(&req, user.id);
+    audit_service::log_with_details(
+        state.get_ref(),
+        &ctx,
+        audit_service::AuditAction::MinecraftTextureLibrarySubmit,
+        audit_service::AuditEntityType::MinecraftTexture,
+        Some(texture.id),
+        Some(&texture.name),
+        || {
+            audit_service::details(audit_service::MinecraftTextureAuditDetails {
+                profile_uuid: "",
+                profile_name: "",
+                texture_type: texture.texture_type,
+                texture_hash: Some(&texture.hash),
+                texture_model: Some(texture.texture_model),
+                width: Some(texture.width),
+                height: Some(texture.height),
+                file_size: Some(texture.file_size),
+                library_status: Some(texture.library_status),
+                review_note: texture.library_review_note.as_deref(),
+            })
+        },
+    )
+    .await;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(texture)))
+}
+
+#[api_docs_macros::path(
+    delete,
+    path = "/api/v1/wardrobe/textures/{texture_id}/library-submission",
+    tag = "profiles",
+    operation_id = "withdraw_current_user_texture_library_submission",
+    params(("texture_id" = i64, Path, description = "Wardrobe texture ID")),
+    responses(
+        (status = 200, description = "Withdrawn wardrobe texture library submission", body = inline(ApiResponse<texture_service::MinecraftWardrobeTextureMetadata>)),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Wardrobe texture not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn withdraw_texture_library_submission(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let texture_id = path.into_inner();
+    let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let texture =
+        texture_service::withdraw_texture_library_submission(state.get_ref(), user.id, texture_id)
+            .await?;
+    let ctx = audit_service::AuditContext::from_request(&req, user.id);
+    audit_service::log_with_details(
+        state.get_ref(),
+        &ctx,
+        audit_service::AuditAction::MinecraftTextureLibraryWithdraw,
+        audit_service::AuditEntityType::MinecraftTexture,
+        Some(texture.id),
+        Some(&texture.name),
+        || {
+            audit_service::details(audit_service::MinecraftTextureAuditDetails {
+                profile_uuid: "",
+                profile_name: "",
+                texture_type: texture.texture_type,
+                texture_hash: Some(&texture.hash),
+                texture_model: Some(texture.texture_model),
+                width: Some(texture.width),
+                height: Some(texture.height),
+                file_size: Some(texture.file_size),
+                library_status: Some(texture.library_status),
+                review_note: texture.library_review_note.as_deref(),
+            })
+        },
+    )
+    .await;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(texture)))
+}
+
+#[api_docs_macros::path(
+    post,
     path = "/api/v1/wardrobe/textures/{texture_type}",
     tag = "profiles",
     operation_id = "upload_current_user_wardrobe_texture",
@@ -401,6 +510,8 @@ pub async fn upload_wardrobe_texture(
                 width: Some(stored.texture.width),
                 height: Some(stored.texture.height),
                 file_size: Some(stored.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )
@@ -474,6 +585,8 @@ pub async fn delete_wardrobe_texture(
                 width: Some(deleted.width),
                 height: Some(deleted.height),
                 file_size: Some(deleted.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )

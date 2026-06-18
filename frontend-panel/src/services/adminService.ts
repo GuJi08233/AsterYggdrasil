@@ -9,8 +9,12 @@ import type {
 	AdminTaskCleanupRequest,
 	AdminTaskListQuery,
 	AdminTaskPage,
+	AdminTextureLibraryPage,
+	AdminTextureLibraryQuery,
 	AdminTextureLibraryTagPage,
 	AdminTextureLibraryTagQuery,
+	AdminTextureReportPage,
+	AdminTextureReportQuery,
 	AdminUserInvitationInfo,
 	AdminUserInvitationPage,
 	AdminUserListQuery,
@@ -28,12 +32,14 @@ import type {
 	ExternalAuthProviderKindInfo,
 	ExternalAuthProviderTestParamsRequest,
 	ExternalAuthProviderTestResult,
+	HandleTextureReportRequest,
 	MinecraftTextureMetadata,
 	OperationData,
 	OperationPath,
 	OperationRequestBody,
 	RemovedCountResponse,
 	RenameMinecraftProfileRequest,
+	ReviewTextureLibraryTextureRequest,
 	SetConfigRequest,
 	SetConfigResponse,
 	SystemConfig,
@@ -55,6 +61,9 @@ type AdminRetryTaskPath = OperationPath<"admin_retry_task">;
 type AdminUserPath = OperationPath<"admin_get_user">;
 type AdminTextureLibraryTagPath =
 	OperationPath<"admin_update_texture_library_tag">;
+type AdminTextureLibraryTexturePath =
+	OperationPath<"admin_get_texture_library_texture">;
+type AdminTextureReportPath = OperationPath<"admin_get_texture_library_report">;
 
 export const adminAuditService = {
 	list: (params: AdminAuditLogQuery = {}) =>
@@ -156,6 +165,78 @@ export const adminTaskService = {
 };
 
 export const adminTextureLibraryService = {
+	listTextures: (params: AdminTextureLibraryQuery = {}) =>
+		api.get<AdminTextureLibraryPage>(
+			withQuery("/admin/texture-library/textures", {
+				limit: params.limit,
+				offset: params.offset,
+				keyword: params.keyword,
+				texture_type: params.texture_type,
+				visibility: params.visibility,
+				library_status: params.library_status,
+				published: params.published,
+				tag_ids: params.tag_ids,
+				tag_search_method: params.tag_search_method,
+			}),
+		),
+	getTexture: (textureId: AdminTextureLibraryTexturePath["texture_id"]) =>
+		api.get<OperationData<"admin_get_texture_library_texture">>(
+			`/admin/texture-library/textures/${textureId}`,
+		),
+	approveTexture: (
+		textureId: AdminTextureLibraryTexturePath["texture_id"],
+		data: ReviewTextureLibraryTextureRequest = {},
+	) =>
+		api.post<
+			OperationData<"admin_approve_texture_library_texture">,
+			OperationRequestBody<"admin_approve_texture_library_texture">
+		>(`/admin/texture-library/textures/${textureId}/approve`, data),
+	rejectTexture: (
+		textureId: AdminTextureLibraryTexturePath["texture_id"],
+		data: ReviewTextureLibraryTextureRequest,
+	) =>
+		api.post<
+			OperationData<"admin_reject_texture_library_texture">,
+			OperationRequestBody<"admin_reject_texture_library_texture">
+		>(`/admin/texture-library/textures/${textureId}/reject`, data),
+	unpublishTexture: (
+		textureId: AdminTextureLibraryTexturePath["texture_id"],
+		data: ReviewTextureLibraryTextureRequest = {},
+	) =>
+		api.post<
+			OperationData<"admin_unpublish_texture_library_texture">,
+			OperationRequestBody<"admin_unpublish_texture_library_texture">
+		>(`/admin/texture-library/textures/${textureId}/unpublish`, data),
+	listReports: (params: AdminTextureReportQuery = {}) =>
+		api.get<AdminTextureReportPage>(
+			withQuery("/admin/texture-library/reports", {
+				limit: params.limit,
+				offset: params.offset,
+				status: params.status,
+				reason: params.reason,
+				texture_id: params.texture_id,
+			}),
+		),
+	getReport: (reportId: AdminTextureReportPath["report_id"]) =>
+		api.get<OperationData<"admin_get_texture_library_report">>(
+			`/admin/texture-library/reports/${reportId}`,
+		),
+	acceptReport: (
+		reportId: AdminTextureReportPath["report_id"],
+		data: HandleTextureReportRequest = {},
+	) =>
+		api.post<
+			OperationData<"admin_accept_texture_library_report">,
+			OperationRequestBody<"admin_accept_texture_library_report">
+		>(`/admin/texture-library/reports/${reportId}/accept`, data),
+	rejectReport: (
+		reportId: AdminTextureReportPath["report_id"],
+		data: HandleTextureReportRequest = {},
+	) =>
+		api.post<
+			OperationData<"admin_reject_texture_library_report">,
+			OperationRequestBody<"admin_reject_texture_library_report">
+		>(`/admin/texture-library/reports/${reportId}/reject`, data),
 	listTags: (params: AdminTextureLibraryTagQuery = {}) =>
 		api.get<AdminTextureLibraryTagPage>(
 			withQuery("/admin/texture-library/tags", {

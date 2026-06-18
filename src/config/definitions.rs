@@ -22,6 +22,7 @@ pub const CONFIG_CATEGORY_YGGDRASIL_METADATA: &str = "yggdrasil.metadata";
 pub const CONFIG_CATEGORY_YGGDRASIL_AUTH: &str = "yggdrasil.auth";
 pub const CONFIG_CATEGORY_YGGDRASIL_TEXTURES: &str = "yggdrasil.textures";
 pub const CONFIG_CATEGORY_YGGDRASIL_SIGNING: &str = "yggdrasil.signing";
+pub const CONFIG_CATEGORY_TEXTURE_LIBRARY: &str = "texture.library";
 pub const CONFIG_CATEGORY_TEXTURE_PREVIEW: &str = "texture.preview";
 
 pub const SYSTEM_CONFIG_ALLOWED_CATEGORIES: &[&str] = &[
@@ -45,6 +46,7 @@ pub const SYSTEM_CONFIG_ALLOWED_CATEGORIES: &[&str] = &[
     CONFIG_CATEGORY_YGGDRASIL_AUTH,
     CONFIG_CATEGORY_YGGDRASIL_TEXTURES,
     CONFIG_CATEGORY_YGGDRASIL_SIGNING,
+    CONFIG_CATEGORY_TEXTURE_LIBRARY,
     CONFIG_CATEGORY_TEXTURE_PREVIEW,
 ];
 
@@ -162,6 +164,8 @@ pub const YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_texture_publi
 pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public_key";
 pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
 
+pub const TEXTURE_LIBRARY_ENABLED_KEY: &str = "texture_library_enabled";
+pub const TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY: &str = "texture_library_review_required";
 pub const TEXTURE_PREVIEW_ENGINE_KEY: &str = "texture_preview_engine";
 pub const TEXTURE_PREVIEW_PROFILE_KEY: &str = "texture_preview_profile";
 pub const TEXTURE_PREVIEW_WIDTH_KEY: &str = "texture_preview_width";
@@ -1159,6 +1163,28 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         is_sensitive: true,
         category: CONFIG_CATEGORY_YGGDRASIL_SIGNING,
         description: "PEM RSA private key used to sign Yggdrasil texture properties. Rotate via config action; new profile/hasJoined responses are signed with the current key",
+    },
+    ConfigDef {
+        key: TEXTURE_LIBRARY_ENABLED_KEY,
+        label_i18n_key: "settings_item_texture_library_enabled_label",
+        description_i18n_key: "settings_item_texture_library_enabled_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || "true".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_TEXTURE_LIBRARY,
+        description: "Enable the public texture library and related user submission controls",
+    },
+    ConfigDef {
+        key: TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY,
+        label_i18n_key: "settings_item_texture_library_review_required_label",
+        description_i18n_key: "settings_item_texture_library_review_required_desc",
+        value_type: SystemConfigValueType::Boolean,
+        default_fn: || "true".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_TEXTURE_LIBRARY,
+        description: "Require administrator review before submitted wardrobe textures are published to the public library",
     },
     ConfigDef {
         key: TEXTURE_PREVIEW_ENGINE_KEY,

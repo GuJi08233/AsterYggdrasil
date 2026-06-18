@@ -51,7 +51,7 @@ pub(crate) fn render_skin_2d_preview_image(
         options.output_height,
         options.background.unwrap_or(Rgba([0, 0, 0, 0])),
     );
-    draw_player_views(&texture, &mut output, model, options);
+    draw_player_views(texture, &mut output, model, options);
     Ok(output)
 }
 
@@ -80,7 +80,7 @@ pub(crate) fn render_skin_2d_preview_image_with_workspace<'a>(
         options.output_height,
         options.background.unwrap_or(Rgba([0, 0, 0, 0])),
     );
-    draw_player_views(&texture, &mut workspace.output, model, options);
+    draw_player_views(texture, &mut workspace.output, model, options);
     Ok(&workspace.output)
 }
 
@@ -123,66 +123,50 @@ fn draw_player_views(
     let start_y = (options.output_height - rendered_height) / 2;
     let back_x = start_x + layout.player_width * scale + options.view_spacing;
 
-    draw_flat_player(
-        texture,
-        output,
+    let base_context = FlatPlayerContext {
         layout,
-        View::Front,
-        start_x,
-        start_y,
+        origin_y: start_y,
         scale,
         legacy,
-        false,
-    );
-    draw_flat_player(
-        texture,
-        output,
-        layout,
-        View::Back,
-        back_x,
-        start_y,
-        scale,
-        legacy,
-        false,
-    );
+        layer: false,
+    };
+    draw_flat_player(texture, output, base_context, View::Front, start_x);
+    draw_flat_player(texture, output, base_context, View::Back, back_x);
 
     if options.show_outer_layer && !legacy {
-        draw_flat_player(
-            texture,
-            output,
-            layout,
-            View::Front,
-            start_x,
-            start_y,
-            scale,
-            false,
-            true,
-        );
-        draw_flat_player(
-            texture,
-            output,
-            layout,
-            View::Back,
-            back_x,
-            start_y,
-            scale,
-            false,
-            true,
-        );
+        let layer_context = FlatPlayerContext {
+            layer: true,
+            legacy: false,
+            ..base_context
+        };
+        draw_flat_player(texture, output, layer_context, View::Front, start_x);
+        draw_flat_player(texture, output, layer_context, View::Back, back_x);
     }
+}
+
+#[derive(Clone, Copy)]
+struct FlatPlayerContext {
+    layout: FlatLayout,
+    origin_y: u32,
+    scale: u32,
+    legacy: bool,
+    layer: bool,
 }
 
 fn draw_flat_player(
     texture: &RgbaImage,
     output: &mut RgbaImage,
-    layout: FlatLayout,
+    context: FlatPlayerContext,
     view: View,
     origin_x: u32,
-    origin_y: u32,
-    scale: u32,
-    legacy: bool,
-    layer: bool,
 ) {
+    let FlatPlayerContext {
+        layout,
+        origin_y,
+        scale,
+        legacy,
+        layer,
+    } = context;
     let arm = layout.arm_width;
     let body_x = arm;
     let head_x = arm;

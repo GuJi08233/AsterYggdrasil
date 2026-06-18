@@ -108,6 +108,40 @@ pub enum MinecraftTextureLibraryStatus {
     Rejected,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(24))")]
+#[serde(rename_all = "snake_case")]
+pub enum MinecraftTextureReportReason {
+    #[sea_orm(string_value = "inappropriate")]
+    Inappropriate,
+    #[sea_orm(string_value = "offensive")]
+    Offensive,
+    #[sea_orm(string_value = "copyright")]
+    Copyright,
+    #[sea_orm(string_value = "misleading")]
+    Misleading,
+    #[sea_orm(string_value = "broken")]
+    Broken,
+    #[sea_orm(string_value = "spam")]
+    Spam,
+    #[sea_orm(string_value = "other")]
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(24))")]
+#[serde(rename_all = "snake_case")]
+pub enum MinecraftTextureReportStatus {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "accepted")]
+    Accepted,
+    #[sea_orm(string_value = "rejected")]
+    Rejected,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 #[serde(rename_all = "snake_case")]
@@ -132,6 +166,30 @@ impl MinecraftTextureLibraryStatus {
             Self::Private => "private",
             Self::PendingReview => "pending_review",
             Self::Published => "published",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+impl MinecraftTextureReportReason {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Inappropriate => "inappropriate",
+            Self::Offensive => "offensive",
+            Self::Copyright => "copyright",
+            Self::Misleading => "misleading",
+            Self::Broken => "broken",
+            Self::Spam => "spam",
+            Self::Other => "other",
+        }
+    }
+}
+
+impl MinecraftTextureReportStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Accepted => "accepted",
             Self::Rejected => "rejected",
         }
     }

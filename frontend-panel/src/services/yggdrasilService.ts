@@ -4,6 +4,7 @@ import { api } from "@/services/http";
 import type {
 	CopyPublicTextureRequest,
 	CreateMinecraftProfileRequest,
+	CreateTextureReportRequest,
 	MinecraftTextureMetadata,
 	MinecraftTextureModel,
 	MinecraftTextureTagList,
@@ -316,6 +317,14 @@ export const yggdrasilService = {
 		api.get<PublicTextureLibraryTextureMetadata>(
 			`/texture-library/textures/${textureId}`,
 		),
+	submitTextureLibraryReview: (textureId: number) =>
+		api.post<MinecraftWardrobeTextureMetadata>(
+			`/wardrobe/textures/${textureId}/library-submission`,
+		),
+	withdrawTextureLibrarySubmission: (textureId: number) =>
+		api.delete<MinecraftWardrobeTextureMetadata>(
+			`/wardrobe/textures/${textureId}/library-submission`,
+		),
 	copyPublicTextureToWardrobe: (
 		textureId: number,
 		data: CopyPublicTextureRequest = {},
@@ -324,6 +333,11 @@ export const yggdrasilService = {
 			`/texture-library/textures/${textureId}/copy`,
 			data,
 		),
+	createTextureReport: (textureId: number, data: CreateTextureReportRequest) =>
+		api.post<
+			OperationJsonResponse<"create_public_texture_library_texture_report">,
+			CreateTextureReportRequest
+		>(`/texture-library/textures/${textureId}/reports`, data),
 	deleteWardrobeTexture: (textureId: number) =>
 		api.delete<void>(`/wardrobe/textures/${textureId}`),
 	async uploadWardrobeTexture(params: {

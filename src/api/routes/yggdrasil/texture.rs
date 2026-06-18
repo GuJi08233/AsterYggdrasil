@@ -125,6 +125,8 @@ pub async fn upload_texture(
                 width: Some(stored.texture.texture.width),
                 height: Some(stored.texture.texture.height),
                 file_size: Some(stored.texture.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )
@@ -238,6 +240,8 @@ pub async fn delete_texture(
                 width: deleted.as_ref().map(|texture| texture.texture.width),
                 height: deleted.as_ref().map(|texture| texture.texture.height),
                 file_size: deleted.as_ref().map(|texture| texture.texture.file_size),
+                library_status: None,
+                review_note: None,
             })
         },
     )

@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
+import { TextureLibrarySectionNav } from "@/components/admin/TextureLibrarySectionNav";
 import {
 	AdminTable,
 	AdminTableBody,
@@ -190,18 +191,22 @@ export default function AdminTextureLibraryPage() {
 				title={t("admin.textureLibraryPage.title")}
 				description={t("admin.textureLibraryPage.description")}
 				actions={
-					<Button
-						type="button"
-						variant="outline"
-						disabled={loading || submitting}
-						onClick={() => void loadTags()}
-					>
-						<Icon
-							name={loading ? "Spinner" : "RefreshCw"}
-							className={cn("size-4", loading && "animate-spin")}
-						/>
-						{t("common.refresh")}
-					</Button>
+					<>
+						<TextureLibrarySectionNav active="tags" />
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={loading || submitting}
+							onClick={() => void loadTags()}
+						>
+							<Icon
+								name={loading ? "Spinner" : "RefreshCw"}
+								className={cn("size-4", loading && "animate-spin")}
+							/>
+							{t("common.refresh")}
+						</Button>
+					</>
 				}
 			/>
 

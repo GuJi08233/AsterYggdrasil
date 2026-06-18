@@ -16,6 +16,7 @@ import type {
 	PublicBranding,
 	PublicCaptchaConfig,
 	PublicFrontendConfig,
+	PublicTextureLibraryConfig,
 	PublicYggdrasilConfig,
 } from "@/types/api";
 
@@ -26,6 +27,10 @@ const DEFAULT_CAPTCHA_CONFIG: PublicCaptchaConfig = {
 	login_required: false,
 	register_activation_resend_required: false,
 	register_required: false,
+};
+const DEFAULT_TEXTURE_LIBRARY_CONFIG: PublicTextureLibraryConfig = {
+	enabled: true,
+	review_required: true,
 };
 
 interface CachedFrontendConfigPayload {
@@ -40,6 +45,7 @@ interface FrontendConfigState {
 	captcha: PublicCaptchaConfig;
 	config: PublicFrontendConfig | null;
 	isLoaded: boolean;
+	textureLibrary: PublicTextureLibraryConfig;
 	yggdrasil: PublicYggdrasilConfig | null;
 	invalidate: () => void;
 	load: (options?: { force?: boolean }) => Promise<void>;
@@ -109,6 +115,16 @@ function isPublicCaptchaConfig(value: unknown): value is PublicCaptchaConfig {
 	);
 }
 
+function isPublicTextureLibraryConfig(
+	value: unknown,
+): value is PublicTextureLibraryConfig {
+	return (
+		isRecord(value) &&
+		typeof value.enabled === "boolean" &&
+		typeof value.review_required === "boolean"
+	);
+}
+
 function isFrontendConfig(value: unknown): value is PublicFrontendConfig {
 	return (
 		isRecord(value) &&
@@ -116,6 +132,8 @@ function isFrontendConfig(value: unknown): value is PublicFrontendConfig {
 		Number.isFinite(value.version) &&
 		isPublicBranding(value.branding) &&
 		(value.captcha === undefined || isPublicCaptchaConfig(value.captcha)) &&
+		(value.texture_library === undefined ||
+			isPublicTextureLibraryConfig(value.texture_library)) &&
 		isPublicYggdrasilConfig(value.yggdrasil)
 	);
 }
@@ -128,6 +146,9 @@ function normalizeFrontendConfig(
 		captcha: isPublicCaptchaConfig(config.captcha)
 			? config.captcha
 			: DEFAULT_CAPTCHA_CONFIG,
+		texture_library: isPublicTextureLibraryConfig(config.texture_library)
+			? config.texture_library
+			: DEFAULT_TEXTURE_LIBRARY_CONFIG,
 	};
 }
 
@@ -177,6 +198,7 @@ function applyFrontendConfig(config: PublicFrontendConfig) {
 		captcha: normalizedConfig.captcha,
 		config: normalizedConfig,
 		isLoaded: true,
+		textureLibrary: normalizedConfig.texture_library,
 		yggdrasil: normalizedConfig.yggdrasil,
 	};
 }
@@ -190,6 +212,7 @@ function fallbackState() {
 		captcha: DEFAULT_CAPTCHA_CONFIG,
 		config: null,
 		isLoaded: true,
+		textureLibrary: DEFAULT_TEXTURE_LIBRARY_CONFIG,
 		yggdrasil: null,
 	};
 }
@@ -217,6 +240,8 @@ export const useFrontendConfigStore = create<FrontendConfigState>(
 		captcha: initialCachedConfig?.captcha ?? DEFAULT_CAPTCHA_CONFIG,
 		config: initialCachedConfig,
 		isLoaded: initialCachedConfig !== null,
+		textureLibrary:
+			initialCachedConfig?.texture_library ?? DEFAULT_TEXTURE_LIBRARY_CONFIG,
 		yggdrasil: initialCachedConfig?.yggdrasil ?? null,
 
 		invalidate: () => {
@@ -229,6 +254,7 @@ export const useFrontendConfigStore = create<FrontendConfigState>(
 				captcha: DEFAULT_CAPTCHA_CONFIG,
 				config: null,
 				isLoaded: false,
+				textureLibrary: DEFAULT_TEXTURE_LIBRARY_CONFIG,
 				yggdrasil: null,
 			});
 		},

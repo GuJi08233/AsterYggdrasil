@@ -22,6 +22,7 @@ pub use super::task::{
 };
 pub use super::user::{AvatarSource, OperatorScope, UserInvitationStatus, UserRole, UserStatus};
 pub use super::yggdrasil::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
-    MinecraftTextureVisibility, TextureTagSearchMethod,
+    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
+    MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility,
+    TextureTagSearchMethod,
 };

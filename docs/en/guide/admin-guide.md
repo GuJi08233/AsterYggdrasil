@@ -31,6 +31,21 @@ POST /api/v1/auth/setup
 
 The first account becomes administrator. Administrators can manage users, runtime config, Minecraft profiles, audit logs, and background tasks.
 
+## Administrators and Operators
+
+`admin` has full administration access. `operator` is a scoped administration role and can only access granted scopes. Current scopes are:
+
+- `overview`
+- `users`
+- `profiles`
+- `texture_library`
+- `audit`
+- `tasks`
+- `settings`
+- `external_auth`
+
+When creating or updating users, administrators can set role and operator scopes. Operators without the required scope cannot access the related admin API and will not see the corresponding frontend navigation entry.
+
 ## Users and Profiles
 
 Users are site login identities. Minecraft profiles are in-game identities. One user can own multiple profiles.
@@ -68,6 +83,41 @@ DELETE /api/v1/admin/minecraft-textures/{hash}
 
 Deletion goes through service-layer reference counting. Do not delete storage files directly, or the consistency check will report missing objects.
 
+## Public Texture Library
+
+The public texture library is the publishing layer on top of wardrobe. Users upload textures to their own wardrobe first, then make a texture public and submit it to the public library.
+
+The admin UI is split into several workflows:
+
+- All textures: inspect textures uploaded to the system and filter by public library status, visibility, published state, and related fields.
+- Review queue: handle user submissions waiting for administrator review.
+- Report queue: handle signed-in user reports against published public textures.
+- Tags: maintain public texture library tags.
+
+Admin APIs:
+
+```text
+GET  /api/v1/admin/texture-library/textures
+GET  /api/v1/admin/texture-library/textures/{texture_id}
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+
+GET  /api/v1/admin/texture-library/reports
+GET  /api/v1/admin/texture-library/reports/{report_id}
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+
+GET    /api/v1/admin/texture-library/tags
+POST   /api/v1/admin/texture-library/tags
+PATCH  /api/v1/admin/texture-library/tags/{tag_id}
+DELETE /api/v1/admin/texture-library/tags/{tag_id}
+```
+
+Approval sets a texture to `published`. Rejection sets it to `rejected` and exposes the review note to the texture owner. Unpublishing removes a published texture from the public library, while the owner's wardrobe texture remains available with the unpublish note.
+
+Accepting a report unpublishes the reported texture. Rejecting a report does not change the texture publish state. If an administrator directly unpublishes a published texture, the system also marks that texture's unresolved pending reports as accepted, so the report queue does not retain stale pending records.
+
 ## Config
 
 Runtime config is changed through the Admin Config API:
@@ -85,6 +135,9 @@ Before launch, check:
 - `public_site_url`
 - `yggdrasil_public_base_url`
 - `yggdrasil_skin_domains`
+- `texture_library_enabled`
+- `texture_library_review_required`
+- `auth_captcha_enabled`
 - `yggdrasil_allow_skin_upload`
 - `yggdrasil_allow_cape_upload`
 - `yggdrasil_token_ttl_days`
@@ -113,4 +166,4 @@ Watch especially:
 - `yggdrasil-texture-cleanup`
 - `yggdrasil-storage-consistency-check`
 
-If the consistency check fails, first verify whether the database or texture directory was edited manually or restored only partially.
+If the consistency check fails, first verify whether the database or object storage was edited manually or restored only partially.

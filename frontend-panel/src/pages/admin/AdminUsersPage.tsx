@@ -20,6 +20,7 @@ import {
 	type UserFilterValue,
 	useAdminUsersPageState,
 } from "@/components/admin/admin-users-page/useAdminUsersPageState";
+import { UsersSectionNav } from "@/components/admin/UsersSectionNav";
 import { AdminTableList } from "@/components/common/AdminTableList";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
@@ -30,7 +31,7 @@ import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { parsePageSizeOption } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
-import { adminPaths, adminUserPath } from "@/routes/routePaths";
+import { adminUserPath } from "@/routes/routePaths";
 import { adminUserService } from "@/services/adminService";
 import type {
 	AdminUserInfo,
@@ -462,7 +463,6 @@ function useAdminUsersPageController() {
 			createInvitation,
 			createUser,
 			loadUsers,
-			navigateToInvitations: () => navigate(adminPaths.userInvitations),
 			navigateToUser: (user: AdminUserInfo) => navigate(adminUserPath(user.id)),
 			openCreateDialog: () =>
 				dispatch({ type: "createDialogOpen", value: true }),
@@ -507,7 +507,6 @@ function AdminUsersPageHeader({
 					loading={state.loading}
 					onCreate={actions.openCreateDialog}
 					onInvite={actions.openInviteDialog}
-					onOpenInvitations={actions.navigateToInvitations}
 					onRefresh={() => void actions.loadUsers()}
 				/>
 			}
@@ -520,31 +519,21 @@ function AdminUsersPageActions({
 	loading,
 	onCreate,
 	onInvite,
-	onOpenInvitations,
 	onRefresh,
 }: {
 	loading: boolean;
 	onCreate: () => void;
 	onInvite: () => void;
-	onOpenInvitations: () => void;
 	onRefresh: () => void;
 }) {
 	const { t } = useTranslation();
 
 	return (
 		<>
+			<UsersSectionNav active="users" />
 			<Button type="button" variant="outline" size="sm" onClick={onInvite}>
 				<Icon name="EnvelopeSimple" className="mr-2 size-4" />
 				{t("admin.users.inviteUser")}
-			</Button>
-			<Button
-				type="button"
-				variant="outline"
-				size="sm"
-				onClick={onOpenInvitations}
-			>
-				<Icon name="ListBullets" className="mr-2 size-4" />
-				{t("admin.users.invitationRecords")}
 			</Button>
 			<Button type="button" size="sm" onClick={onCreate}>
 				<Icon name="Plus" className="mr-2 size-4" />

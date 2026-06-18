@@ -39,7 +39,7 @@ features:
 
 AsterYggdrasil 是自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-injector 认证服务器。它让站点账号、Minecraft profile、skin/cape 材质、启动器登录和服务端进服验证由部署者自己的服务承载。
 
-当前代码已经包含账号认证、外部认证、Minecraft profile、wardrobe 材质库、Yggdrasil 协议端点、材质处理、运行时配置、审计日志和后台维护任务。文档会按这些已经存在的能力写，不把还没落地的路线图写成用户能直接使用的功能。
+当前代码已经包含账号认证、外部认证、图形验证码、Minecraft profile、wardrobe 材质库、公共材质库、Yggdrasil 协议端点、材质处理、运行时配置、审计日志和后台维护任务。文档会按这些已经存在的能力写，不把还没落地的路线图写成用户能直接使用的功能。
 
 ## 按目的走
 
@@ -47,7 +47,7 @@ AsterYggdrasil 是自托管的 Minecraft 皮肤站和 Yggdrasil/authlib-injector
 
 从 [快速开始](/guide/getting-started) 走一遍。它会带你启动后端、创建第一个管理员、确认 `/api/yggdrasil` metadata、创建 profile，并验证材质上传和公开读取路径。
 
-准备正式上线时，再看 [部署总览](/deployment/) 和 [Docker 部署](/deployment/docker)。生产环境常见问题集中在公开 URL、反向代理响应头、签名公钥缓存和材质目录备份，建议逐项确认。
+准备正式上线时，再看 [部署总览](/deployment/) 和 [Docker 部署](/deployment/docker)。生产环境常见问题集中在公开 URL、反向代理响应头、签名公钥缓存和 object storage 备份，建议逐项确认。
 
 ### 我是玩家，想知道怎么用
 
@@ -87,4 +87,4 @@ X-Authlib-Injector-API-Location: /api/yggdrasil/
 - 删除 profile 会处理材质绑定、引用计数、相关 Yggdrasil token 和审计记录。
 - Yggdrasil 协议端点返回协议格式；站点和管理 API 才返回 `{ "code": "success", "msg": "", "data": ... }`。
 - 当前可用对象存储后端是 local、S3 和 MinIO。材质和上传头像都会走同一个 object storage backend；S3/MinIO 只支持服务端 streaming 上传。
-- 前端管理面板仍在演进；文档优先描述稳定后端能力和真实可部署语义。
+- 产品前端已经覆盖核心账号、profile、wardrobe、公共材质库和管理后台流程，但当前版本仍是 alpha；公开上线前请按自己的部署场景做完整回归。

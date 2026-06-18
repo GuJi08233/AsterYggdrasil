@@ -99,6 +99,14 @@ define_audit_actions! {
     MinecraftTextureUpload => "minecraft_texture_upload",
     MinecraftTextureBind => "minecraft_texture_bind",
     MinecraftTextureDelete => "minecraft_texture_delete",
+    MinecraftTextureLibrarySubmit => "minecraft_texture_library_submit",
+    MinecraftTextureLibraryWithdraw => "minecraft_texture_library_withdraw",
+    MinecraftTextureLibraryApprove => "minecraft_texture_library_approve",
+    MinecraftTextureLibraryReject => "minecraft_texture_library_reject",
+    MinecraftTextureLibraryUnpublish => "minecraft_texture_library_unpublish",
+    MinecraftTextureReportCreate => "minecraft_texture_report_create",
+    MinecraftTextureReportAccept => "minecraft_texture_report_accept",
+    MinecraftTextureReportReject => "minecraft_texture_report_reject",
     YggdrasilAuthenticate => "yggdrasil_authenticate",
     YggdrasilRefreshToken => "yggdrasil_refresh_token",
     YggdrasilInvalidateToken => "yggdrasil_invalidate_token",
@@ -144,7 +152,10 @@ impl AuditAction {
             | Self::MinecraftProfileDelete
             | Self::MinecraftTextureUpload
             | Self::MinecraftTextureBind
-            | Self::MinecraftTextureDelete => "user",
+            | Self::MinecraftTextureDelete
+            | Self::MinecraftTextureLibrarySubmit
+            | Self::MinecraftTextureLibraryWithdraw
+            | Self::MinecraftTextureReportCreate => "user",
             Self::YggdrasilAuthenticate
             | Self::YggdrasilRefreshToken
             | Self::YggdrasilInvalidateToken
@@ -157,6 +168,11 @@ impl AuditAction {
             | Self::AdminCreateInvitation
             | Self::AdminRevokeInvitation
             | Self::AdminRevokeUserSessions => "admin",
+            Self::MinecraftTextureLibraryApprove
+            | Self::MinecraftTextureLibraryReject
+            | Self::MinecraftTextureLibraryUnpublish
+            | Self::MinecraftTextureReportAccept
+            | Self::MinecraftTextureReportReject => "admin",
             Self::MailSend | Self::MailDeliveryFailed => "mail",
             Self::AdminCreateExternalAuthProvider
             | Self::AdminUpdateExternalAuthProvider

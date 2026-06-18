@@ -404,6 +404,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/texture-library/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_texture_library_reports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_texture_library_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/reports/{report_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_accept_texture_library_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/reports/{report_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_reject_texture_library_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/texture-library/tags": {
         parameters: {
             query?: never;
@@ -434,6 +498,86 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["admin_update_texture_library_tag"];
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/textures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_texture_library_textures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/textures/{texture_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_texture_library_texture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/textures/{texture_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_approve_texture_library_texture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/textures/{texture_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_reject_texture_library_texture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/texture-library/textures/{texture_id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_unpublish_texture_library_texture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/users": {
@@ -1332,6 +1476,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/texture-library/textures/{texture_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_public_texture_library_texture_report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/texture-previews/{hash}/{file_name}": {
         parameters: {
             query?: never;
@@ -1394,6 +1554,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update_current_user_wardrobe_texture"];
+        trace?: never;
+    };
+    "/api/v1/wardrobe/textures/{texture_id}/library-submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submit_current_user_texture_library_review"];
+        delete: operations["withdraw_current_user_texture_library_submission"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/wardrobe/textures/{texture_id}/tags": {
@@ -1880,6 +2056,21 @@ export interface components {
         };
         /** @enum {string} */
         AdminTaskSortBy: "id" | "display_name" | "kind" | "status" | "progress" | "created_at" | "updated_at" | "started_at" | "finished_at";
+        AdminTextureLibraryTextureQuery: {
+            keyword?: string | null;
+            library_status?: null | components["schemas"]["MinecraftTextureLibraryStatus"];
+            published?: boolean | null;
+            tag_ids?: number[];
+            tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
+            texture_type?: null | components["schemas"]["MinecraftTextureType"];
+            visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
+        };
+        AdminTextureReportQuery: {
+            reason?: null | components["schemas"]["MinecraftTextureReportReason"];
+            status?: null | components["schemas"]["MinecraftTextureReportStatus"];
+            /** Format: int64 */
+            texture_id?: number | null;
+        };
         AdminUserInfo: {
             /** Format: int64 */
             active_session_count: number;
@@ -1932,9 +2123,9 @@ export interface components {
             retryable?: boolean | null;
         };
         /** @enum {string} */
-        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
+        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
-        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server";
+        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "minecraft_texture_library_submit" | "minecraft_texture_library_withdraw" | "minecraft_texture_library_approve" | "minecraft_texture_library_reject" | "minecraft_texture_library_unpublish" | "minecraft_texture_report_create" | "minecraft_texture_report_accept" | "minecraft_texture_report_reject" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server";
         /** @enum {string} */
         AuditEntityType: "system" | "system_config" | "user" | "invitation" | "auth_session" | "passkey" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task" | "minecraft_profile" | "minecraft_texture" | "yggdrasil_token" | "yggdrasil_session";
         AuditLogEntry: {
@@ -2182,6 +2373,10 @@ export interface components {
             /** Format: int32 */
             sort_order?: number | null;
         };
+        CreateTextureReportReq: {
+            message?: string | null;
+            reason: components["schemas"]["MinecraftTextureReportReason"];
+        };
         CreateUserInvitationReq: {
             email: string;
         };
@@ -2284,6 +2479,9 @@ export interface components {
         };
         ExternalAuthStartLoginResponse: {
             authorization_url: string;
+        };
+        HandleTextureReportReq: {
+            admin_note?: string | null;
         };
         HealthResponse: {
             status: string;
@@ -2431,6 +2629,7 @@ export interface components {
         MinecraftTextureLibraryStatus: "private" | "pending_review" | "published" | "rejected";
         MinecraftTextureMetadata: {
             created_at: string;
+            display_name?: string | null;
             /** Format: int64 */
             file_size: number;
             hash: string;
@@ -2439,12 +2638,15 @@ export interface components {
             /** Format: int64 */
             id: number;
             mime_type: string;
+            name: string;
             preview_url?: string | null;
             /** Format: int64 */
             profile_id: number;
             profile_name: string;
             profile_uuid: string;
             source: components["schemas"]["MinecraftTextureMetadataSource"];
+            /** Format: int64 */
+            texture_id: number;
             texture_model: components["schemas"]["MinecraftTextureModel"];
             texture_type: components["schemas"]["MinecraftTextureType"];
             updated_at: string;
@@ -2468,7 +2670,12 @@ export interface components {
             /** Format: int64 */
             id: number;
             is_wardrobe_item: boolean;
+            library_review_note?: string | null;
+            library_reviewed_at: string;
+            /** Format: int64 */
+            library_reviewer_user_id?: number | null;
             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+            library_submitted_at: string;
             mime_type: string;
             storage_key: string;
             texture_model: components["schemas"]["MinecraftTextureModel"];
@@ -2480,6 +2687,10 @@ export interface components {
             /** Format: int32 */
             width: number;
         };
+        /** @enum {string} */
+        MinecraftTextureReportReason: "inappropriate" | "offensive" | "copyright" | "misleading" | "broken" | "spam" | "other";
+        /** @enum {string} */
+        MinecraftTextureReportStatus: "pending" | "accepted" | "rejected";
         MinecraftTextureTagBindingEntity: {
             created_at: string;
             /** Format: int64 */
@@ -2513,8 +2724,12 @@ export interface components {
         /** @enum {string} */
         MinecraftTextureType: "skin" | "cape";
         MinecraftTextureUploaderInfo: {
+            avatar: components["schemas"]["AvatarInfo"];
+            /** Format: int64 */
+            id: number;
             name: string;
             public_uuid: string;
+            username: string;
         };
         /** @enum {string} */
         MinecraftTextureVisibility: "private" | "public";
@@ -2528,7 +2743,10 @@ export interface components {
             height: number;
             /** Format: int64 */
             id: number;
+            library_review_note?: string | null;
+            library_reviewed_at: string;
             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+            library_submitted_at: string;
             mime_type: string;
             name: string;
             preview_url?: string | null;
@@ -2740,7 +2958,10 @@ export interface components {
                 height: number;
                 /** Format: int64 */
                 id: number;
+                library_review_note?: string | null;
+                library_reviewed_at: string;
                 library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                library_submitted_at: string;
                 mime_type: string;
                 name: string;
                 preview_url?: string | null;
@@ -2936,15 +3157,47 @@ export interface components {
         PublicFrontendConfig: {
             branding: components["schemas"]["PublicBranding"];
             captcha: components["schemas"]["PublicCaptchaConfig"];
+            texture_library: components["schemas"]["PublicTextureLibraryConfig"];
             /** Format: int32 */
             version: number;
             yggdrasil: components["schemas"]["PublicYggdrasilConfig"];
+        };
+        PublicTextureLibraryConfig: {
+            enabled: boolean;
+            review_required: boolean;
         };
         PublicTextureLibraryQuery: {
             keyword?: string | null;
             tag_ids?: number[];
             tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
             texture_type?: null | components["schemas"]["MinecraftTextureType"];
+        };
+        PublicTextureLibraryTextureMetadata: {
+            created_at: string;
+            display_name?: string | null;
+            /** Format: int64 */
+            file_size: number;
+            hash: string;
+            /** Format: int32 */
+            height: number;
+            /** Format: int64 */
+            id: number;
+            library_review_note?: string | null;
+            library_reviewed_at: string;
+            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+            library_submitted_at: string;
+            mime_type: string;
+            name: string;
+            preview_url?: string | null;
+            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+            texture_model: components["schemas"]["MinecraftTextureModel"];
+            texture_type: components["schemas"]["MinecraftTextureType"];
+            updated_at: string;
+            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+            url: string;
+            visibility: components["schemas"]["MinecraftTextureVisibility"];
+            /** Format: int32 */
+            width: number;
         };
         PublicUserInvitationInfo: {
             email: string;
@@ -2994,6 +3247,10 @@ export interface components {
             captcha_answer?: string | null;
             captcha_challenge_id?: string | null;
             identifier: string;
+        };
+        ReviewTextureLibraryTextureReq: {
+            review_note?: string | null;
+            tag_ids?: number[] | null;
         };
         RuntimeSystemHealthComponent: {
             message: string;
@@ -3169,6 +3426,26 @@ export interface components {
             description_i18n_key: string;
             label_i18n_key: string;
             token: string;
+        };
+        TextureReportInfo: {
+            admin_note?: string | null;
+            created_at: string;
+            handled_at: string;
+            handler?: null | components["schemas"]["TextureReportUserInfo"];
+            /** Format: int64 */
+            id: number;
+            message?: string | null;
+            reason: components["schemas"]["MinecraftTextureReportReason"];
+            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+            status: components["schemas"]["MinecraftTextureReportStatus"];
+            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+            /** Format: int64 */
+            texture_id: number;
+            updated_at: string;
+        };
+        TextureReportUserInfo: {
+            name: string;
+            public_uuid: string;
         };
         /** @enum {string} */
         TextureTagSearchMethod: "all" | "any";
@@ -4785,6 +5062,7 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             created_at: string;
+                            display_name?: string | null;
                             /** Format: int64 */
                             file_size: number;
                             hash: string;
@@ -4793,12 +5071,15 @@ export interface operations {
                             /** Format: int64 */
                             id: number;
                             mime_type: string;
+                            name: string;
                             preview_url?: string | null;
                             /** Format: int64 */
                             profile_id: number;
                             profile_name: string;
                             profile_uuid: string;
                             source: components["schemas"]["MinecraftTextureMetadataSource"];
+                            /** Format: int64 */
+                            texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
@@ -5245,6 +5526,288 @@ export interface operations {
             };
         };
     };
+    admin_list_texture_library_reports: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+                status?: null | components["schemas"]["MinecraftTextureReportStatus"];
+                reason?: null | components["schemas"]["MinecraftTextureReportReason"];
+                texture_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture library reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                admin_note?: string | null;
+                                created_at: string;
+                                handled_at: string;
+                                handler?: null | components["schemas"]["TextureReportUserInfo"];
+                                /** Format: int64 */
+                                id: number;
+                                message?: string | null;
+                                reason: components["schemas"]["MinecraftTextureReportReason"];
+                                reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                                status: components["schemas"]["MinecraftTextureReportStatus"];
+                                texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                                /** Format: int64 */
+                                texture_id: number;
+                                updated_at: string;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_texture_library_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture report ID */
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture library report detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            handled_at: string;
+                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            /** Format: int64 */
+                            id: number;
+                            message?: string | null;
+                            reason: components["schemas"]["MinecraftTextureReportReason"];
+                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            status: components["schemas"]["MinecraftTextureReportStatus"];
+                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            /** Format: int64 */
+                            texture_id: number;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Report not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_accept_texture_library_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture report ID */
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleTextureReportReq"];
+            };
+        };
+        responses: {
+            /** @description Accepted texture report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            handled_at: string;
+                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            /** Format: int64 */
+                            id: number;
+                            message?: string | null;
+                            reason: components["schemas"]["MinecraftTextureReportReason"];
+                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            status: components["schemas"]["MinecraftTextureReportStatus"];
+                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            /** Format: int64 */
+                            texture_id: number;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid report state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Report not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_reject_texture_library_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture report ID */
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandleTextureReportReq"];
+            };
+        };
+        responses: {
+            /** @description Rejected texture report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            handled_at: string;
+                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            /** Format: int64 */
+                            id: number;
+                            message?: string | null;
+                            reason: components["schemas"]["MinecraftTextureReportReason"];
+                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            status: components["schemas"]["MinecraftTextureReportStatus"];
+                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            /** Format: int64 */
+                            texture_id: number;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid report state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Report not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_list_texture_library_tags: {
         parameters: {
             query?: {
@@ -5466,6 +6029,422 @@ export interface operations {
                 content?: never;
             };
             /** @description Tag not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_texture_library_textures: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+                keyword?: string | null;
+                texture_type?: null | components["schemas"]["MinecraftTextureType"];
+                visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
+                library_status?: null | components["schemas"]["MinecraftTextureLibraryStatus"];
+                published?: boolean | null;
+                tag_ids?: number[];
+                tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture library moderation textures */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                created_at: string;
+                                display_name?: string | null;
+                                /** Format: int64 */
+                                file_size: number;
+                                hash: string;
+                                /** Format: int32 */
+                                height: number;
+                                /** Format: int64 */
+                                id: number;
+                                library_review_note?: string | null;
+                                library_reviewed_at: string;
+                                library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                                library_submitted_at: string;
+                                mime_type: string;
+                                name: string;
+                                preview_url?: string | null;
+                                tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                                texture_model: components["schemas"]["MinecraftTextureModel"];
+                                texture_type: components["schemas"]["MinecraftTextureType"];
+                                updated_at: string;
+                                uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                                url: string;
+                                visibility: components["schemas"]["MinecraftTextureVisibility"];
+                                /** Format: int32 */
+                                width: number;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_texture_library_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Texture library moderation texture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_approve_texture_library_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewTextureLibraryTextureReq"];
+            };
+        };
+        responses: {
+            /** @description Approved texture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid texture state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_reject_texture_library_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewTextureLibraryTextureReq"];
+            };
+        };
+        responses: {
+            /** @description Rejected texture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid texture state or review note */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_unpublish_texture_library_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewTextureLibraryTextureReq"];
+            };
+        };
+        responses: {
+            /** @description Unpublished texture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid texture state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -8086,6 +9065,7 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             created_at: string;
+                            display_name?: string | null;
                             /** Format: int64 */
                             file_size: number;
                             hash: string;
@@ -8094,12 +9074,15 @@ export interface operations {
                             /** Format: int64 */
                             id: number;
                             mime_type: string;
+                            name: string;
                             preview_url?: string | null;
                             /** Format: int64 */
                             profile_id: number;
                             profile_name: string;
                             profile_uuid: string;
                             source: components["schemas"]["MinecraftTextureMetadataSource"];
+                            /** Format: int64 */
+                            texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
@@ -8164,6 +9147,7 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             created_at: string;
+                            display_name?: string | null;
                             /** Format: int64 */
                             file_size: number;
                             hash: string;
@@ -8172,12 +9156,15 @@ export interface operations {
                             /** Format: int64 */
                             id: number;
                             mime_type: string;
+                            name: string;
                             preview_url?: string | null;
                             /** Format: int64 */
                             profile_id: number;
                             profile_name: string;
                             profile_uuid: string;
                             source: components["schemas"]["MinecraftTextureMetadataSource"];
+                            /** Format: int64 */
+                            texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
@@ -8292,6 +9279,7 @@ export interface operations {
                         data?: {
                             branding: components["schemas"]["PublicBranding"];
                             captcha: components["schemas"]["PublicCaptchaConfig"];
+                            texture_library: components["schemas"]["PublicTextureLibraryConfig"];
                             /** Format: int32 */
                             version: number;
                             yggdrasil: components["schemas"]["PublicYggdrasilConfig"];
@@ -8384,7 +9372,10 @@ export interface operations {
                                 height: number;
                                 /** Format: int64 */
                                 id: number;
+                                library_review_note?: string | null;
+                                library_reviewed_at: string;
                                 library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                                library_submitted_at: string;
                                 mime_type: string;
                                 name: string;
                                 preview_url?: string | null;
@@ -8449,7 +9440,10 @@ export interface operations {
                             height: number;
                             /** Format: int64 */
                             id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
                             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
                             mime_type: string;
                             name: string;
                             preview_url?: string | null;
@@ -8511,7 +9505,10 @@ export interface operations {
                             height: number;
                             /** Format: int64 */
                             id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
                             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
                             mime_type: string;
                             name: string;
                             preview_url?: string | null;
@@ -8530,6 +9527,74 @@ export interface operations {
                 };
             };
             /** @description Invalid copy request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Public texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create_public_texture_library_texture_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Public texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTextureReportReq"];
+            };
+        };
+        responses: {
+            /** @description Created texture report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            handled_at: string;
+                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            /** Format: int64 */
+                            id: number;
+                            message?: string | null;
+                            reason: components["schemas"]["MinecraftTextureReportReason"];
+                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            status: components["schemas"]["MinecraftTextureReportStatus"];
+                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            /** Format: int64 */
+                            texture_id: number;
+                            updated_at: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid report request */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -8672,7 +9737,10 @@ export interface operations {
                                 height: number;
                                 /** Format: int64 */
                                 id: number;
+                                library_review_note?: string | null;
+                                library_reviewed_at: string;
                                 library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                                library_submitted_at: string;
                                 mime_type: string;
                                 name: string;
                                 preview_url?: string | null;
@@ -8782,7 +9850,10 @@ export interface operations {
                             height: number;
                             /** Format: int64 */
                             id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
                             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
                             mime_type: string;
                             name: string;
                             preview_url?: string | null;
@@ -8806,6 +9877,147 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wardrobe texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    submit_current_user_texture_library_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wardrobe texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submitted or published wardrobe texture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid texture state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wardrobe texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    withdraw_current_user_texture_library_submission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Wardrobe texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn wardrobe texture library submission */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            created_at: string;
+                            display_name?: string | null;
+                            /** Format: int64 */
+                            file_size: number;
+                            hash: string;
+                            /** Format: int32 */
+                            height: number;
+                            /** Format: int64 */
+                            id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
+                            library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
+                            mime_type: string;
+                            name: string;
+                            preview_url?: string | null;
+                            tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                            texture_model: components["schemas"]["MinecraftTextureModel"];
+                            texture_type: components["schemas"]["MinecraftTextureType"];
+                            updated_at: string;
+                            url: string;
+                            visibility: components["schemas"]["MinecraftTextureVisibility"];
+                            /** Format: int32 */
+                            width: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
             };
             /** @description Unauthorized */
             401: {
@@ -8857,7 +10069,10 @@ export interface operations {
                             height: number;
                             /** Format: int64 */
                             id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
                             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
                             mime_type: string;
                             name: string;
                             preview_url?: string | null;
@@ -8933,7 +10148,10 @@ export interface operations {
                             height: number;
                             /** Format: int64 */
                             id: number;
+                            library_review_note?: string | null;
+                            library_reviewed_at: string;
                             library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                            library_submitted_at: string;
                             mime_type: string;
                             name: string;
                             preview_url?: string | null;

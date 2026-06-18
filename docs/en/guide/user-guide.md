@@ -78,6 +78,21 @@ GET /api/yggdrasil/textures/{hash}
 
 The hash is calculated from the processed PNG bytes. Re-uploading the same processed image produces a stable URL hash.
 
+## Public Texture Library
+
+If administrators enable the public texture library, users can submit public wardrobe textures to it. Basic flow:
+
+1. Upload a texture to wardrobe.
+2. Change the texture visibility to public.
+3. Submit it to the public texture library.
+4. Wait for review, or publish immediately if the site does not require review.
+
+The public texture library only shows published public textures. Other users can copy a public texture into their own wardrobe. The copied texture is a private wardrobe texture by default and is not automatically republished.
+
+If a texture is rejected or unpublished by administrators, wardrobe shows the public library state and review/handling note. The texture file itself remains in the owner's wardrobe unless the user deletes it.
+
+Signed-in users can report published public textures. Users cannot report their own textures, and cannot report unpublished, private, pending, or already removed textures. A user can only have one pending report for the same texture.
+
 ## Log In From a Launcher
 
 Launcher login uses the Yggdrasil authserver:

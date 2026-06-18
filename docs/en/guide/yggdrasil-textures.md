@@ -21,6 +21,79 @@ DELETE /api/v1/profiles/minecraft/{uuid}/textures/{skin|cape}
 
 Yggdrasil protocol endpoints return the protocol response shape and do not use the project API envelope. `/api/v1/...` site and admin APIs continue to use the standard envelope.
 
+## Wardrobe and Public Texture Library
+
+Wardrobe is the user's personal texture library. Textures uploaded to wardrobe belong to the current user by default. Users can bind a wardrobe texture to their Minecraft profile, or make it public and submit it to the public texture library.
+
+The public texture library is controlled by runtime config:
+
+- `texture_library_enabled`: whether the public texture library is enabled.
+- `texture_library_review_required`: whether user submissions require administrator review before publishing.
+
+Typical user flow:
+
+1. Upload a skin/cape to wardrobe.
+2. Change texture visibility to `public`.
+3. Submit it to the public texture library.
+4. If review is required, wait for an administrator to approve it; otherwise the submission becomes `published` immediately.
+5. Other signed-in users can copy the public texture into their own wardrobe.
+
+The public texture library only lists published public textures. Private textures, pending submissions, rejected submissions, and unpublished textures are not returned by public list or detail APIs.
+
+Public texture library site APIs:
+
+```text
+GET    /api/v1/texture-library/tags
+GET    /api/v1/texture-library/textures
+GET    /api/v1/texture-library/textures/{texture_id}
+POST   /api/v1/texture-library/textures/{texture_id}/copy
+POST   /api/v1/texture-library/textures/{texture_id}/reports
+POST   /api/v1/wardrobe/textures/{texture_id}/library-submission
+DELETE /api/v1/wardrobe/textures/{texture_id}/library-submission
+```
+
+Copying a public texture requires sign-in. The copied texture is created or reused in the current user's wardrobe and stays private by default; it is not automatically republished.
+
+## Review, Unpublish, and Reports
+
+Public library state is represented by `library_status`. Main values are:
+
+- `private`: not in the public texture library.
+- `pending_review`: submitted and waiting for administrator review.
+- `published`: visible in the public texture library.
+- `rejected`: rejected by an administrator.
+
+Administrators can moderate submissions through the texture library admin API:
+
+```text
+GET  /api/v1/admin/texture-library/textures
+GET  /api/v1/admin/texture-library/textures/{texture_id}
+POST /api/v1/admin/texture-library/textures/{texture_id}/approve
+POST /api/v1/admin/texture-library/textures/{texture_id}/reject
+POST /api/v1/admin/texture-library/textures/{texture_id}/unpublish
+```
+
+Signed-in users can report published public textures. Reports require sign-in. Users cannot report their own textures, and cannot report private, pending, rejected, or unpublished textures. A user can only have one pending report for the same texture.
+
+Reports have their own status and do not reuse texture `library_status`:
+
+- `pending`: waiting for administrator handling.
+- `accepted`: report accepted.
+- `rejected`: report rejected.
+
+Administrators can handle reports through the report queue:
+
+```text
+GET  /api/v1/admin/texture-library/reports
+GET  /api/v1/admin/texture-library/reports/{report_id}
+POST /api/v1/admin/texture-library/reports/{report_id}/accept
+POST /api/v1/admin/texture-library/reports/{report_id}/reject
+```
+
+Accepting a report unpublishes the texture from the public library and writes the handling note to the texture review note. The texture owner can see the unpublished state and note in wardrobe.
+
+If an administrator does not handle a report from the report queue and instead directly unpublishes an already published texture from the texture management page, the system marks existing pending reports for that texture as `accepted` and reuses the unpublish note as the report handling note. This keeps the report queue from retaining pending reports that were already resolved by direct moderation.
+
 ## Upload Validation
 
 The uploaded file must be `image/png`. The server reads the PNG header to obtain image dimensions before decoding the full image, so oversized PNG bombs are rejected before the bitmap is loaded.

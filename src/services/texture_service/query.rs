@@ -12,6 +12,7 @@ use crate::entities::{
 };
 use crate::errors::Result;
 use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
+use crate::services::profile_service::{self, AvatarAudience};
 
 use super::{
     MinecraftTextureMetadata, MinecraftTextureMetadataSource, MinecraftTextureTagInfo,
@@ -146,6 +147,9 @@ where
     let policy = RuntimeYggdrasilPolicy::from_runtime_config(state.runtime_config());
     MinecraftTextureMetadata {
         id: texture.binding.id,
+        texture_id: texture.texture.id,
+        name: texture_display_name(&texture.texture),
+        display_name: texture.texture.display_name.clone(),
         profile_id: profile.id,
         profile_uuid: profile.uuid.clone(),
         profile_name: profile.name.clone(),
@@ -193,6 +197,9 @@ where
     let file_size = crate::utils::numbers::usize_to_i64(skin.bytes.len(), "default skin size")?;
     Ok(MinecraftTextureMetadata {
         id: 0,
+        texture_id: 0,
+        name: "Default skin".to_string(),
+        display_name: None,
         profile_id: profile.id,
         profile_uuid: profile.uuid.clone(),
         profile_name: profile.name.clone(),
@@ -245,6 +252,9 @@ where
         texture_model: texture.texture_model,
         visibility: texture.visibility,
         library_status: texture.library_status,
+        library_review_note: texture.library_review_note.clone(),
+        library_submitted_at: texture.library_submitted_at,
+        library_reviewed_at: texture.library_reviewed_at,
         tags: tags.into_iter().map(texture_tag_info).collect(),
         width: texture.width,
         height: texture.height,
@@ -308,6 +318,27 @@ pub async fn public_texture_library_metadata_by_texture_ids<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    texture_library_metadata_by_texture_ids(state, textures, None).await
+}
+
+pub async fn admin_texture_library_metadata_by_texture_ids<S>(
+    state: &S,
+    textures: &[minecraft_texture::Model],
+) -> Result<Vec<PublicTextureLibraryTextureMetadata>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    texture_library_metadata_by_texture_ids(state, textures, Some(AvatarAudience::AdminUser)).await
+}
+
+async fn texture_library_metadata_by_texture_ids<S>(
+    state: &S,
+    textures: &[minecraft_texture::Model],
+    avatar_audience: Option<AvatarAudience>,
+) -> Result<Vec<PublicTextureLibraryTextureMetadata>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
     let texture_ids = textures
         .iter()
         .map(|texture| texture.id)
@@ -336,6 +367,7 @@ where
                 tags_by_texture.remove(&texture.id).unwrap_or_default(),
                 users_by_id.get(&texture.user_id),
                 profiles.get(&texture.user_id),
+                avatar_audience,
             )
         })
         .collect())
@@ -344,6 +376,27 @@ where
 pub async fn public_texture_library_metadata<S>(
     state: &S,
     texture: &minecraft_texture::Model,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    texture_library_metadata(state, texture, None).await
+}
+
+pub async fn admin_texture_library_metadata<S>(
+    state: &S,
+    texture: &minecraft_texture::Model,
+) -> Result<PublicTextureLibraryTextureMetadata>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    texture_library_metadata(state, texture, Some(AvatarAudience::AdminUser)).await
+}
+
+async fn texture_library_metadata<S>(
+    state: &S,
+    texture: &minecraft_texture::Model,
+    avatar_audience: Option<AvatarAudience>,
 ) -> Result<PublicTextureLibraryTextureMetadata>
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
@@ -358,6 +411,7 @@ where
         tags,
         Some(&uploader),
         uploader_profile.as_ref(),
+        avatar_audience,
     ))
 }
 
@@ -367,6 +421,7 @@ fn public_texture_library_metadata_with_tags<S>(
     tags: Vec<minecraft_texture_tag::Model>,
     uploader: Option<&user::Model>,
     uploader_profile: Option<&user_profile::Model>,
+    avatar_audience: Option<AvatarAudience>,
 ) -> PublicTextureLibraryTextureMetadata
 where
     S: RuntimeConfigRuntimeState,
@@ -381,8 +436,12 @@ where
         texture_model: texture.texture_model,
         visibility: texture.visibility,
         library_status: texture.library_status,
+        library_review_note: texture.library_review_note.clone(),
+        library_submitted_at: texture.library_submitted_at,
+        library_reviewed_at: texture.library_reviewed_at,
         tags: tags.into_iter().map(texture_tag_info).collect(),
-        uploader: uploader.map(|user| texture_uploader_info(user, uploader_profile)),
+        uploader: uploader
+            .map(|user| texture_uploader_info(state, user, uploader_profile, avatar_audience)),
         width: texture.width,
         height: texture.height,
         file_size: texture.file_size,
@@ -403,19 +462,43 @@ where
     }
 }
 
-fn texture_uploader_info(
+fn texture_uploader_info<S>(
+    state: &S,
     user: &user::Model,
     profile: Option<&user_profile::Model>,
-) -> MinecraftTextureUploaderInfo {
+    avatar_audience: Option<AvatarAudience>,
+) -> MinecraftTextureUploaderInfo
+where
+    S: RuntimeConfigRuntimeState,
+{
     let name = profile
         .and_then(|profile| profile.display_name.as_deref())
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or(&user.username)
         .to_owned();
+    let avatar = avatar_audience
+        .map(|avatar_audience| {
+            profile_service::build_profile_info(
+                user,
+                profile,
+                avatar_audience,
+                &profile_service::resolve_gravatar_base_url(state),
+            )
+            .avatar
+        })
+        .unwrap_or_else(|| profile_service::AvatarInfo {
+            source: crate::types::AvatarSource::None,
+            url_512: None,
+            url_1024: None,
+            version: 0,
+        });
     MinecraftTextureUploaderInfo {
+        id: user.id,
+        username: user.username.clone(),
         public_uuid: user.public_uuid.clone(),
         name,
+        avatar,
     }
 }
 
