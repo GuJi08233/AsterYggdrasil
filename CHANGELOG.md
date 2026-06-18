@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-alpha.5] - 2026-06-18
+
+### Added
+
+- **S3 / MinIO 存储后端**：`texture_storage.backend` 配置为 `s3` 或 `minio`（两者等价）时启用 `S3TextureStorage`，`local` 保持本地实现。基于 `aws-sdk-s3`，兼容 AWS S3 / MinIO / RustFS 等任意 S3 兼容服务（经 `endpoint` + `force_path_style` 适配），默认 region `us-east-1`，超时 connect 5s / read 30s / operation 60s。新增配置项 `[texture_storage.s3].base_path`（桶内前缀，默认空）。**关键行为：数据库里的 storage_key 永远不含 base_path 前缀**——S3 后端在每次对象存储调用时动态拼接 `base_path/key`，返回上层仍为裸 key，本地与 S3 后端可无损切换。上传走服务端 streaming（`ByteStream::from_path`，content-type 固定 `image/png`），不提供 presigned URL 客户端上传。key 净化拒绝绝对路径 / `\` / 尾斜杠 / `..` / 空段。404 统一映射 `record_not_found`，其余 SDK 错误带 `http_status`/`code`/`message`/`source chain` 完整记录。集成测试用 rustfs testcontainers 验证。
+
+- **管理员概览工作台**：新增 `GET /api/v1/admin/overview`（`JwtAuth` + `RequireAdmin`），返回汇总 / 服务状态 / 系统健康 / 活跃趋势 / 最近活动 / 系统信息。汇总含 7 个计数（总用户、Minecraft profile 数、材质数、活跃 session、活跃 Yggdrasil token、processing / pending 后台任务）；服务状态含 5 项固定巡检（database / yggdrasil / session / texture_storage 显示 backend 名 / background_tasks，pending>0 降级 warning）；活跃趋势固定 7 天 UTC 日聚合，每天 4 指标（活跃用户去重、活跃玩家按 Yggdrasil 认证动作、新增材质、Yggdrasil API 调用次数）；系统健康合并最新 `SystemHealthCheck` 与 `YggdrasilStorageConsistencyCheck` 任务结果（worst status 合并，failed→Unhealthy、pending→Degraded）。前端新增 `AdminOverviewPage`（路由 `/admin`：hero 健康状态 + 健康横幅 + 汇总卡片 + 趋势图 + 最近审计 + 服务状态 + 快捷入口 + 系统信息）与 `OverviewTrendChartContent`（Recharts 折线图，4 条线 lazy 加载），配套 `StatusIndicator` 组件与中英 i18n。
+
+- **CDN / 对象存储 texture URL**：新增运行时配置 `yggdrasil_texture_public_base_url`（默认空，`requires_restart=false`）。对已上传材质（有 storage_key），textures property 的 URL 优先使用 `{texture_public_base_url}/{storage_key}`，未配置则回退既有 `{public_base_url}/textures/{hash}` 或 `/api/yggdrasil/textures/{hash}`，三者全空时报 config error。`texture_public_base_url` 的 host 自动并入 skinDomains 白名单（去重）。配合 S3/MinIO 后端可将材质直走 CDN / 对象存储公网域名，绕开 Yggdrasil API 路由。
+
+- **通用 HTTP base URL 规范化工具**：新增 `utils/url.rs::normalize_http_base_url`（trim + 去尾斜杠 + 校验 http/https + host，可选禁止 query/fragment）。`normalize_public_base_url`、`normalize_required_public_base_url`、`normalize_gravatar_base_url_config_value`、S3 `endpoint` 规范化统一改用该工具。
+
+- **审计日志活跃聚合索引**：新增迁移 `m20260618_000003_audit_log_activity_indexes`，在 `audit_logs` 上创建复合索引 `idx_audit_logs_action_created_user(action, created_at, user_id)`，覆盖管理员概览 7 天活跃趋势的 `COUNT(DISTINCT user_id) WHERE action IN (...) AND created_at BETWEEN ...` 等聚合查询，避免全表扫描。
+
+- **文档站导航重排**：文档站从 2 大组拆为 6 大组（开始 / 玩家使用 / 接入协议 / 管理维护 / 部署 / 项目参考），新增双语页面：使用指南总览、管理员指南、常见问题速查、故障排查（按症状分流）、启动器填写、文档贡献说明、部署总览（上线前检查 / 公开 URL / 反向代理 / 持久化 / 备份 / 验收）。`storage.md` S3/minio 从「预留未实现」补全为完整使用说明（含 base_path、CORS 要求、CDN URL），`configuration.md` 补充 `yggdrasil_texture_public_base_url` 与 CORS 要求。
+
+### Changed
+
+- **存储一致性检查改为只校验 storage key 格式**（性能 + 安全）：旧实现逐个 texture 调 `exists()` + `get_stream()` 重算 SHA-256 比对（N 次 streaming）；新实现改用一次 `list_keys("")` 拉全量 key 集 + `HashSet` 判存在性，hash 比对改为只校验 storage_key 是否符合 `{hash前2位}/{hash}.png` 格式。S3 后端下避免 N+1 次 head/get_object，大幅提速。`TextureErrorKind::Storage` 的 protocol_message 统一为 "Texture storage failed."，不再透传 endpoint/bucket 等内部细节（安全加固）。
+
+- **textures property URL 优先级变化**：已上传材质的 URL 现在优先走对象存储 URL——配置 `yggdrasil_texture_public_base_url` 后路径形态从 `/textures/{hash}` 变为 `{base}/{storage_key}`，客户端 / 启动器缓存的旧 property 会自然刷新，skinDomains 已自动覆盖新 host。
+
+- **base URL 校验收紧（breaking）**：`public_site_url`、`yggdrasil_public_base_url`、gravatar base URL、S3 endpoint 现在统一拒绝带 query 或 fragment 的 URL（此前 public_base_url 会静默忽略）。既有带 `?` / `#` 的配置在保存时会报校验错误。
+
+- **gravatar base URL 空白回退默认值**：runtime 空白值现在回退 `https://www.gravatar.com/avatar`，此前只 trim 返回空串。
+
+- **一致性检查失败摘要增强**：失败 summary 现在列出最多 5 条具体 issue（`missing object: texture #N, key K, expected hash H` / `hash/key mismatch: ...`），超出显示 "and N more"。
+
+- **failed runtime task 健康状态回退**：`system_health` 为 None 时回退错误状态文案，不再显示空状态。
+
+### Fixed
+
+- **外部认证 provider 查询 N+1**：`external_auth_provider_repo` 新增 `find_by_ids`，`list_links_paginated` 由原 `find_all`（全表扫描）+ 内存过滤改为单次 `WHERE id IN (...)` 查询，provider 表较大时性能显著改善。
+
+---
+
+**统计数据**：
+- 126 files changed, 8,042 insertions(+), 401 deletions(-)
+- 3 commits（1 功能 + 1 重构 + 1 文档）
+- 新增 1 个数据库迁移（`m20260618_000003`）
+
 ## [v0.1.0-alpha.4] - 2026-06-18
 
 ### Added
@@ -321,7 +362,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.4...HEAD
+[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.5...HEAD
+[v0.1.0-alpha.5]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [v0.1.0-alpha.4]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [v0.1.0-alpha.3]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [v0.1.0-alpha.2]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
