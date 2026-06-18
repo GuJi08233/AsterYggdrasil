@@ -32,8 +32,8 @@ pub use profiles::{
 pub use system_info::get_system_info;
 pub use tasks::{cleanup_tasks, list_tasks, retry_task};
 pub use users::{
-    create_user, create_user_invitation, get_user, get_user_avatar, list_user_invitations,
-    list_users, revoke_user_invitation, revoke_user_sessions, update_user,
+    create_user, create_user_invitation, delete_user, get_user, get_user_avatar,
+    list_user_invitations, list_users, revoke_user_invitation, revoke_user_sessions, update_user,
 };
 
 pub fn routes(
@@ -76,6 +76,7 @@ pub fn routes(
                     )
                     .route("/users/{id}", web::get().to(get_user))
                     .route("/users/{id}", web::patch().to(update_user))
+                    .route("/users/{id}", web::delete().to(delete_user))
                     .route("/users/{id}/avatar/{size}", web::get().to(get_user_avatar))
                     .route(
                         "/users/{id}/sessions/revoke",

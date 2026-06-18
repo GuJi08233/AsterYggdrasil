@@ -21,9 +21,9 @@ export function AdminPageHeader({
 				className,
 			)}
 		>
-			<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-				<div className="min-w-0">
-					<h1 className="text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
+			<div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-start md:justify-between">
+				<div className="min-w-0 max-w-full">
+					<h1 className="break-words text-2xl font-semibold tracking-normal text-foreground sm:text-3xl">
 						{title}
 					</h1>
 					{description ? (
@@ -33,7 +33,7 @@ export function AdminPageHeader({
 					) : null}
 				</div>
 				{actions ? (
-					<div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
+					<div className="flex max-w-full flex-wrap items-center gap-2 md:shrink-0 md:justify-end">
 						{actions}
 					</div>
 				) : null}

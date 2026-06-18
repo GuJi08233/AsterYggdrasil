@@ -428,6 +428,21 @@ function useAdminUsersPageController() {
 		}
 	}
 
+	async function deleteUser() {
+		if (!state.deletingUser || state.deletingUser.id === 1) return;
+		try {
+			dispatch({ type: "deletingId", value: state.deletingUser.id });
+			await adminUserService.delete(state.deletingUser.id);
+			toast.success(t("admin.users.deleted"));
+			dispatch({ type: "deletingUser", value: null });
+			await loadUsers();
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			dispatch({ type: "deletingId", value: null });
+		}
+	}
+
 	return {
 		dispatch,
 		dispatchInvite,
@@ -452,6 +467,7 @@ function useAdminUsersPageController() {
 				dispatch({ type: "createDialogOpen", value: true }),
 			openInviteDialog: () => dispatchInvite({ type: "open" }),
 			setGeneratedPassword,
+			deleteUser,
 			revokeSessions,
 		},
 	};
@@ -584,10 +600,12 @@ function AdminUsersTableSection({
 				<UsersTableRow
 					key={user.id}
 					user={user}
+					deletingId={state.deletingId}
 					revokingId={state.revokingId}
 					onEdit={(item) => {
 						void actions.navigateToUser(item);
 					}}
+					onDelete={(item) => dispatch({ type: "deletingUser", value: item })}
 					onRevokeSessions={(item) =>
 						dispatch({ type: "revokingUser", value: item })
 					}
@@ -661,6 +679,21 @@ function AdminUsersDialogs({
 				confirmLabel={t("admin.users.revokeSessions")}
 				loading={state.revokingId != null}
 				onConfirm={() => void actions.revokeSessions()}
+			/>
+			<ConfirmDialog
+				open={Boolean(state.deletingUser)}
+				onOpenChange={(open) => {
+					if (!open) dispatch({ type: "deletingUser", value: null });
+				}}
+				title={t("admin.users.deleteTitle", {
+					name: state.deletingUser?.username ?? "",
+				})}
+				description={t("admin.users.deleteDescription")}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("admin.users.delete")}
+				loading={state.deletingId != null}
+				variant="destructive"
+				onConfirm={() => void actions.deleteUser()}
 			/>
 		</>
 	);

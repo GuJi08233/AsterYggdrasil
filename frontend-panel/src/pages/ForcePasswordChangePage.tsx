@@ -3,11 +3,16 @@ import { useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+	AuthFormCard,
+	AuthPasswordField,
+	authPrimaryButtonClassName,
+	authSecondaryButtonClassName,
+} from "@/components/auth/AuthFormPrimitives";
+import { LoginEntryFooter } from "@/components/auth/LoginEntryFooter";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { passwordChangeSchema } from "@/lib/validation";
@@ -190,32 +195,25 @@ export default function ForcePasswordChangePage() {
 			title={brandTitle}
 			tagline={t("brand.tagline")}
 			variant="auth"
-			hideLanguageOnMobile
 		>
-			<main className="mx-auto flex w-full max-w-[92rem] flex-1 items-center px-4 pb-10 sm:px-8 lg:px-12">
-				<section className="w-full max-w-md rounded-lg border border-white/70 bg-white/88 p-6 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-[#07110d]/84">
-					<div className="mb-6 space-y-2">
-						<p className="font-medium text-emerald-700 text-sm dark:text-emerald-300">
-							{t("login.forcePasswordChangeEyebrow")}
-						</p>
-						<h1 className="font-semibold text-2xl tracking-normal">
-							{t("login.forcePasswordChangeTitle")}
-						</h1>
-						<p className="text-muted-foreground text-sm leading-6">
-							{t("login.forcePasswordChangeDescription")}
-						</p>
-					</div>
+			<main className="app-route-transition mx-auto flex w-full max-w-[36rem] flex-1 items-center px-4 py-8 sm:px-8">
+				<AuthFormCard
+					title={t("login.forcePasswordChangeTitle")}
+					description={t("login.forcePasswordChangeDescription")}
+				>
 					<form className="space-y-4" onSubmit={submit}>
-						<PasswordField
+						<AuthPasswordField
 							id="force-current-password"
 							label={t("login.currentPassword")}
 							value={values.currentPassword}
 							error={errors.currentPassword && t(errors.currentPassword)}
 							autoComplete="current-password"
+							placeholder={t("login.passwordPlaceholder")}
 							showPassword={showPasswords}
 							onChange={(value) => updateField("currentPassword", value)}
+							onToggleShowPassword={() => dispatch({ type: "togglePasswords" })}
 						/>
-						<PasswordField
+						<AuthPasswordField
 							id="force-new-password"
 							label={t("login.newPassword")}
 							value={values.newPassword}
@@ -226,105 +224,53 @@ export default function ForcePasswordChangePage() {
 									: t("admin.users.passwordCreateHint")
 							}
 							autoComplete="new-password"
+							placeholder={t("login.passwordPlaceholder")}
 							showPassword={showPasswords}
 							onChange={(value) => updateField("newPassword", value)}
 						/>
-						<PasswordField
+						<AuthPasswordField
 							id="force-confirm-password"
 							label={t("login.confirmPassword")}
 							value={values.confirmPassword}
 							error={errors.confirmPassword && t(errors.confirmPassword)}
 							autoComplete="new-password"
+							placeholder={t("login.confirmPasswordPlaceholder")}
 							showPassword={showPasswords}
 							onChange={(value) => updateField("confirmPassword", value)}
 						/>
-						<div className="flex flex-col-reverse gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() => dispatch({ type: "togglePasswords" })}
-							>
-								<Icon
-									name={showPasswords ? "EyeSlash" : "Eye"}
-									className="mr-2 size-4"
-								/>
-								{showPasswords
-									? t("login.hidePassword")
-									: t("login.showPassword")}
-							</Button>
+						<div className="pt-1">
 							<Button
 								type="submit"
-								className="min-w-36"
+								className={`w-full ${authPrimaryButtonClassName}`}
 								disabled={submitting || !canSubmit}
 							>
 								<Icon
 									name={submitting ? "Spinner" : "Key"}
-									className={
-										submitting ? "mr-2 size-4 animate-spin" : "mr-2 size-4"
-									}
+									className={submitting ? "size-4 animate-spin" : "size-4"}
 								/>
 								{t("login.forcePasswordChangeSubmit")}
 							</Button>
 						</div>
 					</form>
-					<div className="mt-5 border-border/70 border-t pt-4 dark:border-white/10">
+					<div className="mt-5 border-black/10 border-t pt-4 dark:border-white/10">
 						<Button
 							type="button"
 							variant="outline"
-							className="w-full"
+							className={`w-full ${authSecondaryButtonClassName}`}
 							disabled={signingOut}
 							onClick={() => void signOut()}
 						>
 							<Icon
 								name={signingOut ? "Spinner" : "SignOut"}
-								className={
-									signingOut ? "mr-2 size-4 animate-spin" : "mr-2 size-4"
-								}
+								className={signingOut ? "size-4 animate-spin" : "size-4"}
 							/>
 							{t("nav.logout")}
 						</Button>
 					</div>
-				</section>
+				</AuthFormCard>
 			</main>
-		</PublicEntryShell>
-	);
-}
 
-function PasswordField({
-	autoComplete,
-	description,
-	error,
-	id,
-	label,
-	onChange,
-	showPassword,
-	value,
-}: {
-	autoComplete: string;
-	description?: string;
-	error?: string;
-	id: string;
-	label: string;
-	onChange: (value: string) => void;
-	showPassword: boolean;
-	value: string;
-}) {
-	return (
-		<div className="space-y-2">
-			<Label htmlFor={id}>{label}</Label>
-			<Input
-				id={id}
-				type={showPassword ? "text" : "password"}
-				value={value}
-				autoComplete={autoComplete}
-				aria-invalid={error ? true : undefined}
-				onChange={(event) => onChange(event.target.value)}
-			/>
-			{error ? (
-				<p className="text-destructive text-sm">{error}</p>
-			) : description ? (
-				<p className="text-muted-foreground text-xs leading-5">{description}</p>
-			) : null}
-		</div>
+			<LoginEntryFooter brandTitle={brandTitle} />
+		</PublicEntryShell>
 	);
 }

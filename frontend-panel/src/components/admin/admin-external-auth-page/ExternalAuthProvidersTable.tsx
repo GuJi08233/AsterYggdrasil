@@ -7,6 +7,7 @@ import {
 	AdminTableHeader as TableHeader,
 	AdminTableRow as TableRow,
 } from "@/components/common/AdminTable";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -18,7 +19,6 @@ import type {
 import {
 	callbackUrl,
 	ExternalAuthProviderIcon,
-	formatDateTime,
 	kindDisplayName,
 	primaryEndpoint,
 } from "./shared";
@@ -116,10 +116,14 @@ export function ExternalAuthProvidersTableRow({
 					>
 						{endpoint || t("admin.externalAuth.table.noEndpoint")}
 					</div>
-					<div className={cn("mt-1", ADMIN_TABLE_MUTED_TEXT_CLASS)}>
-						{t("admin.externalAuth.table.updatedAt", {
-							value: formatDateTime(provider.updated_at),
-						})}
+					<div
+						className={cn(
+							"mt-1 flex min-w-0 flex-wrap items-center gap-1",
+							ADMIN_TABLE_MUTED_TEXT_CLASS,
+						)}
+					>
+						<span>{t("admin.externalAuth.table.updatedAtPrefix")}</span>
+						<DateTimeText value={provider.updated_at} />
 					</div>
 				</div>
 			</TableCell>

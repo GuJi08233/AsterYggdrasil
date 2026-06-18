@@ -8,12 +8,16 @@ export function LoginHero({
 	isRegister,
 	headline,
 	description,
+	headlineStyle,
 }: {
 	isRegister: boolean;
 	headline: string;
 	description: string;
+	headlineStyle?: "accent" | "login";
 }) {
 	const { t } = useTranslation();
+	const resolvedHeadlineStyle =
+		headlineStyle ?? (isRegister ? "accent" : "login");
 	const features: AuthFeature[] = isRegister
 		? [
 				{
@@ -53,7 +57,11 @@ export function LoginHero({
 	return (
 		<section className="hidden w-full max-w-xl justify-self-start xl:block">
 			<h2 className="max-w-[13ch] text-5xl font-semibold leading-tight tracking-normal text-[#102118] dark:text-white">
-				{isRegister ? <AccentHeadline text={headline} /> : <LoginHeadline />}
+				{resolvedHeadlineStyle === "accent" ? (
+					<AccentHeadline text={headline} />
+				) : (
+					<LoginHeadline />
+				)}
 			</h2>
 			<p className="mt-5 max-w-lg text-base leading-7 text-slate-700 dark:text-white/82">
 				{description}

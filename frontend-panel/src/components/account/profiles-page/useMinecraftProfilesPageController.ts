@@ -32,6 +32,7 @@ export function useMinecraftProfilesPageController() {
 		profileOffset,
 		profilePageSize,
 		profileName,
+		profileSkinUrls,
 		profileTotal,
 		profiles,
 		profilesLoading,
@@ -91,6 +92,30 @@ export function useMinecraftProfilesPageController() {
 		[dispatch],
 	);
 
+	const loadProfileSkinUrls = useCallback(
+		async (nextProfiles = profiles) => {
+			if (nextProfiles.length === 0) {
+				dispatch({ type: "profileSkinUrls", value: {} });
+				return;
+			}
+			try {
+				dispatch({
+					type: "profileSkinUrls",
+					value: await yggdrasilService.listProfileSkinTextureUrls(
+						nextProfiles.map((profile) => profile.id),
+					),
+				});
+			} catch (nextError) {
+				console.warn(
+					"Failed to load Minecraft profile skin avatars",
+					nextError,
+				);
+				dispatch({ type: "profileSkinUrls", value: {} });
+			}
+		},
+		[dispatch, profiles],
+	);
+
 	useEffect(() => {
 		void loadProfiles().catch((nextError) =>
 			toast.error(formatUnknownError(nextError)),
@@ -108,6 +133,10 @@ export function useMinecraftProfilesPageController() {
 	useEffect(() => {
 		void loadTextures(selectedUuid);
 	}, [selectedUuid, loadTextures]);
+
+	useEffect(() => {
+		void loadProfileSkinUrls();
+	}, [loadProfileSkinUrls]);
 
 	const selectedProfile = useMemo(
 		() => profiles.find((profile) => profile.id === selectedUuid) ?? null,
@@ -210,6 +239,9 @@ export function useMinecraftProfilesPageController() {
 			dispatch({ type: "file", value: null });
 			toast.success(t("profiles.uploadAndBindToast"));
 			await loadTextures(selectedUuid);
+			if (uploaded.texture_type === "skin") {
+				await loadProfileSkinUrls();
+			}
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -262,6 +294,9 @@ export function useMinecraftProfilesPageController() {
 			dispatch({ type: "deleteDialogOpen", value: false });
 			toast.success(t("profiles.deleteSuccess"));
 			await loadTextures(selectedUuid);
+			if (textureType === "skin") {
+				await loadProfileSkinUrls();
+			}
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -313,6 +348,7 @@ export function useMinecraftProfilesPageController() {
 		profileName,
 		profileOffset,
 		profilePageSize,
+		profileSkinUrls,
 		profileTotal,
 		profiles,
 		query,

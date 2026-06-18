@@ -101,6 +101,21 @@ export const yggdrasilService = {
 		api.delete<void>(`/profiles/minecraft/${uuid}`),
 	listProfileTextures: (uuid: YggdrasilProfileByUuidPath["uuid"]) =>
 		api.get<MinecraftTextureMetadata[]>(`/profiles/minecraft/${uuid}/textures`),
+	async listProfileSkinTextureUrls(
+		uuids: YggdrasilProfileByUuidPath["uuid"][],
+	) {
+		const pairs = await Promise.all(
+			uuids.map(async (uuid) => {
+				const textures = await yggdrasilService.listProfileTextures(uuid);
+				const skin = textures.find(
+					(texture) =>
+						texture.texture_type === "skin" && texture.source === "bound",
+				);
+				return [uuid, skin?.url ?? null] as const;
+			}),
+		);
+		return Object.fromEntries(pairs) as Record<string, string | null>;
+	},
 	listWardrobeTextures: (params: MinecraftWardrobeTextureQuery = {}) =>
 		api.get<MinecraftWardrobeTexturePage>(
 			withQuery("/wardrobe/textures", params),

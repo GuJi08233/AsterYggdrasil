@@ -1,5 +1,6 @@
 import type { ComponentProps, ComponentType } from "react";
-import { FaDocker } from "react-icons/fa6";
+import { FaDocker, FaGithub } from "react-icons/fa6";
+import { LuBookOpenText, LuScale } from "react-icons/lu";
 import {
 	PiArrowClockwise,
 	PiArrowCounterClockwise,
@@ -113,6 +114,7 @@ export type IconName =
 	| "ArrowsInCardinal"
 	| "ArrowsClockwise"
 	| "ArrowsOutCardinal"
+	| "BookOpenText"
 	| "BracketsCurly"
 	| "CaretDown"
 	| "CaretLeft"
@@ -149,6 +151,7 @@ export type IconName =
 	| "FolderPlus"
 	| "Gauge"
 	| "Gear"
+	| "Github"
 	| "Globe"
 	| "Grid"
 	| "HardDrive"
@@ -179,6 +182,7 @@ export type IconName =
 	| "Queue"
 	| "Repeat"
 	| "RepeatOnce"
+	| "Scale"
 	| "Scroll"
 	| "Shield"
 	| "SignIn"
@@ -215,6 +219,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	ArrowsInCardinal: PiArrowsInCardinal,
 	ArrowsClockwise: PiArrowsClockwise,
 	ArrowsOutCardinal: PiArrowsOutCardinal,
+	BookOpenText: LuBookOpenText,
 	BracketsCurly: PiBracketsCurly,
 	CaretDown: PiCaretDown,
 	CaretLeft: PiCaretLeft,
@@ -251,6 +256,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	FolderPlus: PiFolderPlus,
 	Gauge: PiGauge,
 	Gear: PiGear,
+	Github: FaGithub,
 	Globe: PiGlobe,
 	Grid: PiGridFour,
 	HardDrive: PiHardDrive,
@@ -281,6 +287,7 @@ const iconMap: Record<IconName, ComponentType<{ className?: string }>> = {
 	Queue: PiQueue,
 	Repeat: PiRepeat,
 	RepeatOnce: PiRepeatOnce,
+	Scale: LuScale,
 	Scroll: PiScroll,
 	Shield: PiShield,
 	SignIn: PiSignIn,

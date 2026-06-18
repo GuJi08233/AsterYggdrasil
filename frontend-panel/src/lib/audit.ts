@@ -238,6 +238,7 @@ type AuditActionTone = "danger" | "success" | "info" | "warning";
 const AUDIT_ACTION_TONES = {
 	admin_delete_config: "danger",
 	admin_delete_external_auth_provider: "danger",
+	admin_delete_user: "danger",
 	admin_disable_user: "danger",
 	admin_revoke_invitation: "danger",
 	admin_revoke_user_sessions: "danger",

@@ -13,7 +13,6 @@ import { AnimatedCollapsible } from "@/components/common/AnimatedCollapsible";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { AdminSurface } from "@/components/layout/AdminSurface";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -439,7 +438,6 @@ export default function AdminSettingsPage() {
 				.filter((issue): issue is ValidationIssue => Boolean(issue)),
 		[changedConfigs, drafts, t],
 	);
-	const activeMeta = categoryMeta[active] ?? categoryMeta.site;
 	const activeTemplateVariableGroup = useMemo(
 		() =>
 			activeTemplateVariableGroupCode
@@ -523,7 +521,6 @@ export default function AdminSettingsPage() {
 	return (
 		<SettingsPageLayout
 			active={active}
-			activeMeta={activeMeta}
 			activeTemplateVariableGroup={activeTemplateVariableGroup}
 			activeTemplateVariableGroupCode={activeTemplateVariableGroupCode}
 			categories={categories}
@@ -555,7 +552,6 @@ export default function AdminSettingsPage() {
 
 function SettingsPageLayout({
 	active,
-	activeMeta,
 	activeTemplateVariableGroup,
 	activeTemplateVariableGroupCode,
 	categories,
@@ -583,7 +579,6 @@ function SettingsPageLayout({
 	testEmailTarget,
 }: {
 	active: string;
-	activeMeta: CategoryMeta;
 	activeTemplateVariableGroup: TemplateVariableGroup | null;
 	activeTemplateVariableGroupCode: string | null;
 	categories: readonly string[];
@@ -636,7 +631,6 @@ function SettingsPageLayout({
 					onSelect={(value) => dispatch({ type: "set_active_category", value })}
 				/>
 				<SettingsCategoryContent
-					activeMeta={activeMeta}
 					drafts={drafts}
 					empty={empty}
 					expandedTemplateGroups={expandedTemplateGroups}
@@ -740,7 +734,6 @@ function SettingsCategoryNav({
 }
 
 function SettingsCategoryContent({
-	activeMeta,
 	drafts,
 	empty,
 	expandedTemplateGroups,
@@ -754,7 +747,6 @@ function SettingsCategoryContent({
 	rotatingYggdrasilKey,
 	schemaMap,
 }: {
-	activeMeta: CategoryMeta;
 	drafts: Record<string, DraftValue>;
 	empty: boolean;
 	expandedTemplateGroups: Record<string, boolean>;
@@ -800,16 +792,6 @@ function SettingsCategoryContent({
 	return (
 		<section className="min-w-0">
 			<div className="grid gap-4">
-				<AdminSurface>
-					<div className="min-w-0">
-						<h2 className="text-base font-semibold">
-							{t(activeMeta.labelKey)}
-						</h2>
-						<p className="mt-1 text-sm leading-6 text-muted-foreground">
-							{t(activeMeta.descriptionKey)}
-						</p>
-					</div>
-				</AdminSurface>
 				{Object.entries(groupedConfigs).map(([category, items]) => (
 					<SettingsGroup
 						key={category}
@@ -918,14 +900,9 @@ function SettingsGroup({
 		<AdminSurface padded={false} className="overflow-hidden">
 			<div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 dark:border-white/10 lg:flex-row lg:items-start lg:justify-between">
 				<div className="min-w-0">
-					<div className="flex flex-wrap items-center gap-2">
-						<h3 className="text-sm font-semibold">
-							{formatSubcategoryLabel(root, category, t)}
-						</h3>
-						<Badge variant="outline" className="rounded-md">
-							{configs.length}
-						</Badge>
-					</div>
+					<h3 className="text-sm font-semibold">
+						{formatSubcategoryLabel(root, category, t)}
+					</h3>
 					<p className="mt-1 text-sm leading-6 text-muted-foreground">
 						{formatSubcategoryDescription(root, category, t)}
 					</p>

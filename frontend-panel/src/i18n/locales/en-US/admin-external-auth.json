@@ -2,13 +2,13 @@
 	"admin": {
 		"externalAuth": {
 			"title": "External Auth",
-			"description": "Manage OAuth2 / OIDC providers used for site account login. Test the connection before exposing it to users.",
+			"description": "Manage OAuth2 / OIDC providers used for site account login and identity linking.",
 			"create": "Add provider",
 			"created": "Provider created",
 			"updated": "Provider updated",
 			"deleted": "Provider deleted",
 			"emptyTitle": "No external auth providers",
-			"emptyDescription": "Add an OIDC identity source so users can sign in with external accounts.",
+			"emptyDescription": "Connect and enable an identity source so users can sign in with external accounts.",
 			"displayName": "Display name",
 			"key": "Key",
 			"keyHint": "Generated when saved. Used by login entry and redirect URI paths, and cannot be changed manually.",
@@ -29,7 +29,7 @@
 			"status": "Status",
 			"enabled": "Enabled",
 			"disabled": "Disabled",
-			"enabledDesc": "Disabled providers disappear from the login page. Existing account links are not deleted.",
+			"enabledDesc": "Disabled providers are hidden from the login page. Existing account links are retained.",
 			"secretHint": "Leave blank if the provider does not require a secret.",
 			"secretKeepPlaceholder": "Leave blank to keep current secret",
 			"secretKeepHint": "A secret is configured. Saving an empty value keeps the current secret.",
@@ -42,7 +42,7 @@
 			"callbackTitle": "Provider created, copy callback URL",
 			"delete": "Delete provider",
 			"deleteTitle": "Delete {{name}}?",
-			"deleteDescription": "Users will no longer be able to start new logins with this provider. Local accounts are not deleted.",
+			"deleteDescription": "Users will no longer be able to start new logins with this provider. Existing local accounts are not deleted.",
 			"progress": "Step {{current}} / {{total}}",
 			"kind": {
 				"generic_oauth2": "Generic OAuth2",
@@ -63,19 +63,19 @@
 			"fixedConnection": {
 				"title": "Fixed connection parameters",
 				"github": {
-					"description": "GitHub uses fixed OAuth endpoints and default scopes. Enter only the OAuth App Client ID and Client Secret here.",
+					"description": "GitHub uses fixed OAuth endpoints and default scopes. Enter the OAuth App Client ID and Client Secret.",
 					"summary": "GitHub fixed OAuth endpoints"
 				},
 				"google": {
-					"description": "Google uses a fixed OpenID Connect issuer. The frontend does not allow issuer or manual endpoint overrides.",
+					"description": "Google uses a fixed OpenID Connect issuer and does not support issuer or manual endpoint overrides.",
 					"summary": "Google fixed OIDC issuer"
 				},
 				"microsoft": {
-					"description": "Microsoft derives the issuer from fixed identity platform rules. Do not configure custom authorization, token, or userinfo endpoints here.",
+					"description": "Microsoft derives the issuer from fixed identity platform rules. Custom authorization, token, and userinfo endpoints are not required.",
 					"summary": "Microsoft identity platform"
 				},
 				"qq": {
-					"description": "QQ uses fixed OAuth2, openid, userinfo endpoints, and default scopes. Enter only the QQ Connect app credentials here.",
+					"description": "QQ uses fixed OAuth2, openid, userinfo endpoints, and default scopes. Enter the QQ Connect app credentials.",
 					"summary": "QQ Connect fixed endpoints"
 				}
 			},
@@ -86,7 +86,7 @@
 				},
 				"connection": {
 					"title": "Connection",
-					"description": "Enter client credentials and endpoints, then test before saving."
+					"description": "Enter client credentials and endpoints, then complete a connection test before saving."
 				},
 				"review": {
 					"title": "Review",
@@ -96,7 +96,7 @@
 			"dialog": {
 				"createTitle": "Add external auth provider",
 				"editTitle": "Edit external auth provider",
-				"description": "These settings affect the login page and account linking flow.",
+				"description": "These settings affect login page display, callback URLs, and account linking flow.",
 				"connectionTitle": "Identity source",
 				"connectionDesc": "OIDC uses an issuer URL. Generic OAuth2 uses manual endpoints. GitHub, Google, Microsoft, and QQ use fixed connection parameters.",
 				"accessTitle": "Availability",
@@ -108,7 +108,8 @@
 				"status": "Status",
 				"actions": "Actions",
 				"noEndpoint": "No endpoint configured",
-				"updatedAt": "Updated {{value}}"
+				"updatedAt": "Updated {{value}}",
+				"updatedAtPrefix": "Updated"
 			}
 		}
 	}

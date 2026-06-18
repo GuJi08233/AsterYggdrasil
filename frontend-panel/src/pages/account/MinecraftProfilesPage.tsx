@@ -1,10 +1,4 @@
-import {
-	type Dispatch,
-	type DragEvent,
-	type FormEvent,
-	lazy,
-	Suspense,
-} from "react";
+import type { Dispatch, DragEvent, FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useMinecraftProfilesPageController } from "@/components/account/profiles-page/useMinecraftProfilesPageController";
 import type {
@@ -25,13 +19,14 @@ import {
 import { Icon, type IconName } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPanel";
+import { MinecraftSkinAvatar } from "@/components/yggdrasil/MinecraftSkinAvatar";
 import { TextureUploadForm } from "@/components/yggdrasil/TextureUploadForm";
 import { cn } from "@/lib/utils";
 import type {
@@ -41,12 +36,6 @@ import type {
 } from "@/types/api";
 
 const PROFILE_PAGE_SIZE_OPTIONS = [5, 10] as const;
-
-const MinecraftPreview = lazy(() =>
-	import("@/components/yggdrasil/MinecraftPreview").then((module) => ({
-		default: module.MinecraftPreview,
-	})),
-);
 
 export default function MinecraftProfilesPage() {
 	const controller = useMinecraftProfilesPageController();
@@ -78,6 +67,7 @@ function MinecraftProfilesLayout({
 	profileName,
 	profileOffset,
 	profilePageSize,
+	profileSkinUrls,
 	profiles,
 	profileTotal,
 	query,
@@ -113,6 +103,7 @@ function MinecraftProfilesLayout({
 	profileName: string;
 	profileOffset: number;
 	profilePageSize: number;
+	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	profileTotal: number;
 	query: string;
@@ -137,6 +128,7 @@ function MinecraftProfilesLayout({
 					profileName={profileName}
 					profileOffset={profileOffset}
 					profilePageSize={profilePageSize}
+					profileSkinUrls={profileSkinUrls}
 					profileTotal={profileTotal}
 					profiles={profiles}
 					query={query}
@@ -216,6 +208,7 @@ function ProfileListSection({
 	profileName,
 	profileOffset,
 	profilePageSize,
+	profileSkinUrls,
 	profiles,
 	profileTotal,
 	query,
@@ -231,6 +224,7 @@ function ProfileListSection({
 	profileName: string;
 	profileOffset: number;
 	profilePageSize: number;
+	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	profileTotal: number;
 	query: string;
@@ -284,6 +278,7 @@ function ProfileListSection({
 				<ProfileList
 					deletingProfile={deletingProfile}
 					dispatch={dispatch}
+					profileSkinUrls={profileSkinUrls}
 					profiles={profiles}
 					query={query}
 					selectedUuid={selectedUuid}
@@ -370,6 +365,7 @@ function ProfileList({
 	deletingProfile,
 	dispatch,
 	onOpenRenameDialog,
+	profileSkinUrls,
 	profiles,
 	query,
 	selectedUuid,
@@ -377,6 +373,7 @@ function ProfileList({
 	deletingProfile: boolean;
 	dispatch: ProfilesDispatch;
 	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	query: string;
 	selectedUuid: string;
@@ -415,6 +412,7 @@ function ProfileList({
 						deletingProfile={deletingProfile}
 						dispatch={dispatch}
 						profile={profile}
+						skinUrl={profileSkinUrls[profile.id] ?? null}
 						selected={profile.id === selectedUuid}
 						onOpenRenameDialog={onOpenRenameDialog}
 					/>
@@ -430,12 +428,14 @@ function ProfileListRow({
 	onOpenRenameDialog,
 	profile,
 	selected,
+	skinUrl,
 }: {
 	deletingProfile: boolean;
 	dispatch: ProfilesDispatch;
 	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
 	profile: YggdrasilProfile;
 	selected: boolean;
+	skinUrl: string | null;
 }) {
 	const { t } = useTranslation();
 
@@ -451,7 +451,13 @@ function ProfileListRow({
 				onClick={() => dispatch({ type: "selectedUuid", value: profile.id })}
 				className="min-w-0 rounded-md text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
 			>
-				<div className="flex min-w-0 items-center gap-2">
+				<div className="flex min-w-0 items-center gap-2.5">
+					<MinecraftSkinAvatar
+						name={profile.name}
+						testId={`profile-skin-avatar-${profile.id}`}
+						imageTestId={`profile-skin-avatar-image-${profile.id}`}
+						skinUrl={skinUrl}
+					/>
 					<span className="truncate font-medium">{profile.name}</span>
 					{selected ? (
 						<Badge variant="outline" className="rounded-md">
@@ -518,24 +524,22 @@ function ProfilePreviewPanel({
 
 	return (
 		<aside className="min-w-0">
-			<Suspense fallback={<PreviewSkeleton />}>
-				<MinecraftPreview
-					label={t("profiles.previewPanelTitle")}
-					playerName={selectedProfile?.name}
-					skinUrl={skinTexture?.url ?? null}
-					capeUrl={capeTexture?.url ?? null}
-					model={skinTexture?.texture_model ?? model}
-					emptyTitle={t("profiles.previewEmptyTitle")}
-					emptyDescription={t("profiles.previewEmptyDescription")}
-					failedTitle={t("profiles.previewFailedTitle")}
-					failedDescription={t("profiles.previewFailedDescription")}
-					noSkinLabel={t("profiles.noSkinTexture")}
-					idleLabel={t("profiles.motionIdle")}
-					walkLabel={t("profiles.motionWalk")}
-					className="w-full"
-					frameClassName="lg:h-[42rem]"
-				/>
-			</Suspense>
+			<MinecraftPreviewPanel
+				label={t("profiles.previewPanelTitle")}
+				playerName={selectedProfile?.name}
+				skinUrl={skinTexture?.url ?? null}
+				capeUrl={capeTexture?.url ?? null}
+				model={skinTexture?.texture_model ?? model}
+				emptyTitle={t("profiles.previewEmptyTitle")}
+				emptyDescription={t("profiles.previewEmptyDescription")}
+				failedTitle={t("profiles.previewFailedTitle")}
+				failedDescription={t("profiles.previewFailedDescription")}
+				noSkinLabel={t("profiles.noSkinTexture")}
+				idleLabel={t("profiles.motionIdle")}
+				walkLabel={t("profiles.motionWalk")}
+				className="w-full"
+				frameClassName="lg:h-[42rem]"
+			/>
 		</aside>
 	);
 }
@@ -901,21 +905,6 @@ function ProfileDeleteDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function PreviewSkeleton() {
-	return (
-		<div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-xs">
-			<div className="flex min-h-12 items-center justify-between border-b border-border/70 px-4">
-				<div className="space-y-2">
-					<Skeleton className="h-4 w-32" />
-					<Skeleton className="h-3 w-20" />
-				</div>
-				<Skeleton className="size-7 rounded-md" />
-			</div>
-			<Skeleton className="h-[26rem] rounded-none" />
-		</div>
 	);
 }
 

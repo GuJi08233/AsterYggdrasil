@@ -147,13 +147,9 @@ describe("SecurityPasskeysSection", () => {
 		renderSection();
 
 		expect(await screen.findByText("Desktop security key")).toBeInTheDocument();
-		expect(screen.getByText("Last used: Never used")).toBeInTheDocument();
-		expect(
-			screen.getByText("Created: 2026-06-01T00:00:00Z"),
-		).toBeInTheDocument();
-		expect(
-			screen.getByText("Updated: 2026-06-02T00:00:00Z"),
-		).toBeInTheDocument();
+		expect(screen.getByText("Never used")).toBeInTheDocument();
+		expect(screen.getByTitle("2026-06-01T00:00:00Z")).toBeInTheDocument();
+		expect(screen.getByTitle("2026-06-02T00:00:00Z")).toBeInTheDocument();
 		expect(authServiceMock.listPasskeysPage).toHaveBeenCalledWith({
 			limit: 20,
 			offset: 0,

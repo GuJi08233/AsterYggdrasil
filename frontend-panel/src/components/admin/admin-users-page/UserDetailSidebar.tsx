@@ -1,28 +1,37 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { UserAvatarImage } from "@/components/common/UserAvatarImage";
-import { formatDateTime } from "@/lib/dateTime";
+import { getNormalizedDisplayName, getUserDisplayName } from "@/lib/user";
 import { cn } from "@/lib/utils";
 import type { AdminUserInfo } from "@/types/api";
 import { RoleBadge, StatusBadge } from "./UsersTable";
 
 export function UserDetailSidebar({ user }: { user: AdminUserInfo }) {
 	const { t } = useTranslation();
+	const displayName = getUserDisplayName(user);
+	const showUsernameSecondary =
+		getNormalizedDisplayName(user.profile.display_name) != null &&
+		displayName !== user.username;
 	return (
 		<aside className="border-b border-border/70 bg-muted/20 lg:border-r lg:border-b-0 dark:border-white/10">
 			<div className="space-y-5 p-5">
 				<div className="flex items-start gap-3">
 					<UserAvatarImage
-						name={user.username}
+						name={displayName}
+						avatar={user.profile.avatar}
 						size="lg"
 						className="size-16 rounded-xl text-xl"
 					/>
 					<div className="min-w-0 flex-1 space-y-3">
 						<div className="space-y-1">
 							<h3 className="break-words text-lg font-semibold text-foreground">
-								{user.username}
+								{displayName}
 							</h3>
 							<p className="break-all text-sm text-muted-foreground">
-								{user.email}
+								{showUsernameSecondary
+									? `@${user.username} · ${user.email}`
+									: user.email}
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">
@@ -44,11 +53,11 @@ export function UserDetailSidebar({ user }: { user: AdminUserInfo }) {
 					/>
 					<SidebarMetric
 						label={t("admin.users.createdAt")}
-						value={formatDateTime(user.created_at)}
+						value={<DateTimeText value={user.created_at} />}
 					/>
 					<SidebarMetric
 						label={t("admin.users.updatedAt")}
-						value={formatDateTime(user.updated_at)}
+						value={<DateTimeText value={user.updated_at} />}
 					/>
 				</div>
 			</div>
@@ -63,7 +72,7 @@ function SidebarMetric({
 }: {
 	label: string;
 	mono?: boolean;
-	value: string;
+	value: ReactNode;
 }) {
 	return (
 		<div className="space-y-1 rounded-lg border border-border/70 bg-background/60 p-3 dark:border-white/10">

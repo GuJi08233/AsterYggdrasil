@@ -8,6 +8,7 @@
 				"admin_create_user": "Created user",
 				"admin_delete_config": "Deleted config",
 				"admin_delete_external_auth_provider": "Deleted external auth provider",
+				"admin_delete_user": "Deleted user",
 				"admin_disable_user": "Disabled user",
 				"admin_revoke_invitation": "Revoked invitation",
 				"admin_revoke_user_sessions": "Revoked user sessions",

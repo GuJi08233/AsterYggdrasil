@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import {
 	createMemoryRouter,
+	Link,
 	MemoryRouter,
 	Outlet,
 	RouterProvider,
@@ -799,6 +800,73 @@ describe("frontend entry routes", () => {
 		expect(
 			document.querySelector('[data-slot="shell-desktop-sidebar"]'),
 		).toHaveAttribute("data-state", "collapsed");
+	});
+
+	it("resets page scroll when navigating between admin detail pages", async () => {
+		setAuthenticatedAdmin();
+		const scrollTo = vi.mocked(window.scrollTo);
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout scope="admin" />,
+					children: [
+						{
+							path: "/admin/users/1",
+							element: (
+								<div>
+									admin-user-detail-route
+									<Link to="/admin/minecraft-profiles/16eb7a7fa2124230959738ebe4e1b2d0">
+										open-minecraft-profile
+									</Link>
+								</div>
+							),
+						},
+						{
+							path: "/admin/minecraft-profiles/:uuid",
+							element: (
+								<div>
+									admin-minecraft-profile-route
+									<Link to="/admin/users/1">open-user-detail</Link>
+								</div>
+							),
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/admin/users/1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(
+			await screen.findByText("admin-user-detail-route"),
+		).toBeInTheDocument();
+		expect(scrollTo).not.toHaveBeenCalled();
+
+		fireEvent.click(
+			screen.getByRole("link", { name: "open-minecraft-profile" }),
+		);
+
+		expect(
+			await screen.findByText("admin-minecraft-profile-route"),
+		).toBeInTheDocument();
+		expect(scrollTo).toHaveBeenLastCalledWith({
+			top: 0,
+			left: 0,
+			behavior: "auto",
+		});
+
+		scrollTo.mockClear();
+		fireEvent.click(screen.getByRole("link", { name: "open-user-detail" }));
+
+		expect(
+			await screen.findByText("admin-user-detail-route"),
+		).toBeInTheDocument();
+		expect(scrollTo).toHaveBeenLastCalledWith({
+			top: 0,
+			left: 0,
+			behavior: "auto",
+		});
 	});
 
 	it("loads a stored desktop sidebar preference across a remount", async () => {

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Separator } from "@/components/ui/separator";
@@ -41,11 +42,11 @@ export function ProfileSummaryPanel({
 				/>
 				<InfoTile
 					label={t("admin.minecraftProfilePage.createdAt")}
-					value={profile?.created_at ?? "-"}
+					value={<DateTimeText value={profile?.created_at} />}
 				/>
 				<InfoTile
 					label={t("admin.minecraftProfilePage.updatedAt")}
-					value={profile?.updated_at ?? "-"}
+					value={<DateTimeText value={profile?.updated_at} />}
 				/>
 			</div>
 

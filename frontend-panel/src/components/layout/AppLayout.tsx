@@ -43,6 +43,14 @@ function writeStoredDesktopSidebarExpanded(expanded: boolean) {
 	);
 }
 
+function scrollToPageTop() {
+	if (typeof window === "undefined") {
+		return;
+	}
+
+	window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 export function AppLayout({ scope }: { scope?: ShellScope }) {
 	const { t } = useTranslation();
 	const location = useLocation();
@@ -52,6 +60,7 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 	const logout = useAuthStore((state) => state.logout);
 	const branding = useFrontendConfigStore((state) => state.branding);
 	const pathname = location.pathname;
+	const hash = location.hash;
 	const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 	const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(
 		() =>
@@ -94,7 +103,10 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 
 		previousPathnameRef.current = pathname;
 		setMobileSidebarOpen(false);
-	}, [pathname]);
+		if (!hash) {
+			scrollToPageTop();
+		}
+	}, [hash, pathname]);
 
 	useEffect(() => {
 		if (!mobileSidebarOpen) {

@@ -44,6 +44,7 @@ const AUDIT_ACTION_LABELS = {
 	admin_create_user: "User created",
 	admin_delete_config: "Config deleted",
 	admin_delete_external_auth_provider: "External auth provider deleted",
+	admin_delete_user: "User deleted",
 	admin_disable_user: "User disabled",
 	admin_revoke_invitation: "Invitation revoked",
 	admin_revoke_user_sessions: "User sessions revoked",

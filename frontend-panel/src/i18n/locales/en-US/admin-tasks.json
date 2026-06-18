@@ -2,12 +2,12 @@
 	"admin": {
 		"tasks": {
 			"title": "Background Tasks",
-			"description": "Inspect server-side background work, retry failed jobs, and clean completed history.",
+			"description": "Review server background task execution, retry failed jobs, and clean completed history.",
 			"loadErrorTitle": "Failed to load background tasks",
 			"emptyTitle": "No background tasks",
-			"emptyDescription": "The server has not written any background task records yet.",
+			"emptyDescription": "This instance has no background task records yet.",
 			"filteredEmptyTitle": "No matching tasks",
-			"filteredEmptyDescription": "Try another status filter.",
+			"filteredEmptyDescription": "Adjust the status filter and search again.",
 			"retry": "Retry",
 			"retryQueued": "Task retry has been queued",
 			"filters": {
@@ -27,15 +27,17 @@
 			"cleanup": {
 				"action": "Clean tasks",
 				"title": "Clean Completed Tasks",
-				"description": "Only finished task records older than the selected time will be removed.",
+				"description": "Only task records finished before the selected time will be removed.",
 				"finishedBefore": "Finished before",
 				"status": "Finished status",
 				"allCompletedStatuses": "All completed statuses",
 				"reset": "Reset conditions",
 				"submit": "Clean",
 				"success": "Cleaned {{count}} tasks",
-				"invalidDescription": "Choose a valid finished-before time first.",
-				"confirmDescription": "This will remove task records finished before {{finishedBefore}} with status {{status}}."
+				"invalidDescription": "Choose a valid finished-before time.",
+				"confirmDescription": "This will remove task records finished before {{finishedBefore}} with status {{status}}.",
+				"confirmDescriptionPrefix": "This will remove task records finished before",
+				"confirmDescriptionSuffix": "with status {{status}}."
 			},
 			"detail": {
 				"source": "Source",

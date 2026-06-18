@@ -327,6 +327,8 @@
 		"heroDescription": "Use this invitation link to join the Aster authentication server. After creating an account, you can manage profiles, textures, and account security from the workbench.",
 		"cardTitle": "Invitation",
 		"cardDescription": "{{email}} was invited to join this server. The invitation expires at {{expiresAt}}.",
+		"cardDescriptionEmail": "{{email}} was invited to join this server.",
+		"cardDescriptionExpiresAt": "The invitation expires at",
 		"loading": "Checking invitation",
 		"invalid": "Invitation token is missing.",
 		"accept": "Accept invitation",

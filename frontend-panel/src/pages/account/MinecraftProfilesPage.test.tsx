@@ -23,6 +23,7 @@ const yggdrasilServiceMock = vi.hoisted(() => ({
 	bindProfileTexture: vi.fn(),
 	createProfile: vi.fn(),
 	deleteProfile: vi.fn(),
+	listProfileSkinTextureUrls: vi.fn(),
 	listProfileTextures: vi.fn(),
 	listProfiles: vi.fn(),
 	renameProfile: vi.fn(),
@@ -220,9 +221,11 @@ function buttonByText(container: HTMLElement, text: string) {
 	return button as HTMLButtonElement;
 }
 
-function openTextureManager(profileId = "profile-one") {
+async function openTextureManager(profileId = "profile-one") {
 	fireEvent.click(screen.getByTestId(`profile-textures-action-${profileId}`));
-	return topDialog();
+	const dialog = topDialog();
+	await within(dialog).findAllByText(/profiles\.textureSlot/);
+	return dialog;
 }
 
 function openRenameDialog(profileId = "profile-one") {
@@ -241,6 +244,10 @@ describe("MinecraftProfilesPage", () => {
 		yggdrasilServiceMock.listProfiles.mockResolvedValue(
 			offsetPage(baseProfiles),
 		);
+		yggdrasilServiceMock.listProfileSkinTextureUrls.mockResolvedValue({
+			"profile-one": "/textures/profile-one-skin.png",
+			"profile-two": null,
+		});
 		yggdrasilServiceMock.listProfileTextures.mockResolvedValue([]);
 		yggdrasilServiceMock.createProfile.mockResolvedValue(
 			profile("created-profile", "CreatedName"),
@@ -268,6 +275,11 @@ describe("MinecraftProfilesPage", () => {
 				"profile-one",
 			);
 		});
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.listProfileSkinTextureUrls,
+			).toHaveBeenCalledWith(["profile-one", "profile-two"]);
+		});
 		expect(screen.getByTestId("minecraft-preview")).toHaveTextContent(
 			"OldName",
 		);
@@ -292,6 +304,16 @@ describe("MinecraftProfilesPage", () => {
 		).not.toBeInTheDocument();
 
 		const firstRow = rowFor("OldName");
+		await waitFor(() => {
+			const avatarImage = within(firstRow).getByTestId(
+				"profile-skin-avatar-image-profile-one",
+			);
+			expect(avatarImage).toHaveAttribute(
+				"src",
+				"/textures/profile-one-skin.png",
+			);
+			expect(avatarImage).toHaveAttribute("draggable", "false");
+		});
 		expect(
 			within(firstRow).getByTestId("profile-textures-action-profile-one"),
 		).toBeVisible();
@@ -310,6 +332,38 @@ describe("MinecraftProfilesPage", () => {
 		expect(
 			screen.getAllByText("profiles.deleteProfileAction")[0],
 		).toHaveAttribute("role", "tooltip");
+
+		const secondRow = rowFor("SecondName");
+		expect(
+			within(secondRow).queryByTestId("profile-skin-avatar-image-profile-two"),
+		).not.toBeInTheDocument();
+	});
+
+	it("falls back to the profile icon when skin avatar metadata fails to load", async () => {
+		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+		yggdrasilServiceMock.listProfileSkinTextureUrls.mockRejectedValueOnce(
+			new Error("avatar metadata unavailable"),
+		);
+
+		await renderPage();
+
+		await waitFor(() => {
+			expect(warnSpy).toHaveBeenCalledWith(
+				"Failed to load Minecraft profile skin avatars",
+				expect.any(Error),
+			);
+		});
+		expect(rowFor("OldName")).toBeInTheDocument();
+		expect(
+			within(rowFor("OldName")).queryByTestId(
+				"profile-skin-avatar-image-profile-one",
+			),
+		).not.toBeInTheDocument();
+		expect(toastMock.error).not.toHaveBeenCalledWith(
+			"avatar metadata unavailable",
+		);
+
+		warnSpy.mockRestore();
 	});
 
 	it("searches profiles on the server after debounce and shows the empty state", async () => {
@@ -376,6 +430,9 @@ describe("MinecraftProfilesPage", () => {
 			screen.queryByText(/admin\.pagination\.entriesPage/),
 		).not.toBeInTheDocument();
 		expect(yggdrasilServiceMock.listProfileTextures).not.toHaveBeenCalled();
+		expect(
+			yggdrasilServiceMock.listProfileSkinTextureUrls,
+		).not.toHaveBeenCalled();
 	});
 
 	it("creates a profile, reloads the first page, and selects the created profile", async () => {
@@ -442,7 +499,7 @@ describe("MinecraftProfilesPage", () => {
 		]);
 		await renderPage();
 
-		const dialog = openTextureManager("profile-one");
+		const dialog = await openTextureManager("profile-one");
 
 		expect(
 			within(dialog).getByText("profiles.textureTitle"),
@@ -472,7 +529,7 @@ describe("MinecraftProfilesPage", () => {
 		]);
 		await renderPage();
 
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		expect(
 			within(manager).getByText(
@@ -500,7 +557,8 @@ describe("MinecraftProfilesPage", () => {
 
 	it("uploads a skin through the texture dialog and binds it to the selected profile", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		yggdrasilServiceMock.listProfileSkinTextureUrls.mockClear();
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -551,6 +609,11 @@ describe("MinecraftProfilesPage", () => {
 		expect(toastMock.success).toHaveBeenCalledWith(
 			"profiles.uploadAndBindToast",
 		);
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.listProfileSkinTextureUrls,
+			).toHaveBeenLastCalledWith(["profile-one", "profile-two"]);
+		});
 	});
 
 	it("uploads a cape from the cape slot without allowing texture type switching", async () => {
@@ -558,7 +621,7 @@ describe("MinecraftProfilesPage", () => {
 			uploadedTexture({ texture_type: "cape" }),
 		);
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -605,7 +668,7 @@ describe("MinecraftProfilesPage", () => {
 
 	it("rejects skin-only dimensions when uploading from the cape slot", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -627,7 +690,7 @@ describe("MinecraftProfilesPage", () => {
 
 	it("rejects legacy cape dimensions when uploading from the skin slot", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -649,7 +712,7 @@ describe("MinecraftProfilesPage", () => {
 
 	it("uploads a skin through the drag-and-drop area and shows drop hover feedback", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -704,7 +767,7 @@ describe("MinecraftProfilesPage", () => {
 
 	it("does not submit texture upload until a file is selected", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -720,7 +783,7 @@ describe("MinecraftProfilesPage", () => {
 
 	it("rejects invalid texture dimensions before uploading", async () => {
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			within(manager).getAllByRole("button", {
@@ -748,7 +811,8 @@ describe("MinecraftProfilesPage", () => {
 			texture({ id: 7, texture_type: "skin" }),
 		]);
 		await renderPage();
-		const manager = openTextureManager("profile-one");
+		yggdrasilServiceMock.listProfileSkinTextureUrls.mockClear();
+		const manager = await openTextureManager("profile-one");
 
 		fireEvent.click(
 			firstEnabledButton(manager, /profiles.unbindTextureAction/),
@@ -766,6 +830,11 @@ describe("MinecraftProfilesPage", () => {
 		expect(yggdrasilServiceMock.listProfileTextures).toHaveBeenLastCalledWith(
 			"profile-one",
 		);
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.listProfileSkinTextureUrls,
+			).toHaveBeenLastCalledWith(["profile-one", "profile-two"]);
+		});
 	});
 
 	it("renames a profile from the row action, trims whitespace, and reloads the list", async () => {

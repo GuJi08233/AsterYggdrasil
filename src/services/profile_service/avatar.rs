@@ -270,3 +270,13 @@ where
     );
     Ok(bytes)
 }
+
+pub async fn delete_uploaded_avatar_for_user<S>(state: &S, user_id: i64) -> Result<()>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    if let Some(profile) = user_profile_repo::find_by_user_id(state.reader_db(), user_id).await? {
+        delete_upload_objects(state, &profile).await;
+    }
+    Ok(())
+}

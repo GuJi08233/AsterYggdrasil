@@ -7,10 +7,10 @@ import {
 	AdminTableHeader as TableHeader,
 	AdminTableRow as TableRow,
 } from "@/components/common/AdminTable";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { formatDateTime } from "@/lib/dateTime";
 import { cn } from "@/lib/utils";
 import type {
 	AdminUserInvitationInfo,
@@ -66,8 +66,7 @@ export function UserInvitationsTableRow({
 	onRevokeInvitation,
 	revokingInvitationId,
 }: UserInvitationsTableRowProps) {
-	const { t, i18n } = useTranslation();
-	const locale = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
+	const { t } = useTranslation();
 	const isPending = invitation.status === "pending";
 	const isRevoking = revokingInvitationId === invitation.id;
 
@@ -106,20 +105,16 @@ export function UserInvitationsTableRow({
 				</div>
 			</TableCell>
 			<TableCell>
-				<span
+				<DateTimeText
+					value={invitation.expires_at}
 					className="text-sm text-muted-foreground"
-					title={new Date(invitation.expires_at).toISOString()}
-				>
-					{formatDateTime(invitation.expires_at, locale)}
-				</span>
+				/>
 			</TableCell>
 			<TableCell>
-				<span
+				<DateTimeText
+					value={invitation.created_at}
 					className="text-sm text-muted-foreground"
-					title={new Date(invitation.created_at).toISOString()}
-				>
-					{formatDateTime(invitation.created_at, locale)}
-				</span>
+				/>
 			</TableCell>
 			<TableCell>
 				<div className="flex justify-end gap-1">

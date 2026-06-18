@@ -14,6 +14,7 @@ import {
 	AdminTableRow,
 } from "@/components/common/AdminTable";
 import { AdminTableList } from "@/components/common/AdminTableList";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { EmptyState } from "@/components/common/EmptyState";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
@@ -258,21 +259,13 @@ function mergeManagedAuditSearchParams(
 	return merged;
 }
 
-function formatTimestamp(value: string, formatter: Intl.DateTimeFormat) {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return value;
-	}
-	return formatter.format(date);
-}
-
 export function AuditLogPage({
 	list,
 	showActor,
 	sortOptions,
 	translationPrefix,
 }: AuditLogPageProps) {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	usePageTitle(t(`${translationPrefix}.title`));
@@ -290,15 +283,6 @@ export function AuditLogPage({
 		sortBy,
 		sortOrder,
 	} = queryState;
-	const timestampLocale = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-	const timestampFormatter = useMemo(
-		() =>
-			new Intl.DateTimeFormat(timestampLocale, {
-				dateStyle: "medium",
-				timeStyle: "short",
-			}),
-		[timestampLocale],
-	);
 	const lastWrittenSearchRef = useRef<string | null>(null);
 
 	const setOffset = useCallback((value: SetStateAction<number>) => {
@@ -534,7 +518,6 @@ export function AuditLogPage({
 				reload={reload}
 				showActor={showActor}
 				t={t}
-				timestampFormatter={timestampFormatter}
 				translationPrefix={translationPrefix}
 			/>
 		</AdminPageShell>
@@ -696,7 +679,6 @@ function AuditLogTable({
 	reload,
 	showActor,
 	t,
-	timestampFormatter,
 	translationPrefix,
 }: {
 	emptyIcon: ReactNode;
@@ -710,7 +692,6 @@ function AuditLogTable({
 	reload: () => void;
 	showActor: boolean;
 	t: TFunction;
-	timestampFormatter: Intl.DateTimeFormat;
 	translationPrefix: AuditLogPageProps["translationPrefix"];
 }) {
 	if (error && items.length === 0) {
@@ -756,7 +737,6 @@ function AuditLogTable({
 					item={item}
 					showActor={showActor}
 					t={t}
-					timestampFormatter={timestampFormatter}
 					translationPrefix={translationPrefix}
 				/>
 			)}
@@ -769,13 +749,11 @@ function AuditLogTableRow({
 	item,
 	showActor,
 	t,
-	timestampFormatter,
 	translationPrefix,
 }: {
 	item: AuditLogEntry;
 	showActor: boolean;
 	t: TFunction;
-	timestampFormatter: Intl.DateTimeFormat;
 	translationPrefix: AuditLogPageProps["translationPrefix"];
 }) {
 	const detail = formatAuditDetail(t, item);
@@ -784,9 +762,10 @@ function AuditLogTableRow({
 		<AdminTableRow>
 			<AdminTableCell>
 				<div className="grid gap-1">
-					<span className="text-sm text-foreground" title={item.created_at}>
-						{formatTimestamp(item.created_at, timestampFormatter)}
-					</span>
+					<DateTimeText
+						value={item.created_at}
+						className="text-sm text-foreground"
+					/>
 					<span className={ADMIN_TABLE_MONO_TEXT_CLASS}>#{item.id}</span>
 				</div>
 			</AdminTableCell>

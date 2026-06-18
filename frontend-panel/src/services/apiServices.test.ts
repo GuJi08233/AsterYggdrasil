@@ -446,6 +446,75 @@ describe("admin services", () => {
 		);
 	});
 
+	it("uses admin user account endpoints including deletion", async () => {
+		const user = {
+			active_session_count: 0,
+			created_at: "2026-06-18T00:00:00Z",
+			email: "alex@example.com",
+			email_verified_at: null,
+			id: 7,
+			must_change_password: false,
+			pending_email: null,
+			profile: {
+				display_name: "Alex",
+				avatar: {
+					source: "none",
+					url_512: null,
+					url_1024: null,
+					version: 0,
+				},
+			},
+			profile_count: 0,
+			role: "user",
+			session_version: 1,
+			status: "active",
+			updated_at: "2026-06-18T00:00:00Z",
+			username: "alex",
+		} satisfies import("@/types/api").AdminUserInfo;
+		apiMock.get.mockResolvedValueOnce(offsetPage([user], 0, 20, 1));
+		apiMock.get.mockResolvedValueOnce(user);
+		apiMock.post.mockResolvedValueOnce({
+			user,
+			generated_password: "temporary",
+		});
+		apiMock.patch.mockResolvedValueOnce({ ...user, status: "disabled" });
+		apiMock.post.mockResolvedValueOnce({ removed: 2 });
+		apiMock.deleteRequest.mockResolvedValueOnce(undefined);
+		const { adminUserService } = await import("./adminService");
+
+		await adminUserService.list({ limit: 20, offset: 0, keyword: "alex" });
+		await adminUserService.get(7);
+		await adminUserService.create({
+			username: "alex",
+			email: "alex@example.com",
+			password: null,
+			must_change_password: false,
+		});
+		await adminUserService.update(7, { status: "disabled" });
+		await adminUserService.revokeSessions(7);
+		await adminUserService.delete(7);
+
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			1,
+			"/admin/users?limit=20&offset=0&keyword=alex&sort_by=created_at&sort_order=desc",
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(2, "/admin/users/7");
+		expect(apiMock.post).toHaveBeenNthCalledWith(1, "/admin/users", {
+			username: "alex",
+			email: "alex@example.com",
+			password: null,
+			must_change_password: false,
+		});
+		expect(apiMock.patch).toHaveBeenCalledWith("/admin/users/7", {
+			status: "disabled",
+		});
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			2,
+			"/admin/users/7/sessions/revoke",
+		);
+		expect(apiMock.deleteRequest).toHaveBeenCalledWith("/admin/users/7");
+	});
+
 	it("passes config updates as generated request bodies", async () => {
 		const payload = { value: "Aster", visibility: "public" as const };
 		apiMock.put.mockResolvedValue({
@@ -811,6 +880,55 @@ describe("yggdrasilService", () => {
 		expect(apiMock.deleteRequest).toHaveBeenCalledWith(
 			"/profiles/minecraft/profile-uuid",
 		);
+	});
+
+	it("loads current-page profile skin avatar URLs through project texture APIs", async () => {
+		apiMock.get.mockImplementation((path: string) => {
+			if (path === "/profiles/minecraft/profile-one/textures") {
+				return Promise.resolve([
+					{
+						source: "bound",
+						texture_type: "skin",
+						url: "/textures/profile-one-skin.png",
+					},
+					{
+						source: "bound",
+						texture_type: "cape",
+						url: "/textures/profile-one-cape.png",
+					},
+				]);
+			}
+			if (path === "/profiles/minecraft/profile-two/textures") {
+				return Promise.resolve([
+					{
+						source: "default",
+						texture_type: "skin",
+						url: "/textures/default-skin.png",
+					},
+				]);
+			}
+			return Promise.reject(new Error(`unexpected path: ${path}`));
+		});
+		const { yggdrasilService } = await import("./yggdrasilService");
+
+		await expect(
+			yggdrasilService.listProfileSkinTextureUrls([
+				"profile-one",
+				"profile-two",
+			]),
+		).resolves.toEqual({
+			"profile-one": "/textures/profile-one-skin.png",
+			"profile-two": null,
+		});
+
+		expect(apiMock.get).toHaveBeenCalledWith(
+			"/profiles/minecraft/profile-one/textures",
+		);
+		expect(apiMock.get).toHaveBeenCalledWith(
+			"/profiles/minecraft/profile-two/textures",
+		);
+		expect(apiMock.rootClientGet).not.toHaveBeenCalled();
+		expect(apiMock.rootClientRequest).not.toHaveBeenCalled();
 	});
 
 	it("renames admin Minecraft profiles through the admin API", async () => {

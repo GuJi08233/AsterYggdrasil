@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ADMIN_TABLE_MUTED_TEXT_CLASS,
@@ -7,11 +8,18 @@ import {
 	AdminTableHeader as TableHeader,
 	AdminTableRow as TableRow,
 } from "@/components/common/AdminTable";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { UserAvatarImage } from "@/components/common/UserAvatarImage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { formatDateTime } from "@/lib/dateTime";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getNormalizedDisplayName, getUserDisplayName } from "@/lib/user";
 import { cn } from "@/lib/utils";
 import type { AdminUserInfo, AdminUserSortBy } from "@/types/api";
 
@@ -31,6 +39,15 @@ export function UsersTableHeader({
 	return (
 		<TableHeader>
 			<TableRow>
+				<AdminSortableTableHead
+					sortKey="id"
+					sortBy={sortBy}
+					sortOrder={sortOrder}
+					onSortChange={onSortChange}
+					className="w-20 text-center"
+				>
+					{t("admin.users.table.id")}
+				</AdminSortableTableHead>
 				<AdminSortableTableHead
 					sortKey="username"
 					sortBy={sortBy}
@@ -79,11 +96,15 @@ export function UsersTableHeader({
 }
 
 export function UsersTableRow({
+	deletingId,
+	onDelete,
 	onEdit,
 	onRevokeSessions,
 	revokingId,
 	user,
 }: {
+	deletingId: number | null;
+	onDelete: (user: AdminUserInfo) => void;
 	onEdit: (user: AdminUserInfo) => void;
 	onRevokeSessions: (user: AdminUserInfo) => void;
 	revokingId: number | null;
@@ -91,6 +112,11 @@ export function UsersTableRow({
 }) {
 	const { t } = useTranslation();
 	const revoking = revokingId === user.id;
+	const deleting = deletingId === user.id;
+	const displayName = getUserDisplayName(user);
+	const showUsernameSecondary =
+		getNormalizedDisplayName(user.profile.display_name) != null &&
+		displayName !== user.username;
 
 	return (
 		<TableRow
@@ -104,17 +130,26 @@ export function UsersTableRow({
 				}
 			}}
 		>
+			<TableCell className="text-center">
+				<span className="font-mono text-muted-foreground text-sm tabular-nums">
+					{user.id}
+				</span>
+			</TableCell>
 			<TableCell>
 				<div className="flex min-w-0 items-center gap-3">
 					<UserAvatarImage
-						name={user.username}
+						avatar={user.profile.avatar}
+						name={displayName}
+						alt=""
 						size="sm"
 						className="rounded-lg"
 					/>
 					<div className="min-w-0">
-						<div className="truncate font-medium">{user.username}</div>
+						<div className="truncate font-medium">{displayName}</div>
 						<div className={cn("mt-1 truncate", ADMIN_TABLE_MUTED_TEXT_CLASS)}>
-							{user.email}
+							{showUsernameSecondary
+								? `@${user.username} · ${user.email}`
+								: user.email}
 						</div>
 					</div>
 				</div>
@@ -139,7 +174,7 @@ export function UsersTableRow({
 			</TableCell>
 			<TableCell>
 				<div className={ADMIN_TABLE_MUTED_TEXT_CLASS}>
-					{formatDateTime(user.updated_at)}
+					<DateTimeText value={user.updated_at} />
 				</div>
 			</TableCell>
 			<TableCell
@@ -147,33 +182,76 @@ export function UsersTableRow({
 				onKeyDown={(event) => event.stopPropagation()}
 			>
 				<div className="flex justify-end gap-1">
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						onClick={() => onEdit(user)}
-						aria-label={t("admin.users.edit")}
-						title={t("admin.users.edit")}
-					>
-						<Icon name="PencilSimple" className="size-4" />
-					</Button>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon"
-						disabled={revoking || user.active_session_count === 0}
-						onClick={() => onRevokeSessions(user)}
-						aria-label={t("admin.users.revokeSessions")}
-						title={t("admin.users.revokeSessions")}
-					>
-						<Icon
-							name={revoking ? "Spinner" : "Key"}
-							className={cn("size-4", revoking && "animate-spin")}
-						/>
-					</Button>
+					<TooltipProvider>
+						<ActionTooltip label={t("admin.users.edit")}>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => onEdit(user)}
+								aria-label={t("admin.users.edit")}
+							>
+								<Icon name="PencilSimple" className="size-4" />
+							</Button>
+						</ActionTooltip>
+						<ActionTooltip label={t("admin.users.revokeSessions")}>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								disabled={revoking || user.active_session_count === 0}
+								onClick={() => onRevokeSessions(user)}
+								aria-label={t("admin.users.revokeSessions")}
+							>
+								<Icon
+									name={revoking ? "Spinner" : "Key"}
+									className={cn("size-4", revoking && "animate-spin")}
+								/>
+							</Button>
+						</ActionTooltip>
+						<ActionTooltip
+							label={
+								user.id === 1
+									? t("admin.users.initialAdminDeleteBlocked")
+									: t("admin.users.delete")
+							}
+						>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								disabled={user.id === 1 || deleting}
+								onClick={() => onDelete(user)}
+								aria-label={t("admin.users.delete")}
+								className="text-destructive hover:text-destructive"
+							>
+								<Icon
+									name={deleting ? "Spinner" : "Trash"}
+									className={cn("size-4", deleting && "animate-spin")}
+								/>
+							</Button>
+						</ActionTooltip>
+					</TooltipProvider>
 				</div>
 			</TableCell>
 		</TableRow>
+	);
+}
+
+function ActionTooltip({
+	children,
+	label,
+}: {
+	children: ReactNode;
+	label: string;
+}) {
+	return (
+		<Tooltip>
+			<TooltipTrigger render={<span className="inline-flex size-8" />}>
+				{children}
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
 	);
 }
 

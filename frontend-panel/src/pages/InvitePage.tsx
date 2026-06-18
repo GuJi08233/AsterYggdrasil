@@ -1,18 +1,24 @@
-import { type FormEvent, useEffect, useMemo, useReducer } from "react";
+import { type FormEvent, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod/v4";
+import {
+	AuthFormCard,
+	AuthFormFieldError,
+	AuthIconTextField,
+	AuthPasswordField,
+	authEntryMainClassName,
+	authPrimaryButtonClassName,
+} from "@/components/auth/AuthFormPrimitives";
 import { LoginEntryFooter } from "@/components/auth/LoginEntryFooter";
 import { LoginHero } from "@/components/auth/LoginHero";
 import { PasswordStrengthMeter } from "@/components/auth/PasswordStrengthMeter";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { cn } from "@/lib/utils";
 import {
 	confirmPasswordRequiredSchema,
 	passwordSchema,
@@ -23,9 +29,6 @@ import { authService } from "@/services/authService";
 import { formatUnknownError } from "@/services/http";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type { PublicUserInvitationInfo } from "@/types/api";
-
-const inviteInputClassName =
-	"h-12 rounded-lg border-black/10 bg-white/70 text-[#102118] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] [caret-color:#102118] [-webkit-text-fill-color:#102118] placeholder:text-slate-500 focus-visible:border-emerald-700/32 focus-visible:bg-white/82 focus-visible:ring-3 focus-visible:ring-emerald-500/18 dark:border-white/14 dark:bg-neutral-950/42 dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:[caret-color:white] dark:[-webkit-text-fill-color:white] dark:placeholder:text-white/42 dark:focus-visible:border-emerald-300/45 dark:focus-visible:bg-neutral-950/52 dark:focus-visible:ring-emerald-400/20 [&:-webkit-autofill]:border-black/10 [&:-webkit-autofill]:shadow-[0_0_0_1000px_rgba(255,255,255,0.92)_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:#102118] dark:[&:-webkit-autofill]:border-white/14 dark:[&:-webkit-autofill]:shadow-[0_0_0_1000px_rgba(20,28,25,0.98)_inset] dark:[&:-webkit-autofill]:[-webkit-text-fill-color:white] dark:[&:-webkit-autofill:focus]:shadow-[0_0_0_1000px_rgba(20,28,25,0.98)_inset]";
 
 function getPasswordScore(password: string) {
 	if (!password) return 0;
@@ -171,13 +174,6 @@ export default function InvitePage() {
 	usePageTitle(t("invite.pageTitle"));
 
 	const brandTitle = branding.title || t("brand.name");
-	const expiresAt = useMemo(() => {
-		if (!state.invitation) return null;
-		return new Intl.DateTimeFormat(undefined, {
-			dateStyle: "medium",
-			timeStyle: "short",
-		}).format(new Date(state.invitation.expires_at));
-	}, [state.invitation]);
 	const passwordScore = getPasswordScore(state.password);
 	const passwordStrengthKey =
 		passwordScore <= 1
@@ -304,7 +300,7 @@ export default function InvitePage() {
 			tagline={t("brand.tagline")}
 			variant="auth"
 		>
-			<main className="app-route-transition mx-auto grid w-full max-w-[92rem] flex-1 items-center gap-8 px-4 py-8 sm:px-8 lg:px-12 xl:grid-cols-[minmax(560px,1fr)_minmax(430px,520px)]">
+			<main className={authEntryMainClassName}>
 				<LoginHero
 					isRegister
 					headline={t("invite.headline")}
@@ -312,7 +308,6 @@ export default function InvitePage() {
 				/>
 				<InviteCard
 					state={state}
-					expiresAt={expiresAt}
 					passwordScore={passwordScore}
 					passwordStrengthLabel={t(passwordStrengthKey)}
 					submitDisabled={submitDisabled}
@@ -331,7 +326,6 @@ export default function InvitePage() {
 }
 
 function InviteCard({
-	expiresAt,
 	onBackToLogin,
 	onConfirmPasswordChange,
 	onPasswordChange,
@@ -343,7 +337,6 @@ function InviteCard({
 	state,
 	submitDisabled,
 }: {
-	expiresAt: string | null;
 	onBackToLogin: () => void;
 	onConfirmPasswordChange: (value: string) => void;
 	onPasswordChange: (value: string) => void;
@@ -357,20 +350,22 @@ function InviteCard({
 }) {
 	const { t } = useTranslation();
 	return (
-		<section className="auth-card-transition relative mx-auto w-full max-w-[520px] rounded-[1.35rem] border border-black/10 bg-white/78 p-6 shadow-[0_24px_90px_rgba(15,35,25,0.18),0_0_0_1px_rgba(255,255,255,0.52),0_0_58px_rgba(22,163,74,0.10)] backdrop-blur-2xl before:pointer-events-none before:absolute before:inset-0 before:rounded-[1.35rem] before:border before:border-emerald-700/8 dark:border-white/11 dark:bg-neutral-950/70 dark:shadow-[0_24px_90px_rgba(0,0,0,0.42),0_0_0_1px_rgba(120,255,190,0.04),0_0_58px_rgba(82,255,170,0.18)] dark:before:border-emerald-300/9 sm:p-9">
-			<div>
-				<h1 className="text-3xl font-semibold tracking-normal text-[#102118] sm:text-4xl dark:text-white">
-					{t("invite.cardTitle")}
-				</h1>
-				<p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/72">
-					{state.invitation
-						? t("invite.cardDescription", {
-								email: state.invitation.email,
-								expiresAt,
-							})
-						: t("invite.loading")}
-				</p>
-			</div>
+		<AuthFormCard
+			title={t("invite.cardTitle")}
+			description={
+				state.invitation ? (
+					<>
+						{t("invite.cardDescriptionEmail", {
+							email: state.invitation.email,
+						})}{" "}
+						{t("invite.cardDescriptionExpiresAt")}{" "}
+						<DateTimeText value={state.invitation.expires_at} />.
+					</>
+				) : (
+					t("invite.loading")
+				)
+			}
+		>
 			{state.error ? (
 				<InviteErrorPanel message={state.error} onBackToLogin={onBackToLogin} />
 			) : (
@@ -386,7 +381,7 @@ function InviteCard({
 					onTogglePassword={onTogglePassword}
 				/>
 			)}
-		</section>
+		</AuthFormCard>
 	);
 }
 
@@ -400,13 +395,14 @@ function InviteErrorPanel({
 	const { t } = useTranslation();
 	return (
 		<div className="mt-7 grid gap-4">
-			<p className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm leading-6 text-red-800 dark:border-red-300/20 dark:bg-red-400/10 dark:text-red-100">
-				<Icon name="CircleAlert" className="mt-1 size-4 shrink-0" />
-				<span>{message}</span>
-			</p>
+			<AuthFormFieldError
+				id="invite-token-error"
+				message={message}
+				tone="panel"
+			/>
 			<Button
 				type="button"
-				className="h-13 rounded-lg border-0 bg-emerald-500 text-base font-semibold text-white shadow-lg shadow-emerald-950/25 hover:bg-emerald-400"
+				className={authPrimaryButtonClassName}
 				onClick={onBackToLogin}
 			>
 				<Icon name="ArrowLeft" className="size-4" />
@@ -441,33 +437,40 @@ function InviteForm({
 	const disabled = state.loading || state.submitting;
 	return (
 		<form className="mt-7 grid gap-4" onSubmit={onSubmit} noValidate>
-			<InviteTextField
+			<AuthIconTextField
 				id="username"
 				label={t("login.username")}
 				value={state.username}
 				error={state.errors.username && t(state.errors.username)}
+				icon="User"
+				autoComplete="username"
+				placeholder={t("login.usernamePlaceholder")}
+				minLength={4}
+				maxLength={16}
 				disabled={disabled}
 				onChange={onUsernameChange}
 			/>
-			<InvitePasswordField
+			<AuthPasswordField
 				id="password"
 				label={t("login.password")}
 				value={state.password}
 				error={state.errors.password && t(state.errors.password)}
 				autoComplete="new-password"
 				placeholder={t("login.passwordPlaceholder")}
+				maxLength={128}
 				showPassword={state.showPassword}
 				disabled={disabled}
 				onChange={onPasswordChange}
-				onTogglePassword={onTogglePassword}
+				onToggleShowPassword={onTogglePassword}
 			/>
-			<InvitePasswordField
+			<AuthPasswordField
 				id="confirm-password"
 				label={t("login.confirmPassword")}
 				value={state.confirmPassword}
 				error={state.errors.confirmPassword && t(state.errors.confirmPassword)}
 				autoComplete="new-password"
 				placeholder={t("login.confirmPasswordPlaceholder")}
+				maxLength={128}
 				showPassword={state.showPassword}
 				disabled={disabled}
 				onChange={onConfirmPasswordChange}
@@ -479,7 +482,7 @@ function InviteForm({
 			/>
 			<Button
 				type="submit"
-				className="h-13 rounded-lg border-0 bg-emerald-500 text-base font-semibold text-white shadow-lg shadow-emerald-950/25 hover:bg-emerald-400 disabled:bg-emerald-500/55 disabled:text-white/58"
+				className={authPrimaryButtonClassName}
 				disabled={submitDisabled}
 			>
 				<Icon
@@ -498,137 +501,5 @@ function InviteForm({
 				</Link>
 			</p>
 		</form>
-	);
-}
-
-function InviteTextField({
-	disabled,
-	error,
-	id,
-	label,
-	onChange,
-	value,
-}: {
-	disabled: boolean;
-	error?: string;
-	id: string;
-	label: string;
-	onChange: (value: string) => void;
-	value: string;
-}) {
-	const { t } = useTranslation();
-	const errorId = `invite-${id}-error`;
-	return (
-		<div className="grid gap-2">
-			<Label htmlFor={id} className="text-slate-700 dark:text-white/88">
-				{label}
-			</Label>
-			<div className="relative">
-				<Icon
-					name="User"
-					className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-500 dark:text-white/46"
-				/>
-				<Input
-					id={id}
-					required
-					minLength={4}
-					maxLength={16}
-					autoComplete="username"
-					disabled={disabled}
-					placeholder={t("login.usernamePlaceholder")}
-					value={value}
-					className={cn(inviteInputClassName, "pr-4 pl-11")}
-					aria-invalid={Boolean(error)}
-					aria-describedby={error ? errorId : undefined}
-					onChange={(event) => onChange(event.currentTarget.value)}
-				/>
-			</div>
-			<FormFieldError id={errorId} message={error} />
-		</div>
-	);
-}
-
-function InvitePasswordField({
-	autoComplete,
-	disabled,
-	error,
-	id,
-	label,
-	onChange,
-	onTogglePassword,
-	placeholder,
-	showPassword,
-	value,
-}: {
-	autoComplete: string;
-	disabled: boolean;
-	error?: string;
-	id: string;
-	label: string;
-	onChange: (value: string) => void;
-	onTogglePassword?: () => void;
-	placeholder: string;
-	showPassword: boolean;
-	value: string;
-}) {
-	const { t } = useTranslation();
-	const errorId = `invite-${id}-error`;
-	return (
-		<div className="grid gap-2">
-			<Label htmlFor={id} className="text-slate-700 dark:text-white/88">
-				{label}
-			</Label>
-			<div className="relative">
-				<Icon
-					name="Lock"
-					className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-500 dark:text-white/46"
-				/>
-				<Input
-					id={id}
-					required
-					minLength={8}
-					maxLength={128}
-					type={showPassword ? "text" : "password"}
-					autoComplete={autoComplete}
-					disabled={disabled}
-					placeholder={placeholder}
-					value={value}
-					className={cn(
-						inviteInputClassName,
-						onTogglePassword ? "pr-11 pl-11" : "pr-4 pl-11",
-					)}
-					aria-invalid={Boolean(error)}
-					aria-describedby={error ? errorId : undefined}
-					onChange={(event) => onChange(event.currentTarget.value)}
-				/>
-				{onTogglePassword ? (
-					<button
-						type="button"
-						className="absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors outline-none hover:text-slate-800 focus-visible:ring-3 focus-visible:ring-emerald-500/18 disabled:pointer-events-none disabled:opacity-50 dark:text-white/62 dark:hover:text-white dark:focus-visible:ring-emerald-400/20"
-						onClick={onTogglePassword}
-						disabled={disabled}
-						aria-label={
-							showPassword ? t("login.hidePassword") : t("login.showPassword")
-						}
-					>
-						<Icon name={showPassword ? "EyeSlash" : "Eye"} className="size-4" />
-					</button>
-				) : null}
-			</div>
-			<FormFieldError id={errorId} message={error} />
-		</div>
-	);
-}
-
-function FormFieldError({ id, message }: { id: string; message?: string }) {
-	if (!message) return null;
-	return (
-		<p
-			id={id}
-			className="flex items-start gap-2 text-xs leading-5 text-red-700 dark:text-red-300"
-		>
-			<Icon name="CircleAlert" className="mt-0.5 size-3.5 shrink-0" />
-			<span>{message}</span>
-		</p>
 	);
 }

@@ -191,6 +191,7 @@ export const adminUserService = {
 			OperationData<"admin_update_user">,
 			OperationRequestBody<"admin_update_user">
 		>(`/admin/users/${id}`, data),
+	delete: (id: AdminUserPath["id"]) => api.delete<void>(`/admin/users/${id}`),
 	revokeSessions: (id: AdminUserPath["id"]) =>
 		api.post<OperationData<"admin_revoke_user_sessions">>(
 			`/admin/users/${id}/sessions/revoke`,

@@ -8,6 +8,7 @@
 				"admin_create_user": "创建用户",
 				"admin_delete_config": "删除配置",
 				"admin_delete_external_auth_provider": "删除外部认证提供方",
+				"admin_delete_user": "删除用户",
 				"admin_disable_user": "禁用用户",
 				"admin_revoke_invitation": "撤销邀请",
 				"admin_revoke_user_sessions": "注销用户会话",

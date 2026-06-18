@@ -367,11 +367,21 @@ pub async fn bump_session_version<C: ConnectionTrait>(db: &C, user_id: i64) -> R
     Ok(())
 }
 
+pub async fn delete_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<user::Model> {
+    let user = find_by_id(db, id).await?;
+    let active: user::ActiveModel = user.clone().into();
+    active
+        .delete(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(user)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        bump_session_version, count_all, create, find_by_id, find_by_identifier, find_by_ids,
-        find_by_public_uuid,
+        bump_session_version, count_all, create, delete_by_id, find_by_id, find_by_identifier,
+        find_by_ids, find_by_public_uuid,
     };
     use crate::config::DatabaseConfig;
     use crate::types::{UserRole, UserStatus};
@@ -517,6 +527,29 @@ mod tests {
                 .message()
                 .contains("user #404")
         );
+
+        db.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn delete_by_id_removes_user_and_returns_deleted_model() {
+        let db = build_test_db().await;
+        let user = create(
+            &db,
+            "delete-user",
+            "delete-user@example.com",
+            "password-hash",
+            UserRole::User,
+        )
+        .await
+        .unwrap();
+
+        let deleted = delete_by_id(&db, user.id).await.unwrap();
+
+        assert_eq!(deleted.id, user.id);
+        assert_eq!(count_all(&db).await.unwrap(), 0);
+        assert!(find_by_id(&db, user.id).await.is_err());
+        assert!(delete_by_id(&db, user.id).await.is_err());
 
         db.close().await.unwrap();
     }

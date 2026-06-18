@@ -21,8 +21,8 @@ export function ProfileTextureList({
 	const { t } = useTranslation();
 	return (
 		<>
-			<div className="flex items-center justify-between gap-3">
-				<div>
+			<div className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
 					<h3 className="text-base font-semibold">
 						{t("admin.minecraftProfilePage.textureList")}
 					</h3>
@@ -30,7 +30,13 @@ export function ProfileTextureList({
 						{t("admin.minecraftProfilePage.textureListDescription")}
 					</p>
 				</div>
-				<Button type="button" variant="outline" size="sm" onClick={onRefresh}>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					className="w-full sm:w-auto"
+					onClick={onRefresh}
+				>
 					<Icon name="ArrowsClockwise" className="size-4" />
 					{t("common.refresh")}
 				</Button>
@@ -43,16 +49,16 @@ export function ProfileTextureList({
 						return (
 							<div
 								key={`${texture.texture_type}-${texture.hash}`}
-								className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
+								className="flex min-w-0 flex-col items-stretch gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
 							>
-								<div className="min-w-0">
+								<div className="min-w-0 max-w-full">
 									<div className="flex flex-wrap items-center gap-2">
 										<span className="font-medium">
 											{texture.texture_type.toUpperCase()}
 										</span>
 										<Badge
 											variant="outline"
-											className="rounded-md font-mono text-xs"
+											className="min-w-0 rounded-md break-all font-mono text-xs"
 										>
 											{texture.texture_model}
 										</Badge>
@@ -63,15 +69,16 @@ export function ProfileTextureList({
 											{isDefaultTexture ? texture.source : texture.visibility}
 										</Badge>
 									</div>
-									<p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+									<p className="mt-1 break-all font-mono text-xs text-muted-foreground">
 										{texture.hash}
 									</p>
 								</div>
-								<div className="flex flex-wrap items-center gap-2">
+								<div className="flex flex-wrap items-center gap-2 sm:justify-end">
 									<Button
 										type="button"
 										variant="outline"
 										size="sm"
+										className="w-full sm:w-auto"
 										render={
 											<Link to={texture.url} target="_blank" rel="noreferrer" />
 										}
@@ -83,6 +90,7 @@ export function ProfileTextureList({
 										type="button"
 										variant="destructive"
 										size="sm"
+										className="w-full sm:w-auto"
 										disabled={deletingTexture || isDefaultTexture}
 										onClick={() => onSelectDelete(texture)}
 									>

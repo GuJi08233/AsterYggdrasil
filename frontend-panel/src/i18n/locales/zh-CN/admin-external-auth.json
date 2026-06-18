@@ -2,13 +2,13 @@
 	"admin": {
 		"externalAuth": {
 			"title": "外部认证",
-			"description": "管理站点账号登录用的 OAuth2 / OIDC 提供方。新增前先完成连接测试，避免用户在登录页踩坑。",
+			"description": "管理用于站点账号登录和身份绑定的 OAuth2 / OIDC 提供方。",
 			"create": "新增提供方",
 			"created": "提供方已创建",
 			"updated": "提供方已更新",
 			"deleted": "提供方已删除",
 			"emptyTitle": "暂无外部认证提供方",
-			"emptyDescription": "可以先接入一个 OIDC 身份源，用户就能通过外部账号登录。",
+			"emptyDescription": "接入并启用身份源后，用户即可通过外部账号登录。",
 			"displayName": "显示名称",
 			"key": "提供方标识",
 			"keyHint": "保存时自动生成，用于登录入口和重定向 URI 路径，不能手动修改。",
@@ -29,7 +29,7 @@
 			"status": "状态",
 			"enabled": "启用",
 			"disabled": "禁用",
-			"enabledDesc": "禁用后登录页不再展示该提供方，已有绑定关系不会被删除。",
+			"enabledDesc": "禁用后登录页不再展示该提供方，已有账号绑定关系会保留。",
 			"secretHint": "如果提供方不要求 secret，可以留空。",
 			"secretKeepPlaceholder": "留空则保留当前 secret",
 			"secretKeepHint": "已配置 secret。保存时留空不会覆盖当前值。",
@@ -42,7 +42,7 @@
 			"callbackTitle": "提供方已创建，复制回调 URL",
 			"delete": "删除提供方",
 			"deleteTitle": "删除 {{name}}？",
-			"deleteDescription": "删除后用户不能再通过该提供方发起新登录。已有本地账号不会被删除。",
+			"deleteDescription": "删除后用户不能再通过该提供方发起新登录；已有本地账号不会被删除。",
 			"progress": "步骤 {{current}} / {{total}}",
 			"kind": {
 				"generic_oauth2": "通用 OAuth2",
@@ -63,19 +63,19 @@
 			"fixedConnection": {
 				"title": "固定连接参数",
 				"github": {
-					"description": "GitHub 使用固定 OAuth 端点和默认授权范围；这里只需要填写 OAuth App 的 Client ID 和 Client Secret。",
+					"description": "GitHub 使用固定 OAuth 端点和默认授权范围；只需填写 OAuth App 的 Client ID 和 Client Secret。",
 					"summary": "GitHub OAuth 固定端点"
 				},
 				"google": {
-					"description": "Google 使用固定 OpenID Connect issuer，前端不会允许覆盖 issuer 或手动端点。",
+					"description": "Google 使用固定 OpenID Connect issuer，不支持覆盖 issuer 或手动端点。",
 					"summary": "Google OIDC 固定 issuer"
 				},
 				"microsoft": {
-					"description": "Microsoft 使用固定 identity platform 规则生成 issuer；不要在这里填写自定义授权、token 或用户信息端点。",
+					"description": "Microsoft 使用固定 identity platform 规则生成 issuer，无需填写自定义授权、token 或用户信息端点。",
 					"summary": "Microsoft identity platform"
 				},
 				"qq": {
-					"description": "QQ 使用固定 OAuth2、openid、用户信息端点和默认授权范围；这里只需要填写 QQ 互联应用凭据。",
+					"description": "QQ 使用固定 OAuth2、openid、用户信息端点和默认授权范围；只需填写 QQ 互联应用凭据。",
 					"summary": "QQ 互联固定端点"
 				}
 			},
@@ -86,17 +86,17 @@
 				},
 				"connection": {
 					"title": "连接参数",
-					"description": "填写客户端凭据和端点，先测试再保存。"
+					"description": "填写客户端凭据和端点，并在保存前完成连接测试。"
 				},
 				"review": {
 					"title": "确认启用",
-					"description": "确认登录页是否立即开放这个提供方。"
+					"description": "确认是否立即在登录页开放该提供方。"
 				}
 			},
 			"dialog": {
 				"createTitle": "新增外部认证提供方",
 				"editTitle": "编辑外部认证提供方",
-				"description": "这些配置会直接影响登录页和账号绑定流程。",
+				"description": "配置会影响登录页展示、回调地址和账号绑定流程。",
 				"connectionTitle": "身份源连接",
 				"connectionDesc": "OIDC 填 issuer；通用 OAuth2 填手动端点；GitHub、Google、Microsoft 和 QQ 使用固定连接参数。",
 				"accessTitle": "可用性",
@@ -108,7 +108,8 @@
 				"status": "状态",
 				"actions": "操作",
 				"noEndpoint": "未配置端点",
-				"updatedAt": "更新于 {{value}}"
+				"updatedAt": "更新于 {{value}}",
+				"updatedAtPrefix": "更新于"
 			}
 		}
 	}

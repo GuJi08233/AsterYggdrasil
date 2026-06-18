@@ -74,6 +74,7 @@ define_audit_actions! {
     AdminCreateUser => "admin_create_user",
     AdminUpdateUser => "admin_update_user",
     AdminDisableUser => "admin_disable_user",
+    AdminDeleteUser => "admin_delete_user",
     AdminCreateInvitation => "admin_create_invitation",
     AdminRevokeInvitation => "admin_revoke_invitation",
     AdminRevokeUserSessions => "admin_revoke_user_sessions",
@@ -152,6 +153,7 @@ impl AuditAction {
             Self::AdminCreateUser
             | Self::AdminUpdateUser
             | Self::AdminDisableUser
+            | Self::AdminDeleteUser
             | Self::AdminCreateInvitation
             | Self::AdminRevokeInvitation
             | Self::AdminRevokeUserSessions => "admin",

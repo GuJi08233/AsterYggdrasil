@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 
 interface AdminTaskCleanupDialogProps {
-	description: string;
+	description: ReactNode;
 	finishedBefore: string;
 	onFinishedBeforeChange: (value: string) => void;
 	onOpenChange: (open: boolean) => void;

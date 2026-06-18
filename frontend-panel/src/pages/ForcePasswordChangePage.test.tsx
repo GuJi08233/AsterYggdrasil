@@ -142,6 +142,22 @@ describe("ForcePasswordChangePage", () => {
 		expect(submit).not.toBeDisabled();
 	});
 
+	it("renders with the shared login entry chrome", async () => {
+		setAuthState(forcedUser);
+		renderPage();
+
+		expect(await screen.findByText("Change password")).toBeInTheDocument();
+		expect(
+			screen.getByText("AsterYggdrasil provides secure authentication."),
+		).toBeInTheDocument();
+		expect(
+			screen.getByText("Yggdrasil Authentication Server"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Show password" }),
+		).toBeInTheDocument();
+	});
+
 	it("changes password and navigates to the account page", async () => {
 		setAuthState(forcedUser);
 		renderPage();

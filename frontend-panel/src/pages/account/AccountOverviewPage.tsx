@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { LauncherSetupCard } from "@/components/yggdrasil/LauncherSetupCard";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -254,9 +255,10 @@ function RecentActivityPanel({ items }: { items: AuditLogEntry[] }) {
 										) : null}
 									</div>
 								</div>
-								<time className="mt-2 block pl-5 text-xs text-muted-foreground">
-									{new Date(item.created_at).toLocaleString()}
-								</time>
+								<DateTimeText
+									value={item.created_at}
+									className="mt-2 block pl-5 text-xs text-muted-foreground"
+								/>
 							</div>
 						);
 					})}

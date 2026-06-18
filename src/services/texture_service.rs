@@ -625,6 +625,28 @@ where
     Ok(deleted)
 }
 
+pub async fn delete_all_wardrobe_textures_for_user<S>(
+    state: &S,
+    user_id: i64,
+) -> std::result::Result<Vec<minecraft_texture::Model>, TextureError>
+where
+    S: DatabaseRuntimeState + TextureStorageRuntimeState,
+{
+    let textures = minecraft_texture_repo::list_by_user(state.reader_db(), user_id)
+        .await
+        .map_err(TextureError::from)?;
+    let mut deleted = Vec::with_capacity(textures.len());
+    for texture in textures {
+        let texture_id = texture.id;
+        match delete_wardrobe_texture(state, user_id, texture_id).await {
+            Ok(texture) => deleted.push(texture),
+            Err(error) if error.kind() == TextureErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(deleted)
+}
+
 pub async fn bind_wardrobe_texture_to_profile<S>(
     state: &S,
     user_id: i64,

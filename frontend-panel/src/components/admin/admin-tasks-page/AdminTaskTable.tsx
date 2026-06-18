@@ -9,6 +9,7 @@ import {
 	AdminTableHeader as TableHeader,
 	AdminTableRow as TableRow,
 } from "@/components/common/AdminTable";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +51,6 @@ interface AdminTaskTableHeaderProps {
 }
 
 interface AdminTaskTableRowProps {
-	formatDateTime: (value: string) => string;
 	formatTaskSource: (task: TaskInfo) => ReactNode;
 	onOpenDetail: (taskId: number) => void;
 	onRetry: (taskId: number) => void;
@@ -60,7 +60,6 @@ interface AdminTaskTableRowProps {
 
 interface AdminTaskDetailDialogProps {
 	detailTask: TaskInfo | null;
-	formatDateTime: (value: string) => string;
 	formatTaskSource: (task: TaskInfo) => ReactNode;
 	onOpenDetailChange: (open: boolean) => void;
 	onRetry: (taskId: number) => void;
@@ -135,42 +134,34 @@ function TaskRetryButton({
 }
 
 function TaskMeta({
-	formatDateTime,
+	dateTime,
 	label,
 	value,
 }: {
-	formatDateTime?: (value: string) => string;
+	dateTime?: boolean;
 	label: string;
 	value: number | string | null | undefined;
 }) {
 	if (value === null || value === undefined || value === "") {
 		return null;
 	}
-	const text =
-		typeof value === "string" && formatDateTime
-			? formatDateTime(value)
-			: String(value);
 	return (
 		<div className="rounded-lg border border-border/70 bg-muted/15 px-3 py-2 dark:border-white/10 dark:bg-muted/10">
 			<div className="text-[11px] font-semibold tracking-normal text-muted-foreground uppercase">
 				{label}
 			</div>
-			<div className="mt-1 truncate text-sm text-foreground" title={text}>
-				{text}
+			<div className="mt-1 truncate text-sm text-foreground">
+				{dateTime && typeof value === "string" ? (
+					<DateTimeText value={value} />
+				) : (
+					String(value)
+				)}
 			</div>
 		</div>
 	);
 }
 
-function TaskSteps({
-	formatDateTime,
-	steps,
-	task,
-}: {
-	formatDateTime: (value: string) => string;
-	steps: TaskStepInfo[];
-	task: TaskInfo;
-}) {
+function TaskSteps({ steps, task }: { steps: TaskStepInfo[]; task: TaskInfo }) {
 	const { t } = useTranslation();
 
 	if (steps.length === 0) {
@@ -227,13 +218,13 @@ function TaskSteps({
 									{step.started_at ? (
 										<span>
 											{t("admin.tasks.detail.startedAt")}:{" "}
-											{formatDateTime(step.started_at)}
+											<DateTimeText value={step.started_at} />
 										</span>
 									) : null}
 									{step.finished_at ? (
 										<span>
 											{t("admin.tasks.detail.finishedAt")}:{" "}
-											{formatDateTime(step.finished_at)}
+											<DateTimeText value={step.finished_at} />
 										</span>
 									) : null}
 								</div>
@@ -368,7 +359,6 @@ export function AdminTaskTableHeader({
 }
 
 export function AdminTaskTableRow({
-	formatDateTime,
 	formatTaskSource,
 	onOpenDetail,
 	onRetry,
@@ -428,12 +418,10 @@ export function AdminTaskTableRow({
 				<div className="min-w-0 text-sm">{formatTaskSource(task)}</div>
 			</TableCell>
 			<TableCell>
-				<span
+				<DateTimeText
+					value={taskExecutionAt(task)}
 					className="whitespace-nowrap text-xs text-muted-foreground"
-					title={formatDateTime(task.updated_at)}
-				>
-					{formatDateTime(taskExecutionAt(task))}
-				</span>
+				/>
 			</TableCell>
 			<TableCell>
 				<span className="line-clamp-2 text-xs leading-5 text-muted-foreground">
@@ -449,7 +437,6 @@ export function AdminTaskTableRow({
 
 export function AdminTaskDetailDialog({
 	detailTask,
-	formatDateTime,
 	formatTaskSource,
 	onOpenDetailChange,
 	onRetry,
@@ -496,22 +483,22 @@ export function AdminTaskDetailDialog({
 							<TaskMeta
 								label={t("admin.tasks.detail.createdAt")}
 								value={retainedTask.created_at}
-								formatDateTime={formatDateTime}
+								dateTime
 							/>
 							<TaskMeta
 								label={t("admin.tasks.detail.updatedAt")}
 								value={retainedTask.updated_at}
-								formatDateTime={formatDateTime}
+								dateTime
 							/>
 							<TaskMeta
 								label={t("admin.tasks.detail.startedAt")}
 								value={retainedTask.started_at}
-								formatDateTime={formatDateTime}
+								dateTime
 							/>
 							<TaskMeta
 								label={t("admin.tasks.detail.finishedAt")}
 								value={retainedTask.finished_at}
-								formatDateTime={formatDateTime}
+								dateTime
 							/>
 							<TaskMeta
 								label={t("admin.tasks.detail.attempts")}
@@ -528,11 +515,7 @@ export function AdminTaskDetailDialog({
 							</div>
 						</section>
 
-						<TaskSteps
-							formatDateTime={formatDateTime}
-							steps={retainedTask.steps}
-							task={retainedTask}
-						/>
+						<TaskSteps steps={retainedTask.steps} task={retainedTask} />
 						<RuntimeHealthSummary task={retainedTask} />
 					</div>
 					{retainedTask.can_retry ? (

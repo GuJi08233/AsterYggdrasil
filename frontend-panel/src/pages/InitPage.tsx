@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod/v4";
+import { authEntryMainClassName } from "@/components/auth/AuthFormPrimitives";
 import { InitEntryFooter } from "@/components/auth/InitEntryFooter";
 import {
 	InitFormCard,
@@ -316,7 +317,7 @@ export default function InitPage() {
 			tagline={t("brand.tagline")}
 			variant="auth"
 		>
-			<main className="app-route-transition mx-auto grid w-full max-w-[92rem] flex-1 items-center gap-8 px-4 py-8 sm:px-8 lg:px-12 xl:grid-cols-[minmax(560px,1fr)_minmax(430px,520px)]">
+			<main className={authEntryMainClassName}>
 				<InitHero />
 				<InitFormCard
 					username={form.username}

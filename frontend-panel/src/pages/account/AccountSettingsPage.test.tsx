@@ -239,9 +239,7 @@ describe("AccountSettingsPage", () => {
 		expect(
 			screen.getByRole("heading", { name: "Login devices" }),
 		).toBeInTheDocument();
-		expect(
-			await screen.findByText("No browser sessions returned"),
-		).toBeInTheDocument();
+		expect(await screen.findByText("No browser sessions")).toBeInTheDocument();
 	});
 
 	it("requests an email change and refreshes the shared auth state", async () => {

@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { SessionPlatformIcon } from "@/components/common/SessionPlatformIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { formatDateTime } from "@/lib/dateTime";
 import { formatUserAgentLabel } from "@/lib/userAgent";
 import { cn } from "@/lib/utils";
 import { authService } from "@/services/authService";
@@ -362,12 +368,10 @@ function SessionRow({
 						<div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 							<span>
 								{t("sessions.lastSeen")}{" "}
-								<span
+								<DateTimeText
+									value={session.last_seen_at}
 									className="font-medium text-foreground"
-									title={formatDateTime(session.last_seen_at)}
-								>
-									{formatRelativeDateTime(session.last_seen_at)}
-								</span>
+								/>
 							</span>
 						</div>
 					</div>
@@ -380,8 +384,7 @@ function SessionRow({
 					/>
 					<SessionMetaPill
 						label={t("sessions.expiresAt")}
-						value={formatRelativeDateTime(session.refresh_expires_at)}
-						title={formatDateTime(session.refresh_expires_at)}
+						value={<DateTimeText value={session.refresh_expires_at} />}
 					/>
 					<Button
 						type="button"
@@ -448,19 +451,15 @@ function SummaryMetric({
 
 function SessionMetaPill({
 	label,
-	title,
 	value,
 }: {
 	label: string;
-	title?: string;
-	value: string;
+	value: ReactNode;
 }) {
 	return (
 		<div className="inline-flex min-h-8 max-w-full items-center gap-2 rounded-md border border-border/60 bg-background/70 px-2.5 text-muted-foreground dark:border-white/10 dark:bg-input/18">
 			<span className="font-medium">{label}</span>
-			<span className="truncate text-foreground" title={title ?? value}>
-				{value}
-			</span>
+			<span className="truncate text-foreground">{value}</span>
 		</div>
 	);
 }

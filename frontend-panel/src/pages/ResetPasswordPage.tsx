@@ -3,12 +3,17 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod/v4";
+import {
+	AuthFormCard,
+	AuthIconTextField,
+	AuthPasswordField,
+	authPrimaryButtonClassName,
+	authSecondaryButtonClassName,
+} from "@/components/auth/AuthFormPrimitives";
 import { LoginEntryFooter } from "@/components/auth/LoginEntryFooter";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	confirmPasswordRequiredSchema,
@@ -246,21 +251,12 @@ export default function ResetPasswordPage() {
 			hideLanguageOnMobile
 		>
 			<main className="app-route-transition mx-auto flex w-full max-w-[36rem] flex-1 items-center px-4 py-8 sm:px-8">
-				<section className="w-full rounded-[1.35rem] border border-black/10 bg-white/78 p-6 shadow-[0_24px_90px_rgba(15,35,25,0.18),0_0_0_1px_rgba(255,255,255,0.52)] backdrop-blur-2xl dark:border-white/11 dark:bg-neutral-950/70 dark:shadow-[0_24px_90px_rgba(0,0,0,0.42)] sm:p-9">
-					<div>
-						<h1 className="text-3xl font-semibold tracking-normal text-[#102118] dark:text-white">
-							{title}
-						</h1>
-						<p className="mt-2 text-sm leading-6 text-slate-600 dark:text-white/72">
-							{description}
-						</p>
-					</div>
-
+				<AuthFormCard title={title} description={description}>
 					{isConfirmMode && status !== "form" ? (
 						<div className="mt-7 grid gap-3">
 							<Button
 								type="button"
-								className="h-12 rounded-lg"
+								className={authPrimaryButtonClassName}
 								onClick={() => navigate(publicPaths.login)}
 							>
 								<Icon name="SignIn" className="size-4" />
@@ -269,7 +265,7 @@ export default function ResetPasswordPage() {
 							<Button
 								type="button"
 								variant="outline"
-								className="h-12 rounded-lg"
+								className={authSecondaryButtonClassName}
 								onClick={() => navigate(publicPaths.resetPassword)}
 							>
 								<Icon name="EnvelopeSimple" className="size-4" />
@@ -278,13 +274,15 @@ export default function ResetPasswordPage() {
 						</div>
 					) : isConfirmMode ? (
 						<form className="mt-7 grid gap-4" onSubmit={submitConfirm}>
-							<PasswordField
+							<AuthPasswordField
 								id="reset-password"
 								label={t("login.password")}
 								value={password}
-								error={passwordError}
+								error={passwordError ? t(passwordError) : undefined}
 								showPassword={showPassword}
 								autoComplete="new-password"
+								placeholder={t("login.passwordPlaceholder")}
+								maxLength={128}
 								onChange={(value) => {
 									dispatch({
 										type: "password",
@@ -303,13 +301,17 @@ export default function ResetPasswordPage() {
 									dispatch({ type: "togglePassword" })
 								}
 							/>
-							<PasswordField
+							<AuthPasswordField
 								id="reset-confirm-password"
 								label={t("login.confirmPassword")}
 								value={confirmPassword}
-								error={confirmPasswordError}
+								error={
+									confirmPasswordError ? t(confirmPasswordError) : undefined
+								}
 								showPassword={showPassword}
 								autoComplete="new-password"
+								placeholder={t("login.confirmPasswordPlaceholder")}
+								maxLength={128}
 								onChange={(value) => {
 									dispatch({
 										type: "confirmPassword",
@@ -321,9 +323,6 @@ export default function ResetPasswordPage() {
 											(value === password ? null : "login.passwordMismatch"),
 									});
 								}}
-								onToggleShowPassword={() =>
-									dispatch({ type: "togglePassword" })
-								}
 							/>
 							<Button
 								type="submit"
@@ -334,7 +333,7 @@ export default function ResetPasswordPage() {
 										confirmPassword,
 									}).success
 								}
-								className="h-12 rounded-lg bg-emerald-500 text-base font-semibold text-white shadow-lg shadow-emerald-950/25 hover:bg-emerald-400 disabled:bg-emerald-500/55"
+								className={authPrimaryButtonClassName}
 							>
 								<Icon
 									name={submitting ? "Spinner" : "Key"}
@@ -347,50 +346,29 @@ export default function ResetPasswordPage() {
 						</form>
 					) : (
 						<form className="mt-7 grid gap-4" onSubmit={submitRequest}>
-							<div className="grid gap-2">
-								<Label
-									htmlFor="reset-email"
-									className="text-slate-700 dark:text-white/88"
-								>
-									{t("login.email")}
-								</Label>
-								<div className="relative">
-									<Icon
-										name="EnvelopeSimple"
-										className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-500 dark:text-white/46"
-									/>
-									<Input
-										id="reset-email"
-										type="email"
-										value={email}
-										onChange={(event) => {
-											const nextEmail = event.currentTarget.value;
-											dispatch({
-												type: "email",
-												value: nextEmail,
-												error: emailError
-													? firstIssueMessage(emailSchema.safeParse(nextEmail))
-													: emailError,
-											});
-										}}
-										autoComplete="email"
-										placeholder={t("login.emailPlaceholder")}
-										className="h-12 rounded-lg border-black/10 bg-white/70 pr-4 pl-11 text-[#102118] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] placeholder:text-slate-500 focus-visible:border-emerald-700/32 focus-visible:ring-3 focus-visible:ring-emerald-500/18 dark:border-white/14 dark:bg-neutral-950/42 dark:text-white dark:placeholder:text-white/42"
-										aria-invalid={Boolean(emailError)}
-										aria-describedby={
-											emailError ? "reset-email-error" : undefined
-										}
-									/>
-								</div>
-								<FormFieldError
-									id="reset-email-error"
-									message={emailError && t(emailError)}
-								/>
-							</div>
+							<AuthIconTextField
+								id="reset-email"
+								label={t("login.email")}
+								value={email}
+								error={emailError ? t(emailError) : undefined}
+								icon="EnvelopeSimple"
+								type="email"
+								autoComplete="email"
+								placeholder={t("login.emailPlaceholder")}
+								onChange={(nextEmail) => {
+									dispatch({
+										type: "email",
+										value: nextEmail,
+										error: emailError
+											? firstIssueMessage(emailSchema.safeParse(nextEmail))
+											: emailError,
+									});
+								}}
+							/>
 							<Button
 								type="submit"
 								disabled={submitting || !emailSchema.safeParse(email).success}
-								className="h-12 rounded-lg bg-emerald-500 text-base font-semibold text-white shadow-lg shadow-emerald-950/25 hover:bg-emerald-400 disabled:bg-emerald-500/55"
+								className={authPrimaryButtonClassName}
 							>
 								<Icon
 									name={submitting ? "Spinner" : "EnvelopeSimple"}
@@ -410,85 +388,9 @@ export default function ResetPasswordPage() {
 							</p>
 						</form>
 					)}
-				</section>
+				</AuthFormCard>
 			</main>
 			<LoginEntryFooter brandTitle={brandTitle} />
 		</PublicEntryShell>
-	);
-}
-
-function PasswordField({
-	id,
-	label,
-	value,
-	error,
-	showPassword,
-	autoComplete,
-	onChange,
-	onToggleShowPassword,
-}: {
-	id: string;
-	label: string;
-	value: string;
-	error: string | null;
-	showPassword: boolean;
-	autoComplete: string;
-	onChange: (value: string) => void;
-	onToggleShowPassword: () => void;
-}) {
-	const { t } = useTranslation();
-	return (
-		<div className="grid gap-2">
-			<Label htmlFor={id} className="text-slate-700 dark:text-white/88">
-				{label}
-			</Label>
-			<div className="relative">
-				<Icon
-					name="Lock"
-					className="absolute top-1/2 left-4 size-4 -translate-y-1/2 text-slate-500 dark:text-white/46"
-				/>
-				<Input
-					id={id}
-					type={showPassword ? "text" : "password"}
-					value={value}
-					onChange={(event) => onChange(event.currentTarget.value)}
-					autoComplete={autoComplete}
-					maxLength={128}
-					className="h-12 rounded-lg border-black/10 bg-white/70 pr-11 pl-11 text-[#102118] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] placeholder:text-slate-500 focus-visible:border-emerald-700/32 focus-visible:ring-3 focus-visible:ring-emerald-500/18 dark:border-white/14 dark:bg-neutral-950/42 dark:text-white dark:placeholder:text-white/42"
-					aria-invalid={Boolean(error)}
-					aria-describedby={error ? `${id}-error` : undefined}
-				/>
-				<button
-					type="button"
-					className="absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center rounded-md bg-transparent text-slate-500 transition-colors outline-none hover:text-slate-800 focus-visible:ring-3 focus-visible:ring-emerald-500/18 dark:text-white/62 dark:hover:text-white"
-					onClick={onToggleShowPassword}
-					aria-label={
-						showPassword ? t("login.hidePassword") : t("login.showPassword")
-					}
-				>
-					<Icon name={showPassword ? "EyeSlash" : "Eye"} className="size-4" />
-				</button>
-			</div>
-			<FormFieldError id={`${id}-error`} message={error && t(error)} />
-		</div>
-	);
-}
-
-function FormFieldError({
-	id,
-	message,
-}: {
-	id: string;
-	message?: string | null;
-}) {
-	if (!message) return null;
-	return (
-		<p
-			id={id}
-			className="flex items-start gap-2 text-xs leading-5 text-red-700 dark:text-red-300"
-		>
-			<Icon name="CircleAlert" className="mt-0.5 size-3.5 shrink-0" />
-			<span>{message}</span>
-		</p>
 	);
 }

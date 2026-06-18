@@ -31,8 +31,11 @@ export default function AdminUserDetailPage() {
 	);
 	const [user, setUser] = useState<AdminUserInfo | null>(null);
 	const [loading, setLoading] = useState(true);
+	const detailPageTitle = user
+		? t("admin.users.detailPageTitle", { username: user.username })
+		: t("admin.users.detailTitle");
 
-	usePageTitle(user?.username ?? t("admin.users.detailTitle"));
+	usePageTitle(detailPageTitle);
 
 	const backToUsers = useCallback(() => {
 		void navigate(adminPaths.users);
@@ -74,7 +77,7 @@ export default function AdminUserDetailPage() {
 	return (
 		<AdminPageShell>
 			<AdminPageHeader
-				title={user?.username ?? t("admin.users.detailTitle")}
+				title={detailPageTitle}
 				description={t("admin.users.detailPageDescription")}
 				actions={
 					<>

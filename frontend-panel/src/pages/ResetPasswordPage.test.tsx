@@ -153,6 +153,36 @@ describe("ResetPasswordPage", () => {
 		expect(submit).not.toBeDisabled();
 	});
 
+	it("validates password reset length boundaries", async () => {
+		renderResetPasswordPage("/reset-password?token=reset-token");
+
+		const submit = await screen.findByRole("button", {
+			name: "Update password",
+		});
+		fireEvent.change(screen.getByLabelText("Password"), {
+			target: { value: "a".repeat(129) },
+		});
+		fireEvent.change(screen.getByLabelText("Confirm password"), {
+			target: { value: "a".repeat(129) },
+		});
+		expect(
+			screen.getByText("Password must be 8-128 characters."),
+		).toBeInTheDocument();
+		expect(submit).toBeDisabled();
+
+		const maxPassword = "a".repeat(128);
+		fireEvent.change(screen.getByLabelText("Password"), {
+			target: { value: maxPassword },
+		});
+		fireEvent.change(screen.getByLabelText("Confirm password"), {
+			target: { value: maxPassword },
+		});
+		expect(
+			screen.queryByText("Password must be 8-128 characters."),
+		).not.toBeInTheDocument();
+		expect(submit).not.toBeDisabled();
+	});
+
 	it("shows invalid and expired token states from API errors", async () => {
 		authServiceMock.confirmPasswordReset.mockRejectedValueOnce(
 			new ApiError("auth.contact_verification_invalid", "invalid reset link"),

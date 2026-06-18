@@ -1,8 +1,7 @@
 import {
 	type DragEvent,
 	type FormEvent,
-	lazy,
-	Suspense,
+	type ReactNode,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -11,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useTextureWardrobePageState } from "@/components/account/wardrobe-page/useTextureWardrobePageState";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPanel";
 import { TextureUploadForm } from "@/components/yggdrasil/TextureUploadForm";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { validateMinecraftTextureFile } from "@/lib/minecraftTextureValidation";
@@ -41,14 +42,8 @@ const WARDROBE_PAGE_SIZE_OPTIONS = [10, 20] as const;
 const DEFAULT_WARDROBE_PAGE_SIZE = 10;
 const WARDROBE_SEARCH_DEBOUNCE_MS = 300;
 
-const MinecraftPreview = lazy(() =>
-	import("@/components/yggdrasil/MinecraftPreview").then((module) => ({
-		default: module.MinecraftPreview,
-	})),
-);
-
 export default function TextureWardrobePage() {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const [state, dispatch] = useTextureWardrobePageState();
 	const [textureOffset, setTextureOffset] = useState(0);
 	const [texturePageSize, setTexturePageSize] = useState<number>(
@@ -159,11 +154,6 @@ export default function TextureWardrobePage() {
 				profile.id.toLowerCase().includes(trimmed),
 		);
 	}, [profiles, profileQuery]);
-
-	const formatter = useMemo(
-		() => new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }),
-		[i18n.language],
-	);
 
 	async function uploadTexture(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -412,7 +402,7 @@ export default function TextureWardrobePage() {
 										key={texture.id}
 										active={previewTexture?.id === texture.id}
 										texture={texture}
-										date={formatter.format(new Date(texture.created_at))}
+										date={<DateTimeText value={texture.created_at} />}
 										onSelect={() =>
 											dispatch({ type: "activeTexture", value: texture })
 										}
@@ -652,7 +642,7 @@ function TextureCard({
 	texture,
 }: {
 	active: boolean;
-	date: string;
+	date: ReactNode;
 	onSelect: () => void;
 	texture: MinecraftWardrobeTextureMetadata;
 }) {
@@ -707,27 +697,24 @@ function PreviewPanel({
 
 	return (
 		<aside className="grid min-w-0 gap-3 xl:sticky xl:top-20 xl:self-start">
-			<Suspense fallback={<Skeleton className="h-[38rem] rounded-lg" />}>
-				<MinecraftPreview
-					label={t("wardrobe.previewTitle")}
-					playerName={
-						texture ? t(`wardrobe.type.${texture.texture_type}`) : null
-					}
-					skinUrl={skinUrl}
-					capeUrl={capeUrl}
-					model={texture?.texture_model ?? "default"}
-					emptyTitle={t("wardrobe.previewEmptyTitle")}
-					emptyDescription={t("wardrobe.previewEmptyDescription")}
-					failedTitle={t("profiles.previewFailedTitle")}
-					failedDescription={t("profiles.previewFailedDescription")}
-					noSkinLabel={t("wardrobe.totalTextures", {
-						count: total.toString(),
-					})}
-					idleLabel={t("profiles.motionIdle")}
-					walkLabel={t("profiles.motionWalk")}
-					frameClassName="h-[34rem]"
-				/>
-			</Suspense>
+			<MinecraftPreviewPanel
+				label={t("wardrobe.previewTitle")}
+				playerName={texture ? t(`wardrobe.type.${texture.texture_type}`) : null}
+				skinUrl={skinUrl}
+				capeUrl={capeUrl}
+				model={texture?.texture_model ?? "default"}
+				emptyTitle={t("wardrobe.previewEmptyTitle")}
+				emptyDescription={t("wardrobe.previewEmptyDescription")}
+				failedTitle={t("profiles.previewFailedTitle")}
+				failedDescription={t("profiles.previewFailedDescription")}
+				noSkinLabel={t("wardrobe.totalTextures", {
+					count: total.toString(),
+				})}
+				idleLabel={t("profiles.motionIdle")}
+				walkLabel={t("profiles.motionWalk")}
+				frameClassName="h-[34rem]"
+				skeletonClassName="h-[38rem]"
+			/>
 			<div className="grid gap-3 rounded-lg border border-border/70 bg-card/95 p-4 shadow-xs">
 				{texture ? <TextureSummary texture={texture} /> : null}
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

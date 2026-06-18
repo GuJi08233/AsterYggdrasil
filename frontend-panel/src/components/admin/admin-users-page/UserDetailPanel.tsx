@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { passwordSchema } from "@/lib/validation";
 import { adminMinecraftProfileService } from "@/services/adminService";
 import type {
 	AdminUserInfo,
+	MinecraftTextureMetadata,
 	UpdateAdminUserRequest,
 	UserRole,
 	UserStatus,
@@ -19,6 +20,10 @@ import {
 } from "./UserDetailMinecraftSection";
 import { UserDetailSecuritySection } from "./UserDetailSecuritySection";
 import { UserDetailSidebar } from "./UserDetailSidebar";
+
+const MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS = [5, 10, 20] as const;
+const DEFAULT_MINECRAFT_PROFILE_PAGE_SIZE =
+	MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS[0];
 
 type BusyField =
 	| "revokingSessions"
@@ -154,6 +159,33 @@ function userDetailDraftKey(user: AdminUserInfo) {
 	].join(":");
 }
 
+async function attachMinecraftProfileSkinUrls(
+	profiles: Array<{ id: string; name: string }>,
+): Promise<UserMinecraftProfileItem[]> {
+	return Promise.all(
+		profiles.map(async (profile) => {
+			try {
+				const textures = await adminMinecraftProfileService.listTextures(
+					profile.id,
+				);
+				return {
+					...profile,
+					skinUrl: findBoundSkinTexture(textures)?.url ?? null,
+				};
+			} catch (error) {
+				console.warn("Failed to load Minecraft profile skin avatar", error);
+				return { ...profile, skinUrl: null };
+			}
+		}),
+	);
+}
+
+function findBoundSkinTexture(textures: MinecraftTextureMetadata[]) {
+	return textures.find(
+		(texture) => texture.texture_type === "skin" && texture.source === "bound",
+	);
+}
+
 export function UserDetailPanel({
 	onBack,
 	onRevokeSessions,
@@ -169,6 +201,12 @@ export function UserDetailPanel({
 	const [minecraftProfiles, setMinecraftProfiles] = useState<
 		UserMinecraftProfileItem[]
 	>([]);
+	const [minecraftProfileTotal, setMinecraftProfileTotal] = useState(0);
+	const [minecraftProfileOffset, setMinecraftProfileOffset] = useState(0);
+	const [minecraftProfilePageSize, setMinecraftProfilePageSize] = useState<
+		(typeof MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS)[number]
+	>(DEFAULT_MINECRAFT_PROFILE_PAGE_SIZE);
+	const previousMinecraftProfileUserIdRef = useRef(user.id);
 	const [profilesLoading, setProfilesLoading] = useState(true);
 	const {
 		confirmPassword,
@@ -198,15 +236,44 @@ export function UserDetailPanel({
 		savingForcePasswordChange;
 
 	useEffect(() => {
+		if (previousMinecraftProfileUserIdRef.current === user.id) return;
+		previousMinecraftProfileUserIdRef.current = user.id;
+		setMinecraftProfileOffset(0);
+	}, [user.id]);
+
+	useEffect(() => {
 		let cancelled = false;
 		async function loadProfiles() {
 			try {
 				setProfilesLoading(true);
-				const items = await adminMinecraftProfileService.listByUser(user.id);
-				if (cancelled) return;
-				setMinecraftProfiles(
-					items.map((item) => ({ id: item.id, name: item.name })),
+				const page = await adminMinecraftProfileService.listByUserPage(
+					user.id,
+					{
+						limit: minecraftProfilePageSize,
+						offset: minecraftProfileOffset,
+					},
 				);
+				if (cancelled) return;
+				if (
+					page.items.length === 0 &&
+					page.total > 0 &&
+					minecraftProfileOffset > 0
+				) {
+					setMinecraftProfileOffset(
+						Math.max(
+							0,
+							Math.floor((page.total - 1) / minecraftProfilePageSize) *
+								minecraftProfilePageSize,
+						),
+					);
+					return;
+				}
+				const nextProfiles = await attachMinecraftProfileSkinUrls(
+					page.items.map((item) => ({ id: item.id, name: item.name })),
+				);
+				if (cancelled) return;
+				setMinecraftProfiles(nextProfiles);
+				setMinecraftProfileTotal(page.total);
 			} catch (error) {
 				if (!cancelled) handleApiError(error);
 			} finally {
@@ -217,7 +284,7 @@ export function UserDetailPanel({
 		return () => {
 			cancelled = true;
 		};
-	}, [user.id]);
+	}, [minecraftProfileOffset, minecraftProfilePageSize, user.id]);
 
 	const runPanelAction = async (
 		field: BusyField,
@@ -368,8 +435,47 @@ export function UserDetailPanel({
 								onSessionRevoke={() => void handleSessionRevoke()}
 							/>
 							<UserDetailMinecraftSection
+								currentPage={
+									Math.floor(
+										minecraftProfileOffset / minecraftProfilePageSize,
+									) + 1
+								}
 								loading={profilesLoading}
+								offset={minecraftProfileOffset}
+								pageSize={minecraftProfilePageSize}
+								pageSizeOptions={MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS.map(
+									(size) => ({
+										label: t("admin.pagination.pageSizeOption", {
+											count: size,
+										}),
+										value: String(size),
+									}),
+								)}
 								profiles={minecraftProfiles}
+								total={minecraftProfileTotal}
+								totalPages={Math.max(
+									1,
+									Math.ceil(minecraftProfileTotal / minecraftProfilePageSize),
+								)}
+								userId={user.id}
+								onNext={() =>
+									setMinecraftProfileOffset(
+										(current) => current + minecraftProfilePageSize,
+									)
+								}
+								onPageSizeChange={(value) => {
+									const next = MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS.find(
+										(size) => String(size) === value,
+									);
+									if (!next) return;
+									setMinecraftProfilePageSize(next);
+									setMinecraftProfileOffset(0);
+								}}
+								onPrevious={() =>
+									setMinecraftProfileOffset((current) =>
+										Math.max(0, current - minecraftProfilePageSize),
+									)
+								}
 							/>
 						</div>
 					</div>

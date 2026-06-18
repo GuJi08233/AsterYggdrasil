@@ -72,7 +72,11 @@ export function UserDetailAccountSection({
 							aria-label={t("admin.users.roleLabel")}
 							disabled={savingProfile || roleStatusLocked}
 						>
-							<SelectValue />
+							<SelectValue>
+								{(value: UserRole | null) => (
+									<RoleBadge userRole={value === "admin" ? "admin" : "user"} />
+								)}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="user">
@@ -93,7 +97,13 @@ export function UserDetailAccountSection({
 							aria-label={t("admin.users.statusLabel")}
 							disabled={savingProfile || roleStatusLocked}
 						>
-							<SelectValue />
+							<SelectValue>
+								{(value: UserStatus | null) => (
+									<StatusBadge
+										status={value === "disabled" ? "disabled" : "active"}
+									/>
+								)}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="active">

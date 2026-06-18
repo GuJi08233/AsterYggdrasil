@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { MinecraftTextureModel } from "@/types/api";
 
-type PreviewMotion = "idle" | "walk";
+export type PreviewMotion = "idle" | "walk";
 
-type MinecraftPreviewProps = {
+export type MinecraftPreviewProps = {
 	capeUrl?: string | null;
 	className?: string;
 	emptyDescription?: string;

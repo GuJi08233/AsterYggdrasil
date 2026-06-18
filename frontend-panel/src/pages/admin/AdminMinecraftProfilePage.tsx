@@ -1,25 +1,26 @@
 import {
 	type FormEvent,
-	lazy,
-	Suspense,
 	useCallback,
 	useEffect,
 	useMemo,
 	useReducer,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ProfileSummaryPanel } from "@/components/admin/admin-minecraft-profile-page/ProfileSummaryPanel";
+import { InfoTile } from "@/components/admin/admin-minecraft-profile-page/InfoTile";
 import { ProfileTextureList } from "@/components/admin/admin-minecraft-profile-page/ProfileTextureList";
 import type {
 	AdminMinecraftProfileInfo,
 	MinecraftTextureMetadata,
 } from "@/components/admin/admin-minecraft-profile-page/types";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { DateTimeText } from "@/components/common/DateTimeText";
+import { UserAvatarImage } from "@/components/common/UserAvatarImage";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { AdminSurface } from "@/components/layout/AdminSurface";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -32,23 +33,39 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CopyField } from "@/components/yggdrasil/CopyField";
+import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPanel";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { adminPaths } from "@/routes/routePaths";
-import { adminMinecraftProfileService } from "@/services/adminService";
-
-const MinecraftPreview = lazy(() =>
-	import("@/components/yggdrasil/MinecraftPreview").then((module) => ({
-		default: module.MinecraftPreview,
-	})),
-);
+import { getUserDisplayName } from "@/lib/user";
+import { adminPaths, adminUserPath } from "@/routes/routePaths";
+import {
+	adminMinecraftProfileService,
+	adminUserService,
+} from "@/services/adminService";
+import type { AdminUserInfo } from "@/types/api";
 
 function parseUuid(value: string | undefined) {
 	if (!value) return null;
 	return value.trim() || null;
 }
 
+function readReturnTo(value: unknown) {
+	if (
+		!value ||
+		typeof value !== "object" ||
+		!("returnTo" in value) ||
+		typeof value.returnTo !== "string"
+	) {
+		return null;
+	}
+
+	const returnTo = value.returnTo.trim();
+	return /^\/admin\/users\/[^/?#]+$/.test(returnTo) ? returnTo : null;
+}
+
 type PageState = {
+	ownerUser: AdminUserInfo | null;
 	profile: AdminMinecraftProfileInfo | null;
 	textures: MinecraftTextureMetadata[];
 	loading: boolean;
@@ -65,6 +82,7 @@ type PageAction =
 	| { type: "loadStart" }
 	| {
 			type: "loadSuccess";
+			ownerUser: AdminUserInfo | null;
 			profile: AdminMinecraftProfileInfo;
 			textures: MinecraftTextureMetadata[];
 	  }
@@ -79,6 +97,7 @@ type PageAction =
 	| { type: "renamingProfile"; value: boolean };
 
 const initialPageState: PageState = {
+	ownerUser: null,
 	profile: null,
 	textures: [],
 	loading: true,
@@ -98,12 +117,19 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 		case "loadSuccess":
 			return {
 				...state,
+				ownerUser: action.ownerUser,
 				profile: action.profile,
 				textures: action.textures,
 				loading: false,
 			};
 		case "loadError":
-			return { ...state, profile: null, textures: [], loading: false };
+			return {
+				...state,
+				ownerUser: null,
+				profile: null,
+				textures: [],
+				loading: false,
+			};
 		case "setLoading":
 			return { ...state, loading: action.value };
 		case "deleteDialogOpen":
@@ -125,15 +151,19 @@ function pageReducer(state: PageState, action: PageAction): PageState {
 
 export default function AdminMinecraftProfilePage() {
 	const { t } = useTranslation();
+	const location = useLocation();
 	const navigate = useNavigate();
 	const params = useParams();
 	const uuid = parseUuid(params.uuid);
+	const returnTo = readReturnTo(location.state);
+	const backPath = returnTo ?? adminPaths.users;
 	const [state, dispatch] = useReducer(pageReducer, initialPageState);
 	const {
 		deleteDialogOpen,
 		deletingProfile,
 		deletingTexture,
 		loading,
+		ownerUser,
 		profile,
 		renameDialogOpen,
 		renameName,
@@ -151,13 +181,20 @@ export default function AdminMinecraftProfilePage() {
 		}
 		try {
 			dispatch({ type: "loadStart" });
-			const [nextProfile, nextTextures] = await Promise.all([
-				adminMinecraftProfileService.get(uuid),
+			const nextProfile = (await adminMinecraftProfileService.get(
+				uuid,
+			)) as AdminMinecraftProfileInfo;
+			const [nextTextures, nextOwnerUser] = await Promise.all([
 				adminMinecraftProfileService.listTextures(uuid),
+				adminUserService.get(nextProfile.user_id).catch((error) => {
+					console.warn("Failed to load Minecraft profile owner user", error);
+					return null;
+				}),
 			]);
 			dispatch({
 				type: "loadSuccess",
-				profile: nextProfile as AdminMinecraftProfileInfo,
+				ownerUser: nextOwnerUser as AdminUserInfo | null,
+				profile: nextProfile,
 				textures: nextTextures as MinecraftTextureMetadata[],
 			});
 		} catch (error) {
@@ -181,7 +218,7 @@ export default function AdminMinecraftProfilePage() {
 		try {
 			await adminMinecraftProfileService.delete(uuid);
 			toast.success(t("admin.minecraftProfilePage.deleted"));
-			navigate(adminPaths.users);
+			navigate(backPath);
 		} catch (error) {
 			handleApiError(error);
 		} finally {
@@ -206,6 +243,7 @@ export default function AdminMinecraftProfilePage() {
 			});
 			dispatch({
 				type: "loadSuccess",
+				ownerUser,
 				profile: renamed as AdminMinecraftProfileInfo,
 				textures,
 			});
@@ -241,8 +279,8 @@ export default function AdminMinecraftProfilePage() {
 		}
 	};
 
-	const previewSkinUrl = skinTexture?.url ?? null;
-	const previewCapeUrl = capeTexture?.url ?? null;
+	const previewModel =
+		skinTexture?.texture_model ?? profile?.texture_model ?? "default";
 	const headerActions = useMemo(
 		() => (
 			<>
@@ -250,10 +288,14 @@ export default function AdminMinecraftProfilePage() {
 					type="button"
 					variant="outline"
 					size="sm"
-					render={<Link to={adminPaths.users} />}
+					render={<Link to={backPath} />}
 				>
 					<Icon name="ArrowLeft" className="mr-2 size-4" />
-					{t("admin.minecraftProfilePage.backToUsers")}
+					{t(
+						returnTo
+							? "admin.minecraftProfilePage.backToOwnerUser"
+							: "admin.minecraftProfilePage.backToUsers",
+					)}
 				</Button>
 				<Button
 					type="button"
@@ -268,19 +310,9 @@ export default function AdminMinecraftProfilePage() {
 					/>
 					{t("common.refresh")}
 				</Button>
-				<Button
-					type="button"
-					variant="destructive"
-					size="sm"
-					onClick={() => dispatch({ type: "deleteDialogOpen", value: true })}
-					disabled={deletingProfile}
-				>
-					<Icon name="Trash" className="mr-2 size-4" />
-					{t("common.delete")}
-				</Button>
 			</>
 		),
-		[deletingProfile, load, loading, t],
+		[backPath, load, loading, returnTo, t],
 	);
 
 	if (!uuid) {
@@ -308,34 +340,19 @@ export default function AdminMinecraftProfilePage() {
 				actions={headerActions}
 			/>
 
-			<div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-				<AdminSurface className="grid gap-4">
-					<ProfileSummaryPanel
-						capeTexture={capeTexture}
+			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
+				<AdminSurface padded={false} className="min-w-0 overflow-hidden">
+					<ProfileIdentityHeader
 						profile={profile}
-						skinTexture={skinTexture}
 						uuid={uuid}
 						onRename={openRenameDialog}
-						onSelectTextureDelete={(texture) =>
-							dispatch({ type: "textureToDelete", value: texture })
-						}
 					/>
-				</AdminSurface>
-
-				<div className="grid gap-4">
-					<AdminSurface padded={false} className="overflow-hidden">
-						<Suspense fallback={<PreviewSkeleton />}>
-							<MinecraftPreview
-								label={t("admin.minecraftProfilePage.preview")}
-								skinUrl={previewSkinUrl}
-								capeUrl={previewCapeUrl}
-								model={profile?.texture_model ?? "default"}
-								className="rounded-none border-0 shadow-none"
-							/>
-						</Suspense>
-					</AdminSurface>
-
-					<AdminSurface className="grid gap-3">
+					<div className="grid gap-5 p-4 sm:p-5">
+						<ProfileRecordSection
+							ownerUser={ownerUser}
+							profile={profile}
+							uuid={uuid}
+						/>
 						<ProfileTextureList
 							deletingTexture={deletingTexture}
 							loading={loading}
@@ -345,8 +362,17 @@ export default function AdminMinecraftProfilePage() {
 								dispatch({ type: "textureToDelete", value: texture })
 							}
 						/>
-					</AdminSurface>
-				</div>
+					</div>
+				</AdminSurface>
+
+				<ProfilePreviewSidebar
+					capeTexture={capeTexture}
+					deletingProfile={deletingProfile}
+					model={previewModel}
+					profile={profile}
+					skinTexture={skinTexture}
+					onDelete={() => dispatch({ type: "deleteDialogOpen", value: true })}
+				/>
 			</div>
 
 			<ConfirmDialog
@@ -442,20 +468,213 @@ export default function AdminMinecraftProfilePage() {
 	);
 }
 
-function PreviewSkeleton() {
+function ProfilePreviewSidebar({
+	capeTexture,
+	deletingProfile,
+	model,
+	onDelete,
+	profile,
+	skinTexture,
+}: {
+	capeTexture: MinecraftTextureMetadata | null;
+	deletingProfile: boolean;
+	model: "default" | "slim";
+	onDelete: () => void;
+	profile: AdminMinecraftProfileInfo | null;
+	skinTexture: MinecraftTextureMetadata | null;
+}) {
+	const { t } = useTranslation();
+
 	return (
-		<div className="h-[29rem] rounded-none border-0 bg-card shadow-none">
-			<div className="flex min-h-12 items-center justify-between border-b border-border/70 px-4">
-				<div className="grid gap-2">
-					<div className="h-4 w-28 rounded bg-muted" />
-					<div className="h-3 w-20 rounded bg-muted" />
+		<aside className="grid min-w-0 max-w-full gap-3 xl:sticky xl:top-20 xl:self-start">
+			<MinecraftPreviewPanel
+				label={t("admin.minecraftProfilePage.preview")}
+				playerName={profile?.name}
+				skinUrl={skinTexture?.url ?? null}
+				capeUrl={capeTexture?.url ?? null}
+				model={model}
+				emptyTitle={t("profiles.previewEmptyTitle")}
+				emptyDescription={t("profiles.previewEmptyDescription")}
+				failedTitle={t("profiles.previewFailedTitle")}
+				failedDescription={t("profiles.previewFailedDescription")}
+				noSkinLabel={t("profiles.noSkinTexture")}
+				idleLabel={t("profiles.motionIdle")}
+				walkLabel={t("profiles.motionWalk")}
+				frameClassName="h-[34rem]"
+				skeletonClassName="h-[38rem]"
+			/>
+			<div className="grid gap-3 rounded-lg border border-border/70 bg-card/95 p-4 shadow-xs dark:border-white/10">
+				<div className="rounded-lg border border-border/70 bg-muted/20 p-3 text-sm dark:border-white/10">
+					<div className="flex min-w-0 flex-wrap items-center gap-2">
+						<Badge variant="secondary" className="rounded-md">
+							{model}
+						</Badge>
+						<Badge variant="outline" className="rounded-md">
+							{t("admin.minecraftProfilePage.skin")}:{" "}
+							{skinTexture
+								? t("admin.minecraftProfilePage.boundTexture")
+								: t("admin.minecraftProfilePage.noTextureSlot")}
+						</Badge>
+						<Badge variant="outline" className="rounded-md">
+							{t("admin.minecraftProfilePage.cape")}:{" "}
+							{capeTexture
+								? t("admin.minecraftProfilePage.boundTexture")
+								: t("admin.minecraftProfilePage.noTextureSlot")}
+						</Badge>
+					</div>
 				</div>
-				<div className="flex items-center gap-1.5">
-					<div className="size-4 rounded bg-muted" />
-					<div className="size-4 rounded bg-muted" />
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+					<Button
+						type="button"
+						variant="destructive"
+						className="w-full sm:w-auto"
+						disabled={!profile || deletingProfile}
+						onClick={onDelete}
+					>
+						<Icon
+							name={deletingProfile ? "Spinner" : "Trash"}
+							className={deletingProfile ? "size-4 animate-spin" : "size-4"}
+						/>
+						{t("admin.minecraftProfilePage.deleteProfileAction")}
+					</Button>
 				</div>
 			</div>
-			<div className="h-[26rem] bg-muted/30" />
+		</aside>
+	);
+}
+
+function ProfileIdentityHeader({
+	onRename,
+	profile,
+	uuid,
+}: {
+	onRename: () => void;
+	profile: AdminMinecraftProfileInfo | null;
+	uuid: string;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div className="border-b border-border/70 bg-muted/16 px-4 py-4 dark:border-white/10 dark:bg-white/4 sm:px-5">
+			<div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<div className="min-w-0 max-w-full">
+					<div className="flex min-w-0 items-center gap-2">
+						<Icon name="User" className="size-5 shrink-0 text-primary" />
+						<h2 className="break-words text-lg font-semibold text-foreground">
+							{profile?.name ?? t("admin.minecraftProfilePage.title")}
+						</h2>
+					</div>
+					<p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+						{profile?.uuid ?? uuid}
+					</p>
+				</div>
+				<Button
+					type="button"
+					variant="outline"
+					className="w-full sm:w-auto"
+					disabled={!profile}
+					onClick={onRename}
+				>
+					<Icon name="PencilSimple" className="size-4" />
+					{t("admin.minecraftProfilePage.renameAction")}
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+function ProfileRecordSection({
+	ownerUser,
+	profile,
+	uuid,
+}: {
+	ownerUser: AdminUserInfo | null;
+	profile: AdminMinecraftProfileInfo | null;
+	uuid: string;
+}) {
+	const { t } = useTranslation();
+	return (
+		<section className="grid gap-3">
+			<div>
+				<h3 className="text-base font-semibold text-foreground">
+					{t("admin.minecraftProfilePage.recordTitle")}
+				</h3>
+				<p className="mt-1 text-sm leading-6 text-muted-foreground">
+					{t("admin.minecraftProfilePage.recordDescription")}
+				</p>
+			</div>
+			<div className="grid min-w-0 gap-3 md:grid-cols-2">
+				<CopyField
+					label={t("admin.minecraftProfilePage.profileUuid")}
+					value={profile?.uuid ?? uuid}
+					compact
+				/>
+				<CopyField
+					label={t("admin.minecraftProfilePage.profileName")}
+					value={profile?.name ?? "-"}
+					compact
+				/>
+			</div>
+			<div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.45fr)_repeat(3,minmax(0,1fr))]">
+				<OwnerUserTile ownerUser={ownerUser} userId={profile?.user_id} />
+				<InfoTile
+					label={t("admin.minecraftProfilePage.profileId")}
+					value={profile?.id?.toString() ?? "-"}
+					mono
+				/>
+				<InfoTile
+					label={t("admin.minecraftProfilePage.createdAt")}
+					value={<DateTimeText value={profile?.created_at} />}
+				/>
+				<InfoTile
+					label={t("admin.minecraftProfilePage.updatedAt")}
+					value={<DateTimeText value={profile?.updated_at} />}
+				/>
+			</div>
+		</section>
+	);
+}
+
+function OwnerUserTile({
+	ownerUser,
+	userId,
+}: {
+	ownerUser: AdminUserInfo | null;
+	userId: number | null | undefined;
+}) {
+	const { t } = useTranslation();
+	const displayName = ownerUser ? getUserDisplayName(ownerUser) : null;
+
+	return (
+		<div className="min-w-0 rounded-lg border border-border/70 bg-background/60 p-3">
+			<p className="text-xs uppercase tracking-wide text-muted-foreground">
+				{t("admin.minecraftProfilePage.userId")}
+			</p>
+			{ownerUser ? (
+				<Link
+					to={adminUserPath(ownerUser.id)}
+					className="mt-2 flex min-w-0 items-center gap-3 rounded-md outline-none transition-colors hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/35"
+				>
+					<UserAvatarImage
+						avatar={ownerUser.profile.avatar}
+						name={displayName ?? ownerUser.username}
+						alt=""
+						size="sm"
+						className="rounded-lg"
+					/>
+					<div className="min-w-0">
+						<div className="truncate text-sm font-medium text-foreground">
+							{displayName}
+						</div>
+						<div className="mt-1 truncate text-xs text-muted-foreground">
+							@{ownerUser.username} · #{ownerUser.id}
+						</div>
+					</div>
+				</Link>
+			) : (
+				<p className="mt-1 break-all font-mono text-sm">
+					{userId != null ? `#${userId}` : "-"}
+				</p>
+			)}
 		</div>
 	);
 }

@@ -20,6 +20,7 @@ export type MinecraftProfilesPageState = {
 	profilePageSize: number;
 	profileName: string;
 	profileTotal: number;
+	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	profilesLoading: boolean;
 	query: string;
@@ -49,6 +50,7 @@ export type MinecraftProfilesPageAction =
 	| { type: "profilePageSize"; value: number }
 	| { type: "profileName"; value: string }
 	| { type: "profilePage"; value: { items: YggdrasilProfile[]; total: number } }
+	| { type: "profileSkinUrls"; value: Record<string, string | null> }
 	| { type: "profiles"; value: YggdrasilProfile[] }
 	| { type: "profilesLoading"; value: boolean }
 	| { type: "query"; value: string }
@@ -77,6 +79,7 @@ const initialState: MinecraftProfilesPageState = {
 	profilePageSize: 5,
 	profileName: "",
 	profileTotal: 0,
+	profileSkinUrls: {},
 	profiles: [],
 	profilesLoading: false,
 	query: "",
@@ -108,6 +111,7 @@ function reducer(
 		case "model":
 		case "profilePageSize":
 		case "profileName":
+		case "profileSkinUrls":
 		case "profilesLoading":
 		case "query":
 		case "renameDialogOpen":

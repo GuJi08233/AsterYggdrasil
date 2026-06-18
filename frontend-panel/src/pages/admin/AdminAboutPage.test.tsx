@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import "@/i18n";
+import { i18next } from "@/i18n";
 import AdminAboutPage from "@/pages/admin/AdminAboutPage";
 import { adminSystemService } from "@/services/adminService";
 
@@ -16,7 +16,8 @@ vi.mock("@/services/adminService", async (importOriginal) => {
 });
 
 describe("AdminAboutPage", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
+		await i18next.changeLanguage("zh-CN");
 		vi.mocked(adminSystemService.getInfo).mockReset();
 	});
 
@@ -32,6 +33,10 @@ describe("AdminAboutPage", () => {
 		expect(
 			screen.queryByText("/api/v1/admin/system-info"),
 		).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /打开文档/ })).toHaveAttribute(
+			"href",
+			"https://yggdrasil.astercosm.com/",
+		);
 		expect(screen.queryByText("/health")).not.toBeInTheDocument();
 		expect(screen.queryByText("unknown")).not.toBeInTheDocument();
 	});

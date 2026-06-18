@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminSettingsPage from "@/pages/admin/AdminSettingsPage";
 import { adminConfigService } from "@/services/adminService";
@@ -104,6 +110,64 @@ const yggdrasilConfig = {
 	value_type: "multiline",
 } satisfies SystemConfig;
 
+const runtimeNumberConfig = {
+	...config,
+	category: "runtime.tasks",
+	id: 7,
+	key: "background_task_max_concurrency",
+	namespace: "runtime",
+	value: "4",
+	value_type: "number",
+} satisfies SystemConfig;
+
+const enumSetConfig = {
+	...config,
+	category: "network.cors",
+	id: 8,
+	key: "cors_allowed_origins",
+	namespace: "network",
+	value: ["https://alpha.example"],
+	value_type: "string_enum_set",
+} satisfies SystemConfig;
+
+const enumSetSchema = {
+	category: "network.cors",
+	description: "Allowed origins",
+	description_i18n_key: "",
+	is_sensitive: false,
+	key: "cors_allowed_origins",
+	label_i18n_key: "",
+	options: [
+		{ label_i18n_key: "", value: "https://alpha.example" },
+		{ label_i18n_key: "", value: "https://beta.example" },
+		{ label_i18n_key: "", value: "https://gamma.example" },
+	],
+	requires_restart: false,
+	value_type: "string_enum_set",
+} satisfies ConfigSchemaItem;
+
+const sensitiveStringConfig = {
+	...config,
+	category: "auth.security",
+	id: 9,
+	is_sensitive: true,
+	key: "auth_session_secret",
+	namespace: "auth",
+	value: "stored-secret",
+	value_type: "string",
+	visibility: "private",
+} satisfies SystemConfig;
+
+const unknownCategoryConfig = {
+	...config,
+	category: "legacy.cloud",
+	id: 10,
+	key: "legacy_cloud_storage",
+	namespace: "legacy",
+	value: "enabled",
+	value_type: "string",
+} satisfies SystemConfig;
+
 const templateVariableGroup = {
 	category: "mail.template",
 	label_i18n_key: "settings_mail_template_group_password_reset",
@@ -161,6 +225,32 @@ describe("AdminSettingsPage", () => {
 
 		expect(input).toHaveValue("https://example.com/account");
 		expect(document.activeElement).toBe(input);
+	});
+
+	it("does not render a duplicate active-category summary above the setting groups", async () => {
+		mockSettingsLoad({ items: [config], nextSchema: [schema] });
+
+		render(<AdminSettingsPage />);
+
+		await screen.findByDisplayValue("https://example.com");
+
+		expect(
+			screen.queryByRole("heading", { name: "settings_category_site" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { name: "Site Urls" }),
+		).toBeInTheDocument();
+	});
+
+	it("does not show the current group item count in the main content header", async () => {
+		mockSettingsLoad({ items: [config], nextSchema: [schema] });
+
+		render(<AdminSettingsPage />);
+
+		const heading = await screen.findByRole("heading", { name: "Site Urls" });
+		const groupHeader = heading.closest(".border-b");
+		expect(groupHeader).not.toBeNull();
+		expect(within(groupHeader as HTMLElement).queryByText("1")).toBeNull();
 	});
 
 	it("does not send visibility when saving system config changes", async () => {
@@ -221,6 +311,153 @@ describe("AdminSettingsPage", () => {
 			value: "hello again",
 			visibility: "authenticated",
 		});
+	});
+
+	it("shows the empty state when settings fail to load", async () => {
+		vi.mocked(adminConfigService.list).mockRejectedValue(new Error("offline"));
+		vi.mocked(adminConfigService.schema).mockResolvedValue([]);
+		vi.mocked(adminConfigService.templateVariables).mockResolvedValue([]);
+
+		render(<AdminSettingsPage />);
+
+		expect(await screen.findByText("settings_empty_title")).toBeInTheDocument();
+		expect(screen.getByText("settings_empty_desc")).toBeInTheDocument();
+	});
+
+	it("keeps unsupported root categories out of the editable panel", async () => {
+		mockSettingsLoad({ items: [unknownCategoryConfig] });
+
+		render(<AdminSettingsPage />);
+
+		expect(await screen.findByText("settings_empty_title")).toBeInTheDocument();
+		expect(screen.queryByDisplayValue("enabled")).not.toBeInTheDocument();
+	});
+
+	it("does not reveal sensitive stored values and only saves an explicit replacement", async () => {
+		mockSettingsLoad({ items: [sensitiveStringConfig] });
+		vi.mocked(adminConfigService.set).mockResolvedValue({
+			config: {
+				...sensitiveStringConfig,
+				value: "new-secret",
+			},
+			warnings: [],
+		});
+
+		render(<AdminSettingsPage />);
+
+		fireEvent.click(
+			await screen.findByRole("button", { name: /settings_category_auth/i }),
+		);
+		expect(screen.queryByDisplayValue("stored-secret")).not.toBeInTheDocument();
+
+		const input = screen.getByPlaceholderText(
+			"settings_sensitive_keep_placeholder",
+		);
+		expect(input).toHaveValue("");
+		fireEvent.change(input, { target: { value: "new-secret" } });
+		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
+
+		expect(adminConfigService.set).toHaveBeenCalledWith("auth_session_secret", {
+			value: "new-secret",
+		});
+	});
+
+	it("saves a cleared number draft as an empty value", async () => {
+		mockSettingsLoad({ items: [runtimeNumberConfig] });
+		vi.mocked(adminConfigService.set).mockResolvedValue({
+			config: {
+				...runtimeNumberConfig,
+				value: "",
+			},
+			warnings: [],
+		});
+
+		render(<AdminSettingsPage />);
+
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: /settings_category_runtime/i,
+			}),
+		);
+		const input = await screen.findByDisplayValue(4);
+		fireEvent.change(input, { target: { value: "" } });
+		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
+
+		expect(adminConfigService.set).toHaveBeenCalledWith(
+			"background_task_max_concurrency",
+			{ value: "" },
+		);
+	});
+
+	it("compacts trimmed string-array rows before saving", async () => {
+		mockSettingsLoad({ items: [config], nextSchema: [schema] });
+		vi.mocked(adminConfigService.set).mockResolvedValue({
+			config: {
+				...config,
+				value: ["https://example.com/account"],
+			},
+			warnings: [],
+		});
+
+		render(<AdminSettingsPage />);
+
+		const input = await screen.findByDisplayValue("https://example.com");
+		fireEvent.change(input, {
+			target: { value: "  https://example.com/account  " },
+		});
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "settings_string_array_add_item",
+			}),
+		);
+		const rows = screen.getAllByRole("textbox");
+		fireEvent.change(rows[rows.length - 1], {
+			target: { value: "   " },
+		});
+		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
+
+		expect(adminConfigService.set).toHaveBeenCalledWith("site.urls", {
+			value: ["https://example.com/account"],
+		});
+	});
+
+	it("keeps selected enum-set values while filtering and saves sorted selections", async () => {
+		mockSettingsLoad({
+			items: [enumSetConfig],
+			nextSchema: [enumSetSchema],
+		});
+		vi.mocked(adminConfigService.set).mockResolvedValue({
+			config: {
+				...enumSetConfig,
+				value: ["https://alpha.example", "https://beta.example"],
+			},
+			warnings: [],
+		});
+
+		render(<AdminSettingsPage />);
+
+		fireEvent.click(
+			await screen.findByRole("button", {
+				name: /settings_category_network/i,
+			}),
+		);
+		const filter = await screen.findByPlaceholderText(
+			"settings_enum_set_search_placeholder",
+		);
+		fireEvent.change(filter, { target: { value: "beta" } });
+
+		expect(screen.queryByText("https://alpha.example")).not.toBeInTheDocument();
+		fireEvent.click(
+			screen.getByRole("button", { name: "https://beta.example" }),
+		);
+		fireEvent.click(screen.getAllByRole("button", { name: /save/i })[0]);
+
+		expect(adminConfigService.set).toHaveBeenCalledWith(
+			"cors_allowed_origins",
+			{
+				value: ["https://alpha.example", "https://beta.example"],
+			},
+		);
 	});
 
 	it("keeps mail template groups collapsed until the group header is opened", async () => {

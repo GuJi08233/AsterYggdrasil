@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,6 @@ import { authService, type PasskeyInfo } from "@/services/authService";
 import { formatUnknownError } from "@/services/http";
 
 const PASSKEY_PAGE_SIZE = 20;
-
-function formatLastUsed(passkey: PasskeyInfo, fallback: string) {
-	return passkey.last_used_at ?? fallback;
-}
 
 type PasskeysState = {
 	busyIds: Set<number>;
@@ -296,10 +293,10 @@ export function SecurityPasskeysSection() {
 										)}
 										<div className="mt-1 text-xs text-muted-foreground">
 											{t("personalSettings.passkeysLastUsed")}:{" "}
-											{formatLastUsed(
-												passkey,
-												t("personalSettings.passkeysNeverUsed"),
-											)}
+											<DateTimeText
+												value={passkey.last_used_at}
+												fallback={t("personalSettings.passkeysNeverUsed")}
+											/>
 										</div>
 									</div>
 									<div className="flex flex-wrap gap-2">
@@ -357,11 +354,11 @@ export function SecurityPasskeysSection() {
 								<div className="grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
 									<div>
 										{t("personalSettings.passkeysCreatedAt")}:{" "}
-										{passkey.created_at}
+										<DateTimeText value={passkey.created_at} />
 									</div>
 									<div>
 										{t("personalSettings.passkeysUpdated")}:{" "}
-										{passkey.updated_at}
+										<DateTimeText value={passkey.updated_at} />
 									</div>
 								</div>
 							</div>

@@ -327,6 +327,8 @@
 		"heroDescription": "使用邀请链接加入此 Aster 认证服务器，创建账户后即可进入工作台管理角色档案、材质和账号安全。",
 		"cardTitle": "邀请",
 		"cardDescription": "{{email}} 已被邀请加入此服务器。邀请将在 {{expiresAt}} 过期。",
+		"cardDescriptionEmail": "{{email}} 已被邀请加入此服务器。",
+		"cardDescriptionExpiresAt": "邀请将在",
 		"loading": "正在检查邀请",
 		"invalid": "邀请令牌缺失。",
 		"accept": "接受邀请",

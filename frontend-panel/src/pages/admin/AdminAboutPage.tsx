@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { AdminSurface } from "@/components/layout/AdminSurface";
@@ -8,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { config } from "@/config/app";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { formatDateTimeOrFallback } from "@/lib/dateTime";
 import { cn } from "@/lib/utils";
 import { adminSystemService } from "@/services/adminService";
 import { formatUnknownError } from "@/services/http";
@@ -16,7 +16,7 @@ import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type { SystemInfoResponse } from "@/types/api";
 
 const REPOSITORY_URL = "https://github.com/AsterCommunity/AsterYggdrasil";
-const README_URL = `${REPOSITORY_URL}#readme`;
+const DOCS_URL = "https://yggdrasil.astercosm.com/";
 const LICENSE_URL = `${REPOSITORY_URL}/blob/master/LICENSE`;
 
 function formatVersion(version: string) {
@@ -89,12 +89,14 @@ export default function AdminAboutPage() {
 			},
 			{
 				label: t("admin.aboutPage.buildTime"),
-				value: systemInfo
-					? formatDateTimeOrFallback(
-							systemInfo.build_time,
-							t("admin.aboutPage.buildTimeUnknown"),
-						)
-					: t("admin.aboutPage.notLoaded"),
+				value: systemInfo ? (
+					<DateTimeText
+						value={systemInfo.build_time}
+						fallback={t("admin.aboutPage.buildTimeUnknown")}
+					/>
+				) : (
+					t("admin.aboutPage.notLoaded")
+				),
 				icon: "Clock",
 			},
 			{
@@ -138,20 +140,20 @@ export default function AdminAboutPage() {
 	const resourceLinks = useMemo(
 		() => [
 			{
-				href: README_URL,
-				icon: "FileText" as const,
-				label: t("admin.aboutPage.readme"),
-				description: t("admin.aboutPage.readmeDesc"),
+				href: DOCS_URL,
+				icon: "BookOpenText" as const,
+				label: t("admin.aboutPage.docs"),
+				description: t("admin.aboutPage.docsDesc"),
 			},
 			{
 				href: REPOSITORY_URL,
-				icon: "BracketsCurly" as const,
+				icon: "Github" as const,
 				label: t("admin.aboutPage.repository"),
 				description: t("admin.aboutPage.repositoryDesc"),
 			},
 			{
 				href: LICENSE_URL,
-				icon: "Scroll" as const,
+				icon: "Scale" as const,
 				label: t("admin.aboutPage.licenseLink"),
 				description: t("admin.aboutPage.licenseLinkDesc"),
 			},
@@ -187,10 +189,10 @@ export default function AdminAboutPage() {
 						<div className="relative flex flex-col gap-6">
 							<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 								<div className="flex min-w-0 items-center gap-4">
-									<div className="grid size-14 shrink-0 place-items-center rounded-xl border border-border/70 bg-background shadow-xs">
+									<div className="grid size-14 shrink-0 place-items-center rounded-xl bg-background">
 										<BrandMark
 											branding={branding}
-											className="size-10 object-contain"
+											className="size-14 object-contain"
 											wordmarkClassName="h-10 max-w-40 object-contain"
 										/>
 									</div>
@@ -239,7 +241,7 @@ export default function AdminAboutPage() {
 											{detail.label}
 										</div>
 										<div className="mt-2 truncate font-mono text-sm font-semibold text-foreground">
-											{loading && detail.value === "unknown"
+											{loading && detail.icon === "Clock"
 												? t("common.loading")
 												: detail.value}
 										</div>

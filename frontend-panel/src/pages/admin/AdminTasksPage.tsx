@@ -12,6 +12,7 @@ import {
 	AdminTaskTableRow,
 } from "@/components/admin/admin-tasks-page/AdminTaskTable";
 import { AdminTableList } from "@/components/common/AdminTableList";
+import { DateTimeText } from "@/components/common/DateTimeText";
 import { EmptyState } from "@/components/common/EmptyState";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
 import { AdminPageShell } from "@/components/layout/AdminPageShell";
@@ -21,7 +22,6 @@ import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
 import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { formatDateTime as formatSharedDateTime } from "@/lib/dateTime";
 import { dateTimeLocalToIso } from "@/lib/form";
 import {
 	buildOffsetPaginationSearchParams,
@@ -221,10 +221,6 @@ function adminTasksUiReducer(
 	}
 }
 
-function formatDateTime(value: string, locale: string) {
-	return formatSharedDateTime(value, locale);
-}
-
 function buildCleanupRequest(
 	cleanupFinishedBefore: string,
 	cleanupStatusFilter: TaskTerminalStatusFilter,
@@ -264,7 +260,7 @@ function taskSourceLabel(
 }
 
 export default function AdminTasksPage() {
-	const { t, i18n } = useTranslation();
+	const { t } = useTranslation();
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	usePageTitle(t("admin.tasks.title"));
@@ -290,9 +286,6 @@ export default function AdminTasksPage() {
 		cleanupSubmitting,
 		detailDialogTaskId,
 	} = uiState;
-	const locale = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-	const formatTaskDateTime = (value: string) => formatDateTime(value, locale);
-
 	const setTaskQuery = useCallback(
 		(updates: Partial<ManagedTaskQuery>) => {
 			const nextManagedSearchParams = buildManagedTaskSearchParams({
@@ -435,15 +428,20 @@ export default function AdminTasksPage() {
 		}
 	};
 	const cleanupDescription =
-		cleanupRequest == null
-			? t("admin.tasks.cleanup.invalidDescription")
-			: t("admin.tasks.cleanup.confirmDescription", {
-					finishedBefore: formatTaskDateTime(cleanupRequest.finished_before),
+		cleanupRequest == null ? (
+			t("admin.tasks.cleanup.invalidDescription")
+		) : (
+			<>
+				{t("admin.tasks.cleanup.confirmDescriptionPrefix")}{" "}
+				<DateTimeText value={cleanupRequest.finished_before} />{" "}
+				{t("admin.tasks.cleanup.confirmDescriptionSuffix", {
 					status:
 						cleanupRequest.status != null
 							? formatTaskStatusLabel(t, cleanupRequest.status)
 							: t("admin.tasks.cleanup.allCompletedStatuses"),
-				});
+				})}
+			</>
+		);
 	const pagination = useMemo(
 		() => (
 			<AdminOffsetPagination
@@ -574,7 +572,6 @@ export default function AdminTasksPage() {
 					renderRow={(task) => (
 						<AdminTaskTableRow
 							key={task.id}
-							formatDateTime={formatTaskDateTime}
 							formatTaskSource={(item) => taskSourceLabel(t, item)}
 							onOpenDetail={(taskId) =>
 								dispatchUi({
@@ -593,7 +590,6 @@ export default function AdminTasksPage() {
 
 			<AdminTaskDetailDialog
 				detailTask={detailTask}
-				formatDateTime={formatTaskDateTime}
 				formatTaskSource={(task) => taskSourceLabel(t, task)}
 				onOpenDetailChange={(open) => {
 					if (!open) {

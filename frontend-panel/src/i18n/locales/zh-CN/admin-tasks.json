@@ -2,12 +2,12 @@
 	"admin": {
 		"tasks": {
 			"title": "后台任务",
-			"description": "查看服务端后台工作、重试失败任务，并清理已经结束的历史记录。",
+			"description": "查看服务端后台任务执行状态，重试失败任务，并清理已结束的历史记录。",
 			"loadErrorTitle": "后台任务加载失败",
 			"emptyTitle": "暂无后台任务",
-			"emptyDescription": "服务端还没有写入后台任务记录。",
+			"emptyDescription": "当前实例还没有后台任务记录。",
 			"filteredEmptyTitle": "没有匹配的任务",
-			"filteredEmptyDescription": "换一个状态筛选再看。",
+			"filteredEmptyDescription": "调整状态筛选条件后重新查询。",
 			"retry": "重试",
 			"retryQueued": "任务已加入重试队列",
 			"filters": {
@@ -27,15 +27,17 @@
 			"cleanup": {
 				"action": "清理任务",
 				"title": "清理已完成任务",
-				"description": "只会删除已结束且早于指定时间的任务记录。",
+				"description": "仅删除已结束且完成时间早于指定时间的任务记录。",
 				"finishedBefore": "结束早于",
 				"status": "结束状态",
 				"allCompletedStatuses": "全部已结束状态",
 				"reset": "重置条件",
 				"submit": "清理",
 				"success": "已清理 {{count}} 条任务",
-				"invalidDescription": "先选择一个有效的结束时间。",
-				"confirmDescription": "将清理结束早于 {{finishedBefore}}、状态为 {{status}} 的任务记录。"
+				"invalidDescription": "请选择有效的结束时间。",
+				"confirmDescription": "将清理结束早于 {{finishedBefore}}、状态为 {{status}} 的任务记录。",
+				"confirmDescriptionPrefix": "将清理结束早于",
+				"confirmDescriptionSuffix": "、状态为 {{status}} 的任务记录。"
 			},
 			"detail": {
 				"source": "来源",

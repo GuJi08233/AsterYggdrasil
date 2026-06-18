@@ -32,6 +32,8 @@ export type UserFilterValue<T extends string> = "__all__" | T;
 export type AdminUsersPageState = {
 	createDialogOpen: boolean;
 	debouncedKeyword: string;
+	deletingId: number | null;
+	deletingUser: AdminUserInfo | null;
 	items: AdminUserInfo[];
 	keyword: string;
 	loading: boolean;
@@ -50,6 +52,8 @@ export type AdminUsersPageState = {
 export type AdminUsersPageAction =
 	| { type: "createDialogOpen"; value: boolean }
 	| { type: "debouncedKeyword"; value: string }
+	| { type: "deletingId"; value: number | null }
+	| { type: "deletingUser"; value: AdminUserInfo | null }
 	| { type: "keyword"; value: string }
 	| { type: "loadStart" }
 	| { type: "loadSuccess"; items: AdminUserInfo[]; total: number }
@@ -73,6 +77,10 @@ function reducer(
 			return { ...state, createDialogOpen: action.value };
 		case "debouncedKeyword":
 			return { ...state, debouncedKeyword: action.value };
+		case "deletingId":
+			return { ...state, deletingId: action.value };
+		case "deletingUser":
+			return { ...state, deletingUser: action.value };
 		case "keyword":
 			return { ...state, keyword: action.value, offset: 0 };
 		case "loadStart":
@@ -131,6 +139,8 @@ export function useAdminUsersPageState(searchParams: URLSearchParams) {
 		return {
 			createDialogOpen: false,
 			debouncedKeyword: keyword,
+			deletingId: null,
+			deletingUser: null,
 			items: [],
 			keyword,
 			loading: true,

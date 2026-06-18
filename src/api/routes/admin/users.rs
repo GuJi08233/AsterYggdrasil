@@ -11,8 +11,9 @@ use crate::api::pagination::OffsetPage;
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
+use crate::services::admin_user_service;
 use crate::services::audit_service;
-use crate::services::auth_service::{self, AuthUserInfo};
+use crate::services::auth_service::AuthUserInfo;
 use crate::services::profile_service;
 use crate::services::user_invitation_service;
 use crate::types::{UserRole, UserStatus};
@@ -25,7 +26,7 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
         .ok_or_else(|| AsterError::internal_error("missing authenticated user in request context"))
 }
 
-fn user_audit_details(user: &auth_service::AdminUserInfo) -> Option<serde_json::Value> {
+fn user_audit_details(user: &admin_user_service::AdminUserInfo) -> Option<serde_json::Value> {
     audit_service::details(audit_service::UserAuditDetails {
         username: &user.username,
         email: &user.email,
@@ -45,7 +46,7 @@ fn user_audit_details(user: &auth_service::AdminUserInfo) -> Option<serde_json::
     operation_id = "admin_list_users",
     params(LimitOffsetQuery, AdminUserListQuery),
     responses(
-        (status = 200, description = "Users", body = inline(ApiResponse<OffsetPage<auth_service::AdminUserInfo>>)),
+        (status = 200, description = "Users", body = inline(ApiResponse<OffsetPage<admin_user_service::AdminUserInfo>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -67,11 +68,11 @@ pub async fn list_users(
         status = ?query.status,
         "admin listing users"
     );
-    let users = auth_service::list_admin_users(
+    let users = admin_user_service::list_users(
         state.get_ref(),
         limit,
         offset,
-        auth_service::AdminUserListFilters {
+        admin_user_service::AdminUserListFilters {
             keyword: query.keyword.clone(),
             role: query.role,
             status: query.status,
@@ -95,7 +96,7 @@ pub async fn list_users(
     operation_id = "admin_create_user",
     request_body = CreateAdminUserReq,
     responses(
-        (status = 201, description = "User created", body = inline(ApiResponse<auth_service::CreateAdminUserOutput>)),
+        (status = 201, description = "User created", body = inline(ApiResponse<admin_user_service::CreateAdminUserOutput>)),
         (status = 400, description = "Validation error"),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
@@ -114,7 +115,7 @@ pub async fn create_user(
         status = ?body.status.unwrap_or(UserStatus::Active),
         "admin creating user"
     );
-    let output = auth_service::create_admin_user(
+    let output = admin_user_service::create_user(
         state.get_ref(),
         &body.username,
         &body.email,
@@ -275,7 +276,7 @@ fn invitation_audit_details(
     operation_id = "admin_get_user",
     params(("id" = i64, Path, description = "User ID")),
     responses(
-        (status = 200, description = "User", body = inline(ApiResponse<auth_service::AdminUserInfo>)),
+        (status = 200, description = "User", body = inline(ApiResponse<admin_user_service::AdminUserInfo>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
         (status = 404, description = "User not found"),
@@ -285,7 +286,7 @@ fn invitation_audit_details(
 pub async fn get_user(state: web::Data<AppState>, path: web::Path<i64>) -> Result<HttpResponse> {
     let user_id = *path;
     tracing::debug!(user_id, "admin loading user");
-    let user = auth_service::get_admin_user(state.get_ref(), user_id).await?;
+    let user = admin_user_service::get_user(state.get_ref(), user_id).await?;
     tracing::debug!(
         user_id = user.id,
         role = ?user.role,
@@ -303,7 +304,7 @@ pub async fn get_user(state: web::Data<AppState>, path: web::Path<i64>) -> Resul
     params(("id" = i64, Path, description = "User ID")),
     request_body = UpdateAdminUserReq,
     responses(
-        (status = 200, description = "User updated", body = inline(ApiResponse<auth_service::AdminUserInfo>)),
+        (status = 200, description = "User updated", body = inline(ApiResponse<admin_user_service::AdminUserInfo>)),
         (status = 400, description = "Validation error"),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
@@ -329,10 +330,10 @@ pub async fn update_user(
         must_change_password_changed = body.must_change_password.is_some(),
         "admin updating user"
     );
-    let user = auth_service::update_admin_user(
+    let user = admin_user_service::update_user(
         state.get_ref(),
         user_id,
-        auth_service::AdminUpdateUserInput {
+        admin_user_service::AdminUpdateUserInput {
             username: body.username.clone(),
             email: body.email.clone(),
             password: body.password.clone(),
@@ -388,7 +389,7 @@ pub async fn revoke_user_sessions(
 ) -> Result<HttpResponse> {
     let user_id = *path;
     tracing::debug!(user_id, "admin revoking user sessions");
-    let removed = auth_service::revoke_admin_user_sessions(state.get_ref(), user_id).await?;
+    let removed = admin_user_service::revoke_user_sessions(state.get_ref(), user_id).await?;
     let ctx = audit_service::AuditContext::from_request(&req, current_admin_user_id(&req)?);
     audit_service::log_with_details(
         state.get_ref(),
@@ -406,6 +407,51 @@ pub async fn revoke_user_sessions(
             removed,
         })),
     )
+}
+
+#[api_docs_macros::path(
+    delete,
+    path = "/api/v1/admin/users/{id}",
+    tag = "admin",
+    operation_id = "admin_delete_user",
+    params(("id" = i64, Path, description = "User ID")),
+    responses(
+        (status = 200, description = "User deleted", body = inline(ApiResponse<admin_user_service::DeleteAdminUserOutput>)),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "User not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn delete_user(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let user_id = *path;
+    tracing::debug!(user_id, "admin deleting user");
+    let output = admin_user_service::delete_user(state.get_ref(), user_id).await?;
+    let ctx = audit_service::AuditContext::from_request(&req, current_admin_user_id(&req)?);
+    audit_service::log_with_details(
+        state.get_ref(),
+        &ctx,
+        audit_service::AuditAction::AdminDeleteUser,
+        audit_service::AuditEntityType::User,
+        Some(output.user.id),
+        Some(&output.user.username),
+        || user_audit_details(&output.user),
+    )
+    .await;
+    tracing::debug!(
+        user_id = output.user.id,
+        deleted_profile_count = output.deleted_profile_count,
+        deleted_profile_texture_count = output.deleted_profile_texture_count,
+        deleted_wardrobe_texture_count = output.deleted_wardrobe_texture_count,
+        revoked_session_count = output.revoked_session_count,
+        revoked_yggdrasil_token_count = output.revoked_yggdrasil_token_count,
+        "admin deleted user"
+    );
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(output)))
 }
 
 #[api_docs_macros::path(
