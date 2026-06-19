@@ -9,7 +9,7 @@ authors = [
 repository = "https://github.com/AsterCommunity/AsterYggdrasil"
 license = "MIT"
 edition = "2024"
-rust-version = "1.94.0"
+rust-version = "1.95.0"
 
 # 优化配置
 [profile.dev]
@@ -107,7 +107,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 sha1 = "0.11"
 sha2 = "0.11"
-sysinfo = { version = "0.38", optional = true, default-features = false, features = ["system"] }
+sysinfo = { version = "0.39", optional = true, default-features = false, features = ["system"] }
 tikv-jemallocator = { version = "0.7", optional = true }
 tikv-jemalloc-ctl = { version = "0.7", optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "fs", "io-util"] }
