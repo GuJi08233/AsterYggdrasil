@@ -1,12 +1,11 @@
 //! Auth session repository.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::auth_session::{self, Entity as AuthSession};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
 pub async fn create<C: ConnectionTrait>(
@@ -53,31 +52,55 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_by_user_paginated<C: ConnectionTrait>(
+#[derive(Debug, Clone)]
+pub struct AuthSessionCursorSlice {
+    pub items: Vec<auth_session::Model>,
+    pub total: u64,
+    pub has_more: bool,
+}
+
+pub async fn list_by_user_cursor<C: ConnectionTrait>(
     db: &C,
     user_id: i64,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<auth_session::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = AuthSession::find()
-            .filter(auth_session::Column::UserId.eq(user_id))
-            .order_by_desc(auth_session::Column::LastSeenAt)
-            .order_by_desc(auth_session::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
+    after: Option<(chrono::DateTime<Utc>, String)>,
+) -> Result<AuthSessionCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = AuthSession::find().filter(auth_session::Column::UserId.eq(user_id));
+    let total = query
+        .clone()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    if let Some((last_seen_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(auth_session::Column::LastSeenAt.lt(last_seen_at))
+                .add(
+                    Condition::all()
+                        .add(auth_session::Column::LastSeenAt.eq(last_seen_at))
+                        .add(auth_session::Column::Id.lt(id)),
+                ),
+        );
+    }
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(auth_session::Column::LastSeenAt)
+        .order_by_desc(auth_session::Column::Id)
+        .limit(fetch_limit)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "auth session page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(AuthSessionCursorSlice {
+        items,
+        total,
+        has_more,
     })
-    .await
 }
 
 pub async fn list_active_for_user<C: ConnectionTrait>(

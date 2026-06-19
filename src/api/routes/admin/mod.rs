@@ -39,9 +39,9 @@ pub use system_info::get_system_info;
 pub use tasks::{cleanup_tasks, list_tasks, retry_task};
 pub use texture_library::{
     accept_texture_library_report, approve_texture_library_texture, create_texture_library_tag,
-    delete_texture_library_tag, get_texture_library_report, get_texture_library_texture,
-    list_texture_library_reports, list_texture_library_tags, list_texture_library_textures,
-    reject_texture_library_report, reject_texture_library_texture,
+    delete_texture_library_tag, delete_texture_library_texture, get_texture_library_report,
+    get_texture_library_texture, list_texture_library_reports, list_texture_library_tags,
+    list_texture_library_textures, reject_texture_library_report, reject_texture_library_texture,
     unpublish_texture_library_texture, update_texture_library_tag,
 };
 pub use users::{
@@ -118,6 +118,10 @@ pub fn routes(
                         .route(
                             "/textures/{texture_id}",
                             web::get().to(get_texture_library_texture),
+                        )
+                        .route(
+                            "/textures/{texture_id}",
+                            web::delete().to(delete_texture_library_texture),
                         )
                         .route(
                             "/textures/{texture_id}/approve",

@@ -11,6 +11,7 @@ const toastMock = vi.hoisted(() => ({
 
 const adminTextureLibraryServiceMock = vi.hoisted(() => ({
 	approveTexture: vi.fn(),
+	deleteTexture: vi.fn(),
 	getTexture: vi.fn(),
 	listTextures: vi.fn(),
 	rejectTexture: vi.fn(),
@@ -165,6 +166,10 @@ function renderDetailRoute(textureId = "12") {
 		<MemoryRouter initialEntries={[`/admin/texture-library/${textureId}`]}>
 			<Routes>
 				<Route
+					path="/admin/texture-library"
+					element={<AdminTextureLibraryTexturesPage mode="all" />}
+				/>
+				<Route
 					path="/admin/texture-library/:textureId"
 					element={<AdminTextureLibraryTexturesPage mode="detail" />}
 				/>
@@ -197,6 +202,7 @@ describe("AdminTextureLibraryTexturesPage", () => {
 				library_status: "rejected",
 			}),
 		);
+		adminTextureLibraryServiceMock.deleteTexture.mockResolvedValue(undefined);
 		adminTextureLibraryServiceMock.unpublishTexture.mockResolvedValue(
 			texture({ library_status: "private" }),
 		);
@@ -208,10 +214,11 @@ describe("AdminTextureLibraryTexturesPage", () => {
 		await screen.findByText("Review Skin");
 
 		expect(adminTextureLibraryServiceMock.listTextures).toHaveBeenCalledWith({
+			after_id: undefined,
+			after_updated_at: undefined,
 			keyword: undefined,
 			library_status: "pending_review",
 			limit: 20,
-			offset: 0,
 			published: false,
 			texture_type: undefined,
 			visibility: "public",
@@ -304,6 +311,48 @@ describe("AdminTextureLibraryTexturesPage", () => {
 		).toBeInTheDocument();
 	});
 
+	it("confirms and deletes a texture from the table without navigating", async () => {
+		renderListRoute("reviews");
+		await screen.findByText("Review Skin");
+
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "common.delete",
+			}),
+		);
+
+		expect(screen.getByTestId("current-path")).toHaveTextContent(
+			"/admin/texture-library",
+		);
+		const dialog = topDialog();
+		expect(
+			within(dialog).getByText("admin.textureLibraryTexturesPage.deleteTitle"),
+		).toBeInTheDocument();
+		expect(
+			within(dialog).getByText(
+				'admin.textureLibraryTexturesPage.deleteDescription {"name":"Review Skin"}',
+			),
+		).toBeInTheDocument();
+
+		fireEvent.click(
+			within(dialog).getByRole("button", { name: "common.delete" }),
+		);
+
+		await screen.findByText("Review Skin");
+		expect(adminTextureLibraryServiceMock.deleteTexture).toHaveBeenCalledWith(
+			12,
+		);
+		expect(adminTextureLibraryServiceMock.listTextures).toHaveBeenCalledTimes(
+			2,
+		);
+		expect(toastMock.success).toHaveBeenCalledWith(
+			"admin.textureLibraryTexturesPage.deleteSuccess",
+		);
+		expect(screen.getByTestId("current-path")).toHaveTextContent(
+			"/admin/texture-library",
+		);
+	});
+
 	it("loads a texture detail with the shared page module", async () => {
 		adminTextureLibraryServiceMock.getTexture.mockResolvedValue(
 			texture({
@@ -342,6 +391,35 @@ describe("AdminTextureLibraryTexturesPage", () => {
 		expect(screen.getByText("Steve")).toBeInTheDocument();
 		expect(screen.getByText("@steve · #1")).toBeInTheDocument();
 		expect(screen.getByText("Featured")).toBeInTheDocument();
+	});
+
+	it("deletes a texture from the detail page and returns to the texture list", async () => {
+		adminTextureLibraryServiceMock.getTexture.mockResolvedValue(
+			texture({ display_name: "Detail Skin" }),
+		);
+
+		renderDetailRoute("12");
+
+		await screen.findByRole("heading", { level: 1, name: "Detail Skin" });
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "common.delete",
+			}),
+		);
+		const dialog = topDialog();
+		fireEvent.click(
+			within(dialog).getByRole("button", { name: "common.delete" }),
+		);
+
+		expect(adminTextureLibraryServiceMock.deleteTexture).toHaveBeenCalledWith(
+			12,
+		);
+		expect(
+			await screen.findByText("admin.textureLibraryTexturesPage.title"),
+		).toBeInTheDocument();
+		expect(toastMock.success).toHaveBeenCalledWith(
+			"admin.textureLibraryTexturesPage.deleteSuccess",
+		);
 	});
 
 	it("requires a review note before rejecting a pending texture", async () => {

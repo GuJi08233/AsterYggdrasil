@@ -3612,16 +3612,42 @@ async fn launcher_upload_wardrobe_dedupe_keeps_model_and_user_boundaries() {
     assert!(admin_items.iter().all(|item| item["hash"] == shared_hash));
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/wardrobe/textures?limit=1&offset=1")
+        .uri("/api/v1/wardrobe/textures?limit=1")
         .insert_header(common::bearer_header(&admin_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
-    let page_body: Value = test::read_body_json(resp).await;
-    assert_eq!(page_body["data"]["limit"], 1);
-    assert_eq!(page_body["data"]["offset"], 1);
-    assert_eq!(page_body["data"]["total"], 2);
-    assert_eq!(page_body["data"]["items"].as_array().unwrap().len(), 1);
+    let cursor_page_body: Value = test::read_body_json(resp).await;
+    let first_cursor_items = cursor_page_body["data"]["items"].as_array().unwrap();
+    assert_eq!(first_cursor_items.len(), 1);
+    let first_cursor_id = first_cursor_items[0]["id"].as_i64().unwrap();
+    let cursor = &cursor_page_body["data"]["next_cursor"];
+    assert!(
+        cursor.is_object(),
+        "first cursor page should expose next_cursor"
+    );
+    let cursor_value = cursor["value"].as_str().unwrap();
+    let cursor_id = cursor["id"].as_i64().unwrap();
+
+    let cursor_uri = format!(
+        "/api/v1/wardrobe/textures?limit=1&after_updated_at={}&after_id={}",
+        urlencoding::encode(cursor_value),
+        cursor_id
+    );
+    let req = test::TestRequest::get()
+        .uri(&cursor_uri)
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let second_cursor_page_body: Value = test::read_body_json(resp).await;
+    let second_cursor_items = second_cursor_page_body["data"]["items"].as_array().unwrap();
+    assert_eq!(second_cursor_items.len(), 1);
+    assert_ne!(
+        second_cursor_items[0]["id"].as_i64().unwrap(),
+        first_cursor_id
+    );
+    assert!(second_cursor_page_body["data"]["next_cursor"].is_null());
 
     let req = test::TestRequest::get()
         .uri("/api/v1/wardrobe/textures")
@@ -3680,6 +3706,18 @@ async fn wardrobe_texture_list_filters_by_type_keyword_pagination_and_user_scope
     let cape_id = cape_body["data"]["id"].as_i64().unwrap();
     let cape_hash = cape_body["data"]["hash"].as_str().unwrap().to_string();
     assert_eq!(cape_body["data"]["texture_model"], "default");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{cape_id}"))
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({
+            "texture_model": "slim"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let cape_update_body: Value = test::read_body_json(resp).await;
+    assert_eq!(cape_update_body["data"]["texture_model"], "default");
 
     let resp =
         upload_wardrobe_texture_req!(app, &user_access, "skin", Some("default"), &other_user_skin);
@@ -3976,7 +4014,58 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let update_body: Value = test::read_body_json(resp).await;
     assert_eq!(update_body["data"]["display_name"], "Renamed Skin");
     assert_eq!(update_body["data"]["name"], "Renamed Skin");
+    assert_eq!(update_body["data"]["texture_model"], "default");
     assert_eq!(update_body["data"]["visibility"], "public");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "texture_model": "slim"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let model_update_body: Value = test::read_body_json(resp).await;
+    assert_eq!(model_update_body["data"]["display_name"], "Renamed Skin");
+    assert_eq!(model_update_body["data"]["texture_model"], "slim");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "display_name": "  Renamed Again  "
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let name_only_update_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        name_only_update_body["data"]["display_name"],
+        "Renamed Again"
+    );
+    assert_eq!(name_only_update_body["data"]["texture_model"], "slim");
+    assert_eq!(name_only_update_body["data"]["visibility"], "public");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "texture_model": "default"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let default_model_update_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        default_model_update_body["data"]["display_name"],
+        "Renamed Again"
+    );
+    assert_eq!(
+        default_model_update_body["data"]["texture_model"],
+        "default"
+    );
+    assert_eq!(default_model_update_body["data"]["visibility"], "public");
 
     let req = test::TestRequest::put()
         .uri(&format!("/api/v1/wardrobe/textures/{texture_id}/tags"))
@@ -4004,8 +4093,9 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     assert_eq!(list_body["data"]["items"][0]["id"], texture_id);
     assert_eq!(
         list_body["data"]["items"][0]["display_name"],
-        "Renamed Skin"
+        "Renamed Again"
     );
+    assert_eq!(list_body["data"]["items"][0]["texture_model"], "default");
 
     let req = test::TestRequest::get()
         .uri(&format!(
@@ -4037,6 +4127,18 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let req = test::TestRequest::patch()
         .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
         .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({}))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let empty_update_body: Value = test::read_body_json(resp).await;
+    assert_eq!(empty_update_body["data"]["display_name"], "Renamed Again");
+    assert_eq!(empty_update_body["data"]["texture_model"], "default");
+    assert_eq!(empty_update_body["data"]["visibility"], "public");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
         .set_json(serde_json::json!({ "display_name": null }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -4044,6 +4146,8 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let cleared_body: Value = test::read_body_json(resp).await;
     assert_eq!(cleared_body["data"]["display_name"], Value::Null);
     assert_eq!(cleared_body["data"]["name"], texture_hash[..16]);
+    assert_eq!(cleared_body["data"]["texture_model"], "default");
+    assert_eq!(cleared_body["data"]["visibility"], "public");
 }
 
 #[actix_web::test]
@@ -4127,6 +4231,54 @@ async fn wardrobe_texture_tag_boundaries_reject_invalid_duplicate_and_cross_user
     assert_eq!(resp.status(), 404);
     let cross_user_body: Value = test::read_body_json(resp).await;
     assert_eq!(cross_user_body["code"], "wardrobe.texture_not_found");
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{other_texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "texture_model": "slim"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+    let cross_user_patch_body: Value = test::read_body_json(resp).await;
+    assert_eq!(cross_user_patch_body["code"], "wardrobe.texture_not_found");
+
+    for missing_texture_id in [0, 9_999_999] {
+        let req = test::TestRequest::patch()
+            .uri(&format!("/api/v1/wardrobe/textures/{missing_texture_id}"))
+            .insert_header(common::bearer_header(&user_access))
+            .set_json(serde_json::json!({
+                "texture_model": "slim"
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 404);
+        let missing_texture_body: Value = test::read_body_json(resp).await;
+        assert_eq!(missing_texture_body["code"], "wardrobe.texture_not_found");
+    }
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "texture_model": "wide"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&user_access))
+        .set_json(serde_json::json!({
+            "texture_model": "slim"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let valid_model_body: Value = test::read_body_json(resp).await;
+    assert_eq!(valid_model_body["data"]["texture_model"], "slim");
 
     let req = test::TestRequest::put()
         .uri(&format!("/api/v1/wardrobe/textures/{texture_id}/tags"))
@@ -4552,6 +4704,39 @@ async fn admin_minecraft_profiles_can_be_listed_filtered_and_deleted() {
                     && item["uploadable_textures"] == "skin,cape")
         );
     }
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/admin/minecraft-profiles?limit=1")
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let first_page_body: Value = test::read_body_json(resp).await;
+    let first_page_items = first_page_body["data"]["items"].as_array().unwrap();
+    assert_eq!(first_page_items.len(), 1);
+    let first_profile_id = first_page_items[0]["id"].as_i64().unwrap();
+    let cursor = &first_page_body["data"]["next_cursor"];
+    assert!(
+        cursor.is_object(),
+        "profile cursor page should expose next_cursor"
+    );
+    let cursor_id = cursor["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/minecraft-profiles?limit=1&after_id={cursor_id}"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let second_page_body: Value = test::read_body_json(resp).await;
+    let second_page_items = second_page_body["data"]["items"].as_array().unwrap();
+    assert_eq!(second_page_items.len(), 1);
+    assert!(
+        second_page_items[0]["id"].as_i64().unwrap() > first_profile_id,
+        "after_id cursor should advance the profile page"
+    );
 
     let req = test::TestRequest::get()
         .uri("/api/v1/admin/minecraft-profiles?uuid=bad-uuid")
@@ -5628,8 +5813,11 @@ async fn wardrobe_upload_can_be_bound_and_unbound_from_profile_later() {
     let access = setup_admin!(app);
     let profile_id = create_profile!(&app, &access, "WardrobeUser");
 
-    let (content_type, body) =
-        texture_multipart_body_with_name(Some("slim"), Some("Wardrobe Jacket"), &png_texture(64, 64));
+    let (content_type, body) = texture_multipart_body_with_name(
+        Some("slim"),
+        Some("Wardrobe Jacket"),
+        &png_texture(64, 64),
+    );
     let req = test::TestRequest::post()
         .uri("/api/v1/wardrobe/textures/skin")
         .insert_header(common::bearer_header(&access))
@@ -6934,6 +7122,255 @@ async fn texture_library_admin_filters_permissions_and_state_edges() {
     assert_eq!(resp.status(), 200);
     let hidden_list: Value = test::read_body_json(resp).await;
     assert_eq!(hidden_list["data"]["total"], 0);
+}
+
+#[actix_web::test]
+async fn admin_texture_library_delete_removes_texture_profile_bindings_and_audit() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let admin_access = setup_admin!(app);
+    let owner_access = register_user!(app, "libdel", "libdel@example.com", "password1234");
+    let profile_uuid = create_profile!(app, &owner_access, "DeleteLibraryTex");
+
+    let skin = png_texture_with_color(64, 64, image::Rgba([99, 33, 77, 255]));
+    let (content_type, body) =
+        texture_multipart_body_with_name(Some("default"), Some("Delete Me"), &skin);
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&owner_access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let upload_body: Value = test::read_body_json(resp).await;
+    let texture_id = upload_body["data"]["id"].as_i64().unwrap();
+    let texture_hash = upload_body["data"]["hash"].as_str().unwrap().to_string();
+
+    let req = test::TestRequest::patch()
+        .uri(&format!("/api/v1/wardrobe/textures/{texture_id}"))
+        .insert_header(common::bearer_header(&owner_access))
+        .set_json(serde_json::json!({ "visibility": "public" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/profiles/minecraft/{profile_uuid}/textures/skin"
+        ))
+        .insert_header(common::bearer_header(&owner_access))
+        .set_json(serde_json::json!({ "texture_id": texture_id }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let binding_count = minecraft_profile_texture::Entity::find()
+        .filter(minecraft_profile_texture::Column::TextureId.eq(texture_id))
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(binding_count, 1);
+    assert_eq!(
+        texture_hash_from_property(&profile_textures!(app, &profile_uuid), "SKIN"),
+        texture_hash
+    );
+
+    let req = test::TestRequest::delete()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    let req = test::TestRequest::delete()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+    let duplicate_delete_body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        duplicate_delete_body["code"],
+        "texture_library.texture_not_found"
+    );
+
+    let binding_count = minecraft_profile_texture::Entity::find()
+        .filter(minecraft_profile_texture::Column::TextureId.eq(texture_id))
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(
+        binding_count, 0,
+        "profile binding must be explicitly removed"
+    );
+    let texture_count = minecraft_texture::Entity::find_by_id(texture_id)
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(texture_count, 0);
+    assert_eq!(
+        texture_hash_from_property(&profile_textures!(app, &profile_uuid), "SKIN"),
+        expected_default_skin_hash(&profile_uuid),
+    );
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+    let missing_body: Value = test::read_body_json(resp).await;
+    assert_eq!(missing_body["code"], "texture_library.texture_not_found");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures?keyword={}",
+            &texture_hash[..16]
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let admin_list: Value = test::read_body_json(resp).await;
+    assert_eq!(admin_list["data"]["total"], 0);
+
+    audit_service::flush_global_audit_log_manager().await;
+    let audit = audit_log::Entity::find()
+        .filter(audit_log::Column::Action.eq(audit_service::AuditAction::MinecraftTextureDelete))
+        .filter(audit_log::Column::EntityId.eq(texture_id))
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("admin texture library delete should write audit");
+    let details: Value = serde_json::from_str(&audit.details.unwrap()).unwrap();
+    assert_eq!(details["texture_hash"], texture_hash);
+    assert_eq!(details["library_status"], "private");
+    assert_eq!(details["profile_binding_count"], 1);
+}
+
+#[actix_web::test]
+async fn admin_texture_library_delete_published_texture_hides_public_library_entry() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let admin_access = setup_admin!(app);
+    let owner_access = register_user!(app, "libpubdel", "libpubdel@example.com", "password1234");
+    let texture_id = publish_test_library_texture(
+        &app,
+        &admin_access,
+        &owner_access,
+        "Delete Published",
+        image::Rgba([20, 110, 190, 255]),
+    )
+    .await;
+    let texture = minecraft_texture::Entity::find_by_id(texture_id)
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("published texture should exist");
+    let texture_hash = texture.hash;
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures?keyword={}",
+            &texture_hash[..16]
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let public_list: Value = test::read_body_json(resp).await;
+    assert_eq!(public_list["data"]["total"], 1);
+
+    let req = test::TestRequest::delete()
+        .uri(&format!(
+            "/api/v1/admin/texture-library/textures/{texture_id}"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/texture-library/textures?keyword={}",
+            &texture_hash[..16]
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let hidden_public_list: Value = test::read_body_json(resp).await;
+    assert_eq!(hidden_public_list["data"]["total"], 0);
+
+    audit_service::flush_global_audit_log_manager().await;
+    let audit = audit_log::Entity::find()
+        .filter(audit_log::Column::Action.eq(audit_service::AuditAction::MinecraftTextureDelete))
+        .filter(audit_log::Column::EntityId.eq(texture_id))
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("published texture delete should write audit");
+    let details: Value = serde_json::from_str(&audit.details.unwrap()).unwrap();
+    assert_eq!(details["library_status"], "published");
+    assert_eq!(details["profile_binding_count"], 0);
+}
+
+#[actix_web::test]
+async fn admin_texture_library_delete_enforces_scope_and_not_found_edges() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let admin_access = setup_admin!(app);
+    let texture_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "tdelop",
+        "tdelop@example.com",
+        &["texture_library"],
+    )
+    .await;
+    let users_operator_access = create_operator_user(
+        &app,
+        &admin_access,
+        "tdeluser",
+        "tdeluser@example.com",
+        &["users"],
+    )
+    .await;
+
+    let req = test::TestRequest::delete()
+        .uri("/api/v1/admin/texture-library/textures/1")
+        .to_request();
+    let error = test::try_call_service(&app, req)
+        .await
+        .expect_err("missing token should be rejected");
+    assert!(error.to_string().contains("missing access token"));
+
+    let req = test::TestRequest::delete()
+        .uri("/api/v1/admin/texture-library/textures/1")
+        .insert_header(common::bearer_header(&users_operator_access))
+        .to_request();
+    let error = test::try_call_service(&app, req)
+        .await
+        .expect_err("operator without texture_library scope should be rejected");
+    assert!(error.to_string().contains("admin permission required"));
+
+    for texture_id in [0, 9_999_999] {
+        let req = test::TestRequest::delete()
+            .uri(&format!(
+                "/api/v1/admin/texture-library/textures/{texture_id}"
+            ))
+            .insert_header(common::bearer_header(&texture_operator_access))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), 404);
+        let body: Value = test::read_body_json(resp).await;
+        assert_eq!(body["code"], "texture_library.texture_not_found");
+    }
 }
 
 #[actix_web::test]

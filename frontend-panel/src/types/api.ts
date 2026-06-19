@@ -88,7 +88,6 @@ export type PublicTextureLibraryConfig =
 export type PublicFrontendConfig =
 	components["schemas"]["PublicFrontendConfig"];
 
-export type AuditLogSortBy = components["schemas"]["AuditLogSortBy"];
 export type AdminAuditLogQuery = OperationQuery<"list_audit_logs">;
 export type AccountAuditLogQuery = OperationQuery<"list_account_audit_logs">;
 export type AccountAuditLogPage = OperationData<"list_account_audit_logs">;
@@ -96,7 +95,7 @@ export type AccountOverview = OperationData<"get_account_overview">;
 export type AuditAction = components["schemas"]["AuditAction"];
 export type AuditEntityType = components["schemas"]["AuditEntityType"];
 export type AuditLogEntry = components["schemas"]["AuditLogEntry"];
-export type AuditLogPage = components["schemas"]["OffsetPage_AuditLogEntry"];
+export type AuditLogPage = OperationData<"list_audit_logs">;
 export type AuditPresentation = components["schemas"]["AuditPresentation"];
 export type AuditPresentationMessage =
 	components["schemas"]["AuditPresentationMessage"];
@@ -106,12 +105,13 @@ export type RegisterResponse = components["schemas"]["RegisterResponse"];
 export type AuthUserInfo = components["schemas"]["AuthUserInfo"];
 export type AdminUserInfo = components["schemas"]["AdminUserInfo"];
 export type AdminUserListQuery = OperationQuery<"admin_list_users">;
-export type AdminUserPage = components["schemas"]["OffsetPage_AdminUserInfo"];
-export type AdminUserSortBy = components["schemas"]["AdminUserSortBy"];
+export type AdminUserPage = OperationData<"admin_list_users">;
 export type AdminUserInvitationInfo =
 	components["schemas"]["AdminUserInvitationInfo"];
 export type AdminUserInvitationPage =
 	OperationData<"admin_list_user_invitations">;
+export type AdminUserInvitationQuery =
+	OperationQuery<"admin_list_user_invitations">;
 export type AdminOverview = OperationData<"get_admin_overview">;
 export type AdminOverviewServiceStatus =
 	components["schemas"]["AdminOverviewServiceStatus"];
@@ -139,7 +139,7 @@ export type CreateUserInvitationRequest =
 export type AdminMinecraftProfileInfo =
 	components["schemas"]["MinecraftProfileInfo"];
 export type AdminMinecraftProfilePage =
-	components["schemas"]["OffsetPage_MinecraftProfileInfo"];
+	OperationData<"admin_list_minecraft_profiles">;
 export type CreateAdminUserRequest =
 	components["schemas"]["CreateAdminUserReq"];
 export type UpdateAdminUserRequest =
@@ -153,8 +153,7 @@ export type AdminExternalAuthProviderListQuery =
 export type AdminTaskCleanupRequest =
 	components["schemas"]["AdminTaskCleanupReq"];
 export type AdminTaskListQuery = OperationQuery<"admin_list_tasks">;
-export type AdminTaskSortBy = components["schemas"]["AdminTaskSortBy"];
-export type AdminTaskPage = components["schemas"]["OffsetPage_TaskInfo"];
+export type AdminTaskPage = OperationData<"admin_list_tasks">;
 export type BackgroundTaskKind = components["schemas"]["BackgroundTaskKind"];
 export type BackgroundTaskStatus =
 	components["schemas"]["BackgroundTaskStatus"];
@@ -170,6 +169,8 @@ export type CreateExternalAuthProviderRequest =
 	components["schemas"]["CreateExternalAuthProviderReq"];
 export type ExternalAuthProviderKindInfo =
 	components["schemas"]["ExternalAuthProviderKindInfo"];
+export type ExternalAuthProviderOptions =
+	components["schemas"]["ExternalAuthProviderOptions"];
 export type ExternalAuthProviderTestParamsRequest =
 	components["schemas"]["ExternalAuthProviderTestParamsReq"];
 export type ExternalAuthProviderTestResult =
@@ -197,8 +198,14 @@ export type ExternalAuthStartLoginRequest =
 	components["schemas"]["StartExternalAuthReq"];
 export type ExternalAuthStartLoginResponse =
 	components["schemas"]["ExternalAuthStartLoginResponse"];
+export type ExternalAuthEmailVerificationStartRequest =
+	components["schemas"]["ExternalAuthEmailVerificationStartRequest"];
+export type ExternalAuthEmailVerificationStartResponse =
+	OperationData<"auth_external_auth_start_email_verification">;
 export type ExternalAuthFinishLoginResponse =
 	components["schemas"]["ExternalAuthFinishLoginResponse"];
+export type ExternalAuthPasswordLinkRequest =
+	components["schemas"]["ExternalAuthPasswordLinkRequest"];
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type SystemInfoResponse = components["schemas"]["SystemInfoResponse"];
 export type LoginRequest = components["schemas"]["LoginReq"];
@@ -222,6 +229,8 @@ export type MinecraftTextureVisibility =
 	components["schemas"]["MinecraftTextureVisibility"];
 export type TextureTagSearchMethod =
 	components["schemas"]["TextureTagSearchMethod"];
+export type DateTimeIdCursor = components["schemas"]["DateTimeIdCursor"];
+export type IdCursor = components["schemas"]["IdCursor"];
 export type MinecraftWardrobeTextureMetadata =
 	components["schemas"]["MinecraftWardrobeTextureMetadata"];
 export type MinecraftWardrobeTextureQuery =
@@ -321,6 +330,8 @@ export type UpdateProfileRequest = components["schemas"]["UpdateProfileReq"];
 export type UserProfileInfo = components["schemas"]["UserProfileInfo"];
 export type UserRole = components["schemas"]["UserRole"];
 export type UserStatus = components["schemas"]["UserStatus"];
+export type DateTimeStringCursor =
+	components["schemas"]["DateTimeStringCursor"];
 export type AuthSessionQuery = OperationQuery<"list_auth_sessions">;
 export type AuthSessionPage = OperationData<"list_auth_sessions">;
 export type AuthSessionInfo = AuthSessionPage["items"][number];

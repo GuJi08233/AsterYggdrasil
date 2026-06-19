@@ -1,13 +1,12 @@
 //! Repository helpers for public texture library reports.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::minecraft_texture_report::{self, Entity as MinecraftTextureReport};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{MinecraftTextureReportReason, MinecraftTextureReportStatus};
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
 };
 
 #[derive(Debug, Clone)]
@@ -31,6 +30,13 @@ pub struct HandleTextureReport {
     pub admin_note: Option<String>,
     pub handled_by_user_id: i64,
     pub handled_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextureReportCursorSlice {
+    pub items: Vec<minecraft_texture_report::Model>,
+    pub total: u64,
+    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -77,42 +83,50 @@ pub async fn find_pending_for_reporter_and_texture<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_paginated<C: ConnectionTrait>(
+pub async fn list_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-    offset: u64,
     filter: AdminTextureReportListFilter,
-) -> Result<OffsetPage<minecraft_texture_report::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let mut query = MinecraftTextureReport::find();
+    after: Option<(DateTime<Utc>, i64)>,
+) -> Result<TextureReportCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = filtered_query(filter);
+    let total = query
+        .clone()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
 
-        if let Some(status) = filter.status {
-            query = query.filter(minecraft_texture_report::Column::Status.eq(status));
-        }
-        if let Some(reason) = filter.reason {
-            query = query.filter(minecraft_texture_report::Column::Reason.eq(reason));
-        }
-        if let Some(texture_id) = filter.texture_id {
-            query = query.filter(minecraft_texture_report::Column::TextureId.eq(texture_id));
-        }
+    if let Some((created_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(minecraft_texture_report::Column::CreatedAt.lt(created_at))
+                .add(
+                    Condition::all()
+                        .add(minecraft_texture_report::Column::CreatedAt.eq(created_at))
+                        .add(minecraft_texture_report::Column::Id.lt(id)),
+                ),
+        );
+    }
 
-        let query = query
-            .order_by_desc(minecraft_texture_report::Column::CreatedAt)
-            .order_by_desc(minecraft_texture_report::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(minecraft_texture_report::Column::CreatedAt)
+        .order_by_desc(minecraft_texture_report::Column::Id)
+        .limit(fetch_limit)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "texture report page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(TextureReportCursorSlice {
+        items,
+        total,
+        has_more,
     })
-    .await
 }
 
 pub async fn handle<C: ConnectionTrait>(
@@ -160,4 +174,22 @@ pub async fn handle_pending_for_texture<C: ConnectionTrait>(
         );
     }
     Ok(updated)
+}
+
+fn filtered_query(
+    filter: AdminTextureReportListFilter,
+) -> sea_orm::Select<minecraft_texture_report::Entity> {
+    let mut query = MinecraftTextureReport::find();
+
+    if let Some(status) = filter.status {
+        query = query.filter(minecraft_texture_report::Column::Status.eq(status));
+    }
+    if let Some(reason) = filter.reason {
+        query = query.filter(minecraft_texture_report::Column::Reason.eq(reason));
+    }
+    if let Some(texture_id) = filter.texture_id {
+        query = query.filter(minecraft_texture_report::Column::TextureId.eq(texture_id));
+    }
+
+    query
 }

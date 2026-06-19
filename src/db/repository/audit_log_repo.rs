@@ -2,12 +2,10 @@
 
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Select, sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
-use crate::api::pagination::{AuditLogSortBy, SortOrder};
-use crate::db::repository::sort::{order_by_column_with_id, order_by_id};
 use crate::entities::audit_log::{self, Entity as AuditLog};
 use crate::errors::{AsterError, Result};
 use crate::types::AuditAction;
@@ -20,9 +18,14 @@ pub struct AuditLogQuery<'a> {
     pub after: Option<DateTime<Utc>>,
     pub before: Option<DateTime<Utc>>,
     pub limit: u64,
-    pub offset: u64,
-    pub sort_by: AuditLogSortBy,
-    pub sort_order: SortOrder,
+    pub cursor: Option<(DateTime<Utc>, i64)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AuditLogCursorSlice {
+    pub items: Vec<audit_log::Model>,
+    pub total: u64,
+    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -46,11 +49,12 @@ pub async fn create_many<C: ConnectionTrait>(
     Ok(())
 }
 
-pub async fn find_with_filters<C: ConnectionTrait>(
+pub async fn find_with_filters_cursor<C: ConnectionTrait>(
     db: &C,
     query: AuditLogQuery<'_>,
-) -> Result<(Vec<audit_log::Model>, u64)> {
-    let mut q = apply_audit_log_sort(AuditLog::find(), query.sort_by, query.sort_order);
+) -> Result<AuditLogCursorSlice> {
+    let mut q = AuditLog::find();
+    let limit = query.limit.clamp(1, 200);
 
     if let Some(user_id) = query.user_id {
         q = q.filter(audit_log::Column::UserId.eq(user_id));
@@ -72,14 +76,36 @@ pub async fn find_with_filters<C: ConnectionTrait>(
     }
 
     let total = q.clone().count(db).await.map_err(AsterError::from)?;
-    let items = q
-        .limit(query.limit)
-        .offset(query.offset)
+    if let Some((created_at, id)) = query.cursor {
+        q = q.filter(
+            Condition::any()
+                .add(audit_log::Column::CreatedAt.lt(created_at))
+                .add(
+                    Condition::all()
+                        .add(audit_log::Column::CreatedAt.eq(created_at))
+                        .add(audit_log::Column::Id.lt(id)),
+                ),
+        );
+    }
+
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = q
+        .order_by_desc(audit_log::Column::CreatedAt)
+        .order_by_desc(audit_log::Column::Id)
+        .limit(fetch_limit)
         .all(db)
         .await
         .map_err(AsterError::from)?;
+    let has_more = crate::utils::numbers::usize_to_u64(items.len(), "audit log page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
 
-    Ok((items, total))
+    Ok(AuditLogCursorSlice {
+        items,
+        total,
+        has_more,
+    })
 }
 
 pub async fn list_recent<C: ConnectionTrait>(
@@ -161,52 +187,6 @@ pub async fn count_distinct_users_created_between_with_actions<C: ConnectionTrai
     crate::utils::numbers::i64_to_u64(count, "distinct audit log user count")
 }
 
-fn apply_audit_log_sort(
-    query: Select<AuditLog>,
-    sort_by: AuditLogSortBy,
-    sort_order: SortOrder,
-) -> Select<AuditLog> {
-    match sort_by {
-        AuditLogSortBy::Id => order_by_id(query, audit_log::Column::Id, sort_order),
-        AuditLogSortBy::CreatedAt => order_by_column_with_id(
-            query,
-            audit_log::Column::CreatedAt,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-        AuditLogSortBy::UserId => order_by_column_with_id(
-            query,
-            audit_log::Column::UserId,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-        AuditLogSortBy::Action => order_by_column_with_id(
-            query,
-            audit_log::Column::Action,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-        AuditLogSortBy::EntityType => order_by_column_with_id(
-            query,
-            audit_log::Column::EntityType,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-        AuditLogSortBy::EntityName => order_by_column_with_id(
-            query,
-            audit_log::Column::EntityName,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-        AuditLogSortBy::IpAddress => order_by_column_with_id(
-            query,
-            audit_log::Column::IpAddress,
-            sort_order,
-            audit_log::Column::Id,
-        ),
-    }
-}
-
 pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) -> Result<u64> {
     let result = AuditLog::delete_many()
         .filter(audit_log::Column::CreatedAt.lt(before))
@@ -220,9 +200,8 @@ pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) ->
 mod tests {
     use super::{
         AuditLogQuery, count_distinct_users_created_between_with_actions, create, create_many,
-        delete_before, find_with_filters, list_recent,
+        delete_before, find_with_filters_cursor, list_recent,
     };
-    use crate::api::pagination::{AuditLogSortBy, SortOrder};
     use crate::config::DatabaseConfig;
     use crate::entities::audit_log;
     use crate::types::{AuditAction, AuditEntityType};
@@ -280,26 +259,6 @@ mod tests {
             .count(db)
             .await
             .expect("audit log count should succeed")
-    }
-
-    fn unfiltered_query(
-        limit: u64,
-        offset: u64,
-        sort_by: AuditLogSortBy,
-        sort_order: SortOrder,
-    ) -> AuditLogQuery<'static> {
-        AuditLogQuery {
-            user_id: None,
-            action: None,
-            entity_type: None,
-            entity_id: None,
-            after: None,
-            before: None,
-            limit,
-            offset,
-            sort_by,
-            sort_order,
-        }
     }
 
     #[tokio::test]
@@ -472,7 +431,7 @@ mod tests {
         .await
         .unwrap();
 
-        let (items, total) = find_with_filters(
+        let page = find_with_filters_cursor(
             &db,
             AuditLogQuery {
                 user_id: Some(10),
@@ -482,26 +441,24 @@ mod tests {
                 after: Some(base - Duration::seconds(25)),
                 before: Some(base - Duration::seconds(15)),
                 limit: 10,
-                offset: 0,
-                sort_by: AuditLogSortBy::CreatedAt,
-                sort_order: SortOrder::Desc,
+                cursor: None,
             },
         )
         .await
         .unwrap();
 
-        assert_eq!(total, 1);
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].id, expected.id);
-        assert_ne!(items[0].id, ignored_by_action.id);
-        assert_ne!(items[0].id, ignored_by_user.id);
-        assert_ne!(items[0].id, ignored_by_time.id);
+        assert_eq!(page.total, 1);
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].id, expected.id);
+        assert_ne!(page.items[0].id, ignored_by_action.id);
+        assert_ne!(page.items[0].id, ignored_by_user.id);
+        assert_ne!(page.items[0].id, ignored_by_time.id);
 
         db.close().await.unwrap();
     }
 
     #[tokio::test]
-    async fn find_with_filters_supports_all_admin_sort_columns() {
+    async fn find_with_filters_pages_by_created_at_cursor() {
         let db = build_test_db().await;
         let base = Utc::now();
         let first = create(
@@ -547,52 +504,57 @@ mod tests {
         .await
         .unwrap();
 
-        for (sort_by, expected_ids) in [
-            (AuditLogSortBy::Id, vec![first.id, second.id, third.id]),
-            (
-                AuditLogSortBy::CreatedAt,
-                vec![second.id, third.id, first.id],
-            ),
-            (AuditLogSortBy::UserId, vec![second.id, first.id, third.id]),
-            (AuditLogSortBy::Action, vec![third.id, second.id, first.id]),
-            (
-                AuditLogSortBy::EntityType,
-                vec![second.id, third.id, first.id],
-            ),
-            (
-                AuditLogSortBy::EntityName,
-                vec![second.id, third.id, first.id],
-            ),
-            (
-                AuditLogSortBy::IpAddress,
-                vec![second.id, third.id, first.id],
-            ),
-        ] {
-            let (items, total) =
-                find_with_filters(&db, unfiltered_query(10, 0, sort_by, SortOrder::Asc))
-                    .await
-                    .unwrap();
-            assert_eq!(total, 3);
-            assert_eq!(
-                items.into_iter().map(|item| item.id).collect::<Vec<_>>(),
-                expected_ids,
-                "unexpected audit sort order for {sort_by:?}"
-            );
-        }
-
-        let (desc_items, _) = find_with_filters(
+        let first_page = find_with_filters_cursor(
             &db,
-            unfiltered_query(10, 0, AuditLogSortBy::CreatedAt, SortOrder::Desc),
+            AuditLogQuery {
+                user_id: None,
+                action: None,
+                entity_type: None,
+                entity_id: None,
+                after: None,
+                before: None,
+                limit: 2,
+                cursor: None,
+            },
         )
         .await
         .unwrap();
         assert_eq!(
-            desc_items
-                .into_iter()
+            first_page
+                .items
+                .iter()
                 .map(|item| item.id)
                 .collect::<Vec<_>>(),
-            vec![first.id, third.id, second.id]
+            vec![first.id, third.id]
         );
+        assert_eq!(first_page.total, 3);
+        assert!(first_page.has_more);
+
+        let last = first_page.items.last().unwrap();
+        let second_page = find_with_filters_cursor(
+            &db,
+            AuditLogQuery {
+                user_id: None,
+                action: None,
+                entity_type: None,
+                entity_id: None,
+                after: None,
+                before: None,
+                limit: 2,
+                cursor: Some((last.created_at, last.id)),
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            second_page
+                .items
+                .iter()
+                .map(|item| item.id)
+                .collect::<Vec<_>>(),
+            vec![second.id]
+        );
+        assert!(!second_page.has_more);
 
         db.close().await.unwrap();
     }

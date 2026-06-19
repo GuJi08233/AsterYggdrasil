@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 use validator::Validate;
 
 #[derive(Debug, Clone, Serialize)]
@@ -37,16 +37,6 @@ pub struct YggdrasilProfile {
     #[validate(nested)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<YggdrasilProfileProperty>>,
-}
-
-#[derive(Debug, Clone, Deserialize, Validate)]
-#[cfg_attr(
-    all(debug_assertions, feature = "openapi"),
-    derive(IntoParams, ToSchema)
-)]
-pub struct CurrentMinecraftProfileListQuery {
-    #[validate(length(max = 64, message = "query must not exceed 64 characters"))]
-    pub query: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -363,18 +353,4 @@ pub struct MinecraftServicesPrivacyBlocklistResp {
     /// UUID list of profiles blocked by the authenticated user.
     #[serde(rename = "blockedProfiles")]
     pub blocked_profiles: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
-pub struct CreateMinecraftProfileReq {
-    #[validate(custom(function = "crate::api::dto::validation::validate_minecraft_profile_name"))]
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
-pub struct RenameMinecraftProfileReq {
-    #[validate(custom(function = "crate::api::dto::validation::validate_minecraft_profile_name"))]
-    pub name: String,
 }

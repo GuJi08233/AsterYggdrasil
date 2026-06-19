@@ -157,6 +157,19 @@ function wardrobePage(
 	return { items, limit: 10, offset: 0, total };
 }
 
+function wardrobeQuery(overrides = {}) {
+	return {
+		after_id: undefined,
+		after_updated_at: undefined,
+		keyword: undefined,
+		limit: 10,
+		tag_ids: undefined,
+		tag_search_method: undefined,
+		texture_type: "skin",
+		...overrides,
+	};
+}
+
 function tagPage(items = textureTags(), total = items.length) {
 	return { items, limit: 30, offset: 0, total };
 }
@@ -249,12 +262,7 @@ describe("TextureWardrobePage", () => {
 		await renderPage();
 
 		expect(yggdrasilServiceMock.listWardrobeTextures).toHaveBeenCalledWith({
-			limit: 10,
-			offset: 0,
-			texture_type: "skin",
-			keyword: undefined,
-			tag_ids: undefined,
-			tag_search_method: undefined,
+			...wardrobeQuery(),
 		});
 		expect(screen.getByTestId("minecraft-preview")).toHaveTextContent(
 			"/textures/skin.png",
@@ -296,12 +304,7 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listWardrobeTextures,
 			).toHaveBeenLastCalledWith({
-				limit: 10,
-				offset: 0,
-				texture_type: "cape",
-				keyword: undefined,
-				tag_ids: undefined,
-				tag_search_method: undefined,
+				...wardrobeQuery({ texture_type: "cape" }),
 			});
 		});
 		await waitFor(() => {
@@ -336,12 +339,7 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listWardrobeTextures,
 			).toHaveBeenLastCalledWith({
-				limit: 10,
-				offset: 0,
-				texture_type: "skin",
-				keyword: "searched",
-				tag_ids: undefined,
-				tag_search_method: undefined,
+				...wardrobeQuery({ keyword: "searched" }),
 			});
 		});
 		await waitFor(() => {
@@ -384,12 +382,7 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listWardrobeTextures,
 			).toHaveBeenLastCalledWith({
-				limit: 10,
-				offset: 0,
-				texture_type: "skin",
-				keyword: undefined,
-				tag_ids: [3, 4],
-				tag_search_method: "all",
+				...wardrobeQuery({ tag_ids: [3, 4], tag_search_method: "all" }),
 			});
 		});
 		await waitFor(() => {
@@ -404,12 +397,7 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listWardrobeTextures,
 			).toHaveBeenLastCalledWith({
-				limit: 10,
-				offset: 0,
-				texture_type: "skin",
-				keyword: undefined,
-				tag_ids: [3, 4],
-				tag_search_method: "any",
+				...wardrobeQuery({ tag_ids: [3, 4], tag_search_method: "any" }),
 			});
 		});
 	});
@@ -553,12 +541,11 @@ describe("TextureWardrobePage", () => {
 			});
 		});
 		await waitFor(() => {
-			expect(within(dialog).getByText("Featured")).toBeInTheDocument();
 			expect(within(dialog).queryByText("Rare Nether")).not.toBeInTheDocument();
 			expect(within(dialog).queryByText("Classic 1")).not.toBeInTheDocument();
 			expect(
-				within(dialog).queryByText("wardrobe.noTagSearchResults"),
-			).not.toBeInTheDocument();
+				within(dialog).getByText("wardrobe.noTagSearchResults"),
+			).toBeInTheDocument();
 		});
 	});
 
@@ -668,7 +655,16 @@ describe("TextureWardrobePage", () => {
 		});
 	});
 
-	it("edits wardrobe texture name and visibility through the metadata dialog", async () => {
+	it("edits wardrobe texture name, visibility, and skin model through the metadata dialog", async () => {
+		yggdrasilServiceMock.updateWardrobeTexture.mockResolvedValueOnce(
+			texture({
+				display_name: "Edited Skin",
+				id: 7,
+				name: "Edited Skin",
+				texture_model: "slim",
+				visibility: "public",
+			}),
+		);
 		await renderPage();
 
 		fireEvent.click(
@@ -686,6 +682,9 @@ describe("TextureWardrobePage", () => {
 		fireEvent.click(
 			within(dialog).getByRole("radio", { name: "wardrobe.visibility.public" }),
 		);
+		fireEvent.click(
+			within(dialog).getByRole("radio", { name: "profiles.slimModel" }),
+		);
 		await waitFor(() => {
 			expect(
 				within(dialog).getByRole("checkbox", { name: /Featured/ }),
@@ -701,6 +700,7 @@ describe("TextureWardrobePage", () => {
 				7,
 				{
 					display_name: "Edited Skin",
+					texture_model: "slim",
 					visibility: "public",
 				},
 			);
@@ -748,9 +748,30 @@ describe("TextureWardrobePage", () => {
 				7,
 				{
 					display_name: null,
+					texture_model: "default",
 					visibility: "public",
 				},
 			);
+		});
+	});
+
+	it("does not repeatedly load edit tags after the tag request fails", async () => {
+		yggdrasilServiceMock.listTextureLibraryTagsPage.mockRejectedValue(
+			new Error("tags offline"),
+		);
+		await renderPage();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "wardrobe.editAction" }),
+		);
+
+		await waitFor(() => {
+			expect(toastMock.error).toHaveBeenCalledWith("tags offline");
+		});
+		await waitFor(() => {
+			expect(
+				yggdrasilServiceMock.listTextureLibraryTagsPage,
+			).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -890,12 +911,7 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listWardrobeTextures,
 			).toHaveBeenLastCalledWith({
-				limit: 20,
-				offset: 0,
-				texture_type: "skin",
-				keyword: undefined,
-				tag_ids: undefined,
-				tag_search_method: undefined,
+				...wardrobeQuery({ limit: 20 }),
 			});
 		});
 		expect(

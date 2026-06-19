@@ -1,5 +1,5 @@
-import type { FormEvent, ReactNode, SetStateAction } from "react";
-import { useCallback, useMemo, useReducer, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -20,47 +20,24 @@ import { AdminSurface } from "@/components/layout/AdminSurface";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
-import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { dateTimeLocalToIso } from "@/lib/form";
 import {
-	buildOffsetPaginationSearchParams,
-	parseOffsetSearchParam,
 	parsePageSizeOption,
 	parsePageSizeSearchParam,
-	parseSortOrderSearchParam,
-	parseSortSearchParam,
-	type SortOrder,
 } from "@/lib/pagination";
 import { formatTaskStatusLabel } from "@/lib/tasks";
 import { adminTaskService } from "@/services/adminService";
 import type {
 	AdminTaskCleanupRequest,
-	AdminTaskSortBy,
 	BackgroundTaskStatus,
+	DateTimeIdCursor,
 	TaskInfo,
 } from "@/types/api";
 
 const TASK_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const DEFAULT_TASK_PAGE_SIZE = 20 as const;
-const TASK_MANAGED_QUERY_KEYS = [
-	"offset",
-	"pageSize",
-	"sortBy",
-	"sortOrder",
-	"status",
-] as const;
-const TASK_SORT_BY_OPTIONS = [
-	"display_name",
-	"status",
-	"progress",
-	"created_at",
-	"updated_at",
-	"started_at",
-	"finished_at",
-] as const satisfies readonly AdminTaskSortBy[];
-const DEFAULT_TASK_SORT_BY = "updated_at" as const satisfies AdminTaskSortBy;
-const DEFAULT_TASK_SORT_ORDER = "desc" as const satisfies SortOrder;
+const TASK_MANAGED_QUERY_KEYS = ["pageSize", "status"] as const;
 const TASK_STATUS_FILTER_VALUES = [
 	"pending",
 	"processing",
@@ -81,10 +58,7 @@ type TaskTerminalStatusFilter =
 	| "__all__"
 	| (typeof TASK_TERMINAL_STATUS_FILTER_VALUES)[number];
 type ManagedTaskQuery = {
-	offset: number;
 	pageSize: (typeof TASK_PAGE_SIZE_OPTIONS)[number];
-	sortBy: AdminTaskSortBy;
-	sortOrder: SortOrder;
 	status: TaskStatusFilter;
 };
 type AdminTasksUiState = {
@@ -101,10 +75,6 @@ type AdminTasksUiAction =
 	| { value: TaskTerminalStatusFilter; type: "set_cleanup_status_filter" }
 	| { submitting: boolean; type: "set_cleanup_submitting" }
 	| { type: "reset_cleanup_conditions" };
-
-function normalizeOffset(offset: number) {
-	return Math.max(0, Math.floor(offset));
-}
 
 function parseTaskStatusSearchParam(value: string | null): TaskStatusFilter {
 	return TASK_STATUS_FILTER_VALUES.includes(
@@ -124,41 +94,23 @@ function parseTaskTerminalStatus(
 		: "__all__";
 }
 
-function buildManagedTaskSearchParams({
-	offset,
-	pageSize,
-	sortBy,
-	sortOrder,
-	status,
-}: ManagedTaskQuery) {
-	return buildOffsetPaginationSearchParams({
-		offset,
-		pageSize,
-		defaultPageSize: DEFAULT_TASK_PAGE_SIZE,
-		extraParams: {
-			sortBy: sortBy !== DEFAULT_TASK_SORT_BY ? sortBy : undefined,
-			sortOrder: sortOrder !== DEFAULT_TASK_SORT_ORDER ? sortOrder : undefined,
-			status: status !== "__all__" ? status : undefined,
-		},
-	});
+function buildManagedTaskSearchParams({ pageSize, status }: ManagedTaskQuery) {
+	const params = new URLSearchParams();
+	if (pageSize !== DEFAULT_TASK_PAGE_SIZE) {
+		params.set("pageSize", String(pageSize));
+	}
+	if (status !== "__all__") {
+		params.set("status", status);
+	}
+	return params;
 }
 
 function readManagedTaskQuery(searchParams: URLSearchParams): ManagedTaskQuery {
 	return {
-		offset: normalizeOffset(parseOffsetSearchParam(searchParams.get("offset"))),
 		pageSize: parsePageSizeSearchParam(
 			searchParams.get("pageSize"),
 			TASK_PAGE_SIZE_OPTIONS,
 			DEFAULT_TASK_PAGE_SIZE,
-		),
-		sortBy: parseSortSearchParam(
-			searchParams.get("sortBy"),
-			TASK_SORT_BY_OPTIONS,
-			DEFAULT_TASK_SORT_BY,
-		),
-		sortOrder: parseSortOrderSearchParam(
-			searchParams.get("sortOrder"),
-			DEFAULT_TASK_SORT_ORDER,
 		),
 		status: parseTaskStatusSearchParam(searchParams.get("status")),
 	};
@@ -266,14 +218,14 @@ export default function AdminTasksPage() {
 	usePageTitle(t("admin.tasks.title"));
 
 	const taskQuery = readManagedTaskQuery(searchParams);
-	const {
-		offset,
-		pageSize,
-		sortBy,
-		sortOrder,
-		status: statusFilter,
-	} = taskQuery;
+	const { pageSize, status: statusFilter } = taskQuery;
 	const [retryingTaskId, setRetryingTaskId] = useState<number | null>(null);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
+	const [items, setItems] = useState<TaskInfo[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [uiState, dispatchUi] = useReducer(
 		adminTasksUiReducer,
 		undefined,
@@ -299,35 +251,58 @@ export default function AdminTasksPage() {
 		},
 		[searchParams, setSearchParams, taskQuery],
 	);
-	const setOffset = useCallback(
-		(value: SetStateAction<number>) => {
-			setTaskQuery({
-				offset: normalizeOffset(
-					typeof value === "function" ? value(offset) : value,
-				),
-			});
-		},
-		[offset, setTaskQuery],
-	);
+	const resetCursor = useCallback(() => {
+		setCursorStack((current) => (current.length > 0 ? [] : current));
+		setNextCursor((current) => (current ? null : current));
+	}, []);
 
-	const { error, items, loading, reload, total } = useApiList(
-		() =>
-			adminTaskService.list({
-				limit: pageSize,
-				offset,
-				...(statusFilter !== "__all__" ? { status: statusFilter } : {}),
-				sort_by: sortBy,
-				sort_order: sortOrder,
-			}),
-		[offset, pageSize, sortBy, sortOrder, statusFilter],
+	const loadPage = useCallback(
+		async (stack: DateTimeIdCursor[]) => {
+			setLoading(true);
+			try {
+				setError(null);
+				const cursor = stack.at(-1);
+				const page = await adminTaskService.list({
+					limit: pageSize,
+					after_updated_at: cursor?.value,
+					after_id: cursor?.id,
+					...(statusFilter !== "__all__" ? { status: statusFilter } : {}),
+				});
+				if (page.items.length === 0 && page.total > 0 && stack.length > 0) {
+					setCursorStack((current) => current.slice(0, -1));
+					setNextCursor(null);
+					return;
+				}
+				setItems(page.items);
+				setTotal(page.total);
+				setNextCursor(page.next_cursor ?? null);
+			} catch (error) {
+				setError(error instanceof Error ? error.message : String(error));
+			} finally {
+				setLoading(false);
+			}
+		},
+		[pageSize, statusFilter],
 	);
+	const reload = useCallback(async () => {
+		await loadPage(cursorStack);
+	}, [cursorStack, loadPage]);
+	const reloadFirstPage = useCallback(async () => {
+		setCursorStack([]);
+		setNextCursor(null);
+		await loadPage([]);
+	}, [loadPage]);
+
+	useEffect(() => {
+		void reload();
+	}, [reload]);
 
 	const activeFilterCount = statusFilter !== "__all__" ? 1 : 0;
 	const hasServerFilters = activeFilterCount > 0;
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const prevPageDisabled = offset === 0;
-	const nextPageDisabled = offset + pageSize >= total;
+	const totalPages = Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1);
+	const currentPage = cursorStack.length + 1;
+	const prevPageDisabled = cursorStack.length === 0;
+	const nextPageDisabled = !nextCursor;
 	const visibleDetailTaskId =
 		detailDialogTaskId != null &&
 		items.some((task) => task.id === detailDialogTaskId)
@@ -359,8 +334,9 @@ export default function AdminTasksPage() {
 	);
 
 	const resetFilters = useCallback(() => {
-		setTaskQuery({ offset: 0, status: "__all__" });
-	}, [setTaskQuery]);
+		resetCursor();
+		setTaskQuery({ status: "__all__" });
+	}, [resetCursor, setTaskQuery]);
 	const resetCleanupConditions = () => {
 		dispatchUi({ type: "reset_cleanup_conditions" });
 	};
@@ -370,23 +346,18 @@ export default function AdminTasksPage() {
 			if (next == null) {
 				return;
 			}
-			setTaskQuery({ offset: 0, pageSize: next });
+			resetCursor();
+			setTaskQuery({ pageSize: next });
 		},
-		[setTaskQuery],
+		[resetCursor, setTaskQuery],
 	);
 	const handleStatusFilterChange = (value: string | null) => {
+		resetCursor();
 		setTaskQuery({
-			offset: 0,
 			status:
 				value === "__all__" ? "__all__" : parseTaskStatusSearchParam(value),
 		});
 	};
-	const handleSortChange = useCallback(
-		(nextSortBy: AdminTaskSortBy, nextOrder: SortOrder) => {
-			setTaskQuery({ offset: 0, sortBy: nextSortBy, sortOrder: nextOrder });
-		},
-		[setTaskQuery],
-	);
 	const handleCleanupSubmit = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (cleanupRequest == null) {
@@ -400,11 +371,7 @@ export default function AdminTasksPage() {
 				t("admin.tasks.cleanup.success", { count: result.removed }),
 			);
 			dispatchUi({ open: false, type: "set_cleanup_dialog_open" });
-			if (offset !== 0) {
-				setOffset(0);
-			} else {
-				await reload();
-			}
+			await reloadFirstPage();
 		} catch (error) {
 			handleApiError(error);
 		} finally {
@@ -447,11 +414,12 @@ export default function AdminTasksPage() {
 			<AdminOffsetPagination
 				currentPage={currentPage}
 				nextDisabled={nextPageDisabled}
-				onNext={() => setOffset((current) => current + pageSize)}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+				}}
 				onPageSizeChange={handlePageSizeChange}
-				onPrevious={() =>
-					setOffset((current) => Math.max(0, current - pageSize))
-				}
+				onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
 				prevDisabled={prevPageDisabled}
@@ -466,9 +434,9 @@ export default function AdminTasksPage() {
 			pageSize,
 			pageSizeOptions,
 			prevPageDisabled,
+			nextCursor,
 			total,
 			totalPages,
-			setOffset,
 		],
 	);
 	const toolbar = (
@@ -481,16 +449,7 @@ export default function AdminTasksPage() {
 			statusOptions={taskStatusFilterOptions}
 		/>
 	);
-	const headerRow = useMemo(
-		() => (
-			<AdminTaskTableHeader
-				sortBy={sortBy}
-				sortOrder={sortOrder}
-				onSortChange={handleSortChange}
-			/>
-		),
-		[handleSortChange, sortBy, sortOrder],
-	);
+	const headerRow = useMemo(() => <AdminTaskTableHeader />, []);
 	const emptyIcon = useMemo(
 		() => <Icon name="Queue" className="size-10" />,
 		[],

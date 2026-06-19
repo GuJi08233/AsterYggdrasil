@@ -1,6 +1,7 @@
 //! Administrator texture library routes.
 
 use actix_web::{HttpRequest, HttpResponse, web};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer};
 use validator::Validate;
 
@@ -9,19 +10,23 @@ use crate::api::dto::textures::{
     UpdateMinecraftTextureTagReq,
 };
 use crate::api::dto::validation::validate_request;
-use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
+use crate::api::error_code::AsterErrorCode;
+use crate::api::pagination::{LimitOffsetQuery, LimitQuery, OffsetPage, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::{
     minecraft_texture_repo::AdminTextureLibraryListFilter,
     minecraft_texture_report_repo::AdminTextureReportListFilter,
 };
-use crate::errors::Result;
+use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::{audit_service, auth_service, texture_service};
 use crate::types::{
     MinecraftTextureLibraryStatus, MinecraftTextureReportReason, MinecraftTextureReportStatus,
     MinecraftTextureType, MinecraftTextureVisibility, TextureTagSearchMethod,
 };
+
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 
 #[derive(Debug, Clone, Default, Deserialize, Validate)]
 #[cfg_attr(
@@ -40,6 +45,8 @@ pub struct AdminTextureLibraryTextureQuery {
     pub tag_ids: Vec<i64>,
     #[serde(default)]
     pub tag_search_method: TextureTagSearchMethod,
+    pub after_updated_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Validate)]
@@ -52,6 +59,8 @@ pub struct AdminTextureReportQuery {
     pub reason: Option<MinecraftTextureReportReason>,
     #[validate(range(min = 1, message = "texture_id must be positive"))]
     pub texture_id: Option<i64>,
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 fn deserialize_tag_id_sequence<'de, D>(deserializer: D) -> std::result::Result<Vec<i64>, D::Error>
@@ -78,9 +87,9 @@ where
     path = "/api/v1/admin/texture-library/reports",
     tag = "admin",
     operation_id = "admin_list_texture_library_reports",
-    params(LimitOffsetQuery, AdminTextureReportQuery),
+    params(LimitQuery, AdminTextureReportQuery),
     responses(
-        (status = 200, description = "Texture library reports", body = inline(ApiResponse<OffsetPage<texture_service::TextureReportInfo>>)),
+        (status = 200, description = "Texture library reports", body = inline(ApiResponse<CursorPage<texture_service::TextureReportInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -88,19 +97,21 @@ where
 )]
 pub async fn list_texture_library_reports(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AdminTextureReportQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
-    let reports = texture_service::list_admin_texture_library_reports_paginated(
+    let cursor =
+        parse_datetime_id_cursor(query.after_created_at, query.after_id, "texture report")?;
+    let reports = texture_service::list_admin_texture_library_reports_cursor(
         state.get_ref(),
         page.limit_or(50, 100),
-        page.offset(),
         AdminTextureReportListFilter {
             status: query.status,
             reason: query.reason,
             texture_id: query.texture_id,
         },
+        cursor,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(reports)))
@@ -219,9 +230,9 @@ pub async fn reject_texture_library_report(
     path = "/api/v1/admin/texture-library/textures",
     tag = "admin",
     operation_id = "admin_list_texture_library_textures",
-    params(LimitOffsetQuery, AdminTextureLibraryTextureQuery),
+    params(LimitQuery, AdminTextureLibraryTextureQuery),
     responses(
-        (status = 200, description = "Texture library moderation textures", body = inline(ApiResponse<OffsetPage<texture_service::PublicTextureLibraryTextureMetadata>>)),
+        (status = 200, description = "Texture library moderation textures", body = inline(ApiResponse<CursorPage<texture_service::PublicTextureLibraryTextureMetadata, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -229,31 +240,33 @@ pub async fn reject_texture_library_report(
 )]
 pub async fn list_texture_library_textures(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AdminTextureLibraryTextureQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
+    let cursor =
+        parse_datetime_id_cursor(query.after_updated_at, query.after_id, "texture library")?;
     let keyword = query
         .keyword
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
-    let page = texture_service::list_admin_texture_library_textures_paginated(
+    let filter = AdminTextureLibraryListFilter {
+        texture_type: query.texture_type,
+        visibility: query.visibility,
+        library_status: query.library_status,
+        published: query.published,
+        tag_ids: query.tag_ids.clone(),
+        tag_search_method: query.tag_search_method,
+        keyword,
+    };
+    let page = texture_service::list_admin_texture_library_textures_cursor(
         state.get_ref(),
         limit,
-        offset,
-        AdminTextureLibraryListFilter {
-            texture_type: query.texture_type,
-            visibility: query.visibility,
-            library_status: query.library_status,
-            published: query.published,
-            tag_ids: query.tag_ids.clone(),
-            tag_search_method: query.tag_search_method,
-            keyword,
-        },
+        cursor,
+        filter,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(page)))
@@ -410,6 +423,34 @@ pub async fn unpublish_texture_library_texture(
     Ok(HttpResponse::Ok().json(ApiResponse::ok(texture)))
 }
 
+#[api_docs_macros::path(
+    delete,
+    path = "/api/v1/admin/texture-library/textures/{texture_id}",
+    tag = "admin",
+    operation_id = "admin_delete_texture_library_texture",
+    params(("texture_id" = i64, Path, description = "Texture ID")),
+    responses(
+        (status = 204, description = "Deleted texture library texture"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Texture not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn delete_texture_library_texture(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<i64>,
+) -> Result<HttpResponse> {
+    let actor = auth_service::current_user(state.get_ref(), &req).await?;
+    let deleted =
+        texture_service::delete_texture_library_texture(state.get_ref(), path.into_inner())
+            .await
+            .map_err(texture_library_delete_error_to_api_error)?;
+    log_texture_library_delete_audit(state.get_ref(), &req, actor.id, &deleted).await;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 async fn log_texture_library_review_audit(
     state: &AppState,
     req: &HttpRequest,
@@ -441,6 +482,53 @@ async fn log_texture_library_review_audit(
         },
     )
     .await;
+}
+
+async fn log_texture_library_delete_audit(
+    state: &AppState,
+    req: &HttpRequest,
+    actor_user_id: i64,
+    deleted: &texture_service::DeletedTextureLibraryTexture,
+) {
+    let texture = &deleted.texture;
+    let ctx = audit_service::AuditContext::from_request(req, actor_user_id);
+    audit_service::log_with_details(
+        state,
+        &ctx,
+        audit_service::AuditAction::MinecraftTextureDelete,
+        audit_service::AuditEntityType::MinecraftTexture,
+        Some(texture.id),
+        Some(&texture.name),
+        || {
+            audit_service::details(serde_json::json!({
+                "profile_uuid": "",
+                "profile_name": "",
+                "texture_type": texture.texture_type,
+                "texture_hash": texture.hash,
+                "texture_model": texture.texture_model,
+                "width": texture.width,
+                "height": texture.height,
+                "file_size": texture.file_size,
+                "library_status": texture.library_status,
+                "profile_binding_count": deleted.deleted_profile_binding_count,
+            }))
+        },
+    )
+    .await;
+}
+
+fn texture_library_delete_error_to_api_error(error: texture_service::TextureError) -> AsterError {
+    match error.kind() {
+        texture_service::TextureErrorKind::NotFound => AsterError::record_not_found_code(
+            AsterErrorCode::TextureLibraryTextureNotFound,
+            error.protocol_message(),
+        ),
+        texture_service::TextureErrorKind::Storage => AsterError::internal_error_code(
+            AsterErrorCode::MinecraftObjectStorageFailed,
+            error.protocol_message(),
+        ),
+        _ => AsterError::internal_error(error.protocol_message()),
+    }
 }
 
 async fn log_texture_report_audit(

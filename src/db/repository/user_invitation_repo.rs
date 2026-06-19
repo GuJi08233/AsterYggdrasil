@@ -5,8 +5,8 @@ use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::UserInvitationStatus;
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
 pub async fn create<C: ConnectionTrait>(
@@ -51,24 +51,61 @@ pub async fn find_pending_by_email<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list<C: ConnectionTrait>(
+#[derive(Debug, Clone)]
+pub struct UserInvitationCursorSlice {
+    pub items: Vec<user_invitation::Model>,
+    pub total: u64,
+    pub has_more: bool,
+}
+
+pub async fn list_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-    offset: u64,
-) -> Result<(Vec<user_invitation::Model>, u64)> {
-    let base = UserInvitation::find().order_by_desc(user_invitation::Column::CreatedAt);
-    let total = base
+) -> Result<UserInvitationCursorSlice> {
+    list_cursor_after(db, limit, None).await
+}
+
+pub async fn list_cursor_after<C: ConnectionTrait>(
+    db: &C,
+    limit: u64,
+    after: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<UserInvitationCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = UserInvitation::find();
+    let total = query
         .clone()
         .count(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let items = base
-        .limit(limit)
-        .offset(offset)
+    if let Some((created_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(user_invitation::Column::CreatedAt.lt(created_at))
+                .add(
+                    Condition::all()
+                        .add(user_invitation::Column::CreatedAt.eq(created_at))
+                        .add(user_invitation::Column::Id.lt(id)),
+                ),
+        );
+    }
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(user_invitation::Column::CreatedAt)
+        .order_by_desc(user_invitation::Column::Id)
+        .limit(fetch_limit)
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    Ok((items, total))
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "user invitation page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(UserInvitationCursorSlice {
+        items,
+        total,
+        has_more,
+    })
 }
 
 pub async fn mark_revoked_if_pending<C: ConnectionTrait>(db: &C, id: i64) -> Result<bool> {

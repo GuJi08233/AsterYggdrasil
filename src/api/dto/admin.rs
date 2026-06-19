@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
-use crate::api::pagination::{AdminTaskSortBy, AdminUserSortBy, SortOrder};
 use crate::services::config_service::{ConfigActionType, SystemConfigValue};
 use crate::services::external_auth_service::{
     CreateExternalAuthProviderInput, ExternalAuthProviderTestParamsInput,
@@ -54,18 +53,8 @@ pub struct RemovedCountResponse {
 pub struct AdminTaskListQuery {
     pub kind: Option<BackgroundTaskKind>,
     pub status: Option<BackgroundTaskStatus>,
-    pub sort_by: Option<AdminTaskSortBy>,
-    pub sort_order: Option<SortOrder>,
-}
-
-impl AdminTaskListQuery {
-    pub fn sort_by(&self) -> AdminTaskSortBy {
-        self.sort_by.unwrap_or_default()
-    }
-
-    pub fn sort_order(&self) -> SortOrder {
-        self.sort_order.unwrap_or(SortOrder::Desc)
-    }
+    pub after_updated_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -86,18 +75,8 @@ pub struct AdminUserListQuery {
     pub keyword: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<UserStatus>,
-    pub sort_by: Option<AdminUserSortBy>,
-    pub sort_order: Option<SortOrder>,
-}
-
-impl AdminUserListQuery {
-    pub fn sort_by(&self) -> AdminUserSortBy {
-        self.sort_by.unwrap_or_default()
-    }
-
-    pub fn sort_order(&self) -> SortOrder {
-        self.sort_order.unwrap_or(SortOrder::Desc)
-    }
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -151,6 +130,7 @@ pub struct AdminMinecraftProfileListQuery {
     pub uuid: Option<String>,
     #[validate(length(max = 64, message = "query must not exceed 64 characters"))]
     pub query: Option<String>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

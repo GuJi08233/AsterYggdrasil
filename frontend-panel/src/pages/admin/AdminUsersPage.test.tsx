@@ -61,7 +61,13 @@ function renderPage() {
 describe("AdminUsersPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		adminUserServiceMock.list.mockResolvedValue({ items: [], total: 0 });
+		adminUserServiceMock.list.mockResolvedValue({
+			items: [],
+			limit: 20,
+			next_cursor: null,
+			offset: 0,
+			total: 0,
+		});
 		adminUserServiceMock.create.mockResolvedValue({
 			generated_password: "TempPass-123456789!",
 			user: createdUser,

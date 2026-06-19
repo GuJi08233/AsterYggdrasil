@@ -1,5 +1,6 @@
 import { useReducer } from "react";
 import type {
+	IdCursor,
 	MinecraftTextureMetadata,
 	MinecraftTextureModel,
 	MinecraftTextureType,
@@ -16,7 +17,8 @@ export type MinecraftProfilesPageState = {
 	file: File | null;
 	loading: boolean;
 	model: MinecraftTextureModel;
-	profileOffset: number;
+	profileCursorStack: IdCursor[];
+	profileNextCursor: IdCursor | null;
 	profilePageSize: number;
 	profileName: string;
 	profileTotal: number;
@@ -46,10 +48,20 @@ export type MinecraftProfilesPageAction =
 	| { type: "file"; value: File | null }
 	| { type: "loading"; value: boolean }
 	| { type: "model"; value: MinecraftTextureModel }
-	| { type: "profileOffset"; value: number | ((current: number) => number) }
+	| { type: "profileCursorStack"; value: IdCursor[] }
+	| { type: "profileNextCursor"; value: IdCursor | null }
 	| { type: "profilePageSize"; value: number }
 	| { type: "profileName"; value: string }
-	| { type: "profilePage"; value: { items: YggdrasilProfile[]; total: number } }
+	| {
+			type: "profilePage";
+			value: {
+				cursorStack?: IdCursor[];
+				items: YggdrasilProfile[];
+				next_cursor?: IdCursor | null;
+				selectedUuid?: string;
+				total: number;
+			};
+	  }
 	| { type: "profileSkinUrls"; value: Record<string, string | null> }
 	| { type: "profiles"; value: YggdrasilProfile[] }
 	| { type: "profilesLoading"; value: boolean }
@@ -75,7 +87,8 @@ const initialState: MinecraftProfilesPageState = {
 	file: null,
 	loading: false,
 	model: "default",
-	profileOffset: 0,
+	profileCursorStack: [],
+	profileNextCursor: null,
 	profilePageSize: 5,
 	profileName: "",
 	profileTotal: 0,
@@ -109,6 +122,8 @@ function reducer(
 		case "dragActive":
 		case "loading":
 		case "model":
+		case "profileCursorStack":
+		case "profileNextCursor":
 		case "profilePageSize":
 		case "profileName":
 		case "profileSkinUrls":
@@ -126,14 +141,6 @@ function reducer(
 		case "uploadTextureType":
 		case "visibility":
 			return { ...state, [action.type]: action.value };
-		case "profileOffset":
-			return {
-				...state,
-				profileOffset:
-					typeof action.value === "function"
-						? action.value(state.profileOffset)
-						: action.value,
-			};
 		case "profiles":
 			return {
 				...state,
@@ -148,15 +155,32 @@ function reducer(
 		case "profilePage":
 			return {
 				...state,
+				profileCursorStack:
+					action.value.cursorStack &&
+					!sameCursorStack(action.value.cursorStack, state.profileCursorStack)
+						? action.value.cursorStack
+						: state.profileCursorStack,
+				profileNextCursor: action.value.next_cursor ?? null,
 				profileTotal: action.value.total,
 				profiles: action.value.items,
-				selectedUuid: action.value.items.some(
-					(profile) => profile.id === state.selectedUuid,
-				)
-					? state.selectedUuid
-					: action.value.items[0]?.id || "",
+				selectedUuid:
+					action.value.selectedUuid &&
+					action.value.items.some(
+						(profile) => profile.id === action.value.selectedUuid,
+					)
+						? action.value.selectedUuid
+						: action.value.items.some(
+									(profile) => profile.id === state.selectedUuid,
+								)
+							? state.selectedUuid
+							: action.value.items[0]?.id || "",
 			};
 	}
+}
+
+function sameCursorStack(left: IdCursor[], right: IdCursor[]) {
+	if (left.length !== right.length) return false;
+	return left.every((cursor, index) => cursor.id === right[index]?.id);
 }
 
 export function useMinecraftProfilesPageState() {

@@ -1,9 +1,9 @@
 //! Administrator Minecraft profile routes.
 
-use crate::api::dto::yggdrasil::RenameMinecraftProfileReq;
+use crate::api::dto::RenameMinecraftProfileReq;
 use crate::api::dto::{AdminMinecraftProfileListQuery, validation::validate_request};
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
+use crate::api::pagination::{CursorPage, IdCursor, LimitQuery, parse_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_profile_repo;
 use crate::errors::{AsterError, Result};
@@ -50,9 +50,9 @@ async fn find_profile_by_uuid(
     path = "/api/v1/admin/minecraft-profiles",
     tag = "admin",
     operation_id = "admin_list_minecraft_profiles",
-    params(LimitOffsetQuery, AdminMinecraftProfileListQuery),
+    params(LimitQuery, AdminMinecraftProfileListQuery),
     responses(
-        (status = 200, description = "Minecraft profiles", body = inline(ApiResponse<OffsetPage<yggdrasil_service::MinecraftProfileInfo>>)),
+        (status = 200, description = "Minecraft profiles", body = inline(ApiResponse<CursorPage<yggdrasil_service::MinecraftProfileInfo, IdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -60,13 +60,15 @@ async fn find_profile_by_uuid(
 )]
 pub async fn list_minecraft_profiles(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AdminMinecraftProfileListQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
+    let after_id = parse_id_cursor(query.after_id, "minecraft profile")?;
+    let limit = page.limit_or(50, 100);
     tracing::debug!(
-        limit = page.limit_or(50, 100),
-        offset = page.offset(),
+        limit,
+        has_cursor = after_id.is_some(),
         user_id = query.user_id,
         has_name = query.name.is_some(),
         has_uuid = query.uuid.is_some(),
@@ -79,28 +81,34 @@ pub async fn list_minecraft_profiles(
         uuid: query.uuid.clone(),
         query: query.query.clone(),
     };
-    let page = minecraft_profile_repo::list_paginated(
-        state.get_ref().reader_db(),
-        filters,
-        page.limit_or(50, 100),
-        page.offset(),
-    )
-    .await?;
-    let items = page
+    let slice =
+        minecraft_profile_repo::list_cursor(state.get_ref().reader_db(), filters, limit, after_id)
+            .await?;
+    let next_cursor = if slice.has_more {
+        slice
+            .items
+            .last()
+            .map(|profile| IdCursor { id: profile.id })
+    } else {
+        None
+    };
+    let items = slice
         .items
         .iter()
         .map(yggdrasil_service::profile_info)
         .collect::<Vec<_>>();
     tracing::debug!(
         returned = items.len(),
-        total = page.total,
-        "admin listed minecraft profiles"
+        total = slice.total,
+        has_next_cursor = next_cursor.is_some(),
+        "admin listed minecraft profiles cursor page"
     );
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(CursorPage::new(
         items,
-        page.total,
-        page.limit,
-        page.offset,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
     ))))
 }
 
@@ -109,9 +117,9 @@ pub async fn list_minecraft_profiles(
     path = "/api/v1/admin/users/{user_id}/minecraft-profiles",
     tag = "admin",
     operation_id = "admin_list_user_minecraft_profiles",
-    params(("user_id" = i64, Path, description = "User ID"), LimitOffsetQuery),
+    params(("user_id" = i64, Path, description = "User ID"), LimitQuery, AdminMinecraftProfileListQuery),
     responses(
-        (status = 200, description = "Minecraft profiles owned by the user", body = inline(ApiResponse<OffsetPage<YggdrasilProfile>>)),
+        (status = 200, description = "Minecraft profiles owned by the user", body = inline(ApiResponse<CursorPage<YggdrasilProfile, IdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
         (status = 404, description = "User not found"),
@@ -121,29 +129,39 @@ pub async fn list_minecraft_profiles(
 pub async fn list_user_minecraft_profiles(
     state: web::Data<AppState>,
     path: web::Path<i64>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    query: web::Query<AdminMinecraftProfileListQuery>,
 ) -> Result<HttpResponse> {
+    validate_request(&*query)?;
     let user_id = path.into_inner();
+    let after_id = parse_id_cursor(query.after_id, "minecraft profile")?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
     tracing::debug!(
         user_id,
         limit,
-        offset,
+        has_cursor = after_id.is_some(),
         "admin listing user minecraft profiles"
     );
     crate::db::repository::user_repo::find_by_id(state.get_ref().reader_db(), user_id).await?;
-    let page = minecraft_profile_repo::list_paginated(
+    let slice = minecraft_profile_repo::list_cursor(
         state.get_ref().reader_db(),
         minecraft_profile_repo::MinecraftProfileFilters {
             user_id: Some(user_id),
             ..Default::default()
         },
         limit,
-        offset,
+        after_id,
     )
     .await?;
-    let profiles = page
+    let next_cursor = if slice.has_more {
+        slice
+            .items
+            .last()
+            .map(|profile| IdCursor { id: profile.id })
+    } else {
+        None
+    };
+    let profiles = slice
         .items
         .iter()
         .map(yggdrasil_service::profile_summary)
@@ -151,15 +169,17 @@ pub async fn list_user_minecraft_profiles(
     tracing::debug!(
         user_id,
         returned = profiles.len(),
-        total = page.total,
+        total = slice.total,
+        has_next_cursor = next_cursor.is_some(),
         "admin listed user minecraft profiles"
     );
 
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(CursorPage::new(
         profiles,
-        page.total,
-        page.limit,
-        page.offset,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
     ))))
 }
 

@@ -14,6 +14,7 @@ import {
 } from "@/lib/webauthn";
 import { authService, type PasskeyInfo } from "@/services/authService";
 import { formatUnknownError } from "@/services/http";
+import type { DateTimeIdCursor } from "@/types/api";
 
 const PASSKEY_PAGE_SIZE = 20;
 
@@ -109,29 +110,38 @@ function passkeysReducer(
 export function SecurityPasskeysSection() {
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(passkeysReducer, initialPasskeysState);
-	const [offset, setOffset] = useState(0);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
 	const supported = useMemo(() => isWebAuthnSupported(), []);
 
 	const reload = useCallback(
-		async (nextOffset = offset) => {
+		async (stack: DateTimeIdCursor[] = cursorStack) => {
 			dispatch({ type: "set_loading", value: true });
 			try {
+				const cursor = stack.at(-1);
 				const page = await authService.listPasskeysPage({
 					limit: PASSKEY_PAGE_SIZE,
-					offset: nextOffset,
+					after_created_at: cursor?.value,
+					after_id: cursor?.id,
 				});
+				if (page.items.length === 0 && page.total > 0 && stack.length > 0) {
+					setCursorStack((current) => current.slice(0, -1));
+					setNextCursor(null);
+					return;
+				}
 				dispatch({
 					type: "set_passkeys",
 					total: page.total,
 					value: page.items,
 				});
+				setNextCursor(page.next_cursor ?? null);
 			} catch (error) {
 				toast.error(formatUnknownError(error));
 			} finally {
 				dispatch({ type: "set_loading", value: false });
 			}
 		},
-		[offset],
+		[cursorStack],
 	);
 
 	useEffect(() => {
@@ -154,10 +164,11 @@ export function SecurityPasskeysSection() {
 				credential,
 				state.name.trim() || null,
 			);
-			setOffset(0);
+			setCursorStack([]);
+			setNextCursor(null);
 			dispatch({ type: "created", value: created });
 			toast.success(t("personalSettings.passkeysCreated"));
-			await reload(0);
+			await reload([]);
 		} catch (error) {
 			if (error instanceof WebAuthnUnsupportedError) {
 				toast.error(t("personalSettings.passkeysUnsupported"));
@@ -366,13 +377,14 @@ export function SecurityPasskeysSection() {
 					})
 				)}
 				<AdminOffsetPagination
-					currentPage={Math.floor(offset / PASSKEY_PAGE_SIZE) + 1}
-					nextDisabled={offset + PASSKEY_PAGE_SIZE >= state.total}
-					onNext={() => setOffset((current) => current + PASSKEY_PAGE_SIZE)}
+					currentPage={cursorStack.length + 1}
+					nextDisabled={!nextCursor}
+					onNext={() => {
+						if (!nextCursor) return;
+						setCursorStack((current) => [...current, nextCursor]);
+					}}
 					onPageSizeChange={() => {}}
-					onPrevious={() =>
-						setOffset((current) => Math.max(0, current - PASSKEY_PAGE_SIZE))
-					}
+					onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
 					pageSize={String(PASSKEY_PAGE_SIZE)}
 					pageSizeOptions={[
 						{
@@ -382,9 +394,9 @@ export function SecurityPasskeysSection() {
 							value: String(PASSKEY_PAGE_SIZE),
 						},
 					]}
-					prevDisabled={offset === 0}
+					prevDisabled={cursorStack.length === 0}
 					total={state.total}
-					totalPages={Math.max(1, Math.ceil(state.total / PASSKEY_PAGE_SIZE))}
+					totalPages={Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1)}
 				/>
 			</div>
 		</div>

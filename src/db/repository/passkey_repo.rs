@@ -1,13 +1,12 @@
 //! Repository helpers for passkey credentials.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
 use crate::entities::passkey::{self, Entity as Passkey};
 use crate::errors::{AsterError, Result};
 use crate::types::StoredPasskeyCredential;
 use chrono::Utc;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, sea_query::Expr,
+    ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, sea_query::Expr,
 };
 
 pub async fn list_for_user(db: &DatabaseConnection, user_id: i64) -> Result<Vec<passkey::Model>> {
@@ -20,28 +19,50 @@ pub async fn list_for_user(db: &DatabaseConnection, user_id: i64) -> Result<Vec<
         .map_err(AsterError::from)
 }
 
-pub async fn list_for_user_paginated(
+#[derive(Debug, Clone)]
+pub struct PasskeyCursorSlice {
+    pub items: Vec<passkey::Model>,
+    pub total: u64,
+    pub has_more: bool,
+}
+
+pub async fn list_for_user_cursor(
     db: &DatabaseConnection,
     user_id: i64,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<passkey::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = Passkey::find()
-            .filter(passkey::Column::UserId.eq(user_id))
-            .order_by_desc(passkey::Column::LastUsedAt)
-            .order_by_desc(passkey::Column::CreatedAt)
-            .order_by_desc(passkey::Column::Id);
-        let total = query.clone().count(db).await.map_err(AsterError::from)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_err(AsterError::from)?;
-        Ok((items, total))
+    after: Option<(chrono::DateTime<Utc>, i64)>,
+) -> Result<PasskeyCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = Passkey::find().filter(passkey::Column::UserId.eq(user_id));
+    let total = query.clone().count(db).await.map_err(AsterError::from)?;
+    if let Some((created_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(passkey::Column::CreatedAt.lt(created_at))
+                .add(
+                    Condition::all()
+                        .add(passkey::Column::CreatedAt.eq(created_at))
+                        .add(passkey::Column::Id.lt(id)),
+                ),
+        );
+    }
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(passkey::Column::CreatedAt)
+        .order_by_desc(passkey::Column::Id)
+        .limit(fetch_limit)
+        .all(db)
+        .await
+        .map_err(AsterError::from)?;
+    let has_more = crate::utils::numbers::usize_to_u64(items.len(), "passkey page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(PasskeyCursorSlice {
+        items,
+        total,
+        has_more,
     })
-    .await
 }
 
 pub async fn find_by_id_for_user(

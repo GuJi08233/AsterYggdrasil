@@ -3,9 +3,9 @@
 use crate::api::dto::{
     AdminTaskCleanupReq, AdminTaskListQuery, RemovedCountResponse, validate_request,
 };
-use crate::api::pagination::LimitOffsetQuery;
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
+use crate::api::pagination::{LimitQuery, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
@@ -25,9 +25,9 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     path = "/api/v1/admin/tasks",
     tag = "admin",
     operation_id = "admin_list_tasks",
-    params(LimitOffsetQuery, AdminTaskListQuery),
+    params(LimitQuery, AdminTaskListQuery),
     responses(
-        (status = 200, description = "Background tasks", body = inline(ApiResponse<OffsetPage<task_service::types::TaskInfo>>)),
+        (status = 200, description = "Background tasks", body = inline(ApiResponse<CursorPage<task_service::types::TaskInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -35,14 +35,13 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
 )]
 pub async fn list_tasks(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AdminTaskListQuery>,
 ) -> Result<HttpResponse> {
     let limit = page.limit_or(20, 100);
-    let offset = page.offset();
+    let cursor = parse_datetime_id_cursor(query.after_updated_at, query.after_id, "admin task")?;
     tracing::debug!(
         limit,
-        offset,
         kind = ?query.kind,
         status = ?query.status,
         "admin listing tasks"
@@ -50,13 +49,11 @@ pub async fn list_tasks(
     let page = task_service::list_tasks_paginated_for_admin(
         state.get_ref(),
         limit,
-        offset,
         task_service::AdminTaskListFilters {
             kind: query.kind,
             status: query.status,
         },
-        query.sort_by(),
-        query.sort_order(),
+        cursor,
     )
     .await?;
     tracing::debug!(

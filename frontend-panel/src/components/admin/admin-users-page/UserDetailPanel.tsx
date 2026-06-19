@@ -7,6 +7,7 @@ import { passwordSchema } from "@/lib/validation";
 import { adminMinecraftProfileService } from "@/services/adminService";
 import type {
 	AdminUserInfo,
+	IdCursor,
 	MinecraftTextureMetadata,
 	OperatorScope,
 	UpdateAdminUserRequest,
@@ -212,7 +213,10 @@ export function UserDetailPanel({
 		UserMinecraftProfileItem[]
 	>([]);
 	const [minecraftProfileTotal, setMinecraftProfileTotal] = useState(0);
-	const [minecraftProfileOffset, setMinecraftProfileOffset] = useState(0);
+	const [minecraftProfileCursorStack, setMinecraftProfileCursorStack] =
+		useState<IdCursor[]>([]);
+	const [minecraftProfileNextCursor, setMinecraftProfileNextCursor] =
+		useState<IdCursor | null>(null);
 	const [minecraftProfilePageSize, setMinecraftProfilePageSize] = useState<
 		(typeof MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS)[number]
 	>(DEFAULT_MINECRAFT_PROFILE_PAGE_SIZE);
@@ -252,7 +256,8 @@ export function UserDetailPanel({
 	useEffect(() => {
 		if (previousMinecraftProfileUserIdRef.current === user.id) return;
 		previousMinecraftProfileUserIdRef.current = user.id;
-		setMinecraftProfileOffset(0);
+		setMinecraftProfileCursorStack([]);
+		setMinecraftProfileNextCursor(null);
 	}, [user.id]);
 
 	useEffect(() => {
@@ -264,22 +269,17 @@ export function UserDetailPanel({
 					user.id,
 					{
 						limit: minecraftProfilePageSize,
-						offset: minecraftProfileOffset,
+						after_id: minecraftProfileCursorStack.at(-1)?.id,
 					},
 				);
 				if (cancelled) return;
 				if (
 					page.items.length === 0 &&
 					page.total > 0 &&
-					minecraftProfileOffset > 0
+					minecraftProfileCursorStack.length > 0
 				) {
-					setMinecraftProfileOffset(
-						Math.max(
-							0,
-							Math.floor((page.total - 1) / minecraftProfilePageSize) *
-								minecraftProfilePageSize,
-						),
-					);
+					setMinecraftProfileCursorStack((current) => current.slice(0, -1));
+					setMinecraftProfileNextCursor(null);
 					return;
 				}
 				const nextProfiles = await attachMinecraftProfileSkinUrls(
@@ -288,6 +288,7 @@ export function UserDetailPanel({
 				if (cancelled) return;
 				setMinecraftProfiles(nextProfiles);
 				setMinecraftProfileTotal(page.total);
+				setMinecraftProfileNextCursor(page.next_cursor ?? null);
 			} catch (error) {
 				if (!cancelled) handleApiError(error);
 			} finally {
@@ -298,7 +299,7 @@ export function UserDetailPanel({
 		return () => {
 			cancelled = true;
 		};
-	}, [minecraftProfileOffset, minecraftProfilePageSize, user.id]);
+	}, [minecraftProfileCursorStack, minecraftProfilePageSize, user.id]);
 
 	const runPanelAction = async (
 		field: BusyField,
@@ -461,13 +462,8 @@ export function UserDetailPanel({
 								onSessionRevoke={() => void handleSessionRevoke()}
 							/>
 							<UserDetailMinecraftSection
-								currentPage={
-									Math.floor(
-										minecraftProfileOffset / minecraftProfilePageSize,
-									) + 1
-								}
+								currentPage={minecraftProfileCursorStack.length + 1}
 								loading={profilesLoading}
-								offset={minecraftProfileOffset}
 								pageSize={minecraftProfilePageSize}
 								pageSizeOptions={MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS.map(
 									(size) => ({
@@ -481,25 +477,31 @@ export function UserDetailPanel({
 								total={minecraftProfileTotal}
 								totalPages={Math.max(
 									1,
-									Math.ceil(minecraftProfileTotal / minecraftProfilePageSize),
+									minecraftProfileCursorStack.length +
+										(minecraftProfileNextCursor ? 2 : 1),
 								)}
 								userId={user.id}
-								onNext={() =>
-									setMinecraftProfileOffset(
-										(current) => current + minecraftProfilePageSize,
-									)
-								}
+								nextDisabled={minecraftProfileNextCursor == null}
+								prevDisabled={minecraftProfileCursorStack.length === 0}
+								onNext={() => {
+									if (!minecraftProfileNextCursor) return;
+									setMinecraftProfileCursorStack((current) => [
+										...current,
+										minecraftProfileNextCursor,
+									]);
+								}}
 								onPageSizeChange={(value) => {
 									const next = MINECRAFT_PROFILE_PAGE_SIZE_OPTIONS.find(
 										(size) => String(size) === value,
 									);
 									if (!next) return;
 									setMinecraftProfilePageSize(next);
-									setMinecraftProfileOffset(0);
+									setMinecraftProfileCursorStack([]);
+									setMinecraftProfileNextCursor(null);
 								}}
 								onPrevious={() =>
-									setMinecraftProfileOffset((current) =>
-										Math.max(0, current - minecraftProfilePageSize),
+									setMinecraftProfileCursorStack((current) =>
+										current.slice(0, -1),
 									)
 								}
 							/>

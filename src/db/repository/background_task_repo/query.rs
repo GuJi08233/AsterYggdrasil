@@ -1,13 +1,10 @@
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait, QueryFilter, QueryOrder,
-    QuerySelect, Select, sea_query::Expr,
+    ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, sea_query::Expr,
 };
 
 use super::common::{AdminTaskFilters, active_processing_by_kinds_condition, apply_admin_filters};
-use crate::api::pagination::{AdminTaskSortBy, SortOrder};
-use crate::db::repository::pagination_repo::fetch_offset_page;
-use crate::db::repository::sort::{order_by_column_with_id, order_by_id};
 use crate::entities::background_task::{self, Entity as BackgroundTask};
 use crate::errors::{AsterError, Result};
 use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
@@ -20,99 +17,51 @@ pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<backgroun
         .ok_or_else(|| AsterError::record_not_found(format!("task #{id}")))
 }
 
-pub async fn find_paginated_all<C: ConnectionTrait>(
-    db: &C,
-    limit: u64,
-    offset: u64,
-) -> Result<(Vec<background_task::Model>, u64)> {
-    find_paginated_all_filtered(
-        db,
-        limit,
-        offset,
-        &AdminTaskFilters::default(),
-        AdminTaskSortBy::UpdatedAt,
-        SortOrder::Desc,
-    )
-    .await
+#[derive(Debug, Clone)]
+pub struct TaskCursorSlice {
+    pub items: Vec<background_task::Model>,
+    pub total: u64,
+    pub has_more: bool,
 }
 
-pub async fn find_paginated_all_filtered<C: ConnectionTrait>(
+pub async fn find_cursor_filtered<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-    offset: u64,
     filters: &AdminTaskFilters,
-    sort_by: AdminTaskSortBy,
-    sort_order: SortOrder,
-) -> Result<(Vec<background_task::Model>, u64)> {
-    fetch_offset_page(
-        db,
-        apply_admin_task_sort(
-            apply_admin_filters(BackgroundTask::find(), filters),
-            sort_by,
-            sort_order,
-        ),
-        limit,
-        offset,
-    )
-    .await
-}
-
-fn apply_admin_task_sort(
-    query: Select<BackgroundTask>,
-    sort_by: AdminTaskSortBy,
-    sort_order: SortOrder,
-) -> Select<BackgroundTask> {
-    match sort_by {
-        AdminTaskSortBy::Id => order_by_id(query, background_task::Column::Id, sort_order),
-        AdminTaskSortBy::DisplayName => order_by_column_with_id(
-            query,
-            background_task::Column::DisplayName,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::Kind => order_by_column_with_id(
-            query,
-            background_task::Column::Kind,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::Status => order_by_column_with_id(
-            query,
-            background_task::Column::Status,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::Progress => order_by_column_with_id(
-            query,
-            background_task::Column::ProgressCurrent,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::CreatedAt => order_by_column_with_id(
-            query,
-            background_task::Column::CreatedAt,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::UpdatedAt => order_by_column_with_id(
-            query,
-            background_task::Column::UpdatedAt,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::StartedAt => order_by_column_with_id(
-            query,
-            background_task::Column::StartedAt,
-            sort_order,
-            background_task::Column::Id,
-        ),
-        AdminTaskSortBy::FinishedAt => order_by_column_with_id(
-            query,
-            background_task::Column::FinishedAt,
-            sort_order,
-            background_task::Column::Id,
-        ),
+    after: Option<(DateTime<Utc>, i64)>,
+) -> Result<TaskCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = apply_admin_filters(BackgroundTask::find(), filters);
+    let total = query.clone().count(db).await.map_err(AsterError::from)?;
+    if let Some((updated_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(background_task::Column::UpdatedAt.lt(updated_at))
+                .add(
+                    Condition::all()
+                        .add(background_task::Column::UpdatedAt.eq(updated_at))
+                        .add(background_task::Column::Id.lt(id)),
+                ),
+        );
     }
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(background_task::Column::UpdatedAt)
+        .order_by_desc(background_task::Column::Id)
+        .limit(fetch_limit)
+        .all(db)
+        .await
+        .map_err(AsterError::from)?;
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "background task page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(TaskCursorSlice {
+        items,
+        total,
+        has_more,
+    })
 }
 
 pub async fn list_recent<C: ConnectionTrait>(

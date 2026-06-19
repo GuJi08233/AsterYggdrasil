@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
 import { useAuthStore } from "@/stores/authStore";
@@ -44,6 +44,7 @@ const forcedUser: AuthUserInfo = {
 function renderPage(initialEntry = "/force-password-change") {
 	return render(
 		<MemoryRouter initialEntries={[initialEntry]}>
+			<LocationProbe />
 			<Routes>
 				<Route
 					path="/force-password-change"
@@ -53,6 +54,17 @@ function renderPage(initialEntry = "/force-password-change") {
 				<Route path="/account" element={<div>account route</div>} />
 			</Routes>
 		</MemoryRouter>,
+	);
+}
+
+function LocationProbe() {
+	const location = useLocation();
+	return (
+		<output data-testid="location">
+			{location.pathname}
+			{location.search}
+			{location.hash}
+		</output>
 	);
 }
 
@@ -156,6 +168,21 @@ describe("ForcePasswordChangePage", () => {
 		expect(
 			screen.getByRole("button", { name: "Show password" }),
 		).toBeInTheDocument();
+	});
+
+	it("shows and clears external auth redirect toast on the forced password change page", async () => {
+		setAuthState(forcedUser);
+		renderPage(
+			"/force-password-change?auth_redirect=external_auth_linked&kept=1#required",
+		);
+
+		expect(await screen.findByText("Change password")).toBeInTheDocument();
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith("External account linked"),
+		);
+		expect(screen.getByTestId("location")).toHaveTextContent(
+			"/force-password-change?kept=1#required",
+		);
 	});
 
 	it("changes password and navigates to the account page", async () => {

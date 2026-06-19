@@ -394,7 +394,7 @@ async fn finish_callback_exchanges_code_fetches_userinfo_and_issues_cookies() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/settings/security")
+        Some("http://localhost:8080/settings/security?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
     assert!(common::extract_cookie(&resp, "aster_refresh").is_some());
@@ -517,7 +517,7 @@ async fn github_callback_uses_verified_primary_email_from_email_list() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -621,7 +621,7 @@ async fn github_existing_identity_can_login_without_verified_primary_email() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -802,7 +802,7 @@ async fn qq_existing_identity_can_login_without_email() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 

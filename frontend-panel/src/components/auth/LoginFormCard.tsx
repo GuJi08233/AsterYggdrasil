@@ -6,12 +6,16 @@ import {
 	AuthFormFieldError,
 	AuthIconTextField,
 	AuthPasswordField,
+	authInputClassName,
 	authPrimaryButtonClassName,
 	authSecondaryButtonClassName,
 } from "@/components/auth/AuthFormPrimitives";
 import { CaptchaField } from "@/components/auth/CaptchaField";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	externalAuthKindIconPath,
 	normalizeExternalAuthIconUrl,
@@ -30,6 +34,23 @@ type LoginFormField =
 	| "acceptedTerms";
 
 type LoginFormErrors = Partial<Record<LoginFormField, string>>;
+
+export type ExternalAuthRecoveryMode = "password" | "email";
+
+export type ExternalAuthRecoveryState = {
+	email: string;
+	emailError: string;
+	emailSubmitting: boolean;
+	flowToken: string;
+	mode: ExternalAuthRecoveryMode;
+	password: string;
+	passwordError: string;
+	passwordIdentifier: string;
+	passwordIdentifierError: string;
+	passwordSubmitting: boolean;
+	returnPath: string;
+	sent: boolean;
+};
 
 export type LoginFormCardProps = {
 	isRegister: boolean;
@@ -50,6 +71,7 @@ export type LoginFormCardProps = {
 	passkeySubmitting: boolean;
 	passkeySupported: boolean;
 	showPasskeyLogin: boolean;
+	externalAuthRecovery: ExternalAuthRecoveryState | null;
 	submitDisabled: boolean;
 	submitLabel: string;
 	passwordScore: number;
@@ -72,6 +94,11 @@ export type LoginFormCardProps = {
 	onAcceptedTermsChange: (value: boolean) => void;
 	onPasskeyLogin: () => void;
 	onExternalLogin: (provider: ExternalAuthPublicProvider) => void;
+	onExternalAuthRecoveryBack: () => void;
+	onExternalAuthRecoveryEmailChange: (value: string) => void;
+	onExternalAuthRecoveryIdentifierChange: (value: string) => void;
+	onExternalAuthRecoveryModeChange: (value: ExternalAuthRecoveryMode) => void;
+	onExternalAuthRecoveryPasswordChange: (value: string) => void;
 	onResetAccountOptions: () => void;
 };
 
@@ -95,32 +122,38 @@ export function LoginFormCard(props: LoginFormCardProps) {
 			description={cardDescription}
 		>
 			<form className="mt-7 grid gap-4" onSubmit={onSubmit} noValidate>
-				{usesAccountCreationForm ? (
-					<AccountCreationFields {...props} />
+				{props.externalAuthRecovery ? (
+					<ExternalAuthRecoveryPanel {...props} />
 				) : (
-					<IdentifierField {...props} />
+					<>
+						{usesAccountCreationForm ? (
+							<AccountCreationFields {...props} />
+						) : (
+							<IdentifierField {...props} />
+						)}
+						<LoginPasswordField {...props} />
+						{usesAccountCreationForm ? <RegistrationFields {...props} /> : null}
+						<CaptchaPanel {...props} />
+						<Button
+							type="submit"
+							disabled={submitDisabled}
+							className={authPrimaryButtonClassName}
+						>
+							<Icon
+								name={loading ? "Spinner" : "SignIn"}
+								className={loading ? "size-4 animate-spin" : "size-4"}
+							/>
+							{submitLabel}
+						</Button>
+						<AuthAlternatives {...props} />
+						{allowUserRegistration ? (
+							<AccountModeLink
+								isRegister={isRegister}
+								onResetAccountOptions={onResetAccountOptions}
+							/>
+						) : null}
+					</>
 				)}
-				<LoginPasswordField {...props} />
-				{usesAccountCreationForm ? <RegistrationFields {...props} /> : null}
-				<CaptchaPanel {...props} />
-				<Button
-					type="submit"
-					disabled={submitDisabled}
-					className={authPrimaryButtonClassName}
-				>
-					<Icon
-						name={loading ? "Spinner" : "SignIn"}
-						className={loading ? "size-4 animate-spin" : "size-4"}
-					/>
-					{submitLabel}
-				</Button>
-				<AuthAlternatives {...props} />
-				{allowUserRegistration ? (
-					<AccountModeLink
-						isRegister={isRegister}
-						onResetAccountOptions={onResetAccountOptions}
-					/>
-				) : null}
 			</form>
 		</AuthFormCard>
 	);
@@ -318,6 +351,7 @@ function TermsField({
 
 function AuthAlternatives({
 	externalLoadingKey,
+	externalAuthRecovery,
 	isRegister,
 	loading,
 	onExternalLogin,
@@ -328,7 +362,11 @@ function AuthAlternatives({
 	visibleProviders,
 }: LoginFormCardProps) {
 	const { t } = useTranslation();
-	if (isRegister || (!showPasskeyLogin && visibleProviders.length === 0)) {
+	if (
+		externalAuthRecovery ||
+		isRegister ||
+		(!showPasskeyLogin && visibleProviders.length === 0)
+	) {
 		return null;
 	}
 	return (
@@ -374,6 +412,211 @@ function AuthAlternatives({
 					</Button>
 				))}
 			</div>
+		</div>
+	);
+}
+
+function ExternalAuthRecoveryPanel({
+	externalAuthRecovery,
+	onExternalAuthRecoveryBack,
+	onExternalAuthRecoveryEmailChange,
+	onExternalAuthRecoveryIdentifierChange,
+	onExternalAuthRecoveryModeChange,
+	onExternalAuthRecoveryPasswordChange,
+}: LoginFormCardProps) {
+	const { t } = useTranslation();
+	if (!externalAuthRecovery) return null;
+	const busy =
+		externalAuthRecovery.emailSubmitting ||
+		externalAuthRecovery.passwordSubmitting;
+	const emailDisabled =
+		busy ||
+		!externalAuthRecovery.email.trim() ||
+		Boolean(externalAuthRecovery.emailError);
+	const passwordDisabled =
+		busy ||
+		!externalAuthRecovery.passwordIdentifier.trim() ||
+		!externalAuthRecovery.password;
+
+	return (
+		<div className="grid gap-4">
+			<div className="rounded-lg border border-emerald-900/10 bg-emerald-50/70 p-4 text-sm text-slate-700 dark:border-emerald-300/16 dark:bg-emerald-400/8 dark:text-white/78">
+				<div className="flex items-start gap-3">
+					<div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600/12 text-emerald-700 dark:text-emerald-300">
+						<Icon
+							name={externalAuthRecovery.sent ? "Check" : "Link"}
+							className="size-4"
+						/>
+					</div>
+					<div className="min-w-0">
+						<p className="font-semibold text-slate-900 dark:text-white">
+							{externalAuthRecovery.sent
+								? t("login.externalAuthEmailSentTitle")
+								: t("login.externalAuthRecoveryTitle")}
+						</p>
+						<p className="mt-1 leading-6">
+							{externalAuthRecovery.sent
+								? t("login.externalAuthEmailSentHint")
+								: t("login.externalAuthRecoveryDescription")}
+						</p>
+					</div>
+				</div>
+			</div>
+
+			{externalAuthRecovery.sent ? null : (
+				<Tabs
+					value={externalAuthRecovery.mode}
+					onValueChange={(value) =>
+						onExternalAuthRecoveryModeChange(
+							value === "email" ? "email" : "password",
+						)
+					}
+				>
+					<TabsList className="grid h-10 grid-cols-2">
+						<TabsTrigger value="password">
+							<Icon name="Lock" className="size-4" />
+							{t("login.externalAuthPasswordTab")}
+						</TabsTrigger>
+						<TabsTrigger value="email">
+							<Icon name="EnvelopeSimple" className="size-4" />
+							{t("login.externalAuthEmailTab")}
+						</TabsTrigger>
+					</TabsList>
+
+					{externalAuthRecovery.mode === "password" ? (
+						<div className="mt-4 grid gap-4">
+							<div className="grid gap-2">
+								<Label
+									htmlFor="external-auth-password-identifier"
+									className="text-slate-700 dark:text-white/88"
+								>
+									{t("login.identifier")}
+								</Label>
+								<Input
+									id="external-auth-password-identifier"
+									value={externalAuthRecovery.passwordIdentifier}
+									onChange={(event) =>
+										onExternalAuthRecoveryIdentifierChange(
+											event.currentTarget.value,
+										)
+									}
+									autoComplete="username"
+									placeholder={t("login.identifierPlaceholder")}
+									className={authInputClassName}
+									aria-invalid={Boolean(
+										externalAuthRecovery.passwordIdentifierError,
+									)}
+								/>
+								<AuthFormFieldError
+									id="external-auth-password-identifier-error"
+									message={externalAuthRecovery.passwordIdentifierError}
+								/>
+							</div>
+							<div className="grid gap-2">
+								<Label
+									htmlFor="external-auth-password"
+									className="text-slate-700 dark:text-white/88"
+								>
+									{t("login.password")}
+								</Label>
+								<Input
+									id="external-auth-password"
+									type="password"
+									value={externalAuthRecovery.password}
+									onChange={(event) =>
+										onExternalAuthRecoveryPasswordChange(
+											event.currentTarget.value,
+										)
+									}
+									autoComplete="current-password"
+									placeholder={t("login.passwordPlaceholder")}
+									className={authInputClassName}
+									aria-invalid={Boolean(externalAuthRecovery.passwordError)}
+								/>
+								<AuthFormFieldError
+									id="external-auth-password-error"
+									message={externalAuthRecovery.passwordError}
+								/>
+							</div>
+							<Button
+								type="submit"
+								disabled={passwordDisabled}
+								className={authPrimaryButtonClassName}
+							>
+								<Icon
+									name={
+										externalAuthRecovery.passwordSubmitting ? "Spinner" : "Link"
+									}
+									className={cn(
+										"size-4",
+										externalAuthRecovery.passwordSubmitting && "animate-spin",
+									)}
+								/>
+								{externalAuthRecovery.passwordSubmitting
+									? t("login.externalAuthPasswordLinking")
+									: t("login.externalAuthPasswordSubmit")}
+							</Button>
+						</div>
+					) : (
+						<div className="mt-4 grid gap-4">
+							<div className="grid gap-2">
+								<Label
+									htmlFor="external-auth-email"
+									className="text-slate-700 dark:text-white/88"
+								>
+									{t("login.email")}
+								</Label>
+								<Input
+									id="external-auth-email"
+									type="email"
+									value={externalAuthRecovery.email}
+									onChange={(event) =>
+										onExternalAuthRecoveryEmailChange(event.currentTarget.value)
+									}
+									autoComplete="email"
+									placeholder={t("login.emailPlaceholder")}
+									className={authInputClassName}
+									aria-invalid={Boolean(externalAuthRecovery.emailError)}
+								/>
+								<AuthFormFieldError
+									id="external-auth-email-error"
+									message={externalAuthRecovery.emailError}
+								/>
+							</div>
+							<Button
+								type="submit"
+								disabled={emailDisabled}
+								className={authPrimaryButtonClassName}
+							>
+								<Icon
+									name={
+										externalAuthRecovery.emailSubmitting
+											? "Spinner"
+											: "EnvelopeSimple"
+									}
+									className={cn(
+										"size-4",
+										externalAuthRecovery.emailSubmitting && "animate-spin",
+									)}
+								/>
+								{externalAuthRecovery.emailSubmitting
+									? t("login.externalAuthEmailSending")
+									: t("login.externalAuthEmailSubmit")}
+							</Button>
+						</div>
+					)}
+				</Tabs>
+			)}
+
+			<Button
+				type="button"
+				variant="outline"
+				className={authSecondaryButtonClassName}
+				onClick={onExternalAuthRecoveryBack}
+			>
+				<Icon name="ArrowLeft" className="size-4" />
+				{t("login.backToLogin")}
+			</Button>
 		</div>
 	);
 }

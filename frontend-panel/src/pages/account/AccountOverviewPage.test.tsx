@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@/i18n";
 import { useAuthStore } from "@/stores/authStore";
-import type { AccountOverview, AuthUserInfo } from "@/types/api";
+import type { AccountOverview, AuditLogEntry, AuthUserInfo } from "@/types/api";
 import AccountOverviewPage from "./AccountOverviewPage";
 
 const accountServiceMock = vi.hoisted(() => ({
@@ -35,6 +35,29 @@ const overview: AccountOverview = {
 	profile_count: 0,
 	recent_activity: [],
 };
+
+function auditEntry(entityName: string): AuditLogEntry {
+	return {
+		action: "user_login",
+		created_at: "2026-06-15T08:00:00.000Z",
+		details: null,
+		entity_id: 7,
+		entity_name: entityName,
+		entity_type: "user",
+		id: 1,
+		ip_address: "127.0.0.1",
+		presentation: null,
+		user: {
+			email: "alex@example.com",
+			id: 7,
+			role: "user",
+			status: "active",
+			username: "alex",
+		},
+		user_agent: "vitest",
+		user_id: 7,
+	};
+}
 
 function renderPage(user: AuthUserInfo) {
 	useAuthStore.setState({
@@ -85,6 +108,20 @@ describe("AccountOverviewPage", () => {
 
 		expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
 			"Welcome back, alex",
+		);
+	});
+
+	it("keeps long recent activity target text truncated", async () => {
+		const longTarget = `account-activity-${"x".repeat(96)}`;
+		accountServiceMock.overview.mockResolvedValue({
+			...overview,
+			recent_activity: [auditEntry(longTarget)],
+		});
+
+		renderPage(baseUser);
+
+		expect(await screen.findByText(new RegExp(longTarget))).toHaveClass(
+			"truncate",
 		);
 	});
 });

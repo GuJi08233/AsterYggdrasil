@@ -17,6 +17,7 @@ import type {
 	AdminTextureReportQuery,
 	AdminUserInvitationInfo,
 	AdminUserInvitationPage,
+	AdminUserInvitationQuery,
 	AdminUserListQuery,
 	AdminUserMinecraftProfileQuery,
 	AdminUserPage,
@@ -70,15 +71,14 @@ export const adminAuditService = {
 		api.get<AuditLogPage>(
 			withQuery("/admin/audit-logs", {
 				limit: params.limit,
-				offset: params.offset,
 				user_id: params.user_id,
 				action: params.action,
 				entity_type: params.entity_type,
 				entity_id: params.entity_id,
 				after: params.after,
 				before: params.before,
-				sort_by: params.sort_by ?? "created_at",
-				sort_order: params.sort_order ?? "desc",
+				after_created_at: params.after_created_at,
+				after_id: params.after_id,
 			}),
 		),
 };
@@ -148,11 +148,10 @@ export const adminTaskService = {
 		api.get<AdminTaskPage>(
 			withQuery("/admin/tasks", {
 				limit: params.limit,
-				offset: params.offset,
 				kind: params.kind,
 				status: params.status,
-				sort_by: params.sort_by ?? "updated_at",
-				sort_order: params.sort_order ?? "desc",
+				after_updated_at: params.after_updated_at,
+				after_id: params.after_id,
 			}),
 		),
 	cleanup: (data: AdminTaskCleanupRequest) =>
@@ -169,7 +168,8 @@ export const adminTextureLibraryService = {
 		api.get<AdminTextureLibraryPage>(
 			withQuery("/admin/texture-library/textures", {
 				limit: params.limit,
-				offset: params.offset,
+				after_updated_at: params.after_updated_at,
+				after_id: params.after_id,
 				keyword: params.keyword,
 				texture_type: params.texture_type,
 				visibility: params.visibility,
@@ -183,6 +183,8 @@ export const adminTextureLibraryService = {
 		api.get<OperationData<"admin_get_texture_library_texture">>(
 			`/admin/texture-library/textures/${textureId}`,
 		),
+	deleteTexture: (textureId: AdminTextureLibraryTexturePath["texture_id"]) =>
+		api.delete<void>(`/admin/texture-library/textures/${textureId}`),
 	approveTexture: (
 		textureId: AdminTextureLibraryTexturePath["texture_id"],
 		data: ReviewTextureLibraryTextureRequest = {},
@@ -211,10 +213,11 @@ export const adminTextureLibraryService = {
 		api.get<AdminTextureReportPage>(
 			withQuery("/admin/texture-library/reports", {
 				limit: params.limit,
-				offset: params.offset,
 				status: params.status,
 				reason: params.reason,
 				texture_id: params.texture_id,
+				after_created_at: params.after_created_at,
+				after_id: params.after_id,
 			}),
 		),
 	getReport: (reportId: AdminTextureReportPath["report_id"]) =>
@@ -276,7 +279,10 @@ export const adminMinecraftProfileService = {
 	listByUser: (userId: number, params: AdminUserMinecraftProfileQuery = {}) =>
 		api
 			.get<YggdrasilProfilePage>(
-				withQuery(`/admin/users/${userId}/minecraft-profiles`, params),
+				withQuery(`/admin/users/${userId}/minecraft-profiles`, {
+					limit: params.limit,
+					after_id: params.after_id,
+				}),
 			)
 			.then((page) => page.items),
 	listByUserPage: (
@@ -284,7 +290,10 @@ export const adminMinecraftProfileService = {
 		params: AdminUserMinecraftProfileQuery = {},
 	) =>
 		api.get<YggdrasilProfilePage>(
-			withQuery(`/admin/users/${userId}/minecraft-profiles`, params),
+			withQuery(`/admin/users/${userId}/minecraft-profiles`, {
+				limit: params.limit,
+				after_id: params.after_id,
+			}),
 		),
 	delete: (uuid: string) =>
 		api.delete<void>(`/admin/minecraft-profiles/${uuid}`),
@@ -299,12 +308,11 @@ export const adminUserService = {
 		api.get<AdminUserPage>(
 			withQuery("/admin/users", {
 				limit: params.limit,
-				offset: params.offset,
 				keyword: params.keyword,
 				role: params.role,
 				status: params.status,
-				sort_by: params.sort_by ?? "created_at",
-				sort_order: params.sort_order ?? "desc",
+				after_created_at: params.after_created_at,
+				after_id: params.after_id,
 			}),
 		),
 	get: (id: AdminUserPath["id"]) =>
@@ -324,11 +332,12 @@ export const adminUserService = {
 		api.post<OperationData<"admin_revoke_user_sessions">>(
 			`/admin/users/${id}/sessions/revoke`,
 		),
-	listInvitations: (params: { limit?: number; offset?: number } = {}) =>
+	listInvitations: (params: AdminUserInvitationQuery = {}) =>
 		api.get<AdminUserInvitationPage>(
 			withQuery("/admin/users/invitations", {
 				limit: params.limit,
-				offset: params.offset,
+				after_created_at: params.after_created_at,
+				after_id: params.after_id,
 			}),
 		),
 	createInvitation: (data: CreateUserInvitationRequest) =>

@@ -1,6 +1,13 @@
 import type { TFunction } from "i18next";
-import type { ReactNode, SetStateAction } from "react";
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import type { ReactNode } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
@@ -8,8 +15,8 @@ import { AdminFilterToolbar } from "@/components/common/AdminFilterToolbar";
 import {
 	ADMIN_TABLE_MONO_TEXT_CLASS,
 	ADMIN_TABLE_MUTED_TEXT_CLASS,
-	AdminSortableTableHead,
 	AdminTableCell,
+	AdminTableHead,
 	AdminTableHeader,
 	AdminTableRow,
 } from "@/components/common/AdminTable";
@@ -30,7 +37,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
 	AUDIT_ENTITY_TYPE_FILTER_VALUES,
@@ -43,69 +49,50 @@ import {
 	isAuditEntityType,
 } from "@/lib/audit";
 import {
-	buildOffsetPaginationSearchParams,
-	parseOffsetSearchParam,
 	parsePageSizeOption,
 	parsePageSizeSearchParam,
-	parseSortOrderSearchParam,
-	parseSortSearchParam,
-	type SortOrder,
 } from "@/lib/pagination";
 import type {
 	AuditEntityType,
 	AuditLogEntry,
 	AuditLogPage as AuditLogPageData,
-	AuditLogSortBy,
+	DateTimeIdCursor,
 } from "@/types/api";
 
 const AUDIT_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 const DEFAULT_AUDIT_PAGE_SIZE = 20 as const;
-const DEFAULT_AUDIT_SORT_BY = "created_at" as const satisfies AuditLogSortBy;
-const DEFAULT_AUDIT_SORT_ORDER = "desc" as const satisfies SortOrder;
-const AUDIT_MANAGED_QUERY_KEYS = [
-	"action",
-	"entityType",
-	"offset",
-	"pageSize",
-	"sortBy",
-	"sortOrder",
-] as const;
+const AUDIT_MANAGED_QUERY_KEYS = ["action", "entityType", "pageSize"] as const;
 
 type AuditEntityTypeFilter = "__all__" | AuditEntityType;
 type AuditQueryState = {
 	actionFilter: string;
+	cursorStack: DateTimeIdCursor[];
 	entityTypeFilter: AuditEntityTypeFilter;
-	offset: number;
+	nextCursor: DateTimeIdCursor | null;
 	pageSize: (typeof AUDIT_PAGE_SIZE_OPTIONS)[number];
-	sortBy: AuditLogSortBy;
-	sortOrder: SortOrder;
 };
 type AuditQueryAction =
 	| { type: "replace"; value: AuditQueryState }
 	| { type: "reset_filters" }
 	| { type: "set_action_filter"; value: string }
 	| { type: "set_entity_type_filter"; value: AuditEntityTypeFilter }
-	| { type: "set_offset"; value: SetStateAction<number> }
+	| { type: "next_page" }
+	| { type: "previous_page" }
+	| { type: "set_next_cursor"; value: DateTimeIdCursor | null }
 	| { type: "set_page_size"; value: (typeof AUDIT_PAGE_SIZE_OPTIONS)[number] }
-	| { type: "set_sort"; sortBy: AuditLogSortBy; sortOrder: SortOrder };
+	| { type: "reset_cursor" };
 
 type AuditLogPageProps = {
 	list: (query: {
 		action?: string;
+		after_created_at?: string;
+		after_id?: number;
 		entity_type?: AuditEntityType;
 		limit: number;
-		offset: number;
-		sort_by: AuditLogSortBy;
-		sort_order: SortOrder;
 	}) => Promise<AuditLogPageData>;
 	showActor: boolean;
-	sortOptions: readonly AuditLogSortBy[];
 	translationPrefix: "account.auditPage" | "admin.auditPage";
 };
-
-function normalizeOffset(offset: number) {
-	return Math.max(0, Math.floor(offset));
-}
 
 function parseEntityTypeSearchParam(
 	value: string | null,
@@ -117,79 +104,45 @@ function parseEntityTypeSearchParam(
 function buildManagedAuditSearchParams({
 	action,
 	entityType,
-	offset,
 	pageSize,
-	sortBy,
-	sortOrder,
 }: {
 	action: string;
 	entityType: AuditEntityTypeFilter;
-	offset: number;
 	pageSize: (typeof AUDIT_PAGE_SIZE_OPTIONS)[number];
-	sortBy: AuditLogSortBy;
-	sortOrder: SortOrder;
 }) {
-	return buildOffsetPaginationSearchParams({
-		defaultPageSize: DEFAULT_AUDIT_PAGE_SIZE,
-		extraParams: {
-			action: action.trim() || undefined,
-			entityType: entityType !== "__all__" ? entityType : undefined,
-			sortBy: sortBy !== DEFAULT_AUDIT_SORT_BY ? sortBy : undefined,
-			sortOrder: sortOrder !== DEFAULT_AUDIT_SORT_ORDER ? sortOrder : undefined,
-		},
-		offset,
-		pageSize,
-	});
+	const params = new URLSearchParams();
+	if (action.trim()) params.set("action", action.trim());
+	if (entityType !== "__all__") params.set("entityType", entityType);
+	if (pageSize !== DEFAULT_AUDIT_PAGE_SIZE) {
+		params.set("pageSize", String(pageSize));
+	}
+	return params;
 }
 
-function getManagedAuditSearchString(
-	searchParams: URLSearchParams,
-	sortOptions: readonly AuditLogSortBy[],
-) {
+function getManagedAuditSearchString(searchParams: URLSearchParams) {
 	return buildManagedAuditSearchParams({
 		action: searchParams.get("action") ?? "",
 		entityType: parseEntityTypeSearchParam(searchParams.get("entityType")),
-		offset: normalizeOffset(parseOffsetSearchParam(searchParams.get("offset"))),
 		pageSize: parsePageSizeSearchParam(
 			searchParams.get("pageSize"),
 			AUDIT_PAGE_SIZE_OPTIONS,
 			DEFAULT_AUDIT_PAGE_SIZE,
-		),
-		sortBy: parseSortSearchParam(
-			searchParams.get("sortBy"),
-			sortOptions,
-			DEFAULT_AUDIT_SORT_BY,
-		),
-		sortOrder: parseSortOrderSearchParam(
-			searchParams.get("sortOrder"),
-			DEFAULT_AUDIT_SORT_ORDER,
 		),
 	}).toString();
 }
 
-function parseAuditQueryState(
-	searchParams: URLSearchParams,
-	sortOptions: readonly AuditLogSortBy[],
-): AuditQueryState {
+function parseAuditQueryState(searchParams: URLSearchParams): AuditQueryState {
 	return {
 		actionFilter: searchParams.get("action") ?? "",
+		cursorStack: [],
 		entityTypeFilter: parseEntityTypeSearchParam(
 			searchParams.get("entityType"),
 		),
-		offset: normalizeOffset(parseOffsetSearchParam(searchParams.get("offset"))),
+		nextCursor: null,
 		pageSize: parsePageSizeSearchParam(
 			searchParams.get("pageSize"),
 			AUDIT_PAGE_SIZE_OPTIONS,
 			DEFAULT_AUDIT_PAGE_SIZE,
-		),
-		sortBy: parseSortSearchParam(
-			searchParams.get("sortBy"),
-			sortOptions,
-			DEFAULT_AUDIT_SORT_BY,
-		),
-		sortOrder: parseSortOrderSearchParam(
-			searchParams.get("sortOrder"),
-			DEFAULT_AUDIT_SORT_ORDER,
 		),
 	};
 }
@@ -198,10 +151,7 @@ function auditQueryStatesEqual(left: AuditQueryState, right: AuditQueryState) {
 	return (
 		left.actionFilter === right.actionFilter &&
 		left.entityTypeFilter === right.entityTypeFilter &&
-		left.offset === right.offset &&
-		left.pageSize === right.pageSize &&
-		left.sortBy === right.sortBy &&
-		left.sortOrder === right.sortOrder
+		left.pageSize === right.pageSize
 	);
 }
 
@@ -217,32 +167,37 @@ function auditQueryReducer(
 				...state,
 				actionFilter: "",
 				entityTypeFilter: "__all__",
-				offset: 0,
+				cursorStack: [],
+				nextCursor: null,
 			};
 		case "set_action_filter":
-			return { ...state, actionFilter: action.value, offset: 0 };
+			return resetCursor({ ...state, actionFilter: action.value });
 		case "set_entity_type_filter":
-			return { ...state, entityTypeFilter: action.value, offset: 0 };
-		case "set_offset": {
-			const nextOffset = normalizeOffset(
-				typeof action.value === "function"
-					? action.value(state.offset)
-					: action.value,
-			);
-			return nextOffset === state.offset
-				? state
-				: { ...state, offset: nextOffset };
-		}
-		case "set_page_size":
-			return { ...state, pageSize: action.value, offset: 0 };
-		case "set_sort":
+			return resetCursor({ ...state, entityTypeFilter: action.value });
+		case "next_page":
+			if (!state.nextCursor) return state;
 			return {
 				...state,
-				offset: 0,
-				sortBy: action.sortBy,
-				sortOrder: action.sortOrder,
+				cursorStack: [...state.cursorStack, state.nextCursor],
+				nextCursor: null,
 			};
+		case "previous_page":
+			return {
+				...state,
+				cursorStack: state.cursorStack.slice(0, -1),
+				nextCursor: null,
+			};
+		case "set_next_cursor":
+			return { ...state, nextCursor: action.value };
+		case "set_page_size":
+			return resetCursor({ ...state, pageSize: action.value });
+		case "reset_cursor":
+			return resetCursor(state);
 	}
+}
+
+function resetCursor(state: AuditQueryState): AuditQueryState {
+	return { ...state, cursorStack: [], nextCursor: null };
 }
 
 function mergeManagedAuditSearchParams(
@@ -262,7 +217,6 @@ function mergeManagedAuditSearchParams(
 export function AuditLogPage({
 	list,
 	showActor,
-	sortOptions,
 	translationPrefix,
 }: AuditLogPageProps) {
 	const { t } = useTranslation();
@@ -273,51 +227,36 @@ export function AuditLogPage({
 	const [queryState, dispatchQuery] = useReducer(
 		auditQueryReducer,
 		searchParams,
-		(params) => parseAuditQueryState(params, sortOptions),
+		parseAuditQueryState,
 	);
-	const {
-		actionFilter,
-		entityTypeFilter,
-		offset,
-		pageSize,
-		sortBy,
-		sortOrder,
-	} = queryState;
+	const { actionFilter, cursorStack, entityTypeFilter, nextCursor, pageSize } =
+		queryState;
 	const lastWrittenSearchRef = useRef<string | null>(null);
-
-	const setOffset = useCallback((value: SetStateAction<number>) => {
-		dispatchQuery({ type: "set_offset", value });
-	}, []);
+	const [items, setItems] = useState<AuditLogEntry[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		const managedSearch = getManagedAuditSearchString(
-			searchParams,
-			sortOptions,
-		);
+		const managedSearch = getManagedAuditSearchString(searchParams);
 		if (managedSearch === lastWrittenSearchRef.current) {
 			return;
 		}
 
 		dispatchQuery({
 			type: "replace",
-			value: parseAuditQueryState(searchParams, sortOptions),
+			value: parseAuditQueryState(searchParams),
 		});
-	}, [searchParams, sortOptions]);
+	}, [searchParams]);
 
 	useEffect(() => {
 		const nextManagedSearchParams = buildManagedAuditSearchParams({
 			action: actionFilter,
 			entityType: entityTypeFilter,
-			offset,
 			pageSize,
-			sortBy,
-			sortOrder,
 		});
 		const nextSearch = nextManagedSearchParams.toString();
-		const currentSearch = getManagedAuditSearchString(
-			searchParams,
-			sortOptions,
-		);
+		const currentSearch = getManagedAuditSearchString(searchParams);
 
 		if (
 			currentSearch !== lastWrittenSearchRef.current &&
@@ -335,40 +274,50 @@ export function AuditLogPage({
 			mergeManagedAuditSearchParams(searchParams, nextManagedSearchParams),
 			{ replace: true },
 		);
-	}, [
-		actionFilter,
-		entityTypeFilter,
-		offset,
-		pageSize,
-		searchParams,
-		setSearchParams,
-		sortBy,
-		sortOptions,
-		sortOrder,
-	]);
+	}, [actionFilter, entityTypeFilter, pageSize, searchParams, setSearchParams]);
 
-	const { error, items, loading, reload, total } = useApiList(
-		() =>
-			list({
+	const reload = useCallback(async () => {
+		setLoading(true);
+		try {
+			setError(null);
+			const cursor = cursorStack.at(-1);
+			const page = await list({
 				action: actionFilter.trim() || undefined,
+				after_created_at: cursor?.value,
+				after_id: cursor?.id,
 				entity_type:
 					entityTypeFilter === "__all__" ? undefined : entityTypeFilter,
 				limit: pageSize,
-				offset,
-				sort_by: sortBy,
-				sort_order: sortOrder,
-			}),
-		[actionFilter, entityTypeFilter, list, offset, pageSize, sortBy, sortOrder],
-	);
+			});
+			if (page.items.length === 0 && page.total > 0 && cursorStack.length > 0) {
+				dispatchQuery({ type: "previous_page" });
+				return;
+			}
+			setItems(page.items);
+			setTotal(page.total);
+			dispatchQuery({
+				type: "set_next_cursor",
+				value: page.next_cursor ?? null,
+			});
+		} catch (error) {
+			setError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setLoading(false);
+		}
+	}, [actionFilter, cursorStack, entityTypeFilter, list, pageSize]);
+
+	useEffect(() => {
+		void reload();
+	}, [reload]);
 
 	const activeFilterCount =
 		(actionFilter.trim().length > 0 ? 1 : 0) +
 		(entityTypeFilter !== "__all__" ? 1 : 0);
 	const hasServerFilters = activeFilterCount > 0;
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const prevPageDisabled = offset === 0;
-	const nextPageDisabled = offset + pageSize >= total;
+	const currentPage = cursorStack.length + 1;
+	const totalPages = Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1);
+	const prevPageDisabled = cursorStack.length === 0;
+	const nextPageDisabled = !nextCursor;
 	const entityTypeOptions = [
 		{
 			label: t(`${translationPrefix}.filters.allTypes`),
@@ -396,27 +345,14 @@ export function AuditLogPage({
 		dispatchQuery({ type: "set_page_size", value: next });
 	}, []);
 
-	const handleSortChange = useCallback(
-		(nextSortBy: AuditLogSortBy, nextOrder: SortOrder) => {
-			dispatchQuery({
-				type: "set_sort",
-				sortBy: nextSortBy,
-				sortOrder: nextOrder,
-			});
-		},
-		[],
-	);
-
 	const pagination = useMemo(
 		() => (
 			<AdminOffsetPagination
 				currentPage={currentPage}
 				nextDisabled={nextPageDisabled}
-				onNext={() => setOffset((current) => current + pageSize)}
+				onNext={() => dispatchQuery({ type: "next_page" })}
 				onPageSizeChange={handlePageSizeChange}
-				onPrevious={() =>
-					setOffset((current) => Math.max(0, current - pageSize))
-				}
+				onPrevious={() => dispatchQuery({ type: "previous_page" })}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
 				prevDisabled={prevPageDisabled}
@@ -433,7 +369,6 @@ export function AuditLogPage({
 			prevPageDisabled,
 			total,
 			totalPages,
-			setOffset,
 		],
 	);
 
@@ -462,13 +397,10 @@ export function AuditLogPage({
 		() => (
 			<AuditTableHeader
 				showActor={showActor}
-				sortBy={sortBy}
-				sortOrder={sortOrder}
 				translationPrefix={translationPrefix}
-				onSortChange={handleSortChange}
 			/>
 		),
-		[handleSortChange, showActor, sortBy, sortOrder, translationPrefix],
+		[showActor, translationPrefix],
 	);
 	const emptyIcon = useMemo(
 		() => <Icon name="Scroll" className="size-10" />,
@@ -590,16 +522,10 @@ function AuditFilterToolbar({
 }
 
 function AuditTableHeader({
-	onSortChange,
 	showActor,
-	sortBy,
-	sortOrder,
 	translationPrefix,
 }: {
-	onSortChange: (sortBy: AuditLogSortBy, sortOrder: SortOrder) => void;
 	showActor: boolean;
-	sortBy: AuditLogSortBy;
-	sortOrder: SortOrder;
 	translationPrefix: AuditLogPageProps["translationPrefix"];
 }) {
 	const { t } = useTranslation();
@@ -607,61 +533,22 @@ function AuditTableHeader({
 	return (
 		<AdminTableHeader>
 			<AdminTableRow>
-				<AdminSortableTableHead
-					className="w-[12rem]"
-					onSortChange={onSortChange}
-					sortBy={sortBy}
-					sortKey="created_at"
-					sortOrder={sortOrder}
-				>
+				<AdminTableHead className="w-[12rem]">
 					{t(`${translationPrefix}.created`)}
-				</AdminSortableTableHead>
+				</AdminTableHead>
 				{showActor ? (
-					<AdminSortableTableHead
-						className="w-[11rem]"
-						onSortChange={onSortChange}
-						sortBy={sortBy}
-						sortKey="user_id"
-						sortOrder={sortOrder}
-					>
+					<AdminTableHead className="w-[11rem]">
 						{t("admin.auditPage.user")}
-					</AdminSortableTableHead>
+					</AdminTableHead>
 				) : null}
-				<AdminSortableTableHead
-					className="w-[15rem]"
-					onSortChange={onSortChange}
-					sortBy={sortBy}
-					sortKey="action"
-					sortOrder={sortOrder}
-				>
+				<AdminTableHead className="w-[15rem]">
 					{t(`${translationPrefix}.action`)}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					className="w-[10rem]"
-					onSortChange={onSortChange}
-					sortBy={sortBy}
-					sortKey="entity_type"
-					sortOrder={sortOrder}
-				>
+				</AdminTableHead>
+				<AdminTableHead className="w-[10rem]">
 					{t(`${translationPrefix}.entity`)}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					onSortChange={onSortChange}
-					sortBy={sortBy}
-					sortKey="entity_name"
-					sortOrder={sortOrder}
-				>
-					{t("common.name")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					className="w-[10rem]"
-					onSortChange={onSortChange}
-					sortBy={sortBy}
-					sortKey="ip_address"
-					sortOrder={sortOrder}
-				>
-					IP
-				</AdminSortableTableHead>
+				</AdminTableHead>
+				<AdminTableHead>{t("common.name")}</AdminTableHead>
+				<AdminTableHead className="w-[10rem]">IP</AdminTableHead>
 			</AdminTableRow>
 		</AdminTableHeader>
 	);

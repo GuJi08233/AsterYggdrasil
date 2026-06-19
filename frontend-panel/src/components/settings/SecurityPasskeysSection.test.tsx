@@ -151,8 +151,9 @@ describe("SecurityPasskeysSection", () => {
 		expect(screen.getByTitle("2026-06-01T00:00:00Z")).toBeInTheDocument();
 		expect(screen.getByTitle("2026-06-02T00:00:00Z")).toBeInTheDocument();
 		expect(authServiceMock.listPasskeysPage).toHaveBeenCalledWith({
+			after_created_at: undefined,
+			after_id: undefined,
 			limit: 20,
-			offset: 0,
 		});
 	});
 
@@ -183,8 +184,9 @@ describe("SecurityPasskeysSection", () => {
 		await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("boom"));
 		expect(screen.getByRole("button", { name: "Add passkey" })).toBeEnabled();
 		expect(authServiceMock.listPasskeysPage).toHaveBeenLastCalledWith({
+			after_created_at: undefined,
+			after_id: undefined,
 			limit: 20,
-			offset: 0,
 		});
 	});
 
@@ -213,8 +215,9 @@ describe("SecurityPasskeysSection", () => {
 		expect(toastMock.success).toHaveBeenCalledWith("Passkey added");
 		await waitFor(() =>
 			expect(authServiceMock.listPasskeysPage).toHaveBeenLastCalledWith({
+				after_created_at: undefined,
+				after_id: undefined,
 				limit: 20,
-				offset: 0,
 			}),
 		);
 		expect(screen.getByPlaceholderText("Device name")).toHaveValue("");

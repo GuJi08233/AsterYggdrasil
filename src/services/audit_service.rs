@@ -19,11 +19,11 @@ pub use details::{
     YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails, YggdrasilTokenAuditDetails,
     details,
 };
-pub use filters::{AuditLogFilterQuery, AuditLogFilters, AuditLogSortQuery};
+pub use filters::{AuditLogFilterQuery, AuditLogFilters};
 pub use manager::{
     AuditLogInput, flush_global_audit_log_manager, init_global_audit_log_manager, log,
     log_with_db_and_config, log_with_details, should_record, should_record_with_config,
     shutdown_global_audit_log_manager,
 };
 pub use models::{AuditLogEntry, AuditPresentation, AuditPresentationMessage, AuditUserSummary};
-pub use query::{cleanup_expired, query};
+pub use query::{cleanup_expired, query, recent};

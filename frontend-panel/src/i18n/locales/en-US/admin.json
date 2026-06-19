@@ -241,6 +241,8 @@
 			"rejectDescription": "{{name}} will not enter the public library. The uploader can see the reason in their wardrobe and submit again.",
 			"unpublishTitle": "Unpublish this texture?",
 			"unpublishDescription": "{{name}} will be removed from the public texture library.",
+			"deleteTitle": "Delete this texture?",
+			"deleteDescription": "{{name}} will be removed from the uploader's wardrobe and unbound from any Minecraft profiles using it. This cannot be undone.",
 			"reviewNote": "Review note",
 			"reviewNotePlaceholder": "Visible handling note for the uploader",
 			"reviewNoteHint": "Optional. The uploader can see this note.",
@@ -251,7 +253,8 @@
 			"unpublishAction": "Unpublish",
 			"approveSuccess": "Texture approved",
 			"rejectSuccess": "Texture rejected",
-			"unpublishSuccess": "Texture unpublished"
+			"unpublishSuccess": "Texture unpublished",
+			"deleteSuccess": "Texture deleted"
 		},
 		"textureLibraryReviewPage": {
 			"title": "Texture Reviews",

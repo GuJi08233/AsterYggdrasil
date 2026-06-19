@@ -15,12 +15,13 @@ export type UserMinecraftProfileItem = {
 export function UserDetailMinecraftSection({
 	currentPage,
 	loading,
-	offset,
+	nextDisabled,
 	onNext,
 	onPageSizeChange,
 	onPrevious,
 	pageSize,
 	pageSizeOptions,
+	prevDisabled,
 	profiles,
 	total,
 	totalPages,
@@ -28,12 +29,13 @@ export function UserDetailMinecraftSection({
 }: {
 	currentPage: number;
 	loading: boolean;
-	offset: number;
+	nextDisabled: boolean;
 	onNext: () => void;
 	onPageSizeChange: (value: string | null) => void;
 	onPrevious: () => void;
 	pageSize: number;
 	pageSizeOptions: Array<{ label: string; value: string }>;
+	prevDisabled: boolean;
 	profiles: UserMinecraftProfileItem[];
 	total: number;
 	totalPages: number;
@@ -102,10 +104,10 @@ export function UserDetailMinecraftSection({
 			</div>
 			<AdminOffsetPagination
 				currentPage={currentPage}
-				nextDisabled={loading || offset + pageSize >= total}
+				nextDisabled={loading || nextDisabled}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={loading || offset === 0}
+				prevDisabled={loading || prevDisabled}
 				total={total}
 				totalPages={totalPages}
 				onNext={onNext}

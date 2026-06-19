@@ -3,7 +3,6 @@ use serde::Deserialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::{IntoParams, ToSchema};
 
-use crate::api::pagination::{AuditLogSortBy, SortOrder};
 use crate::types::AuditEntityType;
 
 #[derive(Debug, Deserialize)]
@@ -18,16 +17,8 @@ pub struct AuditLogFilterQuery {
     pub entity_id: Option<i64>,
     pub after: Option<String>,
     pub before: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(
-    all(debug_assertions, feature = "openapi"),
-    derive(IntoParams, ToSchema)
-)]
-pub struct AuditLogSortQuery {
-    pub sort_by: Option<AuditLogSortBy>,
-    pub sort_order: Option<SortOrder>,
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 pub struct AuditLogFilters {
@@ -37,16 +28,6 @@ pub struct AuditLogFilters {
     pub entity_id: Option<i64>,
     pub after: Option<DateTime<Utc>>,
     pub before: Option<DateTime<Utc>>,
-}
-
-impl AuditLogSortQuery {
-    pub fn sort_by(&self) -> AuditLogSortBy {
-        self.sort_by.unwrap_or(AuditLogSortBy::CreatedAt)
-    }
-
-    pub fn sort_order(&self) -> SortOrder {
-        self.sort_order.unwrap_or(SortOrder::Desc)
-    }
 }
 
 impl AuditLogFilters {
@@ -84,6 +65,8 @@ mod tests {
             entity_id: Some(7),
             after: Some("2026-06-06T01:02:03+08:00".to_string()),
             before: Some("2026-06-07T01:02:03Z".to_string()),
+            after_created_at: None,
+            after_id: None,
         });
 
         assert_eq!(filters.user_id, Some(42));
@@ -109,6 +92,8 @@ mod tests {
             entity_id: None,
             after: Some("not-a-date".to_string()),
             before: Some("2026-99-99T00:00:00Z".to_string()),
+            after_created_at: None,
+            after_id: None,
         });
 
         assert_eq!(filters.user_id, None);

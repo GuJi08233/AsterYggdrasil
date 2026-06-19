@@ -1,4 +1,10 @@
-import { type FormEvent, useCallback, useMemo, useState } from "react";
+import {
+	type FormEvent,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AdminOffsetPagination } from "@/components/admin/AdminOffsetPagination";
@@ -36,12 +42,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TextureLibraryTextureAvatar } from "@/components/yggdrasil/TextureLibraryTextureAvatar";
 import { handleApiError } from "@/hooks/useApiError";
-import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { parsePageSizeOption } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 import { adminTextureLibraryService } from "@/services/adminService";
 import type {
+	DateTimeIdCursor,
 	MinecraftTextureReportReason,
 	MinecraftTextureReportStatus,
 	TextureReportInfo,
@@ -76,7 +82,6 @@ type ReportDialogState = {
 
 export default function AdminTextureLibraryReportsPage() {
 	const { t } = useTranslation();
-	const [offset, setOffset] = useState(0);
 	const [pageSize, setPageSize] = useState<ReportPageSize>(
 		DEFAULT_REPORT_PAGE_SIZE,
 	);
@@ -89,56 +94,77 @@ export default function AdminTextureLibraryReportsPage() {
 	const [submittingReportId, setSubmittingReportId] = useState<number | null>(
 		null,
 	);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
+	const [reports, setReports] = useState<TextureReportInfo[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(true);
 
 	usePageTitle(t("admin.textureLibraryReportsPage.title"));
 
 	const query = useMemo(
 		() => ({
 			limit: pageSize,
-			offset,
+			after_created_at: cursorStack.at(-1)?.value,
+			after_id: cursorStack.at(-1)?.id,
 			status: status === ALL_VALUE ? undefined : status,
 			reason: reason === ALL_VALUE ? undefined : reason,
 		}),
-		[offset, pageSize, reason, status],
+		[cursorStack, pageSize, reason, status],
 	);
-	const {
-		items: reports,
-		loading,
-		reload,
-		setItems: setReports,
-		total,
-	} = useApiList<TextureReportInfo>(
-		() => adminTextureLibraryService.listReports(query),
-		[query],
-	);
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+	const reload = useCallback(async () => {
+		setLoading(true);
+		try {
+			const page = await adminTextureLibraryService.listReports(query);
+			setReports(page.items);
+			setTotal(page.total);
+			setNextCursor(page.next_cursor ?? null);
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			setLoading(false);
+		}
+	}, [query]);
+
+	useEffect(() => {
+		void reload();
+	}, [reload]);
+
+	const resetCursor = useCallback(() => {
+		setCursorStack((current) => (current.length > 0 ? [] : current));
+		setNextCursor((current) => (current ? null : current));
+	}, []);
+
 	const activeFilterCount =
 		(status !== "pending" ? 1 : 0) + (reason !== ALL_VALUE ? 1 : 0);
 	const pagination = useMemo(
 		() => (
 			<AdminOffsetPagination
 				total={total}
-				currentPage={currentPage}
-				totalPages={totalPages}
+				currentPage={cursorStack.length + 1}
+				totalPages={Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1)}
 				pageSize={String(pageSize)}
 				pageSizeOptions={REPORT_PAGE_SIZE_OPTIONS.map((size) => ({
 					label: t("admin.pagination.pageSizeOption", { count: size }),
 					value: String(size),
 				}))}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= total}
-				onPrevious={() => setOffset(Math.max(0, offset - pageSize))}
-				onNext={() => setOffset(offset + pageSize)}
+				prevDisabled={cursorStack.length === 0}
+				nextDisabled={nextCursor === null}
+				onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+				}}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(value, REPORT_PAGE_SIZE_OPTIONS);
 					if (next == null) return;
 					setPageSize(next);
-					setOffset(0);
+					resetCursor();
 				}}
 			/>
 		),
-		[currentPage, offset, pageSize, t, total, totalPages],
+		[cursorStack.length, nextCursor, pageSize, resetCursor, t, total],
 	);
 
 	const openDialog = useCallback(
@@ -242,7 +268,7 @@ export default function AdminTextureLibraryReportsPage() {
 						onResetFilters={() => {
 							setStatus("pending");
 							setReason(ALL_VALUE);
-							setOffset(0);
+							resetCursor();
 						}}
 					>
 						<ReportSelect
@@ -260,7 +286,7 @@ export default function AdminTextureLibraryReportsPage() {
 							]}
 							onChange={(value) => {
 								setStatus(value as FilterValue<MinecraftTextureReportStatus>);
-								setOffset(0);
+								resetCursor();
 							}}
 						/>
 						<ReportSelect
@@ -278,7 +304,7 @@ export default function AdminTextureLibraryReportsPage() {
 							]}
 							onChange={(value) => {
 								setReason(value as FilterValue<MinecraftTextureReportReason>);
-								setOffset(0);
+								resetCursor();
 							}}
 						/>
 					</AdminFilterToolbar>

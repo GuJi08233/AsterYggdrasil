@@ -41,7 +41,7 @@ pub use types::{
     TextureDownload, TextureReportInfo, TextureReportUserInfo, WardrobeRegistrationResult,
 };
 
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
 use crate::db::repository::{
     minecraft_profile_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
     minecraft_texture_report_repo, minecraft_texture_tag_repo, user_repo,
@@ -55,6 +55,7 @@ use crate::types::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
 };
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -88,6 +89,13 @@ pub fn parse_skin_model(
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
 pub struct MinecraftTextureTagMutationResult {
     pub tag: MinecraftTextureTagInfo,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(utoipa::ToSchema))]
+pub struct DeletedTextureLibraryTexture {
+    pub texture: PublicTextureLibraryTextureMetadata,
+    pub deleted_profile_binding_count: u64,
 }
 
 pub async fn list_texture_library_tags<S: DatabaseRuntimeState>(
@@ -215,6 +223,7 @@ pub async fn update_wardrobe_texture_metadata<S>(
     user_id: i64,
     texture_id: i64,
     display_name: Option<NullablePatch<String>>,
+    texture_model: Option<MinecraftTextureModel>,
     visibility: Option<MinecraftTextureVisibility>,
 ) -> Result<MinecraftWardrobeTextureMetadata>
 where
@@ -239,12 +248,20 @@ where
     let display_name = display_name
         .map(normalize_texture_display_name_patch)
         .transpose()?;
+    let texture_model = texture_model.map(|model| {
+        if texture.texture_type == MinecraftTextureType::Skin {
+            model
+        } else {
+            MinecraftTextureModel::Default
+        }
+    });
     let updated = minecraft_texture_repo::update_wardrobe_metadata_for_user(
         state.writer_db(),
         texture,
         user_id,
         minecraft_texture_repo::UpdateWardrobeTextureMetadata {
             display_name,
+            texture_model,
             visibility,
         },
     )
@@ -396,6 +413,47 @@ where
     ))
 }
 
+pub async fn list_admin_texture_library_textures_cursor<S>(
+    state: &S,
+    limit: u64,
+    after: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+    filter: minecraft_texture_repo::AdminTextureLibraryListFilter,
+) -> Result<CursorPage<PublicTextureLibraryTextureMetadata, DateTimeIdCursor>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let limit = limit.clamp(1, 100);
+    let slice = minecraft_texture_repo::list_admin_library_textures_cursor(
+        state.reader_db(),
+        limit,
+        after,
+        filter,
+    )
+    .await?;
+    let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
+    let textures = admin_texture_library_metadata_by_texture_ids(state, &slice.items).await?;
+    Ok(CursorPage::new(
+        textures,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
+    ))
+}
+
+fn texture_next_cursor(
+    textures: &[minecraft_texture::Model],
+    has_more: bool,
+) -> Option<DateTimeIdCursor> {
+    if !has_more {
+        return None;
+    }
+    textures.last().map(|texture| DateTimeIdCursor {
+        value: texture.updated_at,
+        id: texture.id,
+    })
+}
+
 pub async fn get_admin_texture_library_texture<S>(
     state: &S,
     texture_id: i64,
@@ -527,6 +585,70 @@ where
     admin_texture_library_metadata(state, &updated).await
 }
 
+pub async fn delete_texture_library_texture<S>(
+    state: &S,
+    texture_id: i64,
+) -> std::result::Result<DeletedTextureLibraryTexture, TextureError>
+where
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState + RuntimeConfigRuntimeState,
+{
+    if texture_id <= 0 {
+        return Err(TextureError::with_detail(
+            TextureErrorKind::NotFound,
+            format!("texture library texture #{texture_id}"),
+        ));
+    }
+    tracing::debug!(texture_id, "deleting admin texture library texture");
+    let texture = minecraft_texture_repo::find_by_id(state.reader_db(), texture_id)
+        .await
+        .map_err(TextureError::from)?
+        .filter(|texture| texture.is_wardrobe_item)
+        .ok_or_else(|| {
+            TextureError::with_detail(
+                TextureErrorKind::NotFound,
+                format!("texture library texture #{texture_id}"),
+            )
+        })?;
+    let metadata = admin_texture_library_metadata(state, &texture)
+        .await
+        .map_err(TextureError::from)?;
+    let deleted_bindings =
+        minecraft_profile_texture_repo::delete_by_texture_id(state.writer_db(), texture_id)
+            .await
+            .map_err(TextureError::from)?;
+    let Some(deleted_texture) =
+        minecraft_texture_repo::delete_wardrobe_by_id(state.writer_db(), texture_id)
+            .await
+            .map_err(TextureError::from)?
+    else {
+        return Err(TextureError::with_detail(
+            TextureErrorKind::NotFound,
+            format!("texture library texture #{texture_id}"),
+        ));
+    };
+
+    cleanup_texture_blob_if_unreferenced(
+        state,
+        &deleted_texture.storage_key,
+        "admin texture library texture delete",
+    )
+    .await;
+    tracing::debug!(
+        texture_id = deleted_texture.id,
+        hash = %deleted_texture.hash,
+        deleted_profile_binding_count = deleted_bindings.len(),
+        "deleted admin texture library texture"
+    );
+    Ok(DeletedTextureLibraryTexture {
+        texture: metadata,
+        deleted_profile_binding_count: crate::utils::numbers::usize_to_u64(
+            deleted_bindings.len(),
+            "deleted profile texture binding count",
+        )
+        .map_err(TextureError::from)?,
+    })
+}
+
 pub async fn create_texture_library_report<S>(
     state: &S,
     reporter_user_id: i64,
@@ -573,20 +695,33 @@ where
     texture_report_info(state, &report).await
 }
 
-pub async fn list_admin_texture_library_reports_paginated<S>(
+pub async fn list_admin_texture_library_reports_cursor<S>(
     state: &S,
     limit: u64,
-    offset: u64,
     filter: minecraft_texture_report_repo::AdminTextureReportListFilter,
-) -> Result<OffsetPage<TextureReportInfo>>
+    cursor: Option<(DateTime<Utc>, i64)>,
+) -> Result<CursorPage<TextureReportInfo, DateTimeIdCursor>>
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
-    let page =
-        minecraft_texture_report_repo::list_paginated(state.reader_db(), limit, offset, filter)
-            .await?;
+    let page = minecraft_texture_report_repo::list_cursor(state.reader_db(), limit, filter, cursor)
+        .await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|report| DateTimeIdCursor {
+            value: report.created_at,
+            id: report.id,
+        })
+    } else {
+        None
+    };
     let items = texture_report_infos_by_reports(state, &page.items).await?;
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(
+        items,
+        page.total,
+        limit.clamp(1, 100),
+        0,
+        next_cursor,
+    ))
 }
 
 pub async fn get_admin_texture_library_report<S>(
@@ -1571,6 +1706,36 @@ where
     Ok(page)
 }
 
+pub async fn list_wardrobe_textures_cursor<S>(
+    state: &S,
+    user_id: i64,
+    limit: u64,
+    after: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+    filter: minecraft_texture_repo::WardrobeTextureListFilter,
+) -> Result<CursorPage<MinecraftWardrobeTextureMetadata, DateTimeIdCursor>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let limit = limit.clamp(1, 100);
+    let slice = minecraft_texture_repo::list_by_user_cursor(
+        state.reader_db(),
+        user_id,
+        limit,
+        after,
+        filter,
+    )
+    .await?;
+    let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
+    let textures = wardrobe_texture_metadata_by_texture_ids(state, &slice.items).await?;
+    Ok(CursorPage::new(
+        textures,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
+    ))
+}
+
 pub async fn list_public_texture_library_paginated<S>(
     state: &S,
     limit: u64,
@@ -1596,6 +1761,35 @@ where
         "listed public texture library page"
     );
     Ok(page)
+}
+
+pub async fn list_public_texture_library_cursor<S>(
+    state: &S,
+    limit: u64,
+    after: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+    filter: minecraft_texture_repo::WardrobeTextureListFilter,
+) -> Result<CursorPage<PublicTextureLibraryTextureMetadata, DateTimeIdCursor>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    ensure_texture_library_enabled(state)?;
+    let limit = limit.clamp(1, 100);
+    let slice = minecraft_texture_repo::list_public_wardrobe_cursor(
+        state.reader_db(),
+        limit,
+        after,
+        filter,
+    )
+    .await?;
+    let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
+    let textures = public_texture_library_metadata_by_texture_ids(state, &slice.items).await?;
+    Ok(CursorPage::new(
+        textures,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
+    ))
 }
 
 pub async fn get_public_texture_library_texture<S>(

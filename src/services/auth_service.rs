@@ -4,7 +4,6 @@ mod password_change;
 mod token_scope;
 
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::OffsetPage;
 use crate::config::site_url::{PUBLIC_SITE_URL_KEY, normalize_public_site_url_config_value};
 use crate::db::repository::{
     auth_session_repo, contact_verification_token_repo, system_config_repo,
@@ -858,19 +857,35 @@ where
         .collect())
 }
 
-pub async fn list_sessions_paginated<S>(
+pub async fn list_sessions_cursor<S>(
     state: &S,
     user_id: i64,
     current_refresh_token: Option<&str>,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<AuthSessionInfo>>
+    cursor: Option<(chrono::DateTime<chrono::Utc>, String)>,
+) -> Result<
+    crate::api::pagination::CursorPage<
+        AuthSessionInfo,
+        crate::api::pagination::DateTimeStringCursor,
+    >,
+>
 where
     S: DatabaseRuntimeState + AppConfigRuntimeState,
 {
     let current_refresh_jti = optional_refresh_jti_from_token(state, current_refresh_token);
-    let page = auth_session_repo::list_by_user_paginated(state.reader_db(), user_id, limit, offset)
-        .await?;
+    let limit = limit.clamp(1, 100);
+    let page =
+        auth_session_repo::list_by_user_cursor(state.reader_db(), user_id, limit, cursor).await?;
+    let next_cursor = if page.has_more {
+        page.items
+            .last()
+            .map(|session| crate::api::pagination::DateTimeStringCursor {
+                value: session.last_seen_at,
+                id: session.id.clone(),
+            })
+    } else {
+        None
+    };
     let items = page
         .items
         .into_iter()
@@ -880,12 +895,17 @@ where
         user_id,
         returned = items.len(),
         total = page.total,
-        limit = page.limit,
-        offset = page.offset,
+        limit,
         has_current_refresh_token = current_refresh_jti.is_some(),
         "listed auth sessions page"
     );
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(crate::api::pagination::CursorPage::new(
+        items,
+        page.total,
+        limit,
+        0,
+        next_cursor,
+    ))
 }
 
 pub async fn cleanup_expired_auth_sessions<S: DatabaseRuntimeState>(state: &S) -> Result<u64> {

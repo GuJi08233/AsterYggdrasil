@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
@@ -9,10 +9,12 @@ import LoginPage from "./LoginPage";
 const authServiceMock = vi.hoisted(() => ({
 	check: vi.fn(),
 	finishPasskeyLogin: vi.fn(),
+	linkExternalAuthWithPassword: vi.fn(),
 	login: vi.fn(),
 	me: vi.fn(),
 	register: vi.fn(),
 	setup: vi.fn(),
+	startExternalAuthEmailVerification: vi.fn(),
 	startPasskeyLogin: vi.fn(),
 }));
 
@@ -26,6 +28,14 @@ const toastMock = vi.hoisted(() => ({
 	success: vi.fn(),
 }));
 
+const translationMock = vi.hoisted(() => ({
+	i18n: {
+		changeLanguage: vi.fn(),
+		language: "en-US",
+	},
+	t: (key: string) => key,
+}));
+
 vi.mock("@/services/authService", () => ({
 	authService: authServiceMock,
 }));
@@ -36,6 +46,14 @@ vi.mock("@/services/externalAuthService", () => ({
 
 vi.mock("sonner", () => ({
 	toast: toastMock,
+}));
+
+vi.mock("react-i18next", () => ({
+	initReactI18next: {
+		init: vi.fn(),
+		type: "3rdParty",
+	},
+	useTranslation: () => translationMock,
 }));
 
 const user: AuthUserInfo = {
@@ -61,8 +79,19 @@ const user: AuthUserInfo = {
 function renderLoginPage(initialEntry = "/login") {
 	return render(
 		<MemoryRouter initialEntries={[initialEntry]}>
+			<LocationProbe />
 			<LoginPage />
 		</MemoryRouter>,
+	);
+}
+
+function LocationProbe() {
+	const location = useLocation();
+	return (
+		<output data-testid="location">
+			{location.pathname}
+			{location.search}
+		</output>
 	);
 }
 
@@ -86,6 +115,15 @@ describe("LoginPage", () => {
 		});
 		authServiceMock.finishPasskeyLogin.mockResolvedValue({
 			expires_in: 3600,
+			status: "authenticated",
+		});
+		authServiceMock.startExternalAuthEmailVerification.mockResolvedValue({
+			message: "ok",
+		});
+		authServiceMock.linkExternalAuthWithPassword.mockResolvedValue({
+			expires_in: 3600,
+			flow_token: null,
+			return_path: "/account",
 			status: "authenticated",
 		});
 		authServiceMock.me.mockResolvedValue(user);
@@ -113,6 +151,177 @@ describe("LoginPage", () => {
 			}),
 		);
 		expect(toastMock.success).toHaveBeenCalledWith("login.loginSuccess");
+	});
+
+	it("opens external auth recovery from callback query and clears callback params", async () => {
+		renderLoginPage(
+			"/login?external_auth=email_required&flow=flow-1&return_path=%2Faccount%2Fwardrobe&kept=1",
+		);
+
+		expect(
+			await screen.findByText("login.externalAuthRecoveryTitle"),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("tab", { name: "login.externalAuthPasswordTab" }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("tab", { name: "login.externalAuthEmailTab" }),
+		).toBeInTheDocument();
+		expect(screen.getByLabelText("login.identifier")).toHaveValue("");
+		await waitFor(() =>
+			expect(screen.getByTestId("location")).toHaveTextContent("/login?kept=1"),
+		);
+	});
+
+	it("links an external auth flow to an existing account with password", async () => {
+		renderLoginPage(
+			"/login?external_auth=email_required&flow=flow-1&return_path=%2Faccount%2Fwardrobe",
+		);
+
+		fireEvent.change(await screen.findByLabelText("login.identifier"), {
+			target: { value: "  alex  " },
+		});
+		fireEvent.change(screen.getByLabelText("login.password"), {
+			target: { value: "secret-password" },
+		});
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "login.externalAuthPasswordSubmit",
+			}),
+		);
+
+		await waitFor(() =>
+			expect(authServiceMock.linkExternalAuthWithPassword).toHaveBeenCalledWith(
+				{
+					flow_token: "flow-1",
+					identifier: "alex",
+					password: "secret-password",
+				},
+			),
+		);
+		expect(toastMock.success).not.toHaveBeenCalledWith(
+			"login.externalAuthPasswordLinked",
+		);
+		await waitFor(() =>
+			expect(screen.getByTestId("location")).toHaveTextContent(
+				"/account/wardrobe?auth_redirect=external_auth_linked",
+			),
+		);
+	});
+
+	it("does not submit external auth password linking until required fields are present", async () => {
+		renderLoginPage("/login?external_auth=email_required&flow=flow-1");
+
+		const submitButton = await screen.findByRole("button", {
+			name: "login.externalAuthPasswordSubmit",
+		});
+		expect(submitButton).toBeDisabled();
+
+		fireEvent.change(screen.getByLabelText("login.identifier"), {
+			target: { value: "alex" },
+		});
+		expect(submitButton).toBeDisabled();
+		expect(authServiceMock.linkExternalAuthWithPassword).not.toHaveBeenCalled();
+
+		fireEvent.change(screen.getByLabelText("login.password"), {
+			target: { value: "secret-password" },
+		});
+		expect(submitButton).not.toBeDisabled();
+	});
+
+	it("sends password-change-required external auth links to force password change", async () => {
+		authServiceMock.linkExternalAuthWithPassword.mockResolvedValue({
+			expires_in: null,
+			flow_token: null,
+			return_path: "/account",
+			status: "password_change_required",
+		});
+		renderLoginPage(
+			"/login?external_auth=email_required&flow=flow-1&return_path=%2Faccount",
+		);
+
+		fireEvent.change(await screen.findByLabelText("login.identifier"), {
+			target: { value: "alex" },
+		});
+		fireEvent.change(screen.getByLabelText("login.password"), {
+			target: { value: "secret-password" },
+		});
+		fireEvent.click(
+			screen.getByRole("button", {
+				name: "login.externalAuthPasswordSubmit",
+			}),
+		);
+
+		await waitFor(() =>
+			expect(screen.getByTestId("location")).toHaveTextContent(
+				"/force-password-change?auth_redirect=external_auth_linked",
+			),
+		);
+	});
+
+	it("validates and requests external auth email verification", async () => {
+		renderLoginPage("/login?external_auth=email_required&flow=flow-1");
+
+		fireEvent.click(
+			await screen.findByRole("tab", { name: "login.externalAuthEmailTab" }),
+		);
+		const emailInput = screen.getByLabelText("login.email");
+		const submitButton = screen.getByRole("button", {
+			name: "login.externalAuthEmailSubmit",
+		});
+
+		expect(submitButton).toBeDisabled();
+		fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+		expect(
+			screen.getByText("login.validationEmailInvalid"),
+		).toBeInTheDocument();
+		expect(submitButton).toBeDisabled();
+
+		fireEvent.change(emailInput, { target: { value: " alex@example.com " } });
+		expect(
+			screen.queryByText("login.validationEmailInvalid"),
+		).not.toBeInTheDocument();
+		expect(submitButton).not.toBeDisabled();
+		fireEvent.click(submitButton);
+
+		await waitFor(() =>
+			expect(
+				authServiceMock.startExternalAuthEmailVerification,
+			).toHaveBeenCalledWith({
+				email: "alex@example.com",
+				flow_token: "flow-1",
+			}),
+		);
+		expect(toastMock.success).toHaveBeenCalledWith(
+			"login.externalAuthEmailSentToast",
+		);
+		expect(
+			await screen.findByText("login.externalAuthEmailSentTitle"),
+		).toBeInTheDocument();
+	});
+
+	it.each([
+		[
+			"/login?external_auth=email_verification_missing",
+			"login.externalAuthEmailMissing",
+		],
+		[
+			"/login?external_auth=email_verification_invalid",
+			"login.externalAuthEmailInvalid",
+		],
+		[
+			"/login?external_auth=email_verification_expired",
+			"login.externalAuthEmailExpired",
+		],
+		["/login?external_auth=error&message=provider%20down", "provider down"],
+		["/login?external_auth=error", "login.externalAuthFailed"],
+	] as const)("shows external auth callback error for %s", async (entry, message) => {
+		renderLoginPage(entry);
+
+		await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith(message));
+		await waitFor(() =>
+			expect(screen.getByTestId("location")).toHaveTextContent("/login"),
+		);
 	});
 
 	it("disables password login until required fields are valid", async () => {

@@ -159,7 +159,7 @@ function listLinks(options?: AbortSignal | CachedRequestOptions) {
 	const requestSerial = ++linksCacheSerial;
 	const request = api
 		.get<ExternalAuthLinkPage>(
-			withQuery("/auth/external-auth/links", { limit: 20, offset: 0 }),
+			withQuery("/auth/external-auth/links", { limit: 20 }),
 			{ signal },
 		)
 		.then((page) => {
@@ -186,7 +186,11 @@ function listLinksPage(
 ) {
 	const { signal } = normalizeOptions(options);
 	return api.get<ExternalAuthLinkPage>(
-		withQuery("/auth/external-auth/links", params),
+		withQuery("/auth/external-auth/links", {
+			limit: params.limit,
+			after_created_at: params.after_created_at,
+			after_id: params.after_id,
+		}),
 		{ signal },
 	);
 }

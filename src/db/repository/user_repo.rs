@@ -1,6 +1,5 @@
 //! User repository.
 
-use crate::api::pagination::{AdminUserSortBy, OffsetPage, SortOrder, load_offset_page};
 use crate::db::repository::search_query;
 use crate::entities::{
     auth_session, minecraft_profile,
@@ -10,8 +9,8 @@ use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{UserRole, UserStatus};
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, ExprTrait, PaginatorTrait,
-    QueryFilter, QueryOrder, QuerySelect, Set, sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set, sea_query::Expr,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -19,6 +18,13 @@ pub struct AdminUserFilters {
     pub keyword: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<UserStatus>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserCursorSlice {
+    pub items: Vec<user::Model>,
+    pub total: u64,
+    pub has_more: bool,
 }
 
 pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
@@ -118,31 +124,50 @@ pub async fn find_by_public_uuid<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_admin_paginated<C: ConnectionTrait>(
+pub async fn list_admin_cursor<C: ConnectionTrait>(
     db: &C,
     filters: AdminUserFilters,
-    sort_by: AdminUserSortBy,
-    sort_order: SortOrder,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<user::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = apply_admin_filters(User::find(), &filters);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let query = apply_admin_sort(query, sort_by, sort_order);
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
+    after: Option<(DateTime<Utc>, i64)>,
+) -> Result<UserCursorSlice> {
+    let limit = limit.clamp(1, 100);
+    let mut query = apply_admin_filters(User::find(), &filters);
+    let total = query
+        .clone()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+
+    if let Some((created_at, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(user::Column::CreatedAt.lt(created_at))
+                .add(
+                    Condition::all()
+                        .add(user::Column::CreatedAt.eq(created_at))
+                        .add(user::Column::Id.lt(id)),
+                ),
+        );
+    }
+
+    let fetch_limit = limit.saturating_add(1);
+    let mut items = query
+        .order_by_desc(user::Column::CreatedAt)
+        .order_by_desc(user::Column::Id)
+        .limit(fetch_limit)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "admin user page size")? > limit;
+    if has_more {
+        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
+    }
+    Ok(UserCursorSlice {
+        items,
+        total,
+        has_more,
     })
-    .await
 }
 
 fn apply_admin_filters(
@@ -168,26 +193,6 @@ fn apply_admin_filters(
         );
     }
     query
-}
-
-fn apply_admin_sort(
-    query: sea_orm::Select<User>,
-    sort_by: AdminUserSortBy,
-    sort_order: SortOrder,
-) -> sea_orm::Select<User> {
-    let column = match sort_by {
-        AdminUserSortBy::Id => user::Column::Id,
-        AdminUserSortBy::Username => user::Column::Username,
-        AdminUserSortBy::Email => user::Column::Email,
-        AdminUserSortBy::Role => user::Column::Role,
-        AdminUserSortBy::Status => user::Column::Status,
-        AdminUserSortBy::CreatedAt => user::Column::CreatedAt,
-        AdminUserSortBy::UpdatedAt => user::Column::UpdatedAt,
-    };
-    match sort_order {
-        SortOrder::Asc => query.order_by_asc(column),
-        SortOrder::Desc => query.order_by_desc(column),
-    }
 }
 
 pub async fn count_profiles_by_user_ids<C: ConnectionTrait>(

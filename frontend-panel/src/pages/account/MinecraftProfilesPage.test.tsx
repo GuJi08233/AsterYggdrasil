@@ -155,7 +155,11 @@ function offsetPage(
 	offset = 0,
 	total = items.length,
 ): YggdrasilProfilePage {
-	return { items, limit, offset, total };
+	const next_cursor =
+		items.length > 0 && total > items.length
+			? { id: Number(items.at(-1)?.id.replace(/\D/g, "")) || items.length }
+			: null;
+	return { items, limit, next_cursor, offset, total };
 }
 
 const baseProfiles = [
@@ -267,8 +271,8 @@ describe("MinecraftProfilesPage", () => {
 		await renderPage();
 
 		expect(yggdrasilServiceMock.listProfiles).toHaveBeenCalledWith({
+			after_id: undefined,
 			limit: 5,
-			offset: 0,
 		});
 		await waitFor(() => {
 			expect(yggdrasilServiceMock.listProfileTextures).toHaveBeenCalledWith(
@@ -381,8 +385,8 @@ describe("MinecraftProfilesPage", () => {
 		expect(screen.getByTestId("profile-search-spinner")).toBeInTheDocument();
 		await waitFor(() => {
 			expect(yggdrasilServiceMock.listProfiles).toHaveBeenLastCalledWith({
+				after_id: undefined,
 				limit: 5,
-				offset: 0,
 				query: "second",
 			});
 		});
@@ -406,8 +410,8 @@ describe("MinecraftProfilesPage", () => {
 		);
 		await waitFor(() => {
 			expect(yggdrasilServiceMock.listProfiles).toHaveBeenLastCalledWith({
+				after_id: undefined,
 				limit: 5,
-				offset: 0,
 				query: "missing",
 			});
 		});
@@ -458,13 +462,15 @@ describe("MinecraftProfilesPage", () => {
 		});
 		await waitFor(() => {
 			expect(yggdrasilServiceMock.listProfiles).toHaveBeenLastCalledWith({
+				after_id: undefined,
 				limit: 5,
-				offset: 0,
 			});
 		});
 		expect(screen.getByLabelText("profiles.profileName")).toHaveValue("");
-		expect(screen.getByTestId("minecraft-preview")).toHaveTextContent(
-			"CreatedName",
+		await waitFor(() =>
+			expect(screen.getByTestId("minecraft-preview")).toHaveTextContent(
+				"CreatedName",
+			),
 		);
 	});
 
@@ -919,8 +925,8 @@ describe("MinecraftProfilesPage", () => {
 			);
 		});
 		expect(yggdrasilServiceMock.listProfiles).toHaveBeenLastCalledWith({
+			after_id: undefined,
 			limit: 5,
-			offset: 0,
 		});
 		expect(toastMock.success).toHaveBeenCalledWith(
 			"profiles.deleteProfileToast",

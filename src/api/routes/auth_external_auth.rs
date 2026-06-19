@@ -4,9 +4,11 @@ use crate::api::dto::{ExternalAuthCallbackQuery, StartExternalAuthReq, validate_
 use crate::api::error_code::AsterErrorCode;
 use crate::api::middleware::auth::JwtAuth;
 use crate::api::middleware::csrf::{self, RequestSourceMode};
-use crate::api::pagination::LimitOffsetQuery;
+use crate::api::pagination::{
+    CreatedAtCursorQuery, LimitOffsetQuery, LimitQuery, parse_datetime_id_cursor,
+};
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
 use crate::api::response::ApiResponse;
 use crate::config::site_url;
 use crate::errors::{AsterError, Result};
@@ -17,6 +19,9 @@ use crate::types::ExternalAuthKind;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
 use serde::Serialize;
+
+const AUTH_REDIRECT_PARAM: &str = "auth_redirect";
+const AUTH_REDIRECT_LOGIN_SUCCESS: &str = "login_success";
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -222,8 +227,10 @@ pub async fn finish_login(
             } else {
                 &result.primary_login.return_path
             };
-            let redirect_url =
-                site_url::public_app_url_or_path(state.get_ref().runtime_config(), redirect_path);
+            let redirect_url = add_auth_redirect_status(
+                site_url::public_app_url_or_path(state.get_ref().runtime_config(), redirect_path),
+                AUTH_REDIRECT_LOGIN_SUCCESS,
+            );
             Ok(super::auth::authenticated_redirect_response(
                 state.get_ref(),
                 session,
@@ -327,8 +334,10 @@ pub async fn confirm_email_verification(
     } else {
         &result.primary_login.return_path
     };
-    let redirect_url =
-        site_url::public_app_url_or_path(state.get_ref().runtime_config(), redirect_path);
+    let redirect_url = add_auth_redirect_status(
+        site_url::public_app_url_or_path(state.get_ref().runtime_config(), redirect_path),
+        AUTH_REDIRECT_LOGIN_SUCCESS,
+    );
     super::auth::authenticated_redirect_response(state.get_ref(), session, redirect_url)
 }
 
@@ -386,9 +395,9 @@ pub async fn link_with_password(
     path = "/api/v1/auth/external-auth/links",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_links",
-    params(LimitOffsetQuery),
+    params(LimitQuery, CreatedAtCursorQuery),
     responses(
-        (status = 200, description = "Linked external auth identities", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthLinkInfo>>)),
+        (status = 200, description = "Linked external auth identities", body = inline(ApiResponse<CursorPage<external_auth_service::ExternalAuthLinkInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Not authenticated"),
     ),
     security(("bearer" = [])),
@@ -396,13 +405,19 @@ pub async fn link_with_password(
 pub async fn list_links(
     state: web::Data<AppState>,
     user: web::ReqData<AuthUserInfo>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor_query: web::Query<CreatedAtCursorQuery>,
 ) -> Result<HttpResponse> {
+    let cursor = parse_datetime_id_cursor(
+        cursor_query.after_created_at,
+        cursor_query.after_id,
+        "external auth link",
+    )?;
     let links = external_auth_service::list_links_paginated(
         state.get_ref(),
         user.id,
         page.limit_or(20, 100),
-        page.offset(),
+        cursor,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(links)))
@@ -475,6 +490,22 @@ fn external_auth_status_redirect_response(state: &AppState, status: &str) -> Htt
         .finish()
 }
 
+fn add_auth_redirect_status(location: String, status: &str) -> String {
+    let (base, hash) = location
+        .split_once('#')
+        .map_or((location.as_str(), ""), |(base, hash)| (base, hash));
+    let separator = if base.contains('?') { '&' } else { '?' };
+    let mut next = format!(
+        "{base}{separator}{AUTH_REDIRECT_PARAM}={}",
+        urlencoding::encode(status)
+    );
+    if !hash.is_empty() {
+        next.push('#');
+        next.push_str(hash);
+    }
+    next
+}
+
 async fn ensure_provider_kind(
     state: &AppState,
     kind: ExternalAuthKind,
@@ -487,4 +518,28 @@ async fn ensure_provider_kind(
     Err(AsterError::record_not_found(format!(
         "external auth provider {provider}"
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::add_auth_redirect_status;
+
+    #[test]
+    fn add_auth_redirect_status_preserves_existing_query_and_hash() {
+        assert_eq!(
+            add_auth_redirect_status("/account".to_string(), "login_success"),
+            "/account?auth_redirect=login_success"
+        );
+        assert_eq!(
+            add_auth_redirect_status("/account?tab=skins".to_string(), "login_success"),
+            "/account?tab=skins&auth_redirect=login_success"
+        );
+        assert_eq!(
+            add_auth_redirect_status(
+                "http://localhost:8080/account?tab=skins#profile".to_string(),
+                "login_success",
+            ),
+            "http://localhost:8080/account?tab=skins&auth_redirect=login_success#profile"
+        );
+    }
 }

@@ -7,6 +7,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import { persistLanguagePreference } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 type LanguageMenuProps = {
@@ -26,7 +27,9 @@ export function LanguageMenu({
 		language === "zh-CN" ? t("login.languageZh") : t("login.languageEn");
 
 	function changeLanguage(nextLanguage: string) {
-		if (nextLanguage !== language) void i18n.changeLanguage(nextLanguage);
+		if (nextLanguage === language) return;
+		persistLanguagePreference(nextLanguage);
+		void i18n.changeLanguage(nextLanguage);
 	}
 
 	return (

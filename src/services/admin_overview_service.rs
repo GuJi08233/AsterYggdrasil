@@ -4,7 +4,6 @@ use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
-use crate::api::pagination::{AuditLogSortBy, SortOrder};
 use crate::api::response::SystemInfoResponse;
 use crate::api::routes::health;
 use crate::db::repository::{
@@ -161,7 +160,7 @@ pub async fn overview(state: &AppState) -> Result<AdminOverviewResp> {
     let processing_task_count = background_task_repo::count_processing(state.reader_db()).await?;
     let pending_task_count =
         background_task_repo::count_pending_or_retry(state.reader_db()).await?;
-    let recent_activity = audit_service::query(
+    let recent_activity = audit_service::recent(
         state,
         audit_service::AuditLogFilters {
             user_id: None,
@@ -172,12 +171,8 @@ pub async fn overview(state: &AppState) -> Result<AdminOverviewResp> {
             before: None,
         },
         RECENT_ACTIVITY_LIMIT,
-        0,
-        AuditLogSortBy::CreatedAt,
-        SortOrder::Desc,
     )
-    .await?
-    .items;
+    .await?;
     let system_health = load_system_health_summary(state).await?;
     let activity_trend = load_activity_trend(state).await?;
 
@@ -570,6 +565,8 @@ mod tests {
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
             yggdrasil_rate_limiter: AppState::new_yggdrasil_rate_limiter(&config),
+            yggdrasil_session_forward_http_client:
+                AppState::new_yggdrasil_session_forward_http_client(),
             background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
         }
     }

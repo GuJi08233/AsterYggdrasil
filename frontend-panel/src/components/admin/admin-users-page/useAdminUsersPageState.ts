@@ -1,31 +1,14 @@
 import { useReducer } from "react";
-import {
-	parseOffsetSearchParam,
-	parsePageSizeSearchParam,
-	parseSortOrderSearchParam,
-	parseSortSearchParam,
-	type SortOrder,
-} from "@/lib/pagination";
+import { parsePageSizeSearchParam } from "@/lib/pagination";
 import type {
 	AdminUserInfo,
-	AdminUserSortBy,
+	DateTimeIdCursor,
 	UserRole,
 	UserStatus,
 } from "@/types/api";
 
 export const USER_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 export const DEFAULT_USER_PAGE_SIZE = 20 as const;
-export const USER_SORT_BY_OPTIONS = [
-	"id",
-	"username",
-	"email",
-	"role",
-	"status",
-	"created_at",
-	"updated_at",
-] as const satisfies readonly AdminUserSortBy[];
-export const DEFAULT_SORT_BY = "created_at" as const satisfies AdminUserSortBy;
-export const DEFAULT_SORT_ORDER = "desc" as const satisfies SortOrder;
 
 export type UserFilterValue<T extends string> = "__all__" | T;
 
@@ -37,13 +20,12 @@ export type AdminUsersPageState = {
 	items: AdminUserInfo[];
 	keyword: string;
 	loading: boolean;
-	offset: number;
+	cursorStack: DateTimeIdCursor[];
+	nextCursor: DateTimeIdCursor | null;
 	pageSize: (typeof USER_PAGE_SIZE_OPTIONS)[number];
 	revokingId: number | null;
 	revokingUser: AdminUserInfo | null;
 	role: UserFilterValue<UserRole>;
-	sortBy: AdminUserSortBy;
-	sortOrder: SortOrder;
 	status: UserFilterValue<UserStatus>;
 	submitting: boolean;
 	total: number;
@@ -56,15 +38,21 @@ export type AdminUsersPageAction =
 	| { type: "deletingUser"; value: AdminUserInfo | null }
 	| { type: "keyword"; value: string }
 	| { type: "loadStart" }
-	| { type: "loadSuccess"; items: AdminUserInfo[]; total: number }
+	| {
+			type: "loadSuccess";
+			items: AdminUserInfo[];
+			nextCursor: DateTimeIdCursor | null;
+			total: number;
+	  }
 	| { type: "loading"; value: boolean }
-	| { type: "offset"; value: number | ((current: number) => number) }
+	| { type: "nextPage" }
 	| { type: "pageSize"; value: (typeof USER_PAGE_SIZE_OPTIONS)[number] }
+	| { type: "previousPage" }
+	| { type: "resetCursor" }
 	| { type: "resetFilters" }
 	| { type: "revokingId"; value: number | null }
 	| { type: "revokingUser"; value: AdminUserInfo | null }
 	| { type: "role"; value: UserFilterValue<UserRole> }
-	| { type: "sort"; sortBy: AdminUserSortBy; sortOrder: SortOrder }
 	| { type: "status"; value: UserFilterValue<UserStatus> }
 	| { type: "submitting"; value: boolean };
 
@@ -82,7 +70,7 @@ function reducer(
 		case "deletingUser":
 			return { ...state, deletingUser: action.value };
 		case "keyword":
-			return { ...state, keyword: action.value, offset: 0 };
+			return resetCursor({ ...state, keyword: action.value });
 		case "loadStart":
 			return { ...state, loading: true };
 		case "loadSuccess":
@@ -90,26 +78,35 @@ function reducer(
 				...state,
 				items: action.items,
 				loading: false,
+				nextCursor: action.nextCursor,
 				total: action.total,
 			};
 		case "loading":
 			return { ...state, loading: action.value };
-		case "offset":
+		case "nextPage":
+			if (!state.nextCursor) return state;
 			return {
 				...state,
-				offset:
-					typeof action.value === "function"
-						? action.value(state.offset)
-						: action.value,
+				cursorStack: [...state.cursorStack, state.nextCursor],
+				nextCursor: null,
 			};
 		case "pageSize":
-			return { ...state, pageSize: action.value, offset: 0 };
+			return resetCursor({ ...state, pageSize: action.value });
+		case "previousPage":
+			return {
+				...state,
+				cursorStack: state.cursorStack.slice(0, -1),
+				nextCursor: null,
+			};
+		case "resetCursor":
+			return resetCursor(state);
 		case "resetFilters":
 			return {
 				...state,
 				debouncedKeyword: "",
 				keyword: "",
-				offset: 0,
+				cursorStack: [],
+				nextCursor: null,
 				role: "__all__",
 				status: "__all__",
 			};
@@ -118,19 +115,16 @@ function reducer(
 		case "revokingUser":
 			return { ...state, revokingUser: action.value };
 		case "role":
-			return { ...state, role: action.value, offset: 0 };
-		case "sort":
-			return {
-				...state,
-				offset: 0,
-				sortBy: action.sortBy,
-				sortOrder: action.sortOrder,
-			};
+			return resetCursor({ ...state, role: action.value });
 		case "status":
-			return { ...state, status: action.value, offset: 0 };
+			return resetCursor({ ...state, status: action.value });
 		case "submitting":
 			return { ...state, submitting: action.value };
 	}
+}
+
+function resetCursor(state: AdminUsersPageState): AdminUsersPageState {
+	return { ...state, cursorStack: [], nextCursor: null };
 }
 
 export function useAdminUsersPageState(searchParams: URLSearchParams) {
@@ -144,7 +138,8 @@ export function useAdminUsersPageState(searchParams: URLSearchParams) {
 			items: [],
 			keyword,
 			loading: true,
-			offset: parseOffsetSearchParam(params.get("offset")),
+			cursorStack: [],
+			nextCursor: null,
 			pageSize: parsePageSizeSearchParam(
 				params.get("pageSize"),
 				USER_PAGE_SIZE_OPTIONS,
@@ -153,15 +148,6 @@ export function useAdminUsersPageState(searchParams: URLSearchParams) {
 			revokingId: null,
 			revokingUser: null,
 			role: parseRole(params.get("role")),
-			sortBy: parseSortSearchParam(
-				params.get("sortBy"),
-				USER_SORT_BY_OPTIONS,
-				DEFAULT_SORT_BY,
-			),
-			sortOrder: parseSortOrderSearchParam(
-				params.get("sortOrder"),
-				DEFAULT_SORT_ORDER,
-			),
 			status: parseStatus(params.get("status")),
 			submitting: false,
 			total: 0,

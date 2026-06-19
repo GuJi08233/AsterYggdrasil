@@ -243,9 +243,7 @@ describe("authService", () => {
 		await authService.renamePasskey(7, { name: "Desk Mac" });
 		await authService.deletePasskey(7);
 
-		expect(apiMock.get).toHaveBeenCalledWith(
-			"/auth/passkeys?limit=20&offset=0",
-		);
+		expect(apiMock.get).toHaveBeenCalledWith("/auth/passkeys?limit=20");
 		expect(apiMock.post).toHaveBeenCalledWith("/auth/passkeys/register/start", {
 			name: "MacBook",
 		});
@@ -424,18 +422,22 @@ describe("admin services", () => {
 			status: "pending" as const,
 			updated_at: "2026-06-18T00:00:00Z",
 		} satisfies import("@/types/api").AdminUserInvitationInfo;
-		apiMock.get.mockResolvedValueOnce(offsetPage([invitation], 10, 20, 1));
+		apiMock.get.mockResolvedValueOnce(offsetPage([invitation], 10, 0, 1));
 		apiMock.post
 			.mockResolvedValueOnce(invitation)
 			.mockResolvedValueOnce({ ...invitation, status: "revoked" });
 		const { adminUserService } = await import("./adminService");
 
-		await adminUserService.listInvitations({ limit: 10, offset: 20 });
+		await adminUserService.listInvitations({
+			after_created_at: "2026-06-18T00:00:00Z",
+			after_id: 42,
+			limit: 10,
+		});
 		await adminUserService.createInvitation({ email: "invitee@example.com" });
 		await adminUserService.revokeInvitation(42);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/admin/users/invitations?limit=10&offset=20",
+			"/admin/users/invitations?limit=10&after_created_at=2026-06-18T00%3A00%3A00Z&after_id=42",
 		);
 		expect(apiMock.post).toHaveBeenNthCalledWith(
 			1,
@@ -484,7 +486,12 @@ describe("admin services", () => {
 		apiMock.deleteRequest.mockResolvedValueOnce(undefined);
 		const { adminUserService } = await import("./adminService");
 
-		await adminUserService.list({ limit: 20, offset: 0, keyword: "alex" });
+		await adminUserService.list({
+			after_created_at: "2026-06-18T00:00:00Z",
+			after_id: 7,
+			limit: 20,
+			keyword: "alex",
+		});
 		await adminUserService.get(7);
 		await adminUserService.create({
 			username: "alex",
@@ -498,7 +505,7 @@ describe("admin services", () => {
 
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			1,
-			"/admin/users?limit=20&offset=0&keyword=alex&sort_by=created_at&sort_order=desc",
+			"/admin/users?limit=20&keyword=alex&after_created_at=2026-06-18T00%3A00%3A00Z&after_id=7",
 		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(2, "/admin/users/7");
 		expect(apiMock.post).toHaveBeenNthCalledWith(1, "/admin/users", {
@@ -775,10 +782,11 @@ describe("admin services", () => {
 		const { adminTextureLibraryService } = await import("./adminService");
 
 		await adminTextureLibraryService.listTextures({
+			after_id: 42,
+			after_updated_at: "2026-06-15T00:00:00Z",
 			keyword: "Review",
 			library_status: "pending_review",
 			limit: 20,
-			offset: 0,
 			published: false,
 			tag_ids: [3, 4],
 			tag_search_method: "any",
@@ -786,6 +794,7 @@ describe("admin services", () => {
 			visibility: "public",
 		});
 		await adminTextureLibraryService.getTexture(12);
+		await adminTextureLibraryService.deleteTexture(12);
 		await adminTextureLibraryService.approveTexture(12, {
 			review_note: "ok",
 			tag_ids: [3],
@@ -797,8 +806,9 @@ describe("admin services", () => {
 			review_note: null,
 		});
 		await adminTextureLibraryService.listReports({
+			after_created_at: "2026-06-15T00:00:00Z",
+			after_id: 7,
 			limit: 20,
-			offset: 0,
 			reason: "copyright",
 			status: "pending",
 			texture_id: 12,
@@ -813,15 +823,18 @@ describe("admin services", () => {
 
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			1,
-			"/admin/texture-library/textures?limit=20&offset=0&keyword=Review&texture_type=skin&visibility=public&library_status=pending_review&published=false&tag_ids=3%2C4&tag_search_method=any",
+			"/admin/texture-library/textures?limit=20&after_updated_at=2026-06-15T00%3A00%3A00Z&after_id=42&keyword=Review&texture_type=skin&visibility=public&library_status=pending_review&published=false&tag_ids=3%2C4&tag_search_method=any",
 		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			2,
 			"/admin/texture-library/textures/12",
 		);
+		expect(apiMock.deleteRequest).toHaveBeenCalledWith(
+			"/admin/texture-library/textures/12",
+		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			3,
-			"/admin/texture-library/reports?limit=20&offset=0&status=pending&reason=copyright&texture_id=12",
+			"/admin/texture-library/reports?limit=20&status=pending&reason=copyright&texture_id=12&after_created_at=2026-06-15T00%3A00%3A00Z&after_id=7",
 		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			4,
@@ -1347,9 +1360,10 @@ describe("yggdrasilService", () => {
 		const { yggdrasilService } = await import("./yggdrasilService");
 
 		await yggdrasilService.listPublicTextureLibraryTextures({
+			after_id: 31,
+			after_updated_at: "2026-06-15T00:00:00Z",
 			keyword: "Shared",
 			limit: 12,
-			offset: 24,
 			tag_ids: [3],
 			tag_search_method: "all",
 			texture_type: "skin",
@@ -1370,7 +1384,7 @@ describe("yggdrasilService", () => {
 		await yggdrasilService.withdrawTextureLibrarySubmission(12);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/texture-library/textures?keyword=Shared&limit=12&offset=24&tag_ids=3&tag_search_method=all&texture_type=skin",
+			"/texture-library/textures?limit=12&after_updated_at=2026-06-15T00%3A00%3A00Z&after_id=31&keyword=Shared&texture_type=skin&tag_ids=3&tag_search_method=all",
 		);
 		expect(apiMock.get).toHaveBeenCalledWith(
 			"/texture-library/tags?limit=30&offset=0&keyword=Featured",

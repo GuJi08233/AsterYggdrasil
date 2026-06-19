@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useCallback, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,7 +17,6 @@ import { AdminPageShell } from "@/components/layout/AdminPageShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
-import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { parsePageSizeOption } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,7 @@ import { adminUserService } from "@/services/adminService";
 import type {
 	AdminUserInvitationInfo,
 	CreateUserInvitationRequest,
+	DateTimeIdCursor,
 } from "@/types/api";
 
 const INVITATION_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
@@ -96,15 +96,6 @@ function initInviteState(): InviteState {
 	};
 }
 
-function normalizeOffset(value: number) {
-	return Math.max(0, Math.floor(value));
-}
-
-function parseOffset(value: string | null) {
-	const parsed = Number(value);
-	return Number.isFinite(parsed) ? normalizeOffset(parsed) : 0;
-}
-
 function isValidEmail(value: string) {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -122,41 +113,74 @@ export default function AdminUserInvitationsPage() {
 	const [revokingInvitationId, setRevokingInvitationId] = useState<
 		number | null
 	>(null);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
+	const [invitations, setInvitations] = useState<AdminUserInvitationInfo[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(true);
 
 	usePageTitle(t("admin.users.invitationsTitle"));
 
-	const offset = parseOffset(searchParams.get("offset"));
 	const pageSize =
 		parsePageSizeOption(
 			searchParams.get("pageSize"),
 			INVITATION_PAGE_SIZE_OPTIONS,
 		) ?? DEFAULT_INVITATION_PAGE_SIZE;
-	const {
-		items: invitations,
-		loading,
-		reload,
-		setItems: setInvitations,
-		total,
-	} = useApiList(
-		() => adminUserService.listInvitations({ limit: pageSize, offset }),
-		[offset, pageSize],
+
+	const loadPage = useCallback(
+		async (stack: DateTimeIdCursor[]) => {
+			setLoading(true);
+			try {
+				const cursor = stack.at(-1);
+				const page = await adminUserService.listInvitations({
+					limit: pageSize,
+					after_created_at: cursor?.value,
+					after_id: cursor?.id,
+				});
+				if (page.items.length === 0 && page.total > 0 && stack.length > 0) {
+					setCursorStack((current) => current.slice(0, -1));
+					setNextCursor(null);
+					return;
+				}
+				setInvitations(page.items);
+				setTotal(page.total);
+				setNextCursor(page.next_cursor ?? null);
+			} catch (error) {
+				handleApiError(error);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[pageSize],
 	);
+	const reload = useCallback(async () => {
+		await loadPage(cursorStack);
+	}, [cursorStack, loadPage]);
+	const reloadFirstPage = useCallback(async () => {
+		setCursorStack([]);
+		setNextCursor(null);
+		await loadPage([]);
+	}, [loadPage]);
+
+	useEffect(() => {
+		void reload();
+	}, [reload]);
 
 	const setPagination = useCallback(
-		(nextOffset: number, nextPageSize: InvitationPageSize) => {
+		(nextPageSize: InvitationPageSize) => {
 			const next = new URLSearchParams();
-			const normalizedOffset = normalizeOffset(nextOffset);
-			if (normalizedOffset > 0) next.set("offset", String(normalizedOffset));
 			if (nextPageSize !== DEFAULT_INVITATION_PAGE_SIZE) {
 				next.set("pageSize", String(nextPageSize));
 			}
+			setCursorStack([]);
+			setNextCursor(null);
 			setSearchParams(next);
 		},
 		[setSearchParams],
 	);
 
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
-	const currentPage = Math.floor(offset / pageSize) + 1;
+	const totalPages = Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1);
+	const currentPage = cursorStack.length + 1;
 	const pageSizeOptions = INVITATION_PAGE_SIZE_OPTIONS.map((size) => ({
 		label: t("admin.pagination.pageSizeOption", { count: size }),
 		value: String(size),
@@ -169,20 +193,24 @@ export default function AdminUserInvitationsPage() {
 				totalPages={totalPages}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= total}
-				onPrevious={() => setPagination(offset - pageSize, pageSize)}
-				onNext={() => setPagination(offset + pageSize, pageSize)}
+				prevDisabled={cursorStack.length === 0}
+				nextDisabled={!nextCursor}
+				onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+				}}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(value, INVITATION_PAGE_SIZE_OPTIONS);
 					if (next == null) return;
-					setPagination(0, next);
+					setPagination(next);
 				}}
 			/>
 		),
 		[
 			currentPage,
-			offset,
+			cursorStack.length,
+			nextCursor,
 			pageSize,
 			pageSizeOptions,
 			setPagination,
@@ -239,11 +267,7 @@ export default function AdminUserInvitationsPage() {
 			const invitation = await adminUserService.createInvitation({ email });
 			dispatchInvite({ type: "created", invitation });
 			toast.success(t("admin.users.invitationCreated"));
-			if (offset !== 0) {
-				setPagination(0, pageSize);
-			} else {
-				await reload();
-			}
+			await reloadFirstPage();
 		} catch (error) {
 			handleApiError(error);
 		} finally {

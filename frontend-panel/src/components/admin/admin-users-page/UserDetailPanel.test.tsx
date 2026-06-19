@@ -74,6 +74,7 @@ describe("UserDetailPanel", () => {
 		adminMinecraftProfileServiceMock.listByUserPage.mockResolvedValue({
 			items: [],
 			limit: 5,
+			next_cursor: null,
 			offset: 0,
 			total: 0,
 		});
@@ -126,7 +127,7 @@ describe("UserDetailPanel", () => {
 		expect(screen.queryByText("active")).not.toBeInTheDocument();
 	});
 
-	it("loads minecraft profiles with offset pagination", async () => {
+	it("loads minecraft profiles with cursor pagination", async () => {
 		adminMinecraftProfileServiceMock.listByUserPage
 			.mockResolvedValueOnce({
 				items: Array.from({ length: 5 }, (_, index) => ({
@@ -134,12 +135,14 @@ describe("UserDetailPanel", () => {
 					name: `角色 ${index + 1}`,
 				})),
 				limit: 5,
+				next_cursor: { id: 5 },
 				offset: 0,
 				total: 6,
 			})
 			.mockResolvedValueOnce({
 				items: [{ id: "profile-6", name: "角色 6" }],
 				limit: 5,
+				next_cursor: null,
 				offset: 5,
 				total: 6,
 			});
@@ -149,13 +152,13 @@ describe("UserDetailPanel", () => {
 		expect(await screen.findByText("角色 1")).toBeInTheDocument();
 		expect(
 			adminMinecraftProfileServiceMock.listByUserPage,
-		).toHaveBeenCalledWith(7, { limit: 5, offset: 0 });
+		).toHaveBeenCalledWith(7, { after_id: undefined, limit: 5 });
 		fireEvent.click(screen.getByRole("button", { name: "下一页" }));
 
 		expect(await screen.findByText("角色 6")).toBeInTheDocument();
 		expect(
 			adminMinecraftProfileServiceMock.listByUserPage,
-		).toHaveBeenLastCalledWith(7, { limit: 5, offset: 5 });
+		).toHaveBeenLastCalledWith(7, { after_id: 5, limit: 5 });
 		expect(screen.getByText("共 6 条 · 第 2 / 2 页")).toBeInTheDocument();
 	});
 
@@ -166,6 +169,7 @@ describe("UserDetailPanel", () => {
 				{ id: "profile-two", name: "角色 2" },
 			],
 			limit: 5,
+			next_cursor: null,
 			offset: 0,
 			total: 2,
 		});
@@ -220,6 +224,7 @@ describe("UserDetailPanel", () => {
 		adminMinecraftProfileServiceMock.listByUserPage.mockResolvedValueOnce({
 			items: [{ id: longUuid, name: longName }],
 			limit: 5,
+			next_cursor: null,
 			offset: 0,
 			total: 1,
 		});
@@ -238,6 +243,7 @@ describe("UserDetailPanel", () => {
 		adminMinecraftProfileServiceMock.listByUserPage.mockResolvedValueOnce({
 			items: [{ id: "profile-one", name: "角色 1" }],
 			limit: 5,
+			next_cursor: null,
 			offset: 0,
 			total: 1,
 		});
@@ -281,18 +287,21 @@ describe("UserDetailPanel", () => {
 					name: `角色 ${index + 1}`,
 				})),
 				limit: 5,
+				next_cursor: { id: 5 },
 				offset: 0,
 				total: 6,
 			})
 			.mockResolvedValueOnce({
 				items: [],
 				limit: 5,
+				next_cursor: null,
 				offset: 5,
 				total: 5,
 			})
 			.mockResolvedValueOnce({
 				items: [{ id: "profile-5", name: "角色 5" }],
 				limit: 5,
+				next_cursor: null,
 				offset: 0,
 				total: 5,
 			});
@@ -305,7 +314,7 @@ describe("UserDetailPanel", () => {
 		expect(await screen.findByText("角色 5")).toBeInTheDocument();
 		expect(
 			adminMinecraftProfileServiceMock.listByUserPage,
-		).toHaveBeenLastCalledWith(7, { limit: 5, offset: 0 });
+		).toHaveBeenLastCalledWith(7, { after_id: undefined, limit: 5 });
 		expect(screen.getByText("共 5 条 · 第 1 / 1 页")).toBeInTheDocument();
 	});
 

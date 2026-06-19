@@ -2,6 +2,7 @@
 
 use actix_multipart::Multipart;
 use actix_web::{HttpRequest, HttpResponse, web};
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use serde::{Deserialize, Deserializer};
 use validator::Validate;
@@ -9,7 +10,7 @@ use validator::Validate;
 use crate::api::dto::textures::{ReplaceWardrobeTextureTagsReq, UpdateWardrobeTextureReq};
 use crate::api::dto::validate_request;
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
+use crate::api::pagination::{LimitOffsetQuery, LimitQuery, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_texture_repo::WardrobeTextureListFilter;
 use crate::errors::{AsterError, Result};
@@ -19,6 +20,9 @@ use crate::types::{
     MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
     TextureTagSearchMethod,
 };
+
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
 
 const TEXTURE_TAG_FILTER_LIMIT: usize = 16;
 const DEFAULT_TEXTURE_TAG_PAGE_SIZE: u64 = 30;
@@ -37,6 +41,8 @@ pub struct WardrobeTextureListQuery {
     pub tag_ids: Vec<i64>,
     #[serde(default)]
     pub tag_search_method: TextureTagSearchMethod,
+    pub after_updated_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Validate)]
@@ -105,9 +111,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     path = "/api/v1/wardrobe/textures",
     tag = "profiles",
     operation_id = "list_current_user_wardrobe_textures",
-    params(LimitOffsetQuery, WardrobeTextureListQuery),
+    params(LimitQuery, WardrobeTextureListQuery),
     responses(
-        (status = 200, description = "Current user's wardrobe textures", body = inline(ApiResponse<OffsetPage<texture_service::MinecraftWardrobeTextureMetadata>>)),
+        (status = 200, description = "Current user's wardrobe textures", body = inline(ApiResponse<CursorPage<texture_service::MinecraftWardrobeTextureMetadata, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -115,13 +121,14 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 pub async fn list_wardrobe_textures(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<WardrobeTextureListQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
+    let cursor =
+        parse_datetime_id_cursor(query.after_updated_at, query.after_id, "wardrobe texture")?;
     let texture_type = query.texture_type;
     let tag_ids = normalize_tag_filter_ids(&query.tag_ids)?;
     let keyword = query
@@ -133,41 +140,35 @@ pub async fn list_wardrobe_textures(
     tracing::debug!(
         user_id = user.id,
         limit,
-        offset,
+        has_cursor = cursor.is_some(),
         texture_type = ?texture_type,
         tag_count = tag_ids.len(),
         tag_search_method = query.tag_search_method.as_str(),
         has_keyword = keyword.is_some(),
         "listing current user wardrobe textures"
     );
-    let page = texture_service::list_wardrobe_textures_paginated(
+    let filter = WardrobeTextureListFilter {
+        texture_type,
+        tag_ids,
+        tag_search_method: query.tag_search_method,
+        keyword,
+    };
+    let page = texture_service::list_wardrobe_textures_cursor(
         state.get_ref(),
         user.id,
         limit,
-        offset,
-        WardrobeTextureListFilter {
-            texture_type,
-            tag_ids,
-            tag_search_method: query.tag_search_method,
-            keyword,
-        },
+        cursor,
+        filter,
     )
     .await?;
-    let textures =
-        texture_service::wardrobe_texture_metadata_by_texture_ids(state.get_ref(), &page.items)
-            .await?;
     tracing::debug!(
         user_id = user.id,
-        returned = textures.len(),
+        returned = page.items.len(),
         total = page.total,
-        "listed current user wardrobe textures"
+        has_next_cursor = page.next_cursor.is_some(),
+        "listed current user wardrobe textures cursor page"
     );
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
-        textures,
-        page.total,
-        page.limit,
-        page.offset,
-    ))))
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(page)))
 }
 
 fn normalize_tag_filter_ids(tag_ids: &[i64]) -> Result<Vec<i64>> {
@@ -266,6 +267,7 @@ pub async fn update_wardrobe_texture(
         user_id = user.id,
         texture_id,
         display_name_present = body.display_name.is_some(),
+        texture_model = ?body.texture_model,
         visibility_present = body.visibility.is_some(),
         "updating current user wardrobe texture metadata"
     );
@@ -274,6 +276,7 @@ pub async fn update_wardrobe_texture(
         user.id,
         texture_id,
         body.display_name.clone(),
+        body.texture_model,
         body.visibility,
     )
     .await?;
@@ -478,6 +481,7 @@ pub async fn upload_wardrobe_texture(
             user.id,
             stored.texture.id,
             Some(NullablePatch::Value(display_name)),
+            None,
             None,
         )
         .await?

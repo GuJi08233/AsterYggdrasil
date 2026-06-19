@@ -241,6 +241,8 @@
 			"rejectDescription": "打回后，{{name}} 不会进入公开材质库，用户可以在衣柜中查看原因并重新提交。",
 			"unpublishTitle": "下架这个材质？",
 			"unpublishDescription": "下架后，{{name}} 会从公开材质库移除。",
+			"deleteTitle": "删除这个材质？",
+			"deleteDescription": "删除后，{{name}} 会从上传者的衣柜中移除，并解除所有正在使用它的 Minecraft 角色绑定。此操作无法撤销。",
 			"reviewNote": "审核备注",
 			"reviewNotePlaceholder": "写给用户看的处理说明",
 			"reviewNoteHint": "备注可选，会展示给材质上传者。",
@@ -251,7 +253,8 @@
 			"unpublishAction": "下架",
 			"approveSuccess": "材质已通过审核",
 			"rejectSuccess": "材质已打回",
-			"unpublishSuccess": "材质已下架"
+			"unpublishSuccess": "材质已下架",
+			"deleteSuccess": "材质已删除"
 		},
 		"textureLibraryReviewPage": {
 			"title": "材质审核",

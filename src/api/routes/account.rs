@@ -1,7 +1,9 @@
 //! Current-user account routes.
 
 use crate::api::dto::{AccountAuditLogFilterQuery, AccountOverviewResp};
-use crate::api::pagination::{AuditLogSortBy, LimitOffsetQuery, OffsetPage, SortOrder};
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
+use crate::api::pagination::{LimitQuery, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::user_repo;
 use crate::errors::Result;
@@ -52,9 +54,7 @@ pub async fn overview(state: web::Data<AppState>, req: HttpRequest) -> Result<Ht
             before: None,
         },
         ACCOUNT_OVERVIEW_ACTIVITY_LIMIT,
-        0,
-        AuditLogSortBy::CreatedAt,
-        SortOrder::Desc,
+        None,
     )
     .await?
     .items;
@@ -76,9 +76,9 @@ pub async fn overview(state: web::Data<AppState>, req: HttpRequest) -> Result<Ht
     path = "/api/v1/account/audit-logs",
     tag = "account",
     operation_id = "list_account_audit_logs",
-    params(LimitOffsetQuery, AccountAuditLogFilterQuery, audit_service::AuditLogSortQuery),
+    params(LimitQuery, AccountAuditLogFilterQuery),
     responses(
-        (status = 200, description = "Current user's audit log entries", body = inline(ApiResponse<OffsetPage<audit_service::AuditLogEntry>>)),
+        (status = 200, description = "Current user's audit log entries", body = inline(ApiResponse<CursorPage<audit_service::AuditLogEntry, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -86,21 +86,21 @@ pub async fn overview(state: web::Data<AppState>, req: HttpRequest) -> Result<Ht
 pub async fn list_audit_logs(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AccountAuditLogFilterQuery>,
-    sort: web::Query<audit_service::AuditLogSortQuery>,
 ) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     tracing::debug!(user_id = user.id, "account audit log list request received");
-    let filters = query.into_inner().into_filters_for_user(user.id);
+    let query = query.into_inner();
+    let cursor =
+        parse_datetime_id_cursor(query.after_created_at, query.after_id, "account audit log")?;
+    let filters = query.into_filters_for_user(user.id);
     let page = query_current_user_audit_logs(
         state.get_ref(),
         user.id,
         filters,
         page.limit_or(ACCOUNT_AUDIT_LOG_DEFAULT_LIMIT, ACCOUNT_AUDIT_LOG_MAX_LIMIT),
-        page.offset(),
-        sort.sort_by(),
-        sort.sort_order(),
+        cursor,
     )
     .await?;
     tracing::debug!(
@@ -117,11 +117,14 @@ async fn query_current_user_audit_logs(
     user_id: i64,
     mut filters: audit_service::AuditLogFilters,
     limit: u64,
-    offset: u64,
-    sort_by: AuditLogSortBy,
-    sort_order: SortOrder,
-) -> Result<OffsetPage<audit_service::AuditLogEntry>> {
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<
+    crate::api::pagination::CursorPage<
+        audit_service::AuditLogEntry,
+        crate::api::pagination::DateTimeIdCursor,
+    >,
+> {
     // Keep the current-user boundary server-side even if a future query type grows fields.
     filters.user_id = Some(user_id);
-    audit_service::query(state, filters, limit, offset, sort_by, sort_order).await
+    audit_service::query(state, filters, limit, cursor).await
 }

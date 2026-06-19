@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	ADMIN_TABLE_MUTED_TEXT_CLASS,
-	AdminSortableTableHead,
 	AdminTableCell as TableCell,
 	AdminTableHead as TableHead,
 	AdminTableHeader as TableHeader,
@@ -21,72 +20,26 @@ import {
 } from "@/components/ui/tooltip";
 import { getNormalizedDisplayName, getUserDisplayName } from "@/lib/user";
 import { cn } from "@/lib/utils";
-import type { AdminUserInfo, AdminUserSortBy } from "@/types/api";
+import type { AdminUserInfo } from "@/types/api";
 
-type SortOrder = "asc" | "desc";
-
-export function UsersTableHeader({
-	onSortChange,
-	sortBy,
-	sortOrder,
-}: {
-	onSortChange: (sortBy: AdminUserSortBy, sortOrder: SortOrder) => void;
-	sortBy: AdminUserSortBy;
-	sortOrder: SortOrder;
-}) {
+export function UsersTableHeader() {
 	const { t } = useTranslation();
 
 	return (
 		<TableHeader>
 			<TableRow>
-				<AdminSortableTableHead
-					sortKey="id"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-					className="w-20 text-center"
-				>
+				<TableHead className="w-20 text-center">
 					{t("admin.users.table.id")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					sortKey="username"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-					className="min-w-[260px]"
-				>
+				</TableHead>
+				<TableHead className="min-w-[260px]">
 					{t("admin.users.table.account")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					sortKey="role"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-					className="w-32"
-				>
-					{t("admin.users.table.role")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					sortKey="status"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-					className="w-32"
-				>
-					{t("admin.users.table.status")}
-				</AdminSortableTableHead>
+				</TableHead>
+				<TableHead className="w-32">{t("admin.users.table.role")}</TableHead>
+				<TableHead className="w-32">{t("admin.users.table.status")}</TableHead>
 				<TableHead className="w-44">
 					{t("admin.users.table.activity")}
 				</TableHead>
-				<AdminSortableTableHead
-					sortKey="updated_at"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-					className="w-44"
-				>
-					{t("admin.users.table.updated")}
-				</AdminSortableTableHead>
+				<TableHead className="w-44">{t("admin.users.table.updated")}</TableHead>
 				<TableHead className="w-32 text-right">
 					{t("admin.users.table.actions")}
 				</TableHead>

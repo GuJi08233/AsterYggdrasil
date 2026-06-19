@@ -105,8 +105,9 @@ describe("LoginDevicesSection", () => {
 
 		expect(await screen.findByText("OtherBrowser/1.0")).toBeInTheDocument();
 		expect(authServiceMock.sessionsPage).toHaveBeenCalledWith({
+			after_id: undefined,
+			after_last_seen_at: undefined,
 			limit: 5,
-			offset: 0,
 		});
 
 		const pageSize = screen.getByRole("combobox", { name: "Page size" });

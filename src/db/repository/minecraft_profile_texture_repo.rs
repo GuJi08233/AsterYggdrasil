@@ -160,6 +160,48 @@ pub async fn count_by_texture_id<C: ConnectionTrait>(db: &C, texture_id: i64) ->
         .map_aster_err(AsterError::database_operation)
 }
 
+pub async fn list_by_texture_id<C: ConnectionTrait>(
+    db: &C,
+    texture_id: i64,
+) -> Result<Vec<ProfileTexture>> {
+    let rows = MinecraftProfileTexture::find()
+        .join(
+            JoinType::InnerJoin,
+            minecraft_profile_texture::Relation::MinecraftTexture.def(),
+        )
+        .filter(minecraft_profile_texture::Column::TextureId.eq(texture_id))
+        .order_by_asc(minecraft_profile_texture::Column::Id)
+        .select_also(MinecraftTexture)
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+
+    rows.into_iter()
+        .map(|(binding, texture)| match texture {
+            Some(texture) => Ok(ProfileTexture { binding, texture }),
+            None => Err(AsterError::record_not_found(format!(
+                "texture '{}'",
+                binding.texture_id
+            ))),
+        })
+        .collect()
+}
+
+pub async fn delete_by_texture_id<C: ConnectionTrait>(
+    db: &C,
+    texture_id: i64,
+) -> Result<Vec<ProfileTexture>> {
+    let bindings = list_by_texture_id(db, texture_id).await?;
+    for binding in &bindings {
+        let active: minecraft_profile_texture::ActiveModel = binding.binding.clone().into();
+        active
+            .delete(db)
+            .await
+            .map_aster_err(AsterError::database_operation)?;
+    }
+    Ok(bindings)
+}
+
 pub async fn delete_for_profile<C: ConnectionTrait>(
     db: &C,
     profile_id: i64,

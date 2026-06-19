@@ -1,15 +1,14 @@
 //! Current-user Minecraft profile routes.
 
-use crate::api::dto::BindMinecraftTextureReq;
-use crate::api::dto::validate_request;
 use crate::api::dto::validation::validate_unsigned_uuid;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use crate::api::dto::yggdrasil::YggdrasilProfile;
-use crate::api::dto::yggdrasil::{
-    CreateMinecraftProfileReq, CurrentMinecraftProfileListQuery, RenameMinecraftProfileReq,
+use crate::api::dto::{
+    BindMinecraftTextureReq, CreateMinecraftProfileReq, CurrentMinecraftProfileListQuery,
+    RenameMinecraftProfileReq, validate_request,
 };
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
+use crate::api::pagination::{CursorPage, IdCursor, LimitQuery, parse_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_profile_repo;
 use crate::errors::{AsterError, Result};
@@ -249,9 +248,9 @@ pub async fn unbind_minecraft_profile_texture(
     path = "/api/v1/profiles/minecraft",
     tag = "profiles",
     operation_id = "list_current_user_minecraft_profiles",
-    params(LimitOffsetQuery, CurrentMinecraftProfileListQuery),
+    params(LimitQuery, CurrentMinecraftProfileListQuery),
     responses(
-        (status = 200, description = "Current user's Minecraft profiles", body = inline(ApiResponse<OffsetPage<YggdrasilProfile>>)),
+        (status = 200, description = "Current user's Minecraft profiles", body = inline(ApiResponse<CursorPage<YggdrasilProfile, IdCursor>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -259,21 +258,21 @@ pub async fn unbind_minecraft_profile_texture(
 pub async fn list_minecraft_profiles(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<CurrentMinecraftProfileListQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let after_id = parse_id_cursor(query.after_id, "minecraft profile")?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
     tracing::debug!(
         user_id = user.id,
         limit,
-        offset,
+        has_cursor = after_id.is_some(),
         has_query = query.query.is_some(),
         "listing current user minecraft profiles"
     );
-    let page = minecraft_profile_repo::list_paginated(
+    let slice = minecraft_profile_repo::list_cursor(
         state.get_ref().reader_db(),
         minecraft_profile_repo::MinecraftProfileFilters {
             user_id: Some(user.id),
@@ -281,10 +280,18 @@ pub async fn list_minecraft_profiles(
             ..Default::default()
         },
         limit,
-        offset,
+        after_id,
     )
     .await?;
-    let profiles = page
+    let next_cursor = if slice.has_more {
+        slice
+            .items
+            .last()
+            .map(|profile| IdCursor { id: profile.id })
+    } else {
+        None
+    };
+    let profiles = slice
         .items
         .iter()
         .map(yggdrasil_service::profile_summary)
@@ -292,14 +299,16 @@ pub async fn list_minecraft_profiles(
     tracing::debug!(
         user_id = user.id,
         returned = profiles.len(),
-        total = page.total,
+        total = slice.total,
+        has_next_cursor = next_cursor.is_some(),
         "listed current user minecraft profiles"
     );
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(CursorPage::new(
         profiles,
-        page.total,
-        page.limit,
-        page.offset,
+        slice.total,
+        limit,
+        0,
+        next_cursor,
     ))))
 }
 

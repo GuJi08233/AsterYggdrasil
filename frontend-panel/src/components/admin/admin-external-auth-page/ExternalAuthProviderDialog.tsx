@@ -11,6 +11,13 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -30,8 +37,12 @@ import {
 	ExternalAuthProviderIcon,
 	kindDescription,
 	kindDisplayName,
+	MICROSOFT_CUSTOM_TENANT_MODE,
+	MICROSOFT_TENANT_PRESETS,
+	type MicrosoftTenantMode,
 	providerUsesFixedConnection,
 	requiredFieldsMissing,
+	STANDARD_CLAIMS,
 	shouldShowIssuerUrl,
 	shouldShowManualEndpoints,
 } from "./shared";
@@ -343,6 +354,17 @@ function ProviderFormFields({
 	);
 	const showIssuerUrl = shouldShowIssuerUrl(selectedKind);
 	const showManualEndpointFields = shouldShowManualEndpoints(selectedKind);
+	const isMicrosoft = form.providerKind === "microsoft";
+	const microsoftTenantOptions = [
+		...MICROSOFT_TENANT_PRESETS.map((value) => ({
+			label: t(`admin.externalAuth.microsoftTenant.${value}`),
+			value,
+		})),
+		{
+			label: t("admin.externalAuth.microsoftTenant.custom"),
+			value: MICROSOFT_CUSTOM_TENANT_MODE,
+		},
+	];
 
 	return (
 		<section className="rounded-lg border border-border/70 bg-background/70 p-5">
@@ -376,6 +398,59 @@ function ProviderFormFields({
 						{t("admin.externalAuth.iconUrlHint")}
 					</p>
 				</Field>
+				{isMicrosoft ? (
+					<Field
+						label={t("admin.externalAuth.microsoftTenant.label")}
+						className="md:col-span-2"
+					>
+						<Select
+							value={form.microsoftTenantMode}
+							onValueChange={(value) => {
+								const mode = value as MicrosoftTenantMode;
+								onFieldChange("microsoftTenantMode", mode);
+								onFieldChange(
+									"microsoftTenant",
+									mode === MICROSOFT_CUSTOM_TENANT_MODE ? "" : mode,
+								);
+							}}
+						>
+							<SelectTrigger>
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{microsoftTenantOptions.map((option) => (
+									<SelectItem key={option.value} value={option.value}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+						<p className="text-xs leading-5 text-muted-foreground">
+							{t("admin.externalAuth.microsoftTenant.hint")}
+						</p>
+					</Field>
+				) : null}
+				{isMicrosoft &&
+				form.microsoftTenantMode === MICROSOFT_CUSTOM_TENANT_MODE ? (
+					<Field
+						label={t("admin.externalAuth.microsoftTenant.customLabel")}
+						className="md:col-span-2"
+						required
+					>
+						<Input
+							value={form.microsoftTenant}
+							placeholder="11111111-2222-3333-4444-555555555555"
+							aria-invalid={
+								createStepTouched && !form.microsoftTenant.trim()
+									? true
+									: undefined
+							}
+							onChange={(event) =>
+								onFieldChange("microsoftTenant", event.target.value)
+							}
+						/>
+					</Field>
+				) : null}
 				<Field label={t("admin.externalAuth.clientId")} required>
 					<Input
 						value={form.clientId}
@@ -498,6 +573,74 @@ function ProviderFormFields({
 						/>
 					</Field>
 				)}
+				<Field
+					label={t("admin.externalAuth.claims.subject")}
+					className="md:col-span-2"
+				>
+					<Input
+						value={form.subjectClaim}
+						placeholder={STANDARD_CLAIMS.subjectClaim}
+						onChange={(event) =>
+							onFieldChange("subjectClaim", event.target.value)
+						}
+					/>
+				</Field>
+				<Field label={t("admin.externalAuth.claims.username")}>
+					<Input
+						value={form.usernameClaim}
+						placeholder={STANDARD_CLAIMS.usernameClaim}
+						onChange={(event) =>
+							onFieldChange("usernameClaim", event.target.value)
+						}
+					/>
+				</Field>
+				<Field label={t("admin.externalAuth.claims.displayName")}>
+					<Input
+						value={form.displayNameClaim}
+						placeholder={STANDARD_CLAIMS.displayNameClaim}
+						onChange={(event) =>
+							onFieldChange("displayNameClaim", event.target.value)
+						}
+					/>
+				</Field>
+				<Field label={t("admin.externalAuth.claims.email")}>
+					<Input
+						value={form.emailClaim}
+						placeholder={STANDARD_CLAIMS.emailClaim}
+						onChange={(event) =>
+							onFieldChange("emailClaim", event.target.value)
+						}
+					/>
+				</Field>
+				{selectedKind?.supports_email_verified_claim ? (
+					<Field label={t("admin.externalAuth.claims.emailVerified")}>
+						<Input
+							value={form.emailVerifiedClaim}
+							placeholder={STANDARD_CLAIMS.emailVerifiedClaim}
+							onChange={(event) =>
+								onFieldChange("emailVerifiedClaim", event.target.value)
+							}
+						/>
+					</Field>
+				) : null}
+				<Field label={t("admin.externalAuth.claims.groups")}>
+					<Input
+						value={form.groupsClaim}
+						placeholder={STANDARD_CLAIMS.groupsClaim}
+						onChange={(event) =>
+							onFieldChange("groupsClaim", event.target.value)
+						}
+					/>
+				</Field>
+				<Field label={t("admin.externalAuth.claims.avatar")}>
+					<Input
+						value={form.avatarUrlClaim}
+						placeholder={STANDARD_CLAIMS.avatarUrlClaim}
+						onChange={(event) =>
+							onFieldChange("avatarUrlClaim", event.target.value)
+						}
+					/>
+				</Field>
 				{provider ? (
 					<Field
 						label={t("admin.externalAuth.callbackUrl")}
@@ -575,6 +718,70 @@ function AccessPanel({
 						</p>
 					</div>
 				</div>
+				<div className="flex items-start gap-3">
+					<Switch
+						id="external-auth-require-email-verified"
+						checked={form.requireEmailVerified}
+						onCheckedChange={(value) =>
+							onFieldChange("requireEmailVerified", value)
+						}
+					/>
+					<div className="space-y-1">
+						<Label htmlFor="external-auth-require-email-verified">
+							{t("admin.externalAuth.requireEmailVerified")}
+						</Label>
+						<p className="text-sm text-muted-foreground">
+							{t("admin.externalAuth.requireEmailVerifiedDesc")}
+						</p>
+					</div>
+				</div>
+				<div className="flex items-start gap-3">
+					<Switch
+						id="external-auth-auto-link"
+						checked={form.autoLinkVerifiedEmailEnabled}
+						onCheckedChange={(value) =>
+							onFieldChange("autoLinkVerifiedEmailEnabled", value)
+						}
+					/>
+					<div className="space-y-1">
+						<Label htmlFor="external-auth-auto-link">
+							{t("admin.externalAuth.autoLinkVerifiedEmail")}
+						</Label>
+						<p className="text-sm text-muted-foreground">
+							{t("admin.externalAuth.autoLinkVerifiedEmailDesc")}
+						</p>
+					</div>
+				</div>
+				<div className="flex items-start gap-3">
+					<Switch
+						id="external-auth-auto-provision"
+						checked={form.autoProvisionEnabled}
+						onCheckedChange={(value) =>
+							onFieldChange("autoProvisionEnabled", value)
+						}
+					/>
+					<div className="space-y-1">
+						<Label htmlFor="external-auth-auto-provision">
+							{t("admin.externalAuth.autoProvision")}
+						</Label>
+						<p className="text-sm text-muted-foreground">
+							{t("admin.externalAuth.autoProvisionDesc")}
+						</p>
+					</div>
+				</div>
+				<Field label={t("admin.externalAuth.allowedDomains")}>
+					<Textarea
+						value={form.allowedDomains}
+						rows={3}
+						placeholder="example.com, example.org"
+						onChange={(event) =>
+							onFieldChange("allowedDomains", event.target.value)
+						}
+					/>
+					<p className="text-sm text-muted-foreground">
+						{t("admin.externalAuth.allowedDomainsDesc")}
+					</p>
+				</Field>
 			</div>
 		</section>
 	);

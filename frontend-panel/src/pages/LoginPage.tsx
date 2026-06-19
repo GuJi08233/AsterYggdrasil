@@ -6,6 +6,8 @@ import { z } from "zod/v4";
 import { authEntryMainClassName } from "@/components/auth/AuthFormPrimitives";
 import { LoginEntryFooter } from "@/components/auth/LoginEntryFooter";
 import {
+	type ExternalAuthRecoveryMode,
+	type ExternalAuthRecoveryState,
 	LoginFormCard,
 	type LoginFormCardProps,
 } from "@/components/auth/LoginFormCard";
@@ -13,6 +15,10 @@ import { LoginHero } from "@/components/auth/LoginHero";
 import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { useCaptchaChallenge } from "@/hooks/useCaptchaChallenge";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import {
+	AUTH_REDIRECT_STATUS,
+	appendAuthRedirectStatus,
+} from "@/lib/authRedirectToast";
 import {
 	clearContactVerificationRedirectSearch,
 	getContactVerificationRedirectState,
@@ -66,6 +72,7 @@ type LoginFormState = {
 	externalLoadingKey: string | null;
 	loading: boolean;
 	passkeySubmitting: boolean;
+	externalAuthRecovery: ExternalAuthRecoveryState | null;
 };
 
 type LoginFormField =
@@ -97,6 +104,19 @@ type LoginFormAction =
 	| { type: "externalLoadingKey"; value: string | null }
 	| { type: "loading"; value: boolean }
 	| { type: "passkeySubmitting"; value: boolean }
+	| { type: "externalAuthRecovery"; value: ExternalAuthRecoveryState | null }
+	| { type: "externalAuthRecoveryEmail"; value: string; error: string }
+	| { type: "externalAuthRecoveryEmailSubmitting"; value: boolean }
+	| { type: "externalAuthRecoveryEmailSent" }
+	| { type: "externalAuthRecoveryMode"; value: ExternalAuthRecoveryMode }
+	| { type: "externalAuthRecoveryPassword"; value: string; error?: string }
+	| { type: "externalAuthRecoveryPasswordIdentifier"; value: string }
+	| {
+			type: "externalAuthRecoveryPasswordErrors";
+			identifier: string;
+			password: string;
+	  }
+	| { type: "externalAuthRecoveryPasswordSubmitting"; value: boolean }
 	| { type: "resetAccountOptions" };
 
 function loginFormReducer(
@@ -138,12 +158,96 @@ function loginFormReducer(
 			return { ...state, loading: action.value };
 		case "passkeySubmitting":
 			return { ...state, passkeySubmitting: action.value };
+		case "externalAuthRecovery":
+			return { ...state, externalAuthRecovery: action.value };
+		case "externalAuthRecoveryEmail":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					email: action.value,
+					emailError: action.error,
+				},
+			};
+		case "externalAuthRecoveryEmailSubmitting":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					emailSubmitting: action.value,
+				},
+			};
+		case "externalAuthRecoveryEmailSent":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					emailError: "",
+					emailSubmitting: false,
+					sent: true,
+				},
+			};
+		case "externalAuthRecoveryMode":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					mode: action.value,
+				},
+			};
+		case "externalAuthRecoveryPassword":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					password: action.value,
+					passwordError:
+						action.error ?? state.externalAuthRecovery.passwordError,
+				},
+			};
+		case "externalAuthRecoveryPasswordIdentifier":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					passwordIdentifier: action.value,
+					passwordIdentifierError: action.value.trim()
+						? ""
+						: state.externalAuthRecovery.passwordIdentifierError,
+				},
+			};
+		case "externalAuthRecoveryPasswordErrors":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					passwordError: action.password,
+					passwordIdentifierError: action.identifier,
+				},
+			};
+		case "externalAuthRecoveryPasswordSubmitting":
+			if (!state.externalAuthRecovery) return state;
+			return {
+				...state,
+				externalAuthRecovery: {
+					...state.externalAuthRecovery,
+					passwordSubmitting: action.value,
+				},
+			};
 		case "resetAccountOptions":
 			return {
 				...state,
 				confirmPassword: "",
 				acceptedTerms: false,
 				errors: {},
+				externalAuthRecovery: null,
 			};
 	}
 }
@@ -161,6 +265,7 @@ const initialLoginFormState: LoginFormState = {
 	externalLoadingKey: null,
 	loading: false,
 	passkeySubmitting: false,
+	externalAuthRecovery: null,
 };
 
 const loginFormSchema = z.object({
@@ -236,6 +341,7 @@ function useLoginPageController() {
 		externalLoadingKey,
 		loading,
 		passkeySubmitting,
+		externalAuthRecovery,
 	} = form;
 	const passkeySupported = isWebAuthnSupported();
 	const login = useAuthStore((state) => state.login);
@@ -279,7 +385,15 @@ function useLoginPageController() {
 		const contactVerification =
 			getContactVerificationRedirectState(locationSearch);
 		const passwordReset = getPasswordResetRedirectState(locationSearch);
-		if (!contactVerification && !passwordReset) return;
+		const searchParams = new URLSearchParams(locationSearch);
+		const externalAuthStatus = searchParams.get("external_auth");
+		const externalAuthFlow = searchParams.get("flow");
+		const externalAuthMessage = searchParams.get("message");
+		const externalAuthReturnPath =
+			searchParams.get("return_path") || accountPaths.home;
+		if (!contactVerification && !passwordReset && !externalAuthStatus) {
+			return;
+		}
 
 		if (contactVerification?.status === "register-activated") {
 			toast.success(t("login.activationSuccess"));
@@ -295,17 +409,53 @@ function useLoginPageController() {
 			toast.success(t("login.passwordResetSuccess"));
 		}
 
+		if (externalAuthStatus === "email_required" && externalAuthFlow) {
+			dispatch({
+				type: "externalAuthRecovery",
+				value: {
+					email,
+					emailError: "",
+					emailSubmitting: false,
+					flowToken: externalAuthFlow,
+					mode: "password",
+					password: "",
+					passwordError: "",
+					passwordIdentifier: identifier.trim(),
+					passwordIdentifierError: "",
+					passwordSubmitting: false,
+					returnPath: externalAuthReturnPath,
+					sent: false,
+				},
+			});
+		} else if (externalAuthStatus === "email_verification_missing") {
+			toast.error(t("login.externalAuthEmailMissing"));
+		} else if (externalAuthStatus === "email_verification_invalid") {
+			toast.error(t("login.externalAuthEmailInvalid"));
+		} else if (externalAuthStatus === "email_verification_expired") {
+			toast.error(t("login.externalAuthEmailExpired"));
+		} else if (externalAuthStatus === "error") {
+			toast.error(externalAuthMessage || t("login.externalAuthFailed"));
+		}
+
 		const nextContactSearch =
 			clearContactVerificationRedirectSearch(locationSearch);
-		const nextSearch = clearPasswordResetRedirectSearch(nextContactSearch);
+		const cleanedParams = new URLSearchParams(
+			clearPasswordResetRedirectSearch(nextContactSearch),
+		);
+		cleanedParams.delete("external_auth");
+		cleanedParams.delete("code");
+		cleanedParams.delete("message");
+		cleanedParams.delete("flow");
+		cleanedParams.delete("return_path");
+		const cleanedSearch = cleanedParams.toString();
 		navigate(
 			{
 				pathname: locationPathname,
-				search: nextSearch,
+				search: cleanedSearch ? `?${cleanedSearch}` : "",
 			},
 			{ replace: true },
 		);
-	}, [locationPathname, locationSearch, navigate, t]);
+	}, [email, identifier, locationPathname, locationSearch, navigate, t]);
 
 	function setFieldError(field: LoginFormField, message: string | null) {
 		dispatch({ type: "fieldError", field, message });
@@ -384,6 +534,15 @@ function useLoginPageController() {
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (externalAuthRecovery) {
+			if (externalAuthRecovery.mode === "email") {
+				await requestExternalAuthEmailVerification();
+			} else {
+				await linkExternalAuthWithPassword();
+			}
+			return;
+		}
+
 		if (isRegister) {
 			const validation = registerFormSchema.safeParse({
 				username,
@@ -481,6 +640,80 @@ function useLoginPageController() {
 		}
 	}
 
+	async function requestExternalAuthEmailVerification() {
+		if (!externalAuthRecovery) return;
+		const nextEmail = externalAuthRecovery.email.trim();
+		const validation = emailSchema.safeParse(nextEmail);
+		if (!validation.success) {
+			dispatch({
+				type: "externalAuthRecoveryEmail",
+				value: nextEmail,
+				error: t(validation.error.issues[0]?.message ?? ""),
+			});
+			return;
+		}
+
+		dispatch({ type: "externalAuthRecoveryEmailSubmitting", value: true });
+		try {
+			await authService.startExternalAuthEmailVerification({
+				email: nextEmail,
+				flow_token: externalAuthRecovery.flowToken,
+			});
+			dispatch({ type: "externalAuthRecoveryEmailSent" });
+			toast.success(t("login.externalAuthEmailSentToast"));
+		} catch (nextError) {
+			toast.error(formatUnknownError(nextError));
+		} finally {
+			dispatch({ type: "externalAuthRecoveryEmailSubmitting", value: false });
+		}
+	}
+
+	async function linkExternalAuthWithPassword() {
+		if (!externalAuthRecovery) return;
+		const nextIdentifier = externalAuthRecovery.passwordIdentifier.trim();
+		const nextPassword = externalAuthRecovery.password;
+		const passwordValidation = existingPasswordSchema.safeParse(nextPassword);
+		const identifierError = nextIdentifier
+			? ""
+			: t("login.validationIdentifierRequired");
+		const passwordError = passwordValidation.success
+			? ""
+			: t(passwordValidation.error.issues[0]?.message ?? "");
+
+		dispatch({
+			type: "externalAuthRecoveryPasswordErrors",
+			identifier: identifierError,
+			password: passwordError,
+		});
+		if (identifierError || passwordError) return;
+
+		dispatch({ type: "externalAuthRecoveryPasswordSubmitting", value: true });
+		try {
+			const result = await authService.linkExternalAuthWithPassword({
+				flow_token: externalAuthRecovery.flowToken,
+				identifier: nextIdentifier,
+				password: nextPassword,
+			});
+			const nextPath =
+				result.status === "password_change_required"
+					? accountPaths.forcePasswordChange
+					: externalAuthRecovery.returnPath || accountPaths.home;
+			navigate(
+				appendAuthRedirectStatus(
+					nextPath,
+					AUTH_REDIRECT_STATUS.externalAuthLinked,
+				),
+			);
+		} catch (nextError) {
+			toast.error(formatUnknownError(nextError));
+		} finally {
+			dispatch({
+				type: "externalAuthRecoveryPasswordSubmitting",
+				value: false,
+			});
+		}
+	}
+
 	async function startPasskeyLogin() {
 		if (!passkeySupported) {
 			toast.error(t("login.passkeyUnsupported"));
@@ -567,6 +800,7 @@ function useLoginPageController() {
 		passkeySubmitting,
 		passkeySupported,
 		showPasskeyLogin,
+		externalAuthRecovery,
 		submitDisabled,
 		submitLabel,
 		passwordScore,
@@ -589,6 +823,35 @@ function useLoginPageController() {
 		onAcceptedTermsChange: changeAcceptedTerms,
 		onPasskeyLogin: () => void startPasskeyLogin(),
 		onExternalLogin: (provider) => void startExternalLogin(provider),
+		onExternalAuthRecoveryBack: () =>
+			dispatch({ type: "externalAuthRecovery", value: null }),
+		onExternalAuthRecoveryEmailChange: (value) => {
+			const validation = emailSchema.safeParse(value);
+			dispatch({
+				type: "externalAuthRecoveryEmail",
+				value,
+				error: validation.success
+					? ""
+					: t(validation.error.issues[0]?.message ?? ""),
+			});
+		},
+		onExternalAuthRecoveryIdentifierChange: (value) =>
+			dispatch({
+				type: "externalAuthRecoveryPasswordIdentifier",
+				value,
+			}),
+		onExternalAuthRecoveryModeChange: (value) =>
+			dispatch({ type: "externalAuthRecoveryMode", value }),
+		onExternalAuthRecoveryPasswordChange: (value) => {
+			const validation = existingPasswordSchema.safeParse(value);
+			dispatch({
+				type: "externalAuthRecoveryPassword",
+				value,
+				error: validation.success
+					? ""
+					: t(validation.error.issues[0]?.message ?? ""),
+			});
+		},
 		onResetAccountOptions: () => dispatch({ type: "resetAccountOptions" }),
 	};
 

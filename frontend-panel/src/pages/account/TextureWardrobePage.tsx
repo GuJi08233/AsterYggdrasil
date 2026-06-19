@@ -43,10 +43,12 @@ import { formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type {
+	DateTimeIdCursor,
 	MinecraftTextureTagInfo,
 	MinecraftTextureType,
 	MinecraftWardrobeTextureMetadata,
 	TextureTagSearchMethod,
+	UpdateWardrobeTextureRequest,
 } from "@/types/api";
 
 const WARDROBE_PAGE_SIZE_OPTIONS = [10, 20] as const;
@@ -57,7 +59,11 @@ const TAG_FILTER_APPLY_DEBOUNCE_MS = 240;
 export default function TextureWardrobePage() {
 	const { t } = useTranslation();
 	const [state, dispatch] = useTextureWardrobePageState();
-	const [textureOffset, setTextureOffset] = useState(0);
+	const [textureCursorStack, setTextureCursorStack] = useState<
+		DateTimeIdCursor[]
+	>([]);
+	const [nextTextureCursor, setNextTextureCursor] =
+		useState<DateTimeIdCursor | null>(null);
 	const [texturePageSize, setTexturePageSize] = useState<number>(
 		DEFAULT_WARDROBE_PAGE_SIZE,
 	);
@@ -125,13 +131,19 @@ export default function TextureWardrobePage() {
 		hasMore: hasMoreTags,
 		loadMore: loadMoreTags,
 		loading: tagLoading,
+		resetEnsureLoaded: resetEnsureTagsLoaded,
 		search: searchTags,
 		tags,
 	} = tagPager;
 
+	const resetTextureCursor = useCallback(() => {
+		setTextureCursorStack((current) => (current.length > 0 ? [] : current));
+		setNextTextureCursor((current) => (current ? null : current));
+	}, []);
+
 	const loadTextures = useCallback(
 		async (
-			nextOffset = textureOffset,
+			nextCursorStack = textureCursorStack,
 			nextType = libraryTextureType,
 			nextQuery = debouncedQuery,
 			nextTagIds = selectedTagIds,
@@ -140,10 +152,12 @@ export default function TextureWardrobePage() {
 			dispatch({ type: "loading", value: true });
 			const keyword = nextQuery.trim();
 			const tagIds = Array.from(new Set(nextTagIds));
+			const cursor = nextCursorStack.at(-1);
 			try {
 				const nextTextures = await yggdrasilService.listWardrobeTextures({
 					limit: texturePageSize,
-					offset: nextOffset,
+					after_updated_at: cursor?.value,
+					after_id: cursor?.id,
 					texture_type: nextType,
 					keyword: keyword || undefined,
 					tag_ids: tagIds.length > 0 ? tagIds : undefined,
@@ -155,6 +169,7 @@ export default function TextureWardrobePage() {
 					textureTotal: nextTextures.total,
 					textures: nextTextures.items,
 				});
+				setNextTextureCursor(nextTextures.next_cursor ?? null);
 			} catch (nextError) {
 				toast.error(formatUnknownError(nextError));
 				dispatch({ type: "loading", value: false });
@@ -168,18 +183,18 @@ export default function TextureWardrobePage() {
 			libraryTextureType,
 			selectedTagIds,
 			tagSearchMethod,
-			textureOffset,
+			textureCursorStack,
 			texturePageSize,
 		],
 	);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
-			setTextureOffset(0);
+			resetTextureCursor();
 			setDebouncedQuery(query.trim());
 		}, WARDROBE_SEARCH_DEBOUNCE_MS);
 		return () => window.clearTimeout(timer);
-	}, [query]);
+	}, [query, resetTextureCursor]);
 
 	useEffect(() => {
 		if (tagFilterOpen || editDialogOpen) {
@@ -193,13 +208,13 @@ export default function TextureWardrobePage() {
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
-			setTextureOffset(0);
+			resetTextureCursor();
 			setSelectedTagIds((current) =>
 				sameNumberArray(current, draftTagIds) ? current : draftTagIds,
 			);
 		}, TAG_FILTER_APPLY_DEBOUNCE_MS);
 		return () => window.clearTimeout(timer);
-	}, [draftTagIds]);
+	}, [draftTagIds, resetTextureCursor]);
 
 	const visibleTextures = textures;
 	const searchBusy =
@@ -244,7 +259,7 @@ export default function TextureWardrobePage() {
 				name: uploadName,
 				visibility,
 			});
-			setTextureOffset(0);
+			resetTextureCursor();
 			dispatch({ type: "prependTexture", value: uploaded });
 			dispatch({ type: "activeTexture", value: uploaded });
 			dispatch({ type: "file", value: null });
@@ -253,7 +268,7 @@ export default function TextureWardrobePage() {
 			setUploadDialogOpen(false);
 			setDragActive(false);
 			toast.success(t("wardrobe.uploadSuccess"));
-			await loadTextures(0, uploaded.texture_type, debouncedQuery);
+			await loadTextures([], uploaded.texture_type, debouncedQuery);
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -346,6 +361,7 @@ export default function TextureWardrobePage() {
 	function openEditDialog(texture: MinecraftWardrobeTextureMetadata) {
 		dispatch({ type: "editTexture", value: texture });
 		addTags(texture.tags);
+		resetEnsureTagsLoaded();
 		setEditTagIds(texture.tags.map((tag) => tag.id));
 		setEditTagQuery("");
 		dispatch({ type: "editDialogOpen", value: true });
@@ -383,17 +399,27 @@ export default function TextureWardrobePage() {
 		const nextVisibility = String(
 			form.get("visibility") || editTexture.visibility,
 		);
+		const nextModel = String(
+			form.get("texture_model") || editTexture.texture_model,
+		);
+		const metadataUpdate: UpdateWardrobeTextureRequest = {
+			display_name: nextName || null,
+			visibility:
+				nextVisibility === "public" || nextVisibility === "private"
+					? nextVisibility
+					: editTexture.visibility,
+		};
+		if (editTexture.texture_type === "skin") {
+			metadataUpdate.texture_model =
+				nextModel === "slim" || nextModel === "default"
+					? nextModel
+					: editTexture.texture_model;
+		}
 		dispatch({ type: "submitting", value: true });
 		try {
 			const updated = await yggdrasilService.updateWardrobeTexture(
 				editTexture.id,
-				{
-					display_name: nextName || null,
-					visibility:
-						nextVisibility === "public" || nextVisibility === "private"
-							? nextVisibility
-							: editTexture.visibility,
-				},
+				metadataUpdate,
 			);
 			const tagged = await yggdrasilService.replaceWardrobeTextureTags(
 				editTexture.id,
@@ -473,7 +499,7 @@ export default function TextureWardrobePage() {
 
 	function selectTab(tab: MinecraftTextureType) {
 		setActiveTab(tab);
-		setTextureOffset(0);
+		resetTextureCursor();
 		dispatch({ type: "textureType", value: tab });
 		dispatch({ type: "activeTexture", value: null });
 	}
@@ -493,7 +519,7 @@ export default function TextureWardrobePage() {
 
 	function changeTagSearchMethod(nextMethod: TextureTagSearchMethod) {
 		setTagSearchMethod(nextMethod);
-		setTextureOffset(0);
+		resetTextureCursor();
 		dispatch({ type: "activeTexture", value: null });
 	}
 
@@ -643,23 +669,25 @@ export default function TextureWardrobePage() {
 						)}
 					</div>
 					<WardrobePagination
-						currentPage={Math.floor(textureOffset / texturePageSize) + 1}
-						nextDisabled={textureOffset + texturePageSize >= textureTotal}
-						prevDisabled={textureOffset === 0}
+						currentPage={textureCursorStack.length + 1}
+						nextDisabled={!nextTextureCursor}
+						prevDisabled={textureCursorStack.length === 0}
 						pageSize={texturePageSize}
 						total={textureTotal}
 						totalPages={Math.max(1, Math.ceil(textureTotal / texturePageSize))}
-						onNext={() =>
-							setTextureOffset((current) => current + texturePageSize)
-						}
+						onNext={() => {
+							if (!nextTextureCursor) return;
+							setTextureCursorStack((current) => [
+								...current,
+								nextTextureCursor,
+							]);
+						}}
 						onPageSizeChange={(nextPageSize) => {
 							setTexturePageSize(nextPageSize);
-							setTextureOffset(0);
+							resetTextureCursor();
 						}}
 						onPrevious={() =>
-							setTextureOffset((current) =>
-								Math.max(0, current - texturePageSize),
-							)
+							setTextureCursorStack((current) => current.slice(0, -1))
 						}
 					/>
 				</section>
@@ -809,6 +837,31 @@ export default function TextureWardrobePage() {
 									))}
 								</div>
 							</div>
+							{editTexture?.texture_type === "skin" ? (
+								<div className="grid gap-1.5">
+									<div className="text-sm font-medium">
+										{t("profiles.model")}
+									</div>
+									<div className="grid grid-cols-2 gap-1 rounded-lg border border-border/70 bg-muted/30 p-1">
+										{(["default", "slim"] as const).map((option) => (
+											<label
+												key={option}
+												className="relative grid h-8 cursor-pointer place-items-center overflow-hidden rounded-md px-3 text-sm font-medium transition-colors has-checked:bg-primary has-checked:text-primary-foreground has-checked:shadow-xs has-focus-visible:ring-3 has-focus-visible:ring-ring/35"
+											>
+												<input
+													key={`${editTexture.id}-${option}`}
+													type="radio"
+													name="texture_model"
+													value={option}
+													defaultChecked={editTexture.texture_model === option}
+													className="sr-only"
+												/>
+												{t(`profiles.${option}Model`)}
+											</label>
+										))}
+									</div>
+								</div>
+							) : null}
 							<div className="grid gap-1.5">
 								<TextureTagSelector
 									disabled={submitting}

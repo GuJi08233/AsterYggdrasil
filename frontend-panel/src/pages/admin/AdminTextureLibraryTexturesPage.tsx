@@ -27,6 +27,7 @@ import {
 	AdminTableRow,
 } from "@/components/common/AdminTable";
 import { AdminTableList } from "@/components/common/AdminTableList";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DateTimeText } from "@/components/common/DateTimeText";
 import { UserAvatarImage } from "@/components/common/UserAvatarImage";
 import { AdminPageHeader } from "@/components/layout/AdminPageHeader";
@@ -57,7 +58,6 @@ import { MinecraftPreviewPanel } from "@/components/yggdrasil/MinecraftPreviewPa
 import { TextureLibraryTextureAvatar } from "@/components/yggdrasil/TextureLibraryTextureAvatar";
 import { TextureTagChips } from "@/components/yggdrasil/TextureTagList";
 import { handleApiError } from "@/hooks/useApiError";
-import { useApiList } from "@/hooks/useApiList";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { formatBytes } from "@/lib/numberUnit";
 import { parsePageSizeOption } from "@/lib/pagination";
@@ -65,7 +65,7 @@ import { cn } from "@/lib/utils";
 import { adminPaths, adminTextureLibraryPath } from "@/routes/routePaths";
 import { adminTextureLibraryService } from "@/services/adminService";
 import type {
-	AdminTextureLibraryPage,
+	DateTimeIdCursor,
 	MinecraftTextureLibraryStatus,
 	MinecraftTextureType,
 	MinecraftTextureVisibility,
@@ -87,13 +87,12 @@ type ReviewDialogState = {
 	texture: LibraryTexture;
 };
 
+type DeleteDialogState = {
+	texture: LibraryTexture;
+};
+
 type FilterValue<T extends string> = T | typeof ALL_VALUE;
 type PublishedFilter = "published" | "not_published" | typeof ALL_VALUE;
-
-function parseOffset(value: string | null) {
-	const parsed = Number(value);
-	return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
-}
 
 function parseFilter<T extends string>(
 	value: string | null,
@@ -140,10 +139,18 @@ export default function AdminTextureLibraryTexturesPage({
 	const [reviewDialog, setReviewDialog] = useState<ReviewDialogState | null>(
 		null,
 	);
+	const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(
+		null,
+	);
 	const [reviewNote, setReviewNote] = useState("");
 	const [submittingTextureId, setSubmittingTextureId] = useState<number | null>(
 		null,
 	);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
+	const [textures, setTextures] = useState<LibraryTexture[]>([]);
+	const [total, setTotal] = useState(0);
+	const [loading, setLoading] = useState(!detailMode);
 
 	const modeDefaults = useMemo(
 		(): {
@@ -161,7 +168,6 @@ export default function AdminTextureLibraryTexturesPage({
 		[mode],
 	);
 	const keyword = normalizeSearch(searchParams.get("keyword"));
-	const offset = parseOffset(searchParams.get("offset"));
 	const pageSize =
 		parsePageSizeOption(
 			searchParams.get("pageSize"),
@@ -196,7 +202,8 @@ export default function AdminTextureLibraryTexturesPage({
 	const query = useMemo(
 		() => ({
 			limit: pageSize,
-			offset,
+			after_updated_at: cursorStack.at(-1)?.value,
+			after_id: cursorStack.at(-1)?.id,
 			keyword: keyword || undefined,
 			texture_type: textureType === ALL_VALUE ? undefined : textureType,
 			visibility: visibility === ALL_VALUE ? undefined : visibility,
@@ -204,33 +211,40 @@ export default function AdminTextureLibraryTexturesPage({
 			published: publishedToQuery(published),
 		}),
 		[
+			cursorStack,
 			keyword,
 			libraryStatus,
-			offset,
 			pageSize,
 			published,
 			textureType,
 			visibility,
 		],
 	);
-	const {
-		items: textures,
-		loading,
-		reload,
-		setItems: setTextures,
-		total,
-	} = useApiList<AdminTextureLibraryPage["items"][number]>(
-		() =>
-			detailMode
-				? Promise.resolve({
-						items: [],
-						limit: pageSize,
-						offset,
-						total: 0,
-					})
-				: adminTextureLibraryService.listTextures(query),
-		[detailMode, pageSize, offset, query],
-	);
+
+	const reload = useCallback(async () => {
+		if (detailMode) {
+			setTextures([]);
+			setTotal(0);
+			setNextCursor(null);
+			setLoading(false);
+			return;
+		}
+		setLoading(true);
+		try {
+			const page = await adminTextureLibraryService.listTextures(query);
+			setTextures(page.items);
+			setTotal(page.total);
+			setNextCursor(page.next_cursor ?? null);
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			setLoading(false);
+		}
+	}, [detailMode, query]);
+
+	useEffect(() => {
+		void reload();
+	}, [reload]);
 
 	const loadDetailTexture = useCallback(async () => {
 		if (!detailMode) return;
@@ -254,7 +268,7 @@ export default function AdminTextureLibraryTexturesPage({
 		void loadDetailTexture();
 	}, [loadDetailTexture]);
 
-	const currentPage = Math.floor(offset / pageSize) + 1;
+	const currentPage = cursorStack.length + 1;
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 	const activeFilterCount =
 		(keyword ? 1 : 0) +
@@ -268,7 +282,6 @@ export default function AdminTextureLibraryTexturesPage({
 		(nextValues: {
 			keyword?: string;
 			libraryStatus?: FilterValue<MinecraftTextureLibraryStatus>;
-			offset?: number;
 			pageSize?: TexturePageSize;
 			published?: PublishedFilter;
 			textureType?: FilterValue<MinecraftTextureType>;
@@ -277,7 +290,6 @@ export default function AdminTextureLibraryTexturesPage({
 			const next = new URLSearchParams(searchParams);
 			const nextKeyword = nextValues.keyword ?? keyword;
 			const nextPageSize = nextValues.pageSize ?? pageSize;
-			const nextOffset = Math.max(0, nextValues.offset ?? 0);
 			const nextTextureType = nextValues.textureType ?? textureType;
 			const nextVisibility = nextValues.visibility ?? visibility;
 			const nextLibraryStatus = nextValues.libraryStatus ?? libraryStatus;
@@ -309,7 +321,9 @@ export default function AdminTextureLibraryTexturesPage({
 				"pageSize",
 				nextPageSize === DEFAULT_TEXTURE_PAGE_SIZE ? "" : String(nextPageSize),
 			);
-			setStringParam(next, "offset", nextOffset > 0 ? String(nextOffset) : "");
+			next.delete("offset");
+			setCursorStack((current) => (current.length > 0 ? [] : current));
+			setNextCursor((current) => (current ? null : current));
 			setSearchParams(next);
 		},
 		[
@@ -328,6 +342,8 @@ export default function AdminTextureLibraryTexturesPage({
 	);
 
 	const resetFilters = useCallback(() => {
+		setCursorStack((current) => (current.length > 0 ? [] : current));
+		setNextCursor((current) => (current ? null : current));
 		setSearchParams(new URLSearchParams());
 	}, [setSearchParams]);
 
@@ -342,18 +358,30 @@ export default function AdminTextureLibraryTexturesPage({
 					label: t("admin.pagination.pageSizeOption", { count: size }),
 					value: String(size),
 				}))}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= total}
-				onPrevious={() => setFilters({ offset: offset - pageSize })}
-				onNext={() => setFilters({ offset: offset + pageSize })}
+				prevDisabled={cursorStack.length === 0}
+				nextDisabled={!nextCursor}
+				onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+				}}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(value, TEXTURE_PAGE_SIZE_OPTIONS);
 					if (next == null) return;
-					setFilters({ offset: 0, pageSize: next });
+					setFilters({ pageSize: next });
 				}}
 			/>
 		),
-		[currentPage, offset, pageSize, setFilters, t, total, totalPages],
+		[
+			currentPage,
+			cursorStack.length,
+			nextCursor,
+			pageSize,
+			setFilters,
+			t,
+			total,
+			totalPages,
+		],
 	);
 
 	function openReviewDialog(action: ReviewAction, texture: LibraryTexture) {
@@ -365,6 +393,11 @@ export default function AdminTextureLibraryTexturesPage({
 		if (submittingTextureId !== null) return;
 		setReviewDialog(null);
 		setReviewNote("");
+	}
+
+	function closeDeleteDialog(open: boolean) {
+		if (open || submittingTextureId !== null) return;
+		setDeleteDialog(null);
 	}
 
 	async function submitReviewAction(event: FormEvent<HTMLFormElement>) {
@@ -411,6 +444,32 @@ export default function AdminTextureLibraryTexturesPage({
 		}
 	}
 
+	async function confirmDeleteTexture() {
+		if (!deleteDialog) return;
+		const textureId = deleteDialog.texture.id;
+		setSubmittingTextureId(textureId);
+		try {
+			await adminTextureLibraryService.deleteTexture(textureId);
+			setTextures((current) =>
+				current.filter((texture) => texture.id !== textureId),
+			);
+			setDetailTexture((current) =>
+				current?.id === textureId ? null : current,
+			);
+			toast.success(t("admin.textureLibraryTexturesPage.deleteSuccess"));
+			setDeleteDialog(null);
+			if (detailMode) {
+				navigate(adminPaths.textureLibrary, { replace: true });
+			} else {
+				await reload();
+			}
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			setSubmittingTextureId(null);
+		}
+	}
+
 	if (detailMode) {
 		return (
 			<AdminPageShell>
@@ -420,6 +479,7 @@ export default function AdminTextureLibraryTexturesPage({
 					texture={detailTexture}
 					validTextureId={textureId}
 					onApprove={(texture) => openReviewDialog("approve", texture)}
+					onDelete={(texture) => setDeleteDialog({ texture })}
 					onReject={(texture) => openReviewDialog("reject", texture)}
 					onRefresh={() => void loadDetailTexture()}
 					onUnpublish={(texture) => openReviewDialog("unpublish", texture)}
@@ -432,6 +492,13 @@ export default function AdminTextureLibraryTexturesPage({
 					onClose={closeReviewDialog}
 					onNoteChange={setReviewNote}
 					onSubmit={submitReviewAction}
+				/>
+				<TextureDeleteDialog
+					open={deleteDialog !== null}
+					deleteDialog={deleteDialog}
+					submitting={submittingTextureId !== null}
+					onClose={closeDeleteDialog}
+					onConfirm={confirmDeleteTexture}
 				/>
 			</AdminPageShell>
 		);
@@ -497,6 +564,7 @@ export default function AdminTextureLibraryTexturesPage({
 						texture={texture}
 						onOpen={() => navigate(adminTextureLibraryPath(texture.id))}
 						onApprove={() => openReviewDialog("approve", texture)}
+						onDelete={() => setDeleteDialog({ texture })}
 						onReject={() => openReviewDialog("reject", texture)}
 						onUnpublish={() => openReviewDialog("unpublish", texture)}
 					/>
@@ -518,7 +586,6 @@ export default function AdminTextureLibraryTexturesPage({
 								onChange={(event) =>
 									setFilters({
 										keyword: event.currentTarget.value,
-										offset: 0,
 									})
 								}
 								placeholder={t(
@@ -541,7 +608,6 @@ export default function AdminTextureLibraryTexturesPage({
 							onChange={(value) =>
 								setFilters({
 									textureType: value as FilterValue<MinecraftTextureType>,
-									offset: 0,
 								})
 							}
 						/>
@@ -559,7 +625,6 @@ export default function AdminTextureLibraryTexturesPage({
 							onChange={(value) =>
 								setFilters({
 									visibility: value as FilterValue<MinecraftTextureVisibility>,
-									offset: 0,
 								})
 							}
 						/>
@@ -577,7 +642,6 @@ export default function AdminTextureLibraryTexturesPage({
 								setFilters({
 									libraryStatus:
 										value as FilterValue<MinecraftTextureLibraryStatus>,
-									offset: 0,
 								})
 							}
 						/>
@@ -601,7 +665,6 @@ export default function AdminTextureLibraryTexturesPage({
 							onChange={(value) =>
 								setFilters({
 									published: value as PublishedFilter,
-									offset: 0,
 								})
 							}
 						/>
@@ -617,6 +680,13 @@ export default function AdminTextureLibraryTexturesPage({
 				onClose={closeReviewDialog}
 				onNoteChange={setReviewNote}
 				onSubmit={submitReviewAction}
+			/>
+			<TextureDeleteDialog
+				open={deleteDialog !== null}
+				deleteDialog={deleteDialog}
+				submitting={submittingTextureId !== null}
+				onClose={closeDeleteDialog}
+				onConfirm={confirmDeleteTexture}
 			/>
 		</AdminPageShell>
 	);
@@ -656,6 +726,7 @@ function TextureTableHeader() {
 function TextureTableRow({
 	loading,
 	onApprove,
+	onDelete,
 	onOpen,
 	onReject,
 	onUnpublish,
@@ -663,6 +734,7 @@ function TextureTableRow({
 }: {
 	loading: boolean;
 	onApprove: () => void;
+	onDelete: () => void;
 	onOpen: () => void;
 	onReject: () => void;
 	onUnpublish: () => void;
@@ -793,9 +865,54 @@ function TextureTableRow({
 					>
 						{t("admin.textureLibraryTexturesPage.unpublishAction")}
 					</Button>
+					<Button
+						type="button"
+						size="sm"
+						variant="destructive"
+						disabled={loading}
+						onClick={(event) => {
+							event.stopPropagation();
+							onDelete();
+						}}
+						onKeyDown={(event) => event.stopPropagation()}
+					>
+						<Icon name="Trash" className="size-4" />
+						{t("common.delete")}
+					</Button>
 				</div>
 			</AdminTableCell>
 		</AdminTableRow>
+	);
+}
+
+function TextureDeleteDialog({
+	deleteDialog,
+	onClose,
+	onConfirm,
+	open,
+	submitting,
+}: {
+	deleteDialog: DeleteDialogState | null;
+	onClose: (open: boolean) => void;
+	onConfirm: () => void;
+	open: boolean;
+	submitting: boolean;
+}) {
+	const { t } = useTranslation();
+	return (
+		<ConfirmDialog
+			open={open}
+			loading={submitting}
+			title={t("admin.textureLibraryTexturesPage.deleteTitle")}
+			description={t("admin.textureLibraryTexturesPage.deleteDescription", {
+				name: deleteDialog ? textureDisplayName(deleteDialog.texture) : "",
+			})}
+			cancelLabel={t("common.cancel")}
+			confirmLabel={t("common.delete")}
+			variant="destructive"
+			onConfirm={onConfirm}
+			onOpenChange={onClose}
+		/>
 	);
 }
 
@@ -898,6 +1015,7 @@ function TextureReviewDialog({
 function AdminTextureDetailContent({
 	loading,
 	onApprove,
+	onDelete,
 	onRefresh,
 	onReject,
 	onUnpublish,
@@ -907,6 +1025,7 @@ function AdminTextureDetailContent({
 }: {
 	loading: boolean;
 	onApprove: (texture: LibraryTexture) => void;
+	onDelete: (texture: LibraryTexture) => void;
 	onRefresh: () => void;
 	onReject: (texture: LibraryTexture) => void;
 	onUnpublish: (texture: LibraryTexture) => void;
@@ -1022,6 +1141,7 @@ function AdminTextureDetailContent({
 							submitting={submitting}
 							texture={texture}
 							onApprove={onApprove}
+							onDelete={onDelete}
 							onReject={onReject}
 							onUnpublish={onUnpublish}
 						/>
@@ -1215,6 +1335,7 @@ function TextureReviewActions({
 	canApprove,
 	canUnpublish,
 	onApprove,
+	onDelete,
 	onReject,
 	onUnpublish,
 	submitting,
@@ -1223,6 +1344,7 @@ function TextureReviewActions({
 	canApprove: boolean;
 	canUnpublish: boolean;
 	onApprove: (texture: LibraryTexture) => void;
+	onDelete: (texture: LibraryTexture) => void;
 	onReject: (texture: LibraryTexture) => void;
 	onUnpublish: (texture: LibraryTexture) => void;
 	submitting: boolean;
@@ -1261,6 +1383,15 @@ function TextureReviewActions({
 					onClick={() => onUnpublish(texture)}
 				>
 					{t("admin.textureLibraryTexturesPage.unpublishAction")}
+				</Button>
+				<Button
+					type="button"
+					variant="destructive"
+					disabled={submitting}
+					onClick={() => onDelete(texture)}
+				>
+					<Icon name="Trash" className="size-4" />
+					{t("common.delete")}
 				</Button>
 			</div>
 		</div>

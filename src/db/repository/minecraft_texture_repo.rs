@@ -51,6 +51,7 @@ pub struct AdminTextureLibraryListFilter {
 #[derive(Debug, Clone)]
 pub struct UpdateWardrobeTextureMetadata {
     pub display_name: Option<Option<String>>,
+    pub texture_model: Option<MinecraftTextureModel>,
     pub visibility: Option<MinecraftTextureVisibility>,
 }
 
@@ -61,6 +62,13 @@ pub struct UpdateTextureLibraryReview {
     pub library_reviewed_at: Option<Option<DateTime<Utc>>>,
     pub library_reviewer_user_id: Option<Option<i64>>,
     pub library_review_note: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CursorSlice<T> {
+    pub items: Vec<T>,
+    pub total: u64,
+    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -187,26 +195,7 @@ pub async fn list_by_user_paginated<C: ConnectionTrait>(
     filter: WardrobeTextureListFilter,
 ) -> Result<OffsetPage<minecraft_texture::Model>> {
     load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let mut query = MinecraftTexture::find()
-            .filter(minecraft_texture::Column::UserId.eq(user_id))
-            .filter(minecraft_texture::Column::IsWardrobeItem.eq(true));
-
-        if let Some(texture_type) = filter.texture_type {
-            query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
-        }
-
-        query = apply_tag_filter(query, &filter);
-
-        if let Some(keyword) = filter
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            query = query.filter(texture_keyword_condition(keyword));
-        }
-
-        let query = query
+        let query = current_user_wardrobe_query(user_id, filter)
             .order_by_desc(minecraft_texture::Column::UpdatedAt)
             .order_by_desc(minecraft_texture::Column::Id);
         let total = query
@@ -223,6 +212,17 @@ pub async fn list_by_user_paginated<C: ConnectionTrait>(
         Ok((items, total))
     })
     .await
+}
+
+pub async fn list_by_user_cursor<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    limit: u64,
+    after: Option<(DateTime<Utc>, i64)>,
+    filter: WardrobeTextureListFilter,
+) -> Result<CursorSlice<minecraft_texture::Model>> {
+    let base = current_user_wardrobe_query(user_id, filter);
+    fetch_updated_at_cursor_slice(db, base, limit, after).await
 }
 
 pub async fn list_public_wardrobe_paginated<C: ConnectionTrait>(
@@ -232,30 +232,7 @@ pub async fn list_public_wardrobe_paginated<C: ConnectionTrait>(
     filter: WardrobeTextureListFilter,
 ) -> Result<OffsetPage<minecraft_texture::Model>> {
     load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let mut query = MinecraftTexture::find()
-            .filter(minecraft_texture::Column::IsWardrobeItem.eq(true))
-            .filter(minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public))
-            .filter(
-                minecraft_texture::Column::LibraryStatus
-                    .eq(MinecraftTextureLibraryStatus::Published),
-            );
-
-        if let Some(texture_type) = filter.texture_type {
-            query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
-        }
-
-        query = apply_tag_filter(query, &filter);
-
-        if let Some(keyword) = filter
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            query = query.filter(texture_keyword_condition(keyword));
-        }
-
-        let query = query
+        let query = public_wardrobe_query(filter)
             .order_by_desc(minecraft_texture::Column::UpdatedAt)
             .order_by_desc(minecraft_texture::Column::Id);
         let total = query
@@ -274,6 +251,16 @@ pub async fn list_public_wardrobe_paginated<C: ConnectionTrait>(
     .await
 }
 
+pub async fn list_public_wardrobe_cursor<C: ConnectionTrait>(
+    db: &C,
+    limit: u64,
+    after: Option<(DateTime<Utc>, i64)>,
+    filter: WardrobeTextureListFilter,
+) -> Result<CursorSlice<minecraft_texture::Model>> {
+    let base = public_wardrobe_query(filter);
+    fetch_updated_at_cursor_slice(db, base, limit, after).await
+}
+
 pub async fn list_admin_library_textures_paginated<C: ConnectionTrait>(
     db: &C,
     limit: u64,
@@ -281,64 +268,7 @@ pub async fn list_admin_library_textures_paginated<C: ConnectionTrait>(
     filter: AdminTextureLibraryListFilter,
 ) -> Result<OffsetPage<minecraft_texture::Model>> {
     load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let mut query =
-            MinecraftTexture::find().filter(minecraft_texture::Column::IsWardrobeItem.eq(true));
-
-        if let Some(texture_type) = filter.texture_type {
-            query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
-        }
-        if let Some(visibility) = filter.visibility {
-            query = query.filter(minecraft_texture::Column::Visibility.eq(visibility));
-        }
-        if let Some(library_status) = filter.library_status {
-            query = query.filter(minecraft_texture::Column::LibraryStatus.eq(library_status));
-        }
-        if let Some(published) = filter.published {
-            if published {
-                query = query
-                    .filter(
-                        minecraft_texture::Column::Visibility
-                            .eq(MinecraftTextureVisibility::Public),
-                    )
-                    .filter(
-                        minecraft_texture::Column::LibraryStatus
-                            .eq(MinecraftTextureLibraryStatus::Published),
-                    );
-            } else {
-                query = query.filter(
-                    Condition::any()
-                        .add(
-                            minecraft_texture::Column::Visibility
-                                .ne(MinecraftTextureVisibility::Public),
-                        )
-                        .add(
-                            minecraft_texture::Column::LibraryStatus
-                                .ne(MinecraftTextureLibraryStatus::Published),
-                        ),
-                );
-            }
-        }
-
-        query = apply_tag_filter(
-            query,
-            &WardrobeTextureListFilter {
-                texture_type: None,
-                tag_ids: filter.tag_ids,
-                tag_search_method: filter.tag_search_method,
-                keyword: None,
-            },
-        );
-
-        if let Some(keyword) = filter
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            query = query.filter(texture_keyword_condition(keyword));
-        }
-
-        let query = query
+        let query = admin_library_query(filter)
             .order_by_desc(minecraft_texture::Column::UpdatedAt)
             .order_by_desc(minecraft_texture::Column::Id);
         let total = query
@@ -355,6 +285,174 @@ pub async fn list_admin_library_textures_paginated<C: ConnectionTrait>(
         Ok((items, total))
     })
     .await
+}
+
+pub async fn list_admin_library_textures_cursor<C: ConnectionTrait>(
+    db: &C,
+    limit: u64,
+    after: Option<(DateTime<Utc>, i64)>,
+    filter: AdminTextureLibraryListFilter,
+) -> Result<CursorSlice<minecraft_texture::Model>> {
+    let base = admin_library_query(filter);
+    fetch_updated_at_cursor_slice(db, base, limit, after).await
+}
+
+fn current_user_wardrobe_query(
+    user_id: i64,
+    filter: WardrobeTextureListFilter,
+) -> Select<MinecraftTexture> {
+    let query = MinecraftTexture::find()
+        .filter(minecraft_texture::Column::UserId.eq(user_id))
+        .filter(minecraft_texture::Column::IsWardrobeItem.eq(true));
+    apply_wardrobe_filter(query, filter)
+}
+
+fn public_wardrobe_query(filter: WardrobeTextureListFilter) -> Select<MinecraftTexture> {
+    let query = MinecraftTexture::find()
+        .filter(minecraft_texture::Column::IsWardrobeItem.eq(true))
+        .filter(minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public))
+        .filter(
+            minecraft_texture::Column::LibraryStatus.eq(MinecraftTextureLibraryStatus::Published),
+        );
+    apply_wardrobe_filter(query, filter)
+}
+
+fn admin_library_query(filter: AdminTextureLibraryListFilter) -> Select<MinecraftTexture> {
+    let mut query =
+        MinecraftTexture::find().filter(minecraft_texture::Column::IsWardrobeItem.eq(true));
+
+    if let Some(texture_type) = filter.texture_type {
+        query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
+    }
+    if let Some(visibility) = filter.visibility {
+        query = query.filter(minecraft_texture::Column::Visibility.eq(visibility));
+    }
+    if let Some(library_status) = filter.library_status {
+        query = query.filter(minecraft_texture::Column::LibraryStatus.eq(library_status));
+    }
+    if let Some(published) = filter.published {
+        if published {
+            query = query
+                .filter(
+                    minecraft_texture::Column::Visibility.eq(MinecraftTextureVisibility::Public),
+                )
+                .filter(
+                    minecraft_texture::Column::LibraryStatus
+                        .eq(MinecraftTextureLibraryStatus::Published),
+                );
+        } else {
+            query = query.filter(
+                Condition::any()
+                    .add(
+                        minecraft_texture::Column::Visibility
+                            .ne(MinecraftTextureVisibility::Public),
+                    )
+                    .add(
+                        minecraft_texture::Column::LibraryStatus
+                            .ne(MinecraftTextureLibraryStatus::Published),
+                    ),
+            );
+        }
+    }
+
+    query = apply_tag_filter(
+        query,
+        &WardrobeTextureListFilter {
+            texture_type: None,
+            tag_ids: filter.tag_ids,
+            tag_search_method: filter.tag_search_method,
+            keyword: None,
+        },
+    );
+
+    if let Some(keyword) = filter
+        .keyword
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        query = query.filter(texture_keyword_condition(keyword));
+    }
+
+    query
+}
+
+fn apply_wardrobe_filter(
+    mut query: Select<MinecraftTexture>,
+    filter: WardrobeTextureListFilter,
+) -> Select<MinecraftTexture> {
+    if let Some(texture_type) = filter.texture_type {
+        query = query.filter(minecraft_texture::Column::TextureType.eq(texture_type));
+    }
+
+    query = apply_tag_filter(query, &filter);
+
+    if let Some(keyword) = filter
+        .keyword
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        query = query.filter(texture_keyword_condition(keyword));
+    }
+
+    query
+}
+
+async fn fetch_updated_at_cursor_slice<C: ConnectionTrait>(
+    db: &C,
+    base: Select<MinecraftTexture>,
+    limit: u64,
+    after: Option<(DateTime<Utc>, i64)>,
+) -> Result<CursorSlice<minecraft_texture::Model>> {
+    let total = base
+        .clone()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+
+    if total == 0 || limit == 0 {
+        return Ok(CursorSlice {
+            items: Vec::new(),
+            total,
+            has_more: false,
+        });
+    }
+
+    let mut query = base;
+    if let Some((after_updated_at, after_id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(minecraft_texture::Column::UpdatedAt.lt(after_updated_at))
+                .add(
+                    Condition::all()
+                        .add(minecraft_texture::Column::UpdatedAt.eq(after_updated_at))
+                        .add(minecraft_texture::Column::Id.lt(after_id)),
+                ),
+        );
+    }
+
+    let mut items = query
+        .order_by_desc(minecraft_texture::Column::UpdatedAt)
+        .order_by_desc(minecraft_texture::Column::Id)
+        .limit(limit.saturating_add(1))
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    let has_more =
+        crate::utils::numbers::usize_to_u64(items.len(), "texture cursor page size")? > limit;
+    if has_more {
+        items.truncate(crate::utils::numbers::u64_to_usize(
+            limit,
+            "texture cursor limit",
+        )?);
+    }
+
+    Ok(CursorSlice {
+        items,
+        total,
+        has_more,
+    })
 }
 
 fn apply_tag_filter(
@@ -523,6 +621,9 @@ pub async fn update_wardrobe_metadata_for_user<C: ConnectionTrait>(
     if let Some(display_name) = input.display_name {
         active.display_name = Set(display_name);
     }
+    if let Some(texture_model) = input.texture_model {
+        active.texture_model = Set(texture_model);
+    }
     if let Some(visibility) = input.visibility {
         active.visibility = Set(visibility);
         if visibility == MinecraftTextureVisibility::Private {
@@ -599,6 +700,24 @@ pub async fn delete_by_id_for_user<C: ConnectionTrait>(
     let Some(texture) = find_by_id_for_user(db, id, user_id).await? else {
         return Ok(None);
     };
+    texture
+        .clone()
+        .delete(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    Ok(Some(texture))
+}
+
+pub async fn delete_wardrobe_by_id<C: ConnectionTrait>(
+    db: &C,
+    id: i64,
+) -> Result<Option<minecraft_texture::Model>> {
+    let Some(texture) = find_by_id(db, id).await? else {
+        return Ok(None);
+    };
+    if !texture.is_wardrobe_item {
+        return Ok(None);
+    }
     texture
         .clone()
         .delete(db)

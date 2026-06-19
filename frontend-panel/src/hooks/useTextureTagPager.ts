@@ -30,6 +30,7 @@ export function useTextureTagPager({
 	const loadPageRef = useRef(loadPage);
 	const onErrorRef = useRef(onError);
 	const retainedTagIdsRef = useRef(retainedTagIds);
+	const ensuredKeywordRef = useRef<string | null>(null);
 	const hasMore = offset < total;
 
 	useEffect(() => {
@@ -50,6 +51,9 @@ export function useTextureTagPager({
 		) => {
 			const nextKeyword = params.keyword ?? keyword;
 			const nextOffset = params.offset ?? 0;
+			if (!params.append && nextOffset === 0) {
+				ensuredKeywordRef.current = nextKeyword;
+			}
 			setLoading(true);
 			try {
 				const page = await loadPageRef.current({
@@ -79,7 +83,9 @@ export function useTextureTagPager({
 	);
 
 	const ensureLoaded = useCallback(() => {
-		if (tags.length > 0 || loading) return;
+		if (tags.length > 0 || loading || ensuredKeywordRef.current === keyword) {
+			return;
+		}
 		void load({ keyword, offset: 0 });
 	}, [keyword, load, loading, tags.length]);
 
@@ -102,6 +108,10 @@ export function useTextureTagPager({
 		setTags((current) => mergeTextureTags(current, nextTags));
 	}, []);
 
+	const resetEnsureLoaded = useCallback(() => {
+		ensuredKeywordRef.current = null;
+	}, []);
+
 	return {
 		addTags,
 		ensureLoaded,
@@ -110,6 +120,7 @@ export function useTextureTagPager({
 		load,
 		loadMore,
 		loading,
+		resetEnsureLoaded,
 		search,
 		tags,
 	};

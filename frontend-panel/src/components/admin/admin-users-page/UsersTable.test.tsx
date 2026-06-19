@@ -168,20 +168,16 @@ describe("UsersTableRow", () => {
 });
 
 describe("UsersTableHeader", () => {
-	it("sorts by id from the leading ID column", () => {
-		const onSortChange = vi.fn();
+	it("renders non-sortable user list columns", () => {
 		render(
 			<table>
-				<UsersTableHeader
-					sortBy="username"
-					sortOrder="asc"
-					onSortChange={onSortChange}
-				/>
+				<UsersTableHeader />
 			</table>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: /ID/ }));
-
-		expect(onSortChange).toHaveBeenCalledWith("id", "asc");
+		expect(screen.getByText("ID")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: /ID/ }),
+		).not.toBeInTheDocument();
 	});
 });

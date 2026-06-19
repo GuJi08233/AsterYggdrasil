@@ -12,7 +12,6 @@ use webauthn_rs::prelude::{
 use webauthn_rs_proto::{ResidentKeyRequirement, UserVerificationPolicy};
 
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::OffsetPage;
 use crate::cache::CacheExt;
 use crate::config::{auth_runtime::RuntimeAuthPolicy, branding, site_url};
 use crate::db::repository::{passkey_repo, user_repo};
@@ -499,15 +498,27 @@ pub async fn list_passkeys(
         })
 }
 
-pub async fn list_passkeys_paginated(
+pub async fn list_passkeys_cursor(
     state: &impl SharedRuntimeState,
     user_id: i64,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<PasskeyInfo>> {
-    tracing::debug!(user_id, limit, offset, "listing passkeys page");
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<crate::api::pagination::CursorPage<PasskeyInfo, crate::api::pagination::DateTimeIdCursor>>
+{
+    let limit = limit.clamp(1, 100);
+    tracing::debug!(user_id, limit, "listing passkeys page");
     let page =
-        passkey_repo::list_for_user_paginated(state.writer_db(), user_id, limit, offset).await?;
+        passkey_repo::list_for_user_cursor(state.writer_db(), user_id, limit, cursor).await?;
+    let next_cursor = if page.has_more {
+        page.items
+            .last()
+            .map(|passkey| crate::api::pagination::DateTimeIdCursor {
+                value: passkey.created_at,
+                id: passkey.id,
+            })
+    } else {
+        None
+    };
     let items = page
         .items
         .into_iter()
@@ -517,11 +528,16 @@ pub async fn list_passkeys_paginated(
         user_id,
         returned = items.len(),
         total = page.total,
-        limit = page.limit,
-        offset = page.offset,
+        limit,
         "listed passkeys page"
     );
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(crate::api::pagination::CursorPage::new(
+        items,
+        page.total,
+        limit,
+        0,
+        next_cursor,
+    ))
 }
 
 pub async fn start_registration(

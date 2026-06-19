@@ -513,46 +513,49 @@ function RecentActivityPanel({
 	const { t } = useTranslation();
 
 	return (
-		<AdminSurface className="p-5">
+		<AdminSurface className="min-w-0 overflow-hidden p-5">
 			<div className="flex items-start justify-between gap-3">
-				<div>
-					<h2 className="text-base font-semibold">
+				<div className="min-w-0">
+					<h2 className="truncate text-base font-semibold">
 						{t("admin.overview.activityTitle")}
 					</h2>
-					<p className="mt-1 text-sm text-muted-foreground">
+					<p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
 						{t("admin.overview.activityDescription")}
 					</p>
 				</div>
 				<Link
 					to={adminPaths.audit}
-					className="mt-0.5 text-sm font-medium text-primary hover:underline"
+					className="mt-0.5 shrink-0 text-sm font-medium text-primary hover:underline"
 				>
 					{t("admin.overview.viewAll")}
 				</Link>
 			</div>
 			{items.length > 0 ? (
-				<div className="mt-4 divide-y divide-border/60 dark:divide-white/10">
+				<div className="mt-4 min-w-0 divide-y divide-border/60 dark:divide-white/10">
 					{items.map((item) => {
 						const detail = formatAuditDetail(t, item);
 						return (
-							<div key={item.id} className="py-3 first:pt-0 last:pb-0">
-								<div className="flex items-start gap-3">
+							<div
+								key={item.id}
+								className="min-w-0 overflow-hidden py-3 first:pt-0 last:pb-0"
+							>
+								<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
 									<StatusIndicator className="mt-1.5" />
 									<div className="min-w-0 flex-1">
-										<div className="truncate text-sm font-semibold">
+										<div className="min-w-0 truncate text-sm font-semibold">
 											{formatAuditSummary(t, item)}
 										</div>
-										<div className="mt-1 truncate text-xs text-muted-foreground">
+										<div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
 											{formatAuditTarget(t, item)}
 										</div>
 										{detail ? (
-											<div className="mt-1 truncate text-xs text-muted-foreground">
+											<div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
 												{detail}
 											</div>
 										) : null}
 										<DateTimeText
 											value={item.created_at}
-											className="mt-1 block text-xs text-muted-foreground"
+											className="mt-1 block min-w-0 truncate text-xs text-muted-foreground"
 										/>
 									</div>
 								</div>

@@ -34,15 +34,16 @@ import { TextureLibraryTextureAvatar } from "@/components/yggdrasil/TextureLibra
 import { TextureTagFilterPopover } from "@/components/yggdrasil/TextureTagFilterPopover";
 import { TextureTagChips } from "@/components/yggdrasil/TextureTagList";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePublicSession } from "@/hooks/usePublicSession";
 import { useTextureTagPager } from "@/hooks/useTextureTagPager";
 import { formatBytes } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
 import { publicPaths, publicTexturePath } from "@/routes/routePaths";
 import { ApiError, formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
-import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type {
+	DateTimeIdCursor,
 	MinecraftTextureType,
 	PublicTextureLibraryTextureMetadata,
 	TextureTagSearchMethod,
@@ -58,10 +59,7 @@ export default function PublicTextureLibraryPage() {
 	const textureLibraryEnabled = useFrontendConfigStore(
 		(state) => state.textureLibrary.enabled,
 	);
-	const user = useAuthStore((state) => state.user);
-	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const hydrate = useAuthStore((state) => state.hydrate);
-	const logout = useAuthStore((state) => state.logout);
+	const { isAuthenticated, logout, user } = usePublicSession();
 	const [textures, setTextures] = useState<
 		PublicTextureLibraryTextureMetadata[]
 	>([]);
@@ -78,16 +76,13 @@ export default function PublicTextureLibraryPage() {
 	const [query, setQuery] = useState("");
 	const [appliedQuery, setAppliedQuery] = useState("");
 	const [loading, setLoading] = useState(true);
-	const [offset, setOffset] = useState(0);
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
 	const [pageSize, setPageSize] = useState<number>(DEFAULT_LIBRARY_PAGE_SIZE);
 	const [total, setTotal] = useState(0);
 	const serverName = branding.title || t("home.titleFallback");
 
 	usePageTitle(t("library.title"));
-
-	useEffect(() => {
-		void hydrate();
-	}, [hydrate]);
 
 	const tagPager = useTextureTagPager({
 		loadPage: yggdrasilService.listPublicTextureLibraryTags,
@@ -103,18 +98,26 @@ export default function PublicTextureLibraryPage() {
 		tags,
 	} = tagPager;
 
+	const resetCursor = useCallback(() => {
+		setCursorStack((current) => (current.length > 0 ? [] : current));
+		setNextCursor((current) => (current ? null : current));
+	}, []);
+
 	const loadTextures = useCallback(async () => {
 		if (!textureLibraryEnabled) {
 			setTextures([]);
 			setTotal(0);
+			setNextCursor(null);
 			setLoading(false);
 			return;
 		}
 		setLoading(true);
+		const cursor = cursorStack.at(-1);
 		try {
 			const page = await yggdrasilService.listPublicTextureLibraryTextures({
 				limit: pageSize,
-				offset,
+				after_updated_at: cursor?.value,
+				after_id: cursor?.id,
 				keyword: appliedQuery.trim() || undefined,
 				texture_type: textureType === "all" ? undefined : textureType,
 				tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined,
@@ -123,6 +126,7 @@ export default function PublicTextureLibraryPage() {
 			});
 			setTextures(page.items);
 			setTotal(page.total);
+			setNextCursor(page.next_cursor ?? null);
 		} catch (error) {
 			toast.error(formatUnknownError(error));
 		} finally {
@@ -130,7 +134,7 @@ export default function PublicTextureLibraryPage() {
 		}
 	}, [
 		appliedQuery,
-		offset,
+		cursorStack,
 		pageSize,
 		selectedTagIds,
 		tagSearchMethod,
@@ -150,13 +154,13 @@ export default function PublicTextureLibraryPage() {
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
-			setOffset(0);
+			resetCursor();
 			setSelectedTagIds((current) =>
 				sameNumberArray(current, draftTagIds) ? current : draftTagIds,
 			);
 		}, TAG_FILTER_APPLY_DEBOUNCE_MS);
 		return () => window.clearTimeout(timer);
-	}, [draftTagIds]);
+	}, [draftTagIds, resetCursor]);
 
 	const selectedTags = useMemo(
 		() => tags.filter((tag) => draftTagIds.includes(tag.id)),
@@ -165,7 +169,7 @@ export default function PublicTextureLibraryPage() {
 
 	function submitSearch(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		setOffset(0);
+		resetCursor();
 		setAppliedQuery(query);
 	}
 
@@ -175,10 +179,10 @@ export default function PublicTextureLibraryPage() {
 
 	function changeTagSearchMethod(nextMethod: TextureTagSearchMethod) {
 		setTagSearchMethod(nextMethod);
-		setOffset(0);
+		resetCursor();
 	}
 
-	const currentPage = Math.floor(offset / pageSize) + 1;
+	const currentPage = cursorStack.length + 1;
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	return (
@@ -238,7 +242,7 @@ export default function PublicTextureLibraryPage() {
 										active={textureType === "all"}
 										onClick={() => {
 											setTextureType("all");
-											setOffset(0);
+											resetCursor();
 										}}
 									>
 										{t("library.type.all")}
@@ -247,7 +251,7 @@ export default function PublicTextureLibraryPage() {
 										active={textureType === "skin"}
 										onClick={() => {
 											setTextureType("skin");
-											setOffset(0);
+											resetCursor();
 										}}
 									>
 										{t("wardrobe.type.skin")}
@@ -256,7 +260,7 @@ export default function PublicTextureLibraryPage() {
 										active={textureType === "cape"}
 										onClick={() => {
 											setTextureType("cape");
-											setOffset(0);
+											resetCursor();
 										}}
 									>
 										{t("wardrobe.type.cape")}
@@ -359,7 +363,7 @@ export default function PublicTextureLibraryPage() {
 												className="h-8 rounded-md border border-input bg-background px-2 text-sm"
 												onChange={(event) => {
 													setPageSize(Number(event.currentTarget.value));
-													setOffset(0);
+													resetCursor();
 												}}
 											>
 												{LIBRARY_PAGE_SIZE_OPTIONS.map((option) => (
@@ -375,9 +379,9 @@ export default function PublicTextureLibraryPage() {
 											type="button"
 											variant="outline"
 											size="sm"
-											disabled={offset === 0}
+											disabled={cursorStack.length === 0}
 											onClick={() =>
-												setOffset((current) => Math.max(0, current - pageSize))
+												setCursorStack((current) => current.slice(0, -1))
 											}
 										>
 											{t("admin.pagination.previous")}
@@ -386,8 +390,11 @@ export default function PublicTextureLibraryPage() {
 											type="button"
 											variant="outline"
 											size="sm"
-											disabled={offset + pageSize >= total}
-											onClick={() => setOffset((current) => current + pageSize)}
+											disabled={!nextCursor}
+											onClick={() => {
+												if (!nextCursor) return;
+												setCursorStack((current) => [...current, nextCursor]);
+											}}
 										>
 											{t("admin.pagination.next")}
 										</Button>

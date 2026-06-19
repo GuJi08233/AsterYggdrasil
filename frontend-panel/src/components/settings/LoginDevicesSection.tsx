@@ -4,6 +4,7 @@ import {
 	useEffect,
 	useMemo,
 	useReducer,
+	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { authService } from "@/services/authService";
 import { formatUnknownError } from "@/services/http";
 import { useAuthStore } from "@/stores/authStore";
-import type { AuthSessionInfo } from "@/types/api";
+import type { AuthSessionInfo, DateTimeStringCursor } from "@/types/api";
 
 const SESSION_PAGE_SIZE_OPTIONS = [5, 10] as const;
 const DEFAULT_SESSION_PAGE_SIZE = 5;
@@ -28,7 +29,6 @@ const RELATIVE_TIME_FORMATTER = new Intl.RelativeTimeFormat(undefined, {
 
 type LoginDevicesState = {
 	loading: boolean;
-	offset: number;
 	pageSize: number;
 	revokeBusyId: string | null;
 	revokeOthersBusy: boolean;
@@ -39,14 +39,12 @@ type LoginDevicesState = {
 type LoginDevicesAction =
 	| { type: "loaded"; sessions: AuthSessionInfo[]; total: number }
 	| { type: "set_loading"; value: boolean }
-	| { type: "set_offset"; value: number }
 	| { type: "set_page_size"; value: number }
 	| { type: "set_revoke_busy_id"; value: string | null }
 	| { type: "set_revoke_others_busy"; value: boolean };
 
 const loginDevicesInitialState: LoginDevicesState = {
 	loading: true,
-	offset: 0,
 	pageSize: DEFAULT_SESSION_PAGE_SIZE,
 	revokeBusyId: null,
 	revokeOthersBusy: false,
@@ -67,10 +65,8 @@ function loginDevicesReducer(
 			};
 		case "set_loading":
 			return { ...state, loading: action.value };
-		case "set_offset":
-			return { ...state, offset: action.value };
 		case "set_page_size":
-			return { ...state, offset: 0, pageSize: action.value };
+			return { ...state, pageSize: action.value };
 		case "set_revoke_busy_id":
 			return { ...state, revokeBusyId: action.value };
 		case "set_revoke_others_busy":
@@ -85,9 +81,12 @@ export function LoginDevicesSection() {
 		loginDevicesReducer,
 		loginDevicesInitialState,
 	);
+	const [cursorStack, setCursorStack] = useState<DateTimeStringCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeStringCursor | null>(
+		null,
+	);
 	const {
 		loading,
-		offset,
 		pageSize,
 		revokeBusyId,
 		revokeOthersBusy,
@@ -96,25 +95,33 @@ export function LoginDevicesSection() {
 	} = state;
 
 	const loadSessions = useCallback(
-		async (nextOffset = offset) => {
+		async (stack: DateTimeStringCursor[] = cursorStack) => {
 			dispatch({ type: "set_loading", value: true });
 			try {
+				const cursor = stack.at(-1);
 				const next = await authService.sessionsPage({
 					limit: pageSize,
-					offset: nextOffset,
+					after_last_seen_at: cursor?.value,
+					after_id: cursor?.id,
 				});
+				if (next.items.length === 0 && next.total > 0 && stack.length > 0) {
+					setCursorStack((current) => current.slice(0, -1));
+					setNextCursor(null);
+					return;
+				}
 				dispatch({
 					type: "loaded",
 					sessions: next.items,
 					total: next.total,
 				});
+				setNextCursor(next.next_cursor ?? null);
 			} catch (nextError: unknown) {
 				toast.error(formatUnknownError(nextError));
 			} finally {
 				dispatch({ type: "set_loading", value: false });
 			}
 		},
-		[offset, pageSize],
+		[cursorStack, pageSize],
 	);
 
 	useEffect(() => {
@@ -161,8 +168,9 @@ export function LoginDevicesSection() {
 		dispatch({ type: "set_revoke_others_busy", value: true });
 		try {
 			await authService.revokeOtherSessions();
-			dispatch({ type: "set_offset", value: 0 });
-			await loadSessions(0);
+			setCursorStack([]);
+			setNextCursor(null);
+			await loadSessions([]);
 			toast.success(t("sessions.otherSessionsRevoked"));
 		} catch (nextError: unknown) {
 			toast.error(formatUnknownError(nextError));
@@ -179,6 +187,8 @@ export function LoginDevicesSection() {
 			? parsed
 			: DEFAULT_SESSION_PAGE_SIZE;
 		dispatch({ type: "set_page_size", value: nextPageSize });
+		setCursorStack([]);
+		setNextCursor(null);
 	}
 
 	return (
@@ -294,26 +304,27 @@ export function LoginDevicesSection() {
 							/>
 						))}
 						<AdminOffsetPagination
-							currentPage={Math.floor(offset / pageSize) + 1}
-							nextDisabled={offset + pageSize >= sessionTotal}
-							onNext={() =>
-								dispatch({ type: "set_offset", value: offset + pageSize })
-							}
+							currentPage={cursorStack.length + 1}
+							nextDisabled={!nextCursor}
+							onNext={() => {
+								if (!nextCursor) return;
+								setCursorStack((current) => [...current, nextCursor]);
+							}}
 							onPageSizeChange={changePageSize}
 							onPrevious={() =>
-								dispatch({
-									type: "set_offset",
-									value: Math.max(0, offset - pageSize),
-								})
+								setCursorStack((current) => current.slice(0, -1))
 							}
 							pageSize={String(pageSize)}
 							pageSizeOptions={SESSION_PAGE_SIZE_OPTIONS.map((size) => ({
 								label: t("admin.pagination.pageSizeOption", { count: size }),
 								value: String(size),
 							}))}
-							prevDisabled={offset === 0}
+							prevDisabled={cursorStack.length === 0}
 							total={sessionTotal}
-							totalPages={Math.max(1, Math.ceil(sessionTotal / pageSize))}
+							totalPages={Math.max(
+								cursorStack.length + (nextCursor ? 2 : 1),
+								1,
+							)}
 						/>
 					</div>
 				)}

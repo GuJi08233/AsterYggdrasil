@@ -886,7 +886,7 @@ async fn finish_callback_verifies_jwks_and_issues_asterdrive_cookies() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/settings/security")
+        Some("http://localhost:8080/settings/security?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
     assert!(common::extract_cookie(&resp, "aster_refresh").is_some());
@@ -943,7 +943,7 @@ async fn google_callback_uses_oidc_sub_as_stable_identity() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -1102,7 +1102,7 @@ async fn finish_callback_auto_links_verified_email_to_existing_user() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
     assert!(common::extract_cookie(&resp, "aster_refresh").is_some());
@@ -1265,7 +1265,7 @@ async fn finish_callback_allows_existing_identity_without_email_claim() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -1479,7 +1479,7 @@ async fn finish_callback_auto_link_by_verified_email_ignores_global_registration
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -1528,7 +1528,7 @@ async fn no_email_claim_can_register_after_local_email_verification() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/settings/security")
+        Some("http://localhost:8080/settings/security?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
     assert!(common::extract_cookie(&resp, "aster_refresh").is_some());
@@ -1641,7 +1641,7 @@ async fn no_email_claim_falls_back_to_local_email_verification_for_existing_user
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -1693,7 +1693,7 @@ async fn manual_email_verification_can_link_existing_user_without_auto_link_enab
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/files")
+        Some("http://localhost:8080/files?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
@@ -2503,7 +2503,7 @@ async fn dex_container_authorization_code_login_e2e() {
         resp.headers()
             .get("Location")
             .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8080/settings/security")
+        Some("http://localhost:8080/settings/security?auth_redirect=login_success")
     );
     assert!(common::extract_cookie(&resp, "aster_access").is_some());
     assert!(common::extract_cookie(&resp, "aster_refresh").is_some());

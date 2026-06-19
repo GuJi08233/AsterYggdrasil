@@ -61,15 +61,20 @@ function MinecraftProfilesLayout({
 	onOpenDeleteTextureDialog,
 	onOpenRenameDialog,
 	onOpenTextureDialog,
+	onNextProfilePage,
+	onPreviousProfilePage,
 	onRenameProfile,
 	onSelectTextureFile,
 	onUploadTexture,
+	profileCurrentPage,
 	profileName,
-	profileOffset,
+	profileNextDisabled,
 	profilePageSize,
+	profilePrevDisabled,
 	profileSkinUrls,
 	profiles,
 	profileTotal,
+	profileTotalPages,
 	query,
 	renameDialogOpen,
 	renameName,
@@ -97,15 +102,20 @@ function MinecraftProfilesLayout({
 	onOpenDeleteTextureDialog: (type: MinecraftTextureType) => void;
 	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
 	onOpenTextureDialog: (type: MinecraftTextureType) => void;
+	onNextProfilePage: () => void;
+	onPreviousProfilePage: () => void;
 	onRenameProfile: (event: FormEvent<HTMLFormElement>) => void;
 	onSelectTextureFile: (file: File | null) => void;
 	onUploadTexture: (event: FormEvent<HTMLFormElement>) => void;
+	profileCurrentPage: number;
 	profileName: string;
-	profileOffset: number;
+	profileNextDisabled: boolean;
 	profilePageSize: number;
+	profilePrevDisabled: boolean;
 	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	profileTotal: number;
+	profileTotalPages: number;
 	query: string;
 	renameDialogOpen: boolean;
 	renameName: string;
@@ -125,11 +135,16 @@ function MinecraftProfilesLayout({
 					deletingProfile={deletingProfile}
 					dispatch={dispatch}
 					loading={loading}
+					onNextProfilePage={onNextProfilePage}
+					onPreviousProfilePage={onPreviousProfilePage}
+					profileCurrentPage={profileCurrentPage}
 					profileName={profileName}
-					profileOffset={profileOffset}
+					profileNextDisabled={profileNextDisabled}
 					profilePageSize={profilePageSize}
+					profilePrevDisabled={profilePrevDisabled}
 					profileSkinUrls={profileSkinUrls}
 					profileTotal={profileTotal}
+					profileTotalPages={profileTotalPages}
 					profiles={profiles}
 					query={query}
 					searchBusy={searchBusy}
@@ -204,13 +219,18 @@ function ProfileListSection({
 	loading,
 	onChangePageSize,
 	onCreateProfile,
+	onNextProfilePage,
 	onOpenRenameDialog,
+	onPreviousProfilePage,
+	profileCurrentPage,
 	profileName,
-	profileOffset,
+	profileNextDisabled,
 	profilePageSize,
+	profilePrevDisabled,
 	profileSkinUrls,
 	profiles,
 	profileTotal,
+	profileTotalPages,
 	query,
 	searchBusy,
 	selectedUuid,
@@ -220,13 +240,18 @@ function ProfileListSection({
 	loading: boolean;
 	onChangePageSize: (value: string | null) => void;
 	onCreateProfile: (event: FormEvent<HTMLFormElement>) => void;
+	onNextProfilePage: () => void;
 	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	onPreviousProfilePage: () => void;
+	profileCurrentPage: number;
 	profileName: string;
-	profileOffset: number;
+	profileNextDisabled: boolean;
 	profilePageSize: number;
+	profilePrevDisabled: boolean;
 	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	profileTotal: number;
+	profileTotalPages: number;
 	query: string;
 	searchBusy: boolean;
 	selectedUuid: string;
@@ -285,21 +310,11 @@ function ProfileListSection({
 					onOpenRenameDialog={onOpenRenameDialog}
 				/>
 				<AdminOffsetPagination
-					currentPage={Math.floor(profileOffset / profilePageSize) + 1}
-					nextDisabled={profileOffset + profilePageSize >= profileTotal}
-					onNext={() =>
-						dispatch({
-							type: "profileOffset",
-							value: (current) => current + profilePageSize,
-						})
-					}
+					currentPage={profileCurrentPage}
+					nextDisabled={profileNextDisabled}
+					onNext={onNextProfilePage}
 					onPageSizeChange={onChangePageSize}
-					onPrevious={() =>
-						dispatch({
-							type: "profileOffset",
-							value: (current) => Math.max(0, current - profilePageSize),
-						})
-					}
+					onPrevious={onPreviousProfilePage}
 					pageSize={String(profilePageSize)}
 					pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS.map((pageSize) => ({
 						label: t("admin.pagination.pageSizeOption", {
@@ -307,9 +322,9 @@ function ProfileListSection({
 						}),
 						value: String(pageSize),
 					}))}
-					prevDisabled={profileOffset === 0}
+					prevDisabled={profilePrevDisabled}
 					total={profileTotal}
-					totalPages={Math.max(1, Math.ceil(profileTotal / profilePageSize))}
+					totalPages={profileTotalPages}
 				/>
 			</div>
 		</section>

@@ -24,6 +24,7 @@ mod m20260618_000004_texture_library_metadata;
 mod m20260618_000005_operator_scopes;
 mod m20260618_000006_texture_library_review;
 mod m20260618_000007_texture_library_reports;
+mod m20260619_000001_cursor_pagination_indexes;
 mod time;
 
 pub struct Migrator;
@@ -53,6 +54,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260618_000005_operator_scopes::Migration),
             Box::new(m20260618_000006_texture_library_review::Migration),
             Box::new(m20260618_000007_texture_library_reports::Migration),
+            Box::new(m20260619_000001_cursor_pagination_indexes::Migration),
         ]
     }
 }

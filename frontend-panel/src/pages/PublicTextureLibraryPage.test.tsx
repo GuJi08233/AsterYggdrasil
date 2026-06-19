@@ -25,6 +25,10 @@ const authServiceMock = vi.hoisted(() => ({
 }));
 
 vi.mock("react-i18next", () => ({
+	initReactI18next: {
+		type: "3rdParty",
+		init: vi.fn(),
+	},
 	useTranslation: () => ({
 		i18n: { language: "en-US" },
 		t: (
@@ -200,8 +204,9 @@ describe("PublicTextureLibraryPage", () => {
 		expect(
 			yggdrasilServiceMock.listPublicTextureLibraryTextures,
 		).toHaveBeenCalledWith({
+			after_id: undefined,
+			after_updated_at: undefined,
 			limit: 12,
-			offset: 0,
 			keyword: undefined,
 			tag_ids: undefined,
 			tag_search_method: undefined,
@@ -252,8 +257,9 @@ describe("PublicTextureLibraryPage", () => {
 			expect(
 				yggdrasilServiceMock.listPublicTextureLibraryTextures,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_updated_at: undefined,
 				limit: 12,
-				offset: 0,
 				keyword: "nj",
 				tag_ids: undefined,
 				tag_search_method: undefined,
@@ -289,8 +295,9 @@ describe("PublicTextureLibraryPage", () => {
 			expect(
 				yggdrasilServiceMock.listPublicTextureLibraryTextures,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_updated_at: undefined,
 				limit: 12,
-				offset: 0,
 				keyword: undefined,
 				tag_ids: [3],
 				tag_search_method: "all",
@@ -305,8 +312,9 @@ describe("PublicTextureLibraryPage", () => {
 			expect(
 				yggdrasilServiceMock.listPublicTextureLibraryTextures,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_updated_at: undefined,
 				limit: 12,
-				offset: 0,
 				keyword: undefined,
 				tag_ids: [3],
 				tag_search_method: "any",

@@ -357,6 +357,68 @@ describe("frontend entry routes", () => {
 		expect(screen.queryByText("Get started")).not.toBeInTheDocument();
 	});
 
+	it("renders the public entry before the session check finishes, then switches to the authenticated CTA", async () => {
+		const user = {
+			id: 7,
+			username: "alex",
+			email: "alex@example.com",
+			role: "user",
+			status: "active",
+			profile: {
+				display_name: null,
+				avatar: {
+					source: "none",
+					url_512: null,
+					url_1024: null,
+					version: 0,
+				},
+			},
+		} as const;
+		let resolveMe: (value: typeof user) => void = () => undefined;
+		authServiceMock.me.mockImplementation(
+			() =>
+				new Promise<typeof user>((resolve) => {
+					resolveMe = resolve;
+				}),
+		);
+		useAuthStore.setState({
+			user: null,
+			checking: true,
+			error: null,
+			expiresAt: null,
+			isAuthStale: false,
+			isAuthenticated: false,
+			isAdmin: false,
+		});
+
+		render(
+			<MemoryRouter>
+				<PublicConnectPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			await screen.findByRole("heading", {
+				level: 1,
+				name: /Your Minecraft identity and skin hub/,
+			}),
+		).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /Get started/ })).toHaveAttribute(
+			"href",
+			"/login",
+		);
+		expect(
+			screen.queryByRole("link", { name: /Enter console/ }),
+		).not.toBeInTheDocument();
+
+		resolveMe(user);
+
+		expect(
+			await screen.findByRole("link", { name: /Enter console/ }),
+		).toHaveAttribute("href", "/account");
+		expect(screen.queryByText("Get started")).not.toBeInTheDocument();
+	});
+
 	it("renders the login form when auth check reports an initialized system", async () => {
 		authServiceMock.check.mockResolvedValue({ initialized: true });
 
@@ -685,6 +747,67 @@ describe("frontend entry routes", () => {
 		expect(
 			within(sidebarNav as HTMLElement).getByText("Administration"),
 		).toBeVisible();
+	});
+
+	it("shows and clears the external login success redirect toast", async () => {
+		setAuthenticatedAdmin();
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout scope="account" />,
+					children: [
+						{
+							path: "/account",
+							element: <div>account-route</div>,
+						},
+					],
+				},
+			],
+			{ initialEntries: ["/account?auth_redirect=login_success&kept=1"] },
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("account-route")).toBeInTheDocument();
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith("Welcome back"),
+		);
+		expect(router.state.location.pathname).toBe("/account");
+		expect(router.state.location.search).toBe("?kept=1");
+	});
+
+	it("shows and clears the external account linked redirect toast", async () => {
+		setAuthenticatedAdmin();
+
+		const router = createMemoryRouter(
+			[
+				{
+					element: <AppLayout scope="account" />,
+					children: [
+						{
+							path: "/account/wardrobe",
+							element: <div>wardrobe-route</div>,
+						},
+					],
+				},
+			],
+			{
+				initialEntries: [
+					"/account/wardrobe?auth_redirect=external_auth_linked#skins",
+				],
+			},
+		);
+
+		render(<RouterProvider router={router} />);
+
+		expect(await screen.findByText("wardrobe-route")).toBeInTheDocument();
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith("External account linked"),
+		);
+		expect(router.state.location.pathname).toBe("/account/wardrobe");
+		expect(router.state.location.search).toBe("");
+		expect(router.state.location.hash).toBe("#skins");
 	});
 
 	it("defaults the desktop sidebar to collapsed below xl and expanded at xl", async () => {

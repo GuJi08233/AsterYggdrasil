@@ -40,6 +40,7 @@ import { useAuthStore } from "@/stores/authStore";
 import type {
 	AuthUserInfo,
 	AvatarSource,
+	DateTimeIdCursor,
 	ExternalAuthLinkInfo,
 } from "@/types/api";
 
@@ -63,13 +64,11 @@ type ExternalAuthLinksState = {
 	links: ExternalAuthLinkInfo[];
 	linkTotal: number;
 	loading: boolean;
-	offset: number;
 };
 type ExternalAuthLinksAction =
 	| { type: "loaded"; links: ExternalAuthLinkInfo[]; total: number }
 	| { type: "set_busy_id"; value: number | null }
-	| { type: "set_loading"; value: boolean }
-	| { type: "set_offset"; value: number };
+	| { type: "set_loading"; value: boolean };
 type ProfileSectionState = {
 	cropOpen: boolean;
 	displayName: string;
@@ -97,7 +96,6 @@ const externalAuthLinksInitialState: ExternalAuthLinksState = {
 	links: [],
 	linkTotal: 0,
 	loading: false,
-	offset: 0,
 };
 
 function displayNameForUser(user: AuthUserInfo) {
@@ -316,8 +314,6 @@ function externalAuthLinksReducer(
 			return { ...state, busyId: action.value };
 		case "set_loading":
 			return { ...state, loading: action.value };
-		case "set_offset":
-			return { ...state, offset: action.value };
 	}
 }
 
@@ -327,28 +323,38 @@ function ExternalAuthLinksSection() {
 		externalAuthLinksReducer,
 		externalAuthLinksInitialState,
 	);
-	const { busyId, links, linkTotal, loading, offset } = state;
+	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
+	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
+	const { busyId, links, linkTotal, loading } = state;
 
 	const reload = useCallback(
-		async (nextOffset = offset) => {
+		async (stack: DateTimeIdCursor[] = cursorStack) => {
 			dispatch({ type: "set_loading", value: true });
 			try {
+				const cursor = stack.at(-1);
 				const page = await externalAuthService.listLinksPage({
 					limit: EXTERNAL_AUTH_LINK_PAGE_SIZE,
-					offset: nextOffset,
+					after_created_at: cursor?.value,
+					after_id: cursor?.id,
 				});
+				if (page.items.length === 0 && page.total > 0 && stack.length > 0) {
+					setCursorStack((current) => current.slice(0, -1));
+					setNextCursor(null);
+					return;
+				}
 				dispatch({
 					type: "loaded",
 					links: page.items,
 					total: page.total,
 				});
+				setNextCursor(page.next_cursor ?? null);
 			} catch (error) {
 				toast.error(formatUnknownError(error));
 			} finally {
 				dispatch({ type: "set_loading", value: false });
 			}
 		},
-		[offset],
+		[cursorStack],
 	);
 
 	useEffect(() => {
@@ -456,21 +462,14 @@ function ExternalAuthLinksSection() {
 				)}
 			</div>
 			<AdminOffsetPagination
-				currentPage={Math.floor(offset / EXTERNAL_AUTH_LINK_PAGE_SIZE) + 1}
-				nextDisabled={offset + EXTERNAL_AUTH_LINK_PAGE_SIZE >= linkTotal}
-				onNext={() =>
-					dispatch({
-						type: "set_offset",
-						value: offset + EXTERNAL_AUTH_LINK_PAGE_SIZE,
-					})
-				}
+				currentPage={cursorStack.length + 1}
+				nextDisabled={!nextCursor}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+				}}
 				onPageSizeChange={() => {}}
-				onPrevious={() =>
-					dispatch({
-						type: "set_offset",
-						value: Math.max(0, offset - EXTERNAL_AUTH_LINK_PAGE_SIZE),
-					})
-				}
+				onPrevious={() => setCursorStack((current) => current.slice(0, -1))}
 				pageSize={String(EXTERNAL_AUTH_LINK_PAGE_SIZE)}
 				pageSizeOptions={[
 					{
@@ -480,12 +479,9 @@ function ExternalAuthLinksSection() {
 						value: String(EXTERNAL_AUTH_LINK_PAGE_SIZE),
 					},
 				]}
-				prevDisabled={offset === 0}
+				prevDisabled={cursorStack.length === 0}
 				total={linkTotal}
-				totalPages={Math.max(
-					1,
-					Math.ceil(linkTotal / EXTERNAL_AUTH_LINK_PAGE_SIZE),
-				)}
+				totalPages={Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1)}
 			/>
 		</div>
 	);

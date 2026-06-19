@@ -1,5 +1,6 @@
 //! Current-user account DTOs.
 
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -26,6 +27,8 @@ pub struct AccountAuditLogFilterQuery {
     pub entity_id: Option<i64>,
     pub after: Option<String>,
     pub before: Option<String>,
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 impl AccountAuditLogFilterQuery {
@@ -41,6 +44,8 @@ impl AccountAuditLogFilterQuery {
                 entity_id: self.entity_id,
                 after: self.after,
                 before: self.before,
+                after_created_at: self.after_created_at,
+                after_id: self.after_id,
             },
         )
     }

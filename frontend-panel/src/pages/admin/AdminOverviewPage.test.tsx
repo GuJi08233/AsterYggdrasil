@@ -314,6 +314,7 @@ describe("AdminOverviewPage", () => {
 			screen.getByRole("link", { name: /View task history/ }),
 		).toHaveAttribute("href", "/admin/tasks");
 		expect(screen.getByText(/player-1/)).toBeInTheDocument();
+		expect(screen.getByText(/player-1/)).toHaveClass("truncate");
 		expect(screen.getByRole("link", { name: /Manage users/ })).toHaveAttribute(
 			"href",
 			"/admin/users",

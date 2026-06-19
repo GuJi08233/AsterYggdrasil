@@ -5,7 +5,9 @@ use serde::Deserialize;
 use utoipa::ToSchema;
 use validator::Validate;
 
-use crate::types::{MinecraftTextureReportReason, MinecraftTextureVisibility, NullablePatch};
+use crate::types::{
+    MinecraftTextureModel, MinecraftTextureReportReason, MinecraftTextureVisibility, NullablePatch,
+};
 
 #[derive(Debug, Clone, Deserialize, Validate)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -26,6 +28,7 @@ pub struct UpdateWardrobeTextureReq {
         schema(value_type = Option<String>)
     )]
     pub display_name: Option<NullablePatch<String>>,
+    pub texture_model: Option<MinecraftTextureModel>,
     pub visibility: Option<MinecraftTextureVisibility>,
 }
 

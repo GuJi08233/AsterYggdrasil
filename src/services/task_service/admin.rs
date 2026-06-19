@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::Utc;
 use sea_orm::DatabaseConnection;
 
-use crate::api::pagination::{AdminTaskSortBy, OffsetPage, SortOrder};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 use crate::config::operations;
 use crate::db::repository::{background_task_repo, user_repo};
 use crate::entities::{background_task, user};
@@ -35,47 +35,48 @@ pub(crate) struct AdminTaskCleanupFilters {
 pub(crate) async fn list_tasks_paginated_for_admin(
     state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
     limit: u64,
-    offset: u64,
     filters: AdminTaskListFilters,
-    sort_by: AdminTaskSortBy,
-    sort_order: SortOrder,
-) -> Result<OffsetPage<TaskInfo>> {
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<CursorPage<TaskInfo, DateTimeIdCursor>> {
     let limit = limit.clamp(1, operations::task_list_max_limit(state.runtime_config()));
     tracing::debug!(
         limit,
-        offset,
         kind = ?filters.kind,
         status = ?filters.status,
-        sort_by = ?sort_by,
-        sort_order = ?sort_order,
         "admin listing background tasks"
     );
-    let (tasks, total) = background_task_repo::find_paginated_all_filtered(
+    let page = background_task_repo::find_cursor_filtered(
         state.writer_db(),
         limit,
-        offset,
         &background_task_repo::AdminTaskFilters {
             kind: filters.kind,
             status: filters.status,
         },
-        sort_by,
-        sort_order,
+        cursor,
     )
     .await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|task| DateTimeIdCursor {
+            value: task.updated_at,
+            id: task.id,
+        })
+    } else {
+        None
+    };
 
-    let items = tasks
+    let items = page
+        .items
         .into_iter()
         .map(|task| build_task_info(task, None))
         .collect::<Result<Vec<_>>>()?;
     let items = hydrate_task_creators(state.reader_db(), items).await?;
     tracing::debug!(
         returned = items.len(),
-        total,
+        total = page.total,
         limit,
-        offset,
         "admin listed background tasks"
     );
-    Ok(OffsetPage::new(items, total, limit, offset))
+    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
 }
 
 pub(crate) async fn cleanup_tasks_for_admin(

@@ -27,6 +27,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePublicSession } from "@/hooks/usePublicSession";
 import { formatBytes } from "@/lib/numberUnit";
 import { cn } from "@/lib/utils";
 import {
@@ -38,7 +39,6 @@ import {
 import { publicPaths } from "@/routes/routePaths";
 import { formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
-import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type {
 	MinecraftTextureReportReason,
@@ -63,10 +63,7 @@ export default function PublicTextureDetailPage() {
 	const textureLibraryEnabled = useFrontendConfigStore(
 		(state) => state.textureLibrary.enabled,
 	);
-	const user = useAuthStore((state) => state.user);
-	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const hydrate = useAuthStore((state) => state.hydrate);
-	const logout = useAuthStore((state) => state.logout);
+	const { isAuthenticated, logout, user } = usePublicSession();
 	const [texture, setTexture] =
 		useState<PublicTextureLibraryTextureMetadata | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -81,10 +78,6 @@ export default function PublicTextureDetailPage() {
 	const serverName = branding.title || t("home.titleFallback");
 
 	usePageTitle(texture?.name ?? t("library.detailTitle"));
-
-	useEffect(() => {
-		void hydrate();
-	}, [hydrate]);
 
 	const loadTexture = useCallback(async () => {
 		if (!textureLibraryEnabled) {

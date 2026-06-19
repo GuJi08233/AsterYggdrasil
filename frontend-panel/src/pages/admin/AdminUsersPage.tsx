@@ -13,8 +13,6 @@ import {
 	UsersTableRow,
 } from "@/components/admin/admin-users-page/UsersTable";
 import {
-	DEFAULT_SORT_BY,
-	DEFAULT_SORT_ORDER,
 	DEFAULT_USER_PAGE_SIZE,
 	USER_PAGE_SIZE_OPTIONS,
 	type UserFilterValue,
@@ -130,16 +128,13 @@ function useAdminUsersPageController() {
 	const {
 		debouncedKeyword,
 		keyword,
-		offset,
+		cursorStack,
+		nextCursor,
 		pageSize,
 		role,
-		sortBy,
-		sortOrder,
 		status,
 		total,
 	} = state;
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 	const roleOptions = useMemo(
 		() => [
 			{ label: t("admin.users.allRoles"), value: "__all__" },
@@ -207,41 +202,19 @@ function useAdminUsersPageController() {
 		],
 	);
 	const emptyIcon = useMemo(() => <Icon name="User" className="size-5" />, []);
-	const headerRow = useMemo(
-		() => (
-			<UsersTableHeader
-				sortBy={sortBy}
-				sortOrder={sortOrder}
-				onSortChange={(nextSortBy, nextSortOrder) => {
-					dispatch({
-						type: "sort",
-						sortBy: nextSortBy,
-						sortOrder: nextSortOrder,
-					});
-				}}
-			/>
-		),
-		[dispatch, sortBy, sortOrder],
-	);
+	const headerRow = useMemo(() => <UsersTableHeader />, []);
 	const pagination = useMemo(
 		() => (
 			<AdminOffsetPagination
 				total={total}
-				currentPage={currentPage}
-				totalPages={totalPages}
+				currentPage={cursorStack.length + 1}
+				totalPages={Math.max(cursorStack.length + (nextCursor ? 2 : 1), 1)}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= total}
-				onPrevious={() =>
-					dispatch({
-						type: "offset",
-						value: (current) => Math.max(0, current - pageSize),
-					})
-				}
-				onNext={() =>
-					dispatch({ type: "offset", value: (current) => current + pageSize })
-				}
+				prevDisabled={cursorStack.length === 0}
+				nextDisabled={!nextCursor}
+				onPrevious={() => dispatch({ type: "previousPage" })}
+				onNext={() => dispatch({ type: "nextPage" })}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(value, USER_PAGE_SIZE_OPTIONS);
 					if (next == null) return;
@@ -250,13 +223,12 @@ function useAdminUsersPageController() {
 			/>
 		),
 		[
+			cursorStack.length,
 			dispatch,
-			currentPage,
-			offset,
+			nextCursor,
 			pageSize,
 			pageSizeOptions,
 			total,
-			totalPages,
 		],
 	);
 
@@ -272,32 +244,15 @@ function useAdminUsersPageController() {
 		setOrDelete(next, "keyword", debouncedKeyword.trim());
 		setOrDelete(next, "role", role === "__all__" ? "" : role);
 		setOrDelete(next, "status", status === "__all__" ? "" : status);
-		setOrDelete(next, "offset", offset > 0 ? String(offset) : "");
 		setOrDelete(
 			next,
 			"pageSize",
 			pageSize !== DEFAULT_USER_PAGE_SIZE ? String(pageSize) : "",
 		);
-		setOrDelete(next, "sortBy", sortBy !== DEFAULT_SORT_BY ? sortBy : "");
-		setOrDelete(
-			next,
-			"sortOrder",
-			sortOrder !== DEFAULT_SORT_ORDER ? sortOrder : "",
-		);
 		if (next.toString() !== searchParams.toString()) {
 			setSearchParams(next, { replace: true });
 		}
-	}, [
-		debouncedKeyword,
-		offset,
-		pageSize,
-		role,
-		searchParams,
-		setSearchParams,
-		sortBy,
-		sortOrder,
-		status,
-	]);
+	}, [debouncedKeyword, pageSize, role, searchParams, setSearchParams, status]);
 
 	const loadUsers = useCallback(async () => {
 		try {
@@ -305,39 +260,28 @@ function useAdminUsersPageController() {
 			const page = await adminUserService.list({
 				keyword: debouncedKeyword,
 				limit: pageSize,
-				offset,
+				after_created_at: cursorStack.at(-1)?.value,
+				after_id: cursorStack.at(-1)?.id,
 				role: role === "__all__" ? undefined : role,
-				sort_by: sortBy,
-				sort_order: sortOrder,
 				status: status === "__all__" ? undefined : status,
 			});
-			if (page.items.length === 0 && page.total > 0 && offset > 0) {
-				dispatch({
-					type: "offset",
-					value: Math.max(
-						0,
-						Math.floor((page.total - 1) / pageSize) * pageSize,
-					),
-				});
+			if (page.items.length === 0 && page.total > 0 && cursorStack.length > 0) {
+				dispatch({ type: "previousPage" });
 				return;
 			}
-			dispatch({ type: "loadSuccess", items: page.items, total: page.total });
+			dispatch({
+				type: "loadSuccess",
+				items: page.items,
+				nextCursor: page.next_cursor ?? null,
+				total: page.total,
+			});
 		} catch (error) {
 			handleApiError(error);
 			dispatch({ type: "loading", value: false });
 		} finally {
 			dispatch({ type: "loading", value: false });
 		}
-	}, [
-		debouncedKeyword,
-		dispatch,
-		offset,
-		pageSize,
-		role,
-		sortBy,
-		sortOrder,
-		status,
-	]);
+	}, [debouncedKeyword, dispatch, cursorStack, pageSize, role, status]);
 
 	useEffect(() => {
 		void loadUsers();

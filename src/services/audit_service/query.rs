@@ -6,7 +6,7 @@ use super::filters::AuditLogFilters;
 use super::manager::flush_global_audit_log_manager;
 use super::models::{AuditLogEntry, AuditUserSummary};
 use super::presentation::build_audit_presentation;
-use crate::api::pagination::{AuditLogSortBy, OffsetPage, SortOrder, load_offset_page};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 use crate::db::repository::{audit_log_repo, user_repo};
 use crate::entities::audit_log;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
@@ -71,32 +71,42 @@ pub async fn query<S: DatabaseRuntimeState>(
     state: &S,
     filters: AuditLogFilters,
     limit: u64,
-    offset: u64,
-    sort_by: AuditLogSortBy,
-    sort_order: SortOrder,
-) -> crate::errors::Result<OffsetPage<AuditLogEntry>> {
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> crate::errors::Result<CursorPage<AuditLogEntry, DateTimeIdCursor>> {
     flush_global_audit_log_manager().await;
-    let page = load_offset_page(limit, offset, 200, |limit, offset| async move {
-        audit_log_repo::find_with_filters(
-            state.reader_db(),
-            audit_log_repo::AuditLogQuery {
-                user_id: filters.user_id,
-                action: filters.action.as_deref(),
-                entity_type: filters.entity_type.map(|entity_type| entity_type.as_str()),
-                entity_id: filters.entity_id,
-                after: filters.after,
-                before: filters.before,
-                limit,
-                offset,
-                sort_by,
-                sort_order,
-            },
-        )
-        .await
-    })
+    let limit = limit.clamp(1, 200);
+    let page = audit_log_repo::find_with_filters_cursor(
+        state.reader_db(),
+        audit_log_repo::AuditLogQuery {
+            user_id: filters.user_id,
+            action: filters.action.as_deref(),
+            entity_type: filters.entity_type.map(|entity_type| entity_type.as_str()),
+            entity_id: filters.entity_id,
+            after: filters.after,
+            before: filters.before,
+            limit,
+            cursor,
+        },
+    )
     .await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|entry| DateTimeIdCursor {
+            value: entry.created_at,
+            id: entry.id,
+        })
+    } else {
+        None
+    };
     let items = build_audit_entries(state, page.items).await?;
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
+}
+
+pub async fn recent<S: DatabaseRuntimeState>(
+    state: &S,
+    filters: AuditLogFilters,
+    limit: u64,
+) -> crate::errors::Result<Vec<AuditLogEntry>> {
+    Ok(query(state, filters, limit, None).await?.items)
 }
 
 pub async fn cleanup_expired<S>(state: &S) -> crate::errors::Result<u64>

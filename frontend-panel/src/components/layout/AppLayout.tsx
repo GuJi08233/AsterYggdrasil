@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ShellSidebar } from "@/components/shell/ShellSidebar";
 import { ShellTopbar } from "@/components/shell/ShellTopbar";
 import type { ShellScope } from "@/components/shell/shellNavigation";
+import { useAuthRedirectToast } from "@/hooks/useAuthRedirectToast";
 import { readStorageItem, STORAGE_KEYS, writeStorageItem } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { AdminRouteFallback, AppRouteFallback } from "@/router/RouteFallback";
@@ -77,6 +78,8 @@ export function AppLayout({ scope }: { scope?: ShellScope }) {
 			? "admin"
 			: "account";
 	const isAdminScope = resolvedScope === "admin";
+
+	useAuthRedirectToast();
 
 	const handleMobileSidebarToggle = useCallback(() => {
 		setMobileSidebarOpen((current) => !current);

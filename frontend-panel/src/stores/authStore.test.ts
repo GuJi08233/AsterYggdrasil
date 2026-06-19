@@ -263,6 +263,25 @@ describe("authStore persistence", () => {
 		});
 	});
 
+	it("checks public sessions without keeping public pages in a blocking state", async () => {
+		const { useAuthStore } = await loadStore();
+
+		expect(useAuthStore.getState()).toMatchObject({
+			checking: true,
+			isAuthenticated: false,
+			user: null,
+		});
+
+		await useAuthStore.getState().checkPublicSession();
+
+		expect(authServiceMock.me).toHaveBeenCalledTimes(1);
+		expect(useAuthStore.getState()).toMatchObject({
+			checking: false,
+			isAuthenticated: true,
+			user: fullUser,
+		});
+	});
+
 	it("clears cached auth when session hydration returns a real auth failure", async () => {
 		localStorage.setItem(
 			"asteryggdrasil-cached-user",

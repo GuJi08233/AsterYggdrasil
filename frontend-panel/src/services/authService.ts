@@ -8,6 +8,10 @@ import type {
 	CaptchaChallengeResponse,
 	ChangePasswordRequest,
 	CheckResp,
+	ExternalAuthEmailVerificationStartRequest,
+	ExternalAuthEmailVerificationStartResponse,
+	ExternalAuthFinishLoginResponse,
+	ExternalAuthPasswordLinkRequest,
 	LoginRequest,
 	OperationData,
 	OperationPath,
@@ -152,7 +156,7 @@ function sessions(options?: CachedRequestOptions) {
 
 	const requestSerial = ++sessionsCacheSerial;
 	const request = api
-		.get<AuthSessionPage>(withQuery("/auth/sessions", { limit: 50, offset: 0 }))
+		.get<AuthSessionPage>(withQuery("/auth/sessions", { limit: 50 }))
 		.then((page) => {
 			const nextSessions = page.items;
 			if (requestSerial === sessionsCacheSerial) {
@@ -170,7 +174,13 @@ function sessions(options?: CachedRequestOptions) {
 }
 
 function sessionsPage(params: AuthSessionQuery = {}) {
-	return api.get<AuthSessionPage>(withQuery("/auth/sessions", params));
+	return api.get<AuthSessionPage>(
+		withQuery("/auth/sessions", {
+			limit: params.limit,
+			after_last_seen_at: params.after_last_seen_at,
+			after_id: params.after_id,
+		}),
+	);
 }
 
 function listPasskeys(options?: CachedRequestOptions) {
@@ -184,7 +194,7 @@ function listPasskeys(options?: CachedRequestOptions) {
 
 	const requestSerial = ++passkeysCacheSerial;
 	const request = api
-		.get<PasskeyPage>(withQuery("/auth/passkeys", { limit: 20, offset: 0 }))
+		.get<PasskeyPage>(withQuery("/auth/passkeys", { limit: 20 }))
 		.then((page) => {
 			const passkeys = page.items;
 			if (requestSerial === passkeysCacheSerial) {
@@ -202,7 +212,13 @@ function listPasskeys(options?: CachedRequestOptions) {
 }
 
 function listPasskeysPage(params: PasskeyQuery = {}) {
-	return api.get<PasskeyPage>(withQuery("/auth/passkeys", params));
+	return api.get<PasskeyPage>(
+		withQuery("/auth/passkeys", {
+			limit: params.limit,
+			after_created_at: params.after_created_at,
+			after_id: params.after_id,
+		}),
+	);
 }
 
 function upsertCachedPasskey(passkey: PasskeyInfo) {
@@ -397,5 +413,21 @@ export const authService = {
 			AuthTokenResponse,
 			{ flow_id: string; credential: unknown }
 		>("/auth/passkeys/login/finish", { flow_id: flowId, credential });
+	},
+	startExternalAuthEmailVerification: (
+		data: ExternalAuthEmailVerificationStartRequest,
+	) =>
+		api.post<
+			ExternalAuthEmailVerificationStartResponse,
+			OperationRequestBody<"auth_external_auth_start_email_verification">
+		>("/auth/external-auth/email-verification/start", data),
+	linkExternalAuthWithPassword: async (
+		data: ExternalAuthPasswordLinkRequest,
+	) => {
+		invalidateAuthServiceCaches();
+		return api.post<
+			ExternalAuthFinishLoginResponse,
+			OperationRequestBody<"auth_external_auth_link_with_password">
+		>("/auth/external-auth/password-link", data);
 	},
 };

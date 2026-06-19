@@ -2,13 +2,12 @@ use super::{
     AdminTaskFilters, SystemRuntimeSuccessRefresh, TaskFailureUpdate, TaskProgressUpdate,
     TaskSuccessUpdate, TerminalTaskCleanupFilters, count_active_processing_by_kinds,
     count_pending_or_retry, count_processing, create, delete_many, delete_terminal_by_filters,
-    find_by_id, find_latest_by_kind_and_display_name, find_latest_system_runtime_by_payload,
-    find_paginated_all, find_paginated_all_filtered, list_claimable, list_claimable_by_kinds,
+    find_by_id, find_cursor_filtered, find_latest_by_kind_and_display_name,
+    find_latest_system_runtime_by_payload, list_claimable, list_claimable_by_kinds,
     list_expired_terminal, list_recent, mark_failed, mark_progress, mark_retry, mark_succeeded,
     refresh_system_runtime_success, release_processing, reset_for_manual_retry, set_display_name,
     set_runtime_json, touch_heartbeat, try_claim,
 };
-use crate::api::pagination::{AdminTaskSortBy, SortOrder};
 use crate::config::DatabaseConfig;
 use crate::entities::background_task;
 use crate::types::{
@@ -200,44 +199,69 @@ async fn list_and_count_queries_use_task_statuses() {
         .collect::<Vec<_>>();
     assert_eq!(recent_ids, vec![pending.id, processing.id, retry.id]);
 
-    let (page, total) = find_paginated_all(&db, 2, 1).await.unwrap();
-    assert_eq!(total, 4);
-    assert_eq!(page.len(), 2);
+    let page = find_cursor_filtered(&db, 2, &AdminTaskFilters::default(), None)
+        .await
+        .unwrap();
+    assert_eq!(page.total, 4);
+    assert_eq!(page.items.len(), 2);
+    assert!(page.has_more);
     assert_eq!(
-        page.into_iter().map(|task| task.id).collect::<Vec<_>>(),
-        vec![processing.id, retry.id]
+        page.items
+            .into_iter()
+            .map(|task| task.id)
+            .collect::<Vec<_>>(),
+        vec![pending.id, processing.id]
     );
+
+    let second_page = find_cursor_filtered(
+        &db,
+        2,
+        &AdminTaskFilters::default(),
+        Some((processing.updated_at, processing.id)),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        second_page
+            .items
+            .into_iter()
+            .map(|task| task.id)
+            .collect::<Vec<_>>(),
+        vec![retry.id, oldest.id]
+    );
+    assert!(!second_page.has_more);
 
     assert_eq!(oldest.status, BackgroundTaskStatus::Succeeded);
     db.close().await.unwrap();
 }
 
 #[tokio::test]
-async fn find_paginated_all_filtered_applies_status_and_sorting() {
+async fn find_cursor_filtered_applies_status_filter() {
     let db = build_test_db().await;
     let now = Utc::now();
     let alpha = insert_task(&db, BackgroundTaskStatus::Failed, "Alpha task", now).await;
     let beta = insert_task(&db, BackgroundTaskStatus::Failed, "Beta task", now).await;
     insert_task(&db, BackgroundTaskStatus::Pending, "Gamma task", now).await;
 
-    let (items, total) = find_paginated_all_filtered(
+    let page = find_cursor_filtered(
         &db,
         20,
-        0,
         &AdminTaskFilters {
             kind: Some(BackgroundTaskKind::SystemRuntime),
             status: Some(BackgroundTaskStatus::Failed),
         },
-        AdminTaskSortBy::DisplayName,
-        SortOrder::Asc,
+        None,
     )
     .await
     .unwrap();
 
-    assert_eq!(total, 2);
+    assert_eq!(page.total, 2);
     assert_eq!(
-        items.into_iter().map(|task| task.id).collect::<Vec<_>>(),
-        vec![alpha.id, beta.id]
+        page.items
+            .into_iter()
+            .map(|task| task.id)
+            .collect::<Vec<_>>(),
+        vec![beta.id, alpha.id]
     );
 
     db.close().await.unwrap();

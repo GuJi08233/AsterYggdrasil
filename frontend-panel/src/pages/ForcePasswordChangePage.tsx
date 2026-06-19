@@ -14,6 +14,7 @@ import { PublicEntryShell } from "@/components/layout/PublicEntryShell";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
+import { useAuthRedirectToast } from "@/hooks/useAuthRedirectToast";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { passwordChangeSchema } from "@/lib/validation";
 import { Loading } from "@/router/Loading";
@@ -142,6 +143,7 @@ export default function ForcePasswordChangePage() {
 	const canSubmit = passwordChangeSchema.safeParse(values).success;
 
 	usePageTitle(t("login.forcePasswordChangeTitle"));
+	useAuthRedirectToast();
 
 	if (checking) return <Loading surface="public" />;
 	if (!isAuthenticated) return <Navigate to={publicPaths.login} replace />;

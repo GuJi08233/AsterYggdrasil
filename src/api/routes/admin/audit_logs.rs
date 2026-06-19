@@ -1,8 +1,8 @@
 //! Administrator audit log API routes.
 
-use crate::api::pagination::LimitOffsetQuery;
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
+use crate::api::pagination::{LimitQuery, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::errors::Result;
 use crate::runtime::AppState;
@@ -14,9 +14,9 @@ use actix_web::{HttpResponse, web};
     path = "/api/v1/admin/audit-logs",
     tag = "admin",
     operation_id = "list_audit_logs",
-    params(LimitOffsetQuery, audit_service::AuditLogFilterQuery, audit_service::AuditLogSortQuery),
+    params(LimitQuery, audit_service::AuditLogFilterQuery),
     responses(
-        (status = 200, description = "Audit log entries", body = inline(ApiResponse<OffsetPage<audit_service::AuditLogEntry>>)),
+        (status = 200, description = "Audit log entries", body = inline(ApiResponse<CursorPage<audit_service::AuditLogEntry, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -24,19 +24,12 @@ use actix_web::{HttpResponse, web};
 )]
 pub async fn list_audit_logs(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<audit_service::AuditLogFilterQuery>,
-    sort: web::Query<audit_service::AuditLogSortQuery>,
 ) -> Result<HttpResponse> {
     let filters = audit_service::AuditLogFilters::from_query(&query);
-    let page = audit_service::query(
-        state.get_ref(),
-        filters,
-        page.limit_or(50, 200),
-        page.offset(),
-        sort.sort_by(),
-        sort.sort_order(),
-    )
-    .await?;
+    let cursor = parse_datetime_id_cursor(query.after_created_at, query.after_id, "audit log")?;
+    let page =
+        audit_service::query(state.get_ref(), filters, page.limit_or(50, 200), cursor).await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(page)))
 }

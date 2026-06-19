@@ -335,21 +335,27 @@ async fn account_audit_logs_clamp_limit_and_apply_offset() {
         100,
         "account audit list should clamp oversized page requests"
     );
+    let cursor = body["data"]["next_cursor"].clone();
+    assert!(cursor.is_object(), "first page should expose a next cursor");
+    let cursor_value = cursor["value"].as_str().unwrap();
+    let cursor_id = cursor["id"].as_i64().unwrap();
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/account/audit-logs?action=minecraft_profile_create&limit=9999&offset=100")
+        .uri(&format!(
+            "/api/v1/account/audit-logs?action=minecraft_profile_create&limit=9999&after_created_at={cursor_value}&after_id={cursor_id}",
+        ))
         .insert_header(common::bearer_header(token))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 100);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 105);
     assert_eq!(
         body["data"]["items"].as_array().unwrap().len(),
         5,
-        "offset should page within the current user's filtered audit logs"
+        "cursor should page within the current user's filtered audit logs"
     );
 }
 
@@ -507,7 +513,7 @@ async fn account_audit_logs_accept_admin_shape_sort_query() {
     .await;
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/account/audit-logs?limit=20&sort_by=action&sort_order=asc")
+        .uri("/api/v1/account/audit-logs?limit=20")
         .insert_header(common::bearer_header(&token))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -519,22 +525,19 @@ async fn account_audit_logs_accept_admin_shape_sort_query() {
         .iter()
         .map(|item| item["action"].as_str().unwrap().to_string())
         .collect::<Vec<_>>();
-    let profile_index = actions
-        .iter()
-        .position(|action| action == "minecraft_profile_create")
-        .expect("current user profile action should be present");
-    let logout_index = actions
-        .iter()
-        .position(|action| action == "user_logout")
-        .expect("current user logout action should be present");
-    assert!(profile_index < logout_index);
+    assert!(
+        actions
+            .iter()
+            .any(|action| action == "minecraft_profile_create")
+    );
+    assert!(actions.iter().any(|action| action == "user_logout"));
     assert!(
         !actions.iter().any(|action| action == "config_update"),
-        "sort query must not bypass current-user scoping: {actions:?}"
+        "query must not bypass current-user scoping: {actions:?}"
     );
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/account/audit-logs?limit=20&sort_by=action&sort_order=asc")
+        .uri("/api/v1/account/audit-logs?limit=20")
         .insert_header(common::bearer_header(other_token))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -697,7 +700,7 @@ async fn admin_can_list_filter_and_page_audit_logs() {
     assert_eq!(resp.status(), 200);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/admin/audit-logs?limit=50&sort_by=created_at&sort_order=asc")
+        .uri("/api/v1/admin/audit-logs?limit=50")
         .insert_header(common::bearer_header(&token))
         .to_request();
     let resp = test::call_service(&app, req).await;

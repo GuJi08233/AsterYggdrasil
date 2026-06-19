@@ -29,7 +29,8 @@ export function useMinecraftProfilesPageController() {
 		file,
 		loading,
 		model,
-		profileOffset,
+		profileCursorStack,
+		profileNextCursor,
 		profilePageSize,
 		profileName,
 		profileSkinUrls,
@@ -51,23 +52,47 @@ export function useMinecraftProfilesPageController() {
 	usePageTitle(t("profiles.title"));
 
 	const loadProfiles = useCallback(
-		async (nextOffset = profileOffset, nextPageSize = profilePageSize) => {
+		async (
+			nextCursorStack = profileCursorStack,
+			nextPageSize = profilePageSize,
+			selectedUuidAfterLoad?: string,
+		) => {
 			const trimmedQuery = debouncedQuery.trim();
+			const cursor = nextCursorStack.at(-1);
 			const params = {
+				after_id: cursor?.id,
 				limit: nextPageSize,
-				offset: nextOffset,
 			};
 			dispatch({ type: "profilesLoading", value: true });
 			try {
 				const next = await yggdrasilService.listProfiles(
 					trimmedQuery ? { ...params, query: trimmedQuery } : params,
 				);
-				dispatch({ type: "profilePage", value: next });
+				if (
+					next.items.length === 0 &&
+					next.total > 0 &&
+					nextCursorStack.length > 0
+				) {
+					dispatch({
+						type: "profileCursorStack",
+						value: nextCursorStack.slice(0, -1),
+					});
+					dispatch({ type: "profileNextCursor", value: null });
+					return;
+				}
+				dispatch({
+					type: "profilePage",
+					value: {
+						...next,
+						cursorStack: nextCursorStack,
+						selectedUuid: selectedUuidAfterLoad,
+					},
+				});
 			} finally {
 				dispatch({ type: "profilesLoading", value: false });
 			}
 		},
-		[debouncedQuery, dispatch, profileOffset, profilePageSize],
+		[debouncedQuery, dispatch, profileCursorStack, profilePageSize],
 	);
 
 	const loadTextures = useCallback(
@@ -124,7 +149,8 @@ export function useMinecraftProfilesPageController() {
 
 	useEffect(() => {
 		const timeout = window.setTimeout(() => {
-			dispatch({ type: "profileOffset", value: 0 });
+			dispatch({ type: "profileCursorStack", value: [] });
+			dispatch({ type: "profileNextCursor", value: null });
 			dispatch({ type: "debouncedQuery", value: query.trim() });
 		}, PROFILE_SEARCH_DEBOUNCE_MS);
 		return () => window.clearTimeout(timeout);
@@ -162,9 +188,7 @@ export function useMinecraftProfilesPageController() {
 				name: profileName,
 			});
 			dispatch({ type: "profileName", value: "" });
-			dispatch({ type: "profileOffset", value: 0 });
-			await loadProfiles(0, profilePageSize);
-			dispatch({ type: "selectedUuid", value: created.id });
+			await loadProfiles([], profilePageSize, created.id);
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
 		} finally {
@@ -190,9 +214,7 @@ export function useMinecraftProfilesPageController() {
 			dispatch({ type: "renameDialogOpen", value: false });
 			renameUuidRef.current = "";
 			dispatch({ type: "renameName", value: "" });
-			dispatch({ type: "profileOffset", value: 0 });
-			await loadProfiles(0, profilePageSize);
-			dispatch({ type: "selectedUuid", value: renamed.id });
+			await loadProfiles([], profilePageSize, renamed.id);
 			toast.success(t("profiles.renameToast"));
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
@@ -207,9 +229,8 @@ export function useMinecraftProfilesPageController() {
 		try {
 			await yggdrasilService.deleteProfile(selectedUuid);
 			dispatch({ type: "deleteProfileDialogOpen", value: false });
-			dispatch({ type: "profileOffset", value: 0 });
 			dispatch({ type: "selectedUuid", value: "" });
-			await loadProfiles(0, profilePageSize);
+			await loadProfiles([], profilePageSize);
 			toast.success(t("profiles.deleteProfileToast"));
 		} catch (nextError) {
 			toast.error(formatUnknownError(nextError));
@@ -332,10 +353,26 @@ export function useMinecraftProfilesPageController() {
 			? parsed
 			: DEFAULT_PROFILE_PAGE_SIZE;
 		dispatch({ type: "profilePageSize", value: nextPageSize });
-		dispatch({ type: "profileOffset", value: 0 });
-		void loadProfiles(0, nextPageSize).catch((nextError) =>
+		dispatch({ type: "profileCursorStack", value: [] });
+		dispatch({ type: "profileNextCursor", value: null });
+		void loadProfiles([], nextPageSize).catch((nextError) =>
 			toast.error(formatUnknownError(nextError)),
 		);
+	}
+
+	function nextProfilePage() {
+		if (!profileNextCursor) return;
+		dispatch({
+			type: "profileCursorStack",
+			value: [...profileCursorStack, profileNextCursor],
+		});
+	}
+
+	function previousProfilePage() {
+		dispatch({
+			type: "profileCursorStack",
+			value: profileCursorStack.slice(0, -1),
+		});
 	}
 
 	return {
@@ -346,10 +383,16 @@ export function useMinecraftProfilesPageController() {
 		loading,
 		model,
 		profileName,
-		profileOffset,
+		profileCurrentPage: profileCursorStack.length + 1,
+		profileNextDisabled: profileNextCursor == null,
 		profilePageSize,
+		profilePrevDisabled: profileCursorStack.length === 0,
 		profileSkinUrls,
 		profileTotal,
+		profileTotalPages: Math.max(
+			profileCursorStack.length + (profileNextCursor ? 2 : 1),
+			1,
+		),
 		profiles,
 		query,
 		renameDialogOpen,
@@ -371,6 +414,8 @@ export function useMinecraftProfilesPageController() {
 		onOpenDeleteTextureDialog: openDeleteTextureDialog,
 		onOpenRenameDialog: openRenameDialog,
 		onOpenTextureDialog: openTextureDialog,
+		onNextProfilePage: nextProfilePage,
+		onPreviousProfilePage: previousProfilePage,
 		onRenameProfile: renameProfile,
 		onSelectTextureFile: selectTextureFile,
 		onUploadTexture: uploadTexture,

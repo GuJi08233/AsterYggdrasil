@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import {
 	ADMIN_TABLE_MONO_TEXT_CLASS,
 	ADMIN_TABLE_MUTED_TEXT_CLASS,
-	AdminSortableTableHead,
 	AdminTableCell as TableCell,
 	AdminTableHead as TableHead,
 	AdminTableHeader as TableHeader,
@@ -21,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/ui/icon";
 import { useRetainedDialogValue } from "@/hooks/useRetainedDialogValue";
-import type { SortOrder } from "@/lib/pagination";
 import {
 	formatTaskDetail,
 	formatTaskKind,
@@ -37,18 +35,7 @@ import {
 	taskStatusBadgeClass,
 } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
-import type {
-	AdminTaskSortBy,
-	BackgroundTaskStatus,
-	TaskInfo,
-	TaskStepInfo,
-} from "@/types/api";
-
-interface AdminTaskTableHeaderProps {
-	onSortChange: (sortBy: AdminTaskSortBy, sortOrder: SortOrder) => void;
-	sortBy: AdminTaskSortBy;
-	sortOrder: SortOrder;
-}
+import type { BackgroundTaskStatus, TaskInfo, TaskStepInfo } from "@/types/api";
 
 interface AdminTaskTableRowProps {
 	formatTaskSource: (task: TaskInfo) => ReactNode;
@@ -298,55 +285,25 @@ function RuntimeHealthSummary({ task }: { task: TaskInfo }) {
 	);
 }
 
-export function AdminTaskTableHeader({
-	onSortChange,
-	sortBy,
-	sortOrder,
-}: AdminTaskTableHeaderProps) {
+export function AdminTaskTableHeader() {
 	const { t } = useTranslation();
 
 	return (
 		<TableHeader>
 			<TableRow>
-				<AdminSortableTableHead
-					className="min-w-[18rem]"
-					sortKey="display_name"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-				>
+				<TableHead className="min-w-[18rem]">
 					{t("admin.tasks.table.task")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					className="w-[9rem]"
-					sortKey="status"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-				>
-					{t("common.status")}
-				</AdminSortableTableHead>
-				<AdminSortableTableHead
-					className="w-[11rem]"
-					sortKey="progress"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-				>
+				</TableHead>
+				<TableHead className="w-[9rem]">{t("common.status")}</TableHead>
+				<TableHead className="w-[11rem]">
 					{t("admin.tasks.table.progress")}
-				</AdminSortableTableHead>
+				</TableHead>
 				<TableHead className="w-[13rem]">
 					{t("admin.tasks.table.source")}
 				</TableHead>
-				<AdminSortableTableHead
-					className="w-[13rem]"
-					sortKey="updated_at"
-					sortBy={sortBy}
-					sortOrder={sortOrder}
-					onSortChange={onSortChange}
-				>
+				<TableHead className="w-[13rem]">
 					{t("admin.tasks.table.updated")}
-				</AdminSortableTableHead>
+				</TableHead>
 				<TableHead className="min-w-[18rem]">
 					{t("admin.tasks.table.detail")}
 				</TableHead>

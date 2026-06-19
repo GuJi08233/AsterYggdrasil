@@ -1,17 +1,21 @@
 //! Public texture library routes.
 
 use actix_web::{HttpRequest, HttpResponse, web};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer};
 use validator::Validate;
 
 use crate::api::dto::{CopyPublicTextureReq, CreateTextureReportReq, validate_request};
-use crate::api::pagination::{LimitOffsetQuery, OffsetPage};
+use crate::api::pagination::{LimitOffsetQuery, LimitQuery, parse_datetime_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_texture_repo::WardrobeTextureListFilter;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::{audit_service, auth_service, texture_service};
 use crate::types::{MinecraftTextureType, TextureTagSearchMethod};
+
+#[cfg(all(debug_assertions, feature = "openapi"))]
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
 
 const TEXTURE_TAG_FILTER_LIMIT: usize = 16;
 const DEFAULT_TEXTURE_TAG_PAGE_SIZE: u64 = 30;
@@ -30,6 +34,8 @@ pub struct PublicTextureLibraryQuery {
     pub tag_ids: Vec<i64>,
     #[serde(default)]
     pub tag_search_method: TextureTagSearchMethod,
+    pub after_updated_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Validate)]
@@ -117,49 +123,37 @@ pub async fn list_public_texture_library_tags(
     path = "/api/v1/texture-library/textures",
     tag = "texture-library",
     operation_id = "list_public_texture_library_textures",
-    params(LimitOffsetQuery, PublicTextureLibraryQuery),
+    params(LimitQuery, PublicTextureLibraryQuery),
     responses(
-        (status = 200, description = "Public texture library textures", body = inline(ApiResponse<OffsetPage<texture_service::PublicTextureLibraryTextureMetadata>>)),
+        (status = 200, description = "Public texture library textures", body = inline(ApiResponse<CursorPage<texture_service::PublicTextureLibraryTextureMetadata, DateTimeIdCursor>>)),
         (status = 400, description = "Invalid query"),
     ),
 )]
 pub async fn list_public_textures(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<PublicTextureLibraryQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
+    let cursor =
+        parse_datetime_id_cursor(query.after_updated_at, query.after_id, "texture library")?;
     let keyword = query
         .keyword
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
-    let page = texture_service::list_public_texture_library_paginated(
-        state.get_ref(),
-        limit,
-        offset,
-        WardrobeTextureListFilter {
-            texture_type: query.texture_type,
-            tag_ids: normalize_tag_filter_ids(&query.tag_ids)?,
-            tag_search_method: query.tag_search_method,
-            keyword,
-        },
-    )
-    .await?;
-    let textures = texture_service::public_texture_library_metadata_by_texture_ids(
-        state.get_ref(),
-        &page.items,
-    )
-    .await?;
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
-        textures,
-        page.total,
-        page.limit,
-        page.offset,
-    ))))
+    let filter = WardrobeTextureListFilter {
+        texture_type: query.texture_type,
+        tag_ids: normalize_tag_filter_ids(&query.tag_ids)?,
+        tag_search_method: query.tag_search_method,
+        keyword,
+    };
+    let page =
+        texture_service::list_public_texture_library_cursor(state.get_ref(), limit, cursor, filter)
+            .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(page)))
 }
 
 fn normalize_tag_filter_ids(tag_ids: &[i64]) -> Result<Vec<i64>> {

@@ -224,7 +224,13 @@ export const yggdrasilService = {
 		return response.data;
 	},
 	listProfiles: (params: YggdrasilProfileQuery = {}) =>
-		api.get<YggdrasilProfilePage>(withQuery("/profiles/minecraft", params)),
+		api.get<YggdrasilProfilePage>(
+			withQuery("/profiles/minecraft", {
+				limit: params.limit,
+				after_id: params.after_id,
+				query: params.query,
+			}),
+		),
 	listProfileItems: async (params: YggdrasilProfileQuery = {}) =>
 		(await yggdrasilService.listProfiles(params)).items,
 	createProfile: (data: CreateMinecraftProfileRequest) =>
@@ -260,7 +266,15 @@ export const yggdrasilService = {
 	},
 	listWardrobeTextures: (params: MinecraftWardrobeTextureQuery = {}) =>
 		api.get<MinecraftWardrobeTexturePage>(
-			withQuery("/wardrobe/textures", params),
+			withQuery("/wardrobe/textures", {
+				limit: params.limit,
+				after_updated_at: params.after_updated_at,
+				after_id: params.after_id,
+				keyword: params.keyword,
+				texture_type: params.texture_type,
+				tag_ids: params.tag_ids,
+				tag_search_method: params.tag_search_method,
+			}),
 		),
 	listTextureLibraryTags: (options: { force?: boolean } = {}) =>
 		cachedTextureLibraryTags(Boolean(options.force)),
@@ -311,7 +325,15 @@ export const yggdrasilService = {
 	},
 	listPublicTextureLibraryTextures: (params: PublicTextureLibraryQuery = {}) =>
 		api.get<PublicTextureLibraryPage>(
-			withQuery("/texture-library/textures", params),
+			withQuery("/texture-library/textures", {
+				limit: params.limit,
+				after_updated_at: params.after_updated_at,
+				after_id: params.after_id,
+				keyword: params.keyword,
+				texture_type: params.texture_type,
+				tag_ids: params.tag_ids,
+				tag_search_method: params.tag_search_method,
+			}),
 		),
 	getPublicTextureLibraryTexture: (textureId: number) =>
 		api.get<PublicTextureLibraryTextureMetadata>(

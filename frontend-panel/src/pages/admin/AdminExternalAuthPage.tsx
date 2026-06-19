@@ -179,6 +179,8 @@ function reducer(state: UiState, action: UiAction): UiState {
 					...state.form,
 					authorizationUrl: "",
 					issuerUrl: "",
+					microsoftTenant: "common",
+					microsoftTenantMode: "common",
 					providerKind: action.kind,
 					scopes: action.scopes,
 					tokenUrl: "",

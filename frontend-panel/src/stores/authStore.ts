@@ -52,6 +52,7 @@ type AuthState = {
 	operatorScopes: OperatorScope[];
 	canAccessAdminShell: boolean;
 	hasOperatorScope: (scope: OperatorScope) => boolean;
+	checkPublicSession: () => Promise<void>;
 	hydrate: () => Promise<void>;
 	setup: (
 		username: string,
@@ -99,6 +100,7 @@ type CaptchaSubmission = {
 };
 
 let inFlightHydrate: Promise<void> | null = null;
+let inFlightPublicSessionCheck: Promise<void> | null = null;
 
 function defaultUserProfile(): UserProfileInfo {
 	return {
@@ -367,6 +369,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	hasOperatorScope(scope) {
 		const state = get();
 		return state.isAdmin || state.operatorScopes.includes(scope);
+	},
+	async checkPublicSession() {
+		if (inFlightPublicSessionCheck) return inFlightPublicSessionCheck;
+
+		inFlightPublicSessionCheck = (async () => {
+			try {
+				const user = await authService.me();
+				setAuthenticatedState(
+					set,
+					user,
+					get().expiresAt ?? readStoredExpiresAt(),
+				);
+			} catch (error) {
+				const errorCode = apiErrorCode(error);
+				if (isApiConnectionError(error)) {
+					const currentUser = get().user;
+					set({
+						...authStateFromUser(currentUser),
+						checking: false,
+						error: formatUnknownError(error),
+						errorCode,
+						expiresAt: get().expiresAt ?? readStoredExpiresAt(),
+						isAuthStale: Boolean(currentUser),
+					});
+					return;
+				}
+
+				clearPersistedAuth();
+				set({
+					...authStateFromUser(null),
+					checking: false,
+					error: formatUnknownError(error),
+					errorCode,
+					expiresAt: null,
+					isAuthStale: false,
+				});
+			} finally {
+				inFlightPublicSessionCheck = null;
+			}
+		})();
+
+		return inFlightPublicSessionCheck;
 	},
 	async hydrate() {
 		if (inFlightHydrate) return inFlightHydrate;

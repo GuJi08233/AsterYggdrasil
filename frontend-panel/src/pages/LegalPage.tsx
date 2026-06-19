@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { AuthUserMenu } from "@/components/common/AuthUserMenu";
@@ -8,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePublicSession } from "@/hooks/usePublicSession";
 import { cn } from "@/lib/utils";
 import { publicPaths } from "@/routes/routePaths";
-import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 
 type LegalPageKind = "tos" | "privacy";
@@ -253,17 +252,10 @@ export function LegalPage({ kind }: { kind: LegalPageKind }) {
 	const { t } = useTranslation();
 	const config = legalPages[kind];
 	const branding = useFrontendConfigStore((state) => state.branding);
-	const user = useAuthStore((state) => state.user);
-	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const hydrate = useAuthStore((state) => state.hydrate);
-	const logout = useAuthStore((state) => state.logout);
+	const { isAuthenticated, logout, user } = usePublicSession();
 	const serverName = branding.title || t("home.titleFallback");
 	const pageTitle = t(config.pageTitleKey);
 	usePageTitle(pageTitle);
-
-	useEffect(() => {
-		void hydrate();
-	}, [hydrate]);
 
 	return (
 		<PublicEntryShell

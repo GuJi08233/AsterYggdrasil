@@ -222,44 +222,47 @@ function RecentActivityPanel({ items }: { items: AuditLogEntry[] }) {
 	const { t } = useTranslation();
 
 	return (
-		<section className="order-3 rounded-xl border border-border/70 bg-card/74 p-5 shadow-xs backdrop-blur dark:border-white/10 dark:bg-card/64 dark:shadow-none lg:order-none">
+		<section className="order-3 min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card/74 p-5 shadow-xs backdrop-blur dark:border-white/10 dark:bg-card/64 dark:shadow-none lg:order-none">
 			<div className="flex items-start justify-between gap-3">
-				<div>
+				<div className="min-w-0">
 					<div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
 						{t("account.recentActivityEyebrow")}
 					</div>
-					<h2 className="mt-1 text-lg font-semibold">
+					<h2 className="mt-1 truncate text-lg font-semibold">
 						{t("account.recentActivityTitle")}
 					</h2>
 				</div>
 				<StatusIndicator className="mt-1" glow size="md" />
 			</div>
 			{items.length > 0 ? (
-				<div className="mt-5 divide-y divide-border/60 dark:divide-white/10">
+				<div className="mt-5 min-w-0 divide-y divide-border/60 dark:divide-white/10">
 					{items.map((item) => {
 						const detail = formatAuditDetail(t, item);
 						return (
-							<div key={item.id} className="py-3 first:pt-0 last:pb-0">
-								<div className="flex items-start gap-3">
+							<div
+								key={item.id}
+								className="min-w-0 overflow-hidden py-3 first:pt-0 last:pb-0"
+							>
+								<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3">
 									<StatusIndicator className="mt-1.5" />
 									<div className="min-w-0 flex-1">
-										<div className="truncate text-sm font-semibold">
+										<div className="min-w-0 truncate text-sm font-semibold">
 											{formatAuditSummary(t, item)}
 										</div>
-										<div className="mt-1 truncate text-xs text-muted-foreground">
+										<div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
 											{formatAuditTarget(t, item)}
 										</div>
 										{detail ? (
-											<div className="mt-1 truncate text-xs text-muted-foreground">
+											<div className="mt-1 min-w-0 truncate text-xs text-muted-foreground">
 												{detail}
 											</div>
 										) : null}
+										<DateTimeText
+											value={item.created_at}
+											className="mt-2 block min-w-0 truncate text-xs text-muted-foreground"
+										/>
 									</div>
 								</div>
-								<DateTimeText
-									value={item.created_at}
-									className="mt-2 block pl-5 text-xs text-muted-foreground"
-								/>
 							</div>
 						);
 					})}

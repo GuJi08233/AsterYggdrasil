@@ -62,6 +62,7 @@ function reportPage(
 	return {
 		items,
 		limit: 20,
+		next_cursor: null,
 		offset: 0,
 		total: items.length,
 	};
@@ -161,8 +162,9 @@ describe("AdminTextureLibraryReportsPage", () => {
 		await screen.findByText("Reported Skin");
 
 		expect(adminTextureLibraryServiceMock.listReports).toHaveBeenCalledWith({
+			after_created_at: undefined,
+			after_id: undefined,
 			limit: 20,
-			offset: 0,
 			reason: undefined,
 			status: "pending",
 		});

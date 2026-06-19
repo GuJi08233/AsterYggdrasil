@@ -526,7 +526,7 @@ export interface paths {
         get: operations["admin_get_texture_library_texture"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["admin_delete_texture_library_texture"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1932,6 +1932,10 @@ export interface components {
         AccountAuditLogFilterQuery: {
             action?: string | null;
             after?: string | null;
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
             before?: string | null;
             /** Format: int64 */
             entity_id?: number | null;
@@ -1978,6 +1982,8 @@ export interface components {
             username_claim?: string | null;
         };
         AdminMinecraftProfileListQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
             name?: string | null;
             query?: string | null;
             /** Format: int64 */
@@ -2049,14 +2055,18 @@ export interface components {
             status?: null | components["schemas"]["BackgroundTaskStatus"];
         };
         AdminTaskListQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
+            /** Format: date-time */
+            after_updated_at?: string | null;
             kind?: null | components["schemas"]["BackgroundTaskKind"];
-            sort_by?: null | components["schemas"]["AdminTaskSortBy"];
-            sort_order?: null | components["schemas"]["SortOrder"];
             status?: null | components["schemas"]["BackgroundTaskStatus"];
         };
-        /** @enum {string} */
-        AdminTaskSortBy: "id" | "display_name" | "kind" | "status" | "progress" | "created_at" | "updated_at" | "started_at" | "finished_at";
         AdminTextureLibraryTextureQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
+            /** Format: date-time */
+            after_updated_at?: string | null;
             keyword?: string | null;
             library_status?: null | components["schemas"]["MinecraftTextureLibraryStatus"];
             published?: boolean | null;
@@ -2066,6 +2076,10 @@ export interface components {
             visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
         };
         AdminTextureReportQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
             reason?: null | components["schemas"]["MinecraftTextureReportReason"];
             status?: null | components["schemas"]["MinecraftTextureReportStatus"];
             /** Format: int64 */
@@ -2110,14 +2124,14 @@ export interface components {
             updated_at: string;
         };
         AdminUserListQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
             keyword?: string | null;
             role?: null | components["schemas"]["UserRole"];
-            sort_by?: null | components["schemas"]["AdminUserSortBy"];
-            sort_order?: null | components["schemas"]["SortOrder"];
             status?: null | components["schemas"]["UserStatus"];
         };
-        /** @enum {string} */
-        AdminUserSortBy: "id" | "username" | "email" | "role" | "status" | "created_at" | "updated_at";
         ApiErrorInfo: {
             code: components["schemas"]["AsterErrorCode"];
             retryable?: boolean | null;
@@ -2148,6 +2162,10 @@ export interface components {
         AuditLogFilterQuery: {
             action?: string | null;
             after?: string | null;
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
             before?: string | null;
             /** Format: int64 */
             entity_id?: number | null;
@@ -2170,12 +2188,6 @@ export interface components {
             /** Format: int64 */
             user_id: number;
         };
-        /** @enum {string} */
-        AuditLogSortBy: "id" | "created_at" | "user_id" | "action" | "entity_type" | "entity_name" | "ip_address";
-        AuditLogSortQuery: {
-            sort_by?: null | components["schemas"]["AuditLogSortBy"];
-            sort_order?: null | components["schemas"]["SortOrder"];
-        };
         AuditPresentation: {
             detail?: null | components["schemas"]["AuditPresentationMessage"];
             summary?: null | components["schemas"]["AuditPresentationMessage"];
@@ -2194,6 +2206,17 @@ export interface components {
             role: components["schemas"]["UserRole"];
             status: components["schemas"]["UserStatus"];
             username: string;
+        };
+        AuthCreatedAtCursorQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
+        };
+        AuthSessionCursorQuery: {
+            after_id?: string | null;
+            /** Format: date-time */
+            after_last_seen_at?: string | null;
         };
         AuthSessionInfo: {
             created_at: string;
@@ -2380,6 +2403,363 @@ export interface components {
         CreateUserInvitationReq: {
             email: string;
         };
+        CreatedAtCursorQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
+        };
+        CurrentMinecraftProfileListQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
+            query?: string | null;
+        };
+        CursorPage_AdminUserInfo_DateTimeIdCursor: {
+            items: {
+                /** Format: int64 */
+                active_session_count: number;
+                created_at: string;
+                email: string;
+                email_verified_at?: string | null;
+                /** Format: int64 */
+                id: number;
+                must_change_password: boolean;
+                operator_scopes: components["schemas"]["OperatorScope"][];
+                pending_email?: string | null;
+                profile: components["schemas"]["UserProfileInfo"];
+                /** Format: int64 */
+                profile_count: number;
+                role: components["schemas"]["UserRole"];
+                /** Format: int64 */
+                session_version: number;
+                status: components["schemas"]["UserStatus"];
+                updated_at: string;
+                username: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_AdminUserInvitationInfo_DateTimeIdCursor: {
+            items: {
+                accepted_at?: string | null;
+                /** Format: int64 */
+                accepted_user_id?: number | null;
+                created_at: string;
+                email: string;
+                expires_at: string;
+                /** Format: int64 */
+                id: number;
+                invitation_url?: string | null;
+                /** Format: int64 */
+                invited_by: number;
+                mail_queued: boolean;
+                revoked_at?: string | null;
+                status: components["schemas"]["UserInvitationStatus"];
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_AuthSessionInfo_DateTimeStringCursor: {
+            items: {
+                created_at: string;
+                id: string;
+                ip_address?: string | null;
+                is_current: boolean;
+                last_seen_at: string;
+                refresh_expires_at: string;
+                revoked: boolean;
+                user_agent?: string | null;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                id: string;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_ExternalAuthLinkInfo_DateTimeIdCursor: {
+            items: {
+                created_at: string;
+                display_name_snapshot?: string | null;
+                email_snapshot?: string | null;
+                /** Format: int64 */
+                id: number;
+                issuer: string;
+                last_login_at?: string | null;
+                provider_display_name: string;
+                provider_icon_url?: string | null;
+                /** Format: int64 */
+                provider_id: number;
+                provider_key: string;
+                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                subject: string;
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_MinecraftProfileInfo_IdCursor: {
+            items: {
+                created_at: string;
+                /** Format: int64 */
+                id: number;
+                name: string;
+                texture_model: components["schemas"]["MinecraftTextureModel"];
+                updated_at: string;
+                uploadable_textures: string;
+                /** Format: int64 */
+                user_id: number;
+                uuid: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_MinecraftWardrobeTextureMetadata_DateTimeIdCursor: {
+            items: {
+                created_at: string;
+                display_name?: string | null;
+                /** Format: int64 */
+                file_size: number;
+                hash: string;
+                /** Format: int32 */
+                height: number;
+                /** Format: int64 */
+                id: number;
+                library_review_note?: string | null;
+                library_reviewed_at: string;
+                library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                library_submitted_at: string;
+                mime_type: string;
+                name: string;
+                preview_url?: string | null;
+                tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                texture_model: components["schemas"]["MinecraftTextureModel"];
+                texture_type: components["schemas"]["MinecraftTextureType"];
+                updated_at: string;
+                url: string;
+                visibility: components["schemas"]["MinecraftTextureVisibility"];
+                /** Format: int32 */
+                width: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_PasskeyInfo_DateTimeIdCursor: {
+            items: {
+                backed_up: boolean;
+                backup_eligible: boolean;
+                created_at: string;
+                /** Format: int64 */
+                id: number;
+                last_used_at?: string | null;
+                name: string;
+                /** Format: int64 */
+                sign_count: number;
+                transports?: string[] | null;
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_PublicTextureLibraryTextureMetadata_DateTimeIdCursor: {
+            items: {
+                created_at: string;
+                display_name?: string | null;
+                /** Format: int64 */
+                file_size: number;
+                hash: string;
+                /** Format: int32 */
+                height: number;
+                /** Format: int64 */
+                id: number;
+                library_review_note?: string | null;
+                library_reviewed_at: string;
+                library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
+                library_submitted_at: string;
+                mime_type: string;
+                name: string;
+                preview_url?: string | null;
+                tags: components["schemas"]["MinecraftTextureTagInfo"][];
+                texture_model: components["schemas"]["MinecraftTextureModel"];
+                texture_type: components["schemas"]["MinecraftTextureType"];
+                updated_at: string;
+                uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                url: string;
+                visibility: components["schemas"]["MinecraftTextureVisibility"];
+                /** Format: int32 */
+                width: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_TaskInfo_DateTimeIdCursor: {
+            items: {
+                /** Format: int32 */
+                attempt_count: number;
+                can_retry: boolean;
+                created_at: string;
+                creator?: null | components["schemas"]["TaskCreatorSummary"];
+                /** Format: int64 */
+                creator_user_id?: number | null;
+                display_name: string;
+                expires_at: string;
+                finished_at?: string | null;
+                /** Format: int64 */
+                id: number;
+                kind: components["schemas"]["BackgroundTaskKind"];
+                last_error?: string | null;
+                lease_expires_at?: string | null;
+                /** Format: int32 */
+                max_attempts: number;
+                payload: components["schemas"]["TaskPayload"];
+                presentation?: null | components["schemas"]["TaskPresentation"];
+                /** Format: int64 */
+                progress_current: number;
+                /** Format: int32 */
+                progress_percent: number;
+                /** Format: int64 */
+                progress_total: number;
+                result?: null | components["schemas"]["TaskResult"];
+                started_at?: string | null;
+                status: components["schemas"]["BackgroundTaskStatus"];
+                status_text?: string | null;
+                steps: components["schemas"]["TaskStepInfo"][];
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_TextureReportInfo_DateTimeIdCursor: {
+            items: {
+                admin_note?: string | null;
+                created_at: string;
+                handled_at: string;
+                handler?: null | components["schemas"]["TextureReportUserInfo"];
+                /** Format: int64 */
+                id: number;
+                message?: string | null;
+                reason: components["schemas"]["MinecraftTextureReportReason"];
+                reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                status: components["schemas"]["MinecraftTextureReportStatus"];
+                texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                /** Format: int64 */
+                texture_id: number;
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_YggdrasilProfile_IdCursor: {
+            items: {
+                id: string;
+                name: string;
+                properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
+        DateTimeIdCursor: {
+            /** Format: int64 */
+            id: number;
+            value: string;
+        };
+        DateTimeStringCursor: {
+            id: string;
+            value: string;
+        };
         DeleteAdminUserOutput: {
             deleted_profile_count: number;
             deleted_profile_texture_count: number;
@@ -2486,11 +2866,19 @@ export interface components {
         HealthResponse: {
             status: string;
         };
+        IdCursor: {
+            /** Format: int64 */
+            id: number;
+        };
         LimitOffsetQuery: {
             /** Format: int64 */
             limit?: number | null;
             /** Format: int64 */
             offset?: number | null;
+        };
+        LimitQuery: {
+            /** Format: int64 */
+            limit?: number | null;
         };
         LoginReq: {
             captcha_answer?: string | null;
@@ -2870,75 +3258,12 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
-        OffsetPage_AuthSessionInfo: {
-            items: {
-                created_at: string;
-                id: string;
-                ip_address?: string | null;
-                is_current: boolean;
-                last_seen_at: string;
-                refresh_expires_at: string;
-                revoked: boolean;
-                user_agent?: string | null;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_ExternalAuthLinkInfo: {
-            items: {
-                created_at: string;
-                display_name_snapshot?: string | null;
-                email_snapshot?: string | null;
-                /** Format: int64 */
-                id: number;
-                issuer: string;
-                last_login_at?: string | null;
-                provider_display_name: string;
-                provider_icon_url?: string | null;
-                /** Format: int64 */
-                provider_id: number;
-                provider_key: string;
-                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
-                subject: string;
-                updated_at: string;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
         OffsetPage_ExternalAuthPublicProvider: {
             items: {
                 display_name: string;
                 icon_url?: string | null;
                 key: string;
                 kind: components["schemas"]["ExternalAuthProviderKind"];
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_MinecraftProfileInfo: {
-            items: {
-                created_at: string;
-                /** Format: int64 */
-                id: number;
-                name: string;
-                texture_model: components["schemas"]["MinecraftTextureModel"];
-                updated_at: string;
-                uploadable_textures: string;
-                /** Format: int64 */
-                user_id: number;
-                uuid: string;
             }[];
             /** Format: int64 */
             limit: number;
@@ -2981,27 +3306,6 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
-        OffsetPage_PasskeyInfo: {
-            items: {
-                backed_up: boolean;
-                backup_eligible: boolean;
-                created_at: string;
-                /** Format: int64 */
-                id: number;
-                last_used_at?: string | null;
-                name: string;
-                /** Format: int64 */
-                sign_count: number;
-                transports?: string[] | null;
-                updated_at: string;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
         OffsetPage_SystemConfig: {
             items: {
                 category: string;
@@ -3019,47 +3323,6 @@ export interface components {
                 value: components["schemas"]["SystemConfigValue"];
                 value_type: components["schemas"]["SystemConfigValueType"];
                 visibility: components["schemas"]["SystemConfigVisibility"];
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_TaskInfo: {
-            items: {
-                /** Format: int32 */
-                attempt_count: number;
-                can_retry: boolean;
-                created_at: string;
-                creator?: null | components["schemas"]["TaskCreatorSummary"];
-                /** Format: int64 */
-                creator_user_id?: number | null;
-                display_name: string;
-                expires_at: string;
-                finished_at?: string | null;
-                /** Format: int64 */
-                id: number;
-                kind: components["schemas"]["BackgroundTaskKind"];
-                last_error?: string | null;
-                lease_expires_at?: string | null;
-                /** Format: int32 */
-                max_attempts: number;
-                payload: components["schemas"]["TaskPayload"];
-                presentation?: null | components["schemas"]["TaskPresentation"];
-                /** Format: int64 */
-                progress_current: number;
-                /** Format: int32 */
-                progress_percent: number;
-                /** Format: int64 */
-                progress_total: number;
-                result?: null | components["schemas"]["TaskResult"];
-                started_at?: string | null;
-                status: components["schemas"]["BackgroundTaskStatus"];
-                status_text?: string | null;
-                steps: components["schemas"]["TaskStepInfo"][];
-                updated_at: string;
             }[];
             /** Format: int64 */
             limit: number;
@@ -3167,6 +3430,10 @@ export interface components {
             review_required: boolean;
         };
         PublicTextureLibraryQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
+            /** Format: date-time */
+            after_updated_at?: string | null;
             keyword?: string | null;
             tag_ids?: number[];
             tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
@@ -3499,7 +3766,14 @@ export interface components {
         };
         UpdateWardrobeTextureReq: {
             display_name?: string | null;
+            texture_model?: null | components["schemas"]["MinecraftTextureModel"];
             visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
+        };
+        UpdatedAtCursorQuery: {
+            /** Format: int64 */
+            after_id?: number | null;
+            /** Format: date-time */
+            after_updated_at?: string | null;
         };
         /** @enum {string} */
         UserInvitationStatus: "pending" | "accepted" | "expired" | "revoked";
@@ -3630,14 +3904,13 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 action?: string | null;
                 entity_type?: null | components["schemas"]["AuditEntityType"];
                 entity_id?: number | null;
                 after?: string | null;
                 before?: string | null;
-                sort_by?: null | components["schemas"]["AuditLogSortBy"];
-                sort_order?: null | components["schemas"]["SortOrder"];
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -3673,6 +3946,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -3732,15 +4010,14 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 user_id?: number | null;
                 action?: string | null;
                 entity_type?: null | components["schemas"]["AuditEntityType"];
                 entity_id?: number | null;
                 after?: string | null;
                 before?: string | null;
-                sort_by?: null | components["schemas"]["AuditLogSortBy"];
-                sort_order?: null | components["schemas"]["SortOrder"];
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -3776,6 +4053,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -4792,11 +5074,11 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 user_id?: number | null;
                 name?: string | null;
                 uuid?: string | null;
                 query?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4827,6 +5109,10 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -5303,11 +5589,10 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 kind?: null | components["schemas"]["BackgroundTaskKind"];
                 status?: null | components["schemas"]["BackgroundTaskStatus"];
-                sort_by?: null | components["schemas"]["AdminTaskSortBy"];
-                sort_order?: null | components["schemas"]["SortOrder"];
+                after_updated_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5359,6 +5644,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -5530,10 +5820,11 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 status?: null | components["schemas"]["MinecraftTextureReportStatus"];
                 reason?: null | components["schemas"]["MinecraftTextureReportReason"];
                 texture_id?: number | null;
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5568,6 +5859,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -6041,7 +6337,6 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
                 texture_type?: null | components["schemas"]["MinecraftTextureType"];
                 visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
@@ -6049,6 +6344,8 @@ export interface operations {
                 published?: boolean | null;
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
+                after_updated_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6094,6 +6391,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -6171,6 +6473,48 @@ export interface operations {
                         msg: string;
                     };
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_delete_texture_library_texture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Texture ID */
+                texture_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted texture library texture */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {
@@ -6457,12 +6801,11 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
                 role?: null | components["schemas"]["UserRole"];
                 status?: null | components["schemas"]["UserStatus"];
-                sort_by?: null | components["schemas"]["AdminUserSortBy"];
-                sort_order?: null | components["schemas"]["SortOrder"];
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6502,6 +6845,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -6585,7 +6933,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6621,6 +6970,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -7048,7 +7402,11 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                user_id?: number | null;
+                name?: string | null;
+                uuid?: string | null;
+                query?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path: {
@@ -7075,6 +7433,10 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -7389,7 +7751,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -7425,6 +7788,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -7920,7 +8288,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_created_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -7952,6 +8321,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -8670,7 +9044,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_last_seen_at?: string | null;
+                after_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -8699,6 +9074,10 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                id: string;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -8853,8 +9232,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 query?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -8878,6 +9257,10 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -9341,11 +9724,12 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
                 texture_type?: null | components["schemas"]["MinecraftTextureType"];
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
+                after_updated_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -9391,6 +9775,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */
@@ -9706,11 +10095,12 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
                 texture_type?: null | components["schemas"]["MinecraftTextureType"];
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
+                after_updated_at?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -9755,6 +10145,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             offset: number;
                             /** Format: int64 */

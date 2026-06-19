@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { AuthUserMenu } from "@/components/common/AuthUserMenu";
@@ -8,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/buttonVariants";
 import { Icon } from "@/components/ui/icon";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePublicSession } from "@/hooks/usePublicSession";
 import { cn } from "@/lib/utils";
 import { accountPaths, publicPaths } from "@/routes/routePaths";
-import { useAuthStore } from "@/stores/authStore";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 
 const featureKeys = [
@@ -67,17 +66,10 @@ export default function PublicConnectPage() {
 	const textureLibraryEnabled = useFrontendConfigStore(
 		(state) => state.textureLibrary.enabled,
 	);
-	const user = useAuthStore((state) => state.user);
-	const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-	const hydrate = useAuthStore((state) => state.hydrate);
-	const logout = useAuthStore((state) => state.logout);
+	const { isAuthenticated, logout, user } = usePublicSession();
 	const serverName = branding.title || t("home.titleFallback");
 	const heroCopy = branding.description || t("home.heroCopy");
 	usePageTitle(serverName);
-
-	useEffect(() => {
-		void hydrate();
-	}, [hydrate]);
 
 	return (
 		<PublicEntryShell

@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
 	cachedFrontendConfig: "asteryggdrasil-cached-frontend-config:v1",
 	cachedUser: "asteryggdrasil-cached-user",
 	desktopSidebarExpanded: "asteryggdrasil-desktop-sidebar-expanded",
+	languagePreference: "asteryggdrasil-language-preference",
 	legacyAccessToken: "asteryggdrasil-access-token",
 	legacyRefreshToken: "asteryggdrasil-refresh-token",
 	legacyUser: "asteryggdrasil-user",

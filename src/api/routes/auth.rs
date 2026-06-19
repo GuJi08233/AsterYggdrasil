@@ -13,9 +13,9 @@ use crate::api::dto::{
 };
 use crate::api::error_code::AsterErrorCode;
 use crate::api::middleware::csrf::{self, RequestSourceMode};
-use crate::api::pagination::LimitOffsetQuery;
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, DateTimeStringCursor};
+use crate::api::pagination::{LimitQuery, parse_datetime_id_cursor, parse_datetime_string_cursor};
 use crate::api::request_auth::access_cookie_token;
 use crate::api::response::ApiResponse;
 use crate::config::auth_runtime::RuntimeAuthPolicy;
@@ -30,12 +30,35 @@ use crate::utils::numbers::u64_to_i64;
 use actix_multipart::Multipart;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
+use chrono::{DateTime, Utc};
+use serde::Deserialize;
 use serde::Serialize;
+use validator::Validate;
 
 use self::cookies::{
     REFRESH_COOKIE, build_access_cookie, build_csrf_cookie, build_refresh_cookie,
     clear_access_cookie, clear_csrf_cookie, clear_refresh_cookie,
 };
+
+#[derive(Debug, Clone, Default, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct AuthSessionCursorQuery {
+    pub after_last_seen_at: Option<DateTime<Utc>>,
+    pub after_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct AuthCreatedAtCursorQuery {
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
+}
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -1047,9 +1070,9 @@ pub async fn get_self_avatar(
     path = "/api/v1/auth/sessions",
     tag = "auth",
     operation_id = "list_auth_sessions",
-    params(LimitOffsetQuery),
+    params(LimitQuery, AuthSessionCursorQuery),
     responses(
-        (status = 200, description = "Current user's sessions", body = inline(ApiResponse<OffsetPage<auth_service::AuthSessionInfo>>)),
+        (status = 200, description = "Current user's sessions", body = inline(ApiResponse<CursorPage<auth_service::AuthSessionInfo, DateTimeStringCursor>>)),
         (status = 401, description = "Missing or invalid access token"),
         (status = 403, description = "User is disabled"),
     ),
@@ -1058,26 +1081,30 @@ pub async fn get_self_avatar(
 pub async fn sessions(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor_query: web::Query<AuthSessionCursorQuery>,
 ) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
+    let cursor = parse_datetime_string_cursor(
+        cursor_query.after_last_seen_at,
+        cursor_query.after_id.clone(),
+        "auth session",
+    )?;
     tracing::debug!(
         user_id = user.id,
         limit,
-        offset,
         "auth sessions list request received"
     );
     let refresh_token = req
         .cookie(REFRESH_COOKIE)
         .map(|cookie| cookie.value().to_string());
-    let sessions = auth_service::list_sessions_paginated(
+    let sessions = auth_service::list_sessions_cursor(
         state.get_ref(),
         user.id,
         refresh_token.as_deref(),
         limit,
-        offset,
+        cursor,
     )
     .await?;
     tracing::debug!(
@@ -1188,9 +1215,9 @@ pub async fn delete_session(
     path = "/api/v1/auth/passkeys",
     tag = "auth",
     operation_id = "list_passkeys",
-    params(LimitOffsetQuery),
+    params(LimitQuery, AuthCreatedAtCursorQuery),
     responses(
-        (status = 200, description = "Registered passkeys for current user", body = inline(ApiResponse<OffsetPage<passkey_service::PasskeyInfo>>)),
+        (status = 200, description = "Registered passkeys for current user", body = inline(ApiResponse<CursorPage<passkey_service::PasskeyInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Not authenticated"),
     ),
     security(("bearer" = [])),
@@ -1198,19 +1225,23 @@ pub async fn delete_session(
 pub async fn list_passkeys(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor_query: web::Query<AuthCreatedAtCursorQuery>,
 ) -> Result<HttpResponse> {
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     let limit = page.limit_or(20, 100);
-    let offset = page.offset();
+    let cursor = parse_datetime_id_cursor(
+        cursor_query.after_created_at,
+        cursor_query.after_id,
+        "passkey",
+    )?;
     tracing::debug!(
         user_id = user.id,
         limit,
-        offset,
         "auth passkey list request received"
     );
     let items =
-        passkey_service::list_passkeys_paginated(state.get_ref(), user.id, limit, offset).await?;
+        passkey_service::list_passkeys_cursor(state.get_ref(), user.id, limit, cursor).await?;
     tracing::debug!(
         user_id = user.id,
         returned = items.items.len(),

@@ -7,7 +7,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 use crate::config::{auth_runtime, branding, local_email_policy::LocalEmailPolicy, site_url};
 use crate::db::repository::{user_invitation_repo, user_repo};
 use crate::entities::{user, user_invitation};
@@ -117,18 +117,28 @@ where
 pub async fn list_invitations<S>(
     state: &S,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<AdminUserInvitationInfo>>
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<CursorPage<AdminUserInvitationInfo, DateTimeIdCursor>>
 where
     S: DatabaseRuntimeState,
 {
-    let (items, total) = user_invitation_repo::list(state.reader_db(), limit, offset).await?;
-    let items = items
+    let limit = limit.clamp(1, 100);
+    let page = user_invitation_repo::list_cursor_after(state.reader_db(), limit, cursor).await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|invitation| DateTimeIdCursor {
+            value: invitation.created_at,
+            id: invitation.id,
+        })
+    } else {
+        None
+    };
+    let items = page
+        .items
         .into_iter()
         .map(invitation_list_view)
         .map(|item| to_admin_info(item, None, false))
         .collect();
-    Ok(OffsetPage::new(items, total, limit, offset))
+    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
 }
 
 pub async fn revoke_invitation<S>(state: &S, id: i64) -> Result<AdminUserInvitationInfo>

@@ -4,9 +4,9 @@ use crate::api::dto::{
     AdminUserListQuery, CreateAdminUserReq, CreateUserInvitationReq, UpdateAdminUserReq,
     validate_request,
 };
-use crate::api::pagination::LimitOffsetQuery;
+use crate::api::pagination::{CreatedAtCursorQuery, LimitQuery, parse_datetime_id_cursor};
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
@@ -42,9 +42,9 @@ fn user_audit_details(user: &admin_user_service::AdminUserInfo) -> Option<serde_
     path = "/api/v1/admin/users",
     tag = "admin",
     operation_id = "admin_list_users",
-    params(LimitOffsetQuery, AdminUserListQuery),
+    params(LimitQuery, AdminUserListQuery),
     responses(
-        (status = 200, description = "Users", body = inline(ApiResponse<OffsetPage<admin_user_service::AdminUserInfo>>)),
+        (status = 200, description = "Users", body = inline(ApiResponse<CursorPage<admin_user_service::AdminUserInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -52,15 +52,14 @@ fn user_audit_details(user: &admin_user_service::AdminUserInfo) -> Option<serde_
 )]
 pub async fn list_users(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<AdminUserListQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let limit = page.limit_or(20, 100);
-    let offset = page.offset();
+    let cursor = parse_datetime_id_cursor(query.after_created_at, query.after_id, "admin user")?;
     tracing::debug!(
         limit,
-        offset,
         has_keyword = query.keyword.is_some(),
         role = ?query.role,
         status = ?query.status,
@@ -69,14 +68,12 @@ pub async fn list_users(
     let users = admin_user_service::list_users(
         state.get_ref(),
         limit,
-        offset,
         admin_user_service::AdminUserListFilters {
             keyword: query.keyword.clone(),
             role: query.role,
             status: query.status,
         },
-        query.sort_by(),
-        query.sort_order(),
+        cursor,
     )
     .await?;
     tracing::debug!(
@@ -201,9 +198,9 @@ pub async fn create_user_invitation(
     path = "/api/v1/admin/users/invitations",
     tag = "admin",
     operation_id = "admin_list_user_invitations",
-    params(LimitOffsetQuery),
+    params(LimitQuery, CreatedAtCursorQuery),
     responses(
-        (status = 200, description = "User invitations", body = inline(ApiResponse<OffsetPage<crate::services::user_invitation_service::AdminUserInvitationInfo>>)),
+        (status = 200, description = "User invitations", body = inline(ApiResponse<CursorPage<crate::services::user_invitation_service::AdminUserInvitationInfo, DateTimeIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -211,14 +208,17 @@ pub async fn create_user_invitation(
 )]
 pub async fn list_user_invitations(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor_query: web::Query<CreatedAtCursorQuery>,
 ) -> Result<HttpResponse> {
-    let invitations = user_invitation_service::list_invitations(
-        state.get_ref(),
-        page.limit_or(20, 100),
-        page.offset(),
-    )
-    .await?;
+    let cursor = parse_datetime_id_cursor(
+        cursor_query.after_created_at,
+        cursor_query.after_id,
+        "user invitation",
+    )?;
+    let invitations =
+        user_invitation_service::list_invitations(state.get_ref(), page.limit_or(20, 100), cursor)
+            .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(invitations)))
 }
 

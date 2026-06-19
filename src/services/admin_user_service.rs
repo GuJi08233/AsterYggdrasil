@@ -1,6 +1,6 @@
 //! Administrator user management service.
 
-use crate::api::pagination::{AdminUserSortBy, OffsetPage, SortOrder};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor};
 use crate::db::repository::{
     minecraft_profile_repo, user_operator_scope_repo, user_repo, yggdrasil_token_repo,
 };
@@ -191,44 +191,51 @@ fn validate_identity_input(username: &str, email: &str, password: &str) -> Resul
 pub async fn list_users<S>(
     state: &S,
     limit: u64,
-    offset: u64,
     filters: AdminUserListFilters,
-    sort_by: AdminUserSortBy,
-    sort_order: SortOrder,
-) -> Result<OffsetPage<AdminUserInfo>>
+    cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
+) -> Result<CursorPage<AdminUserInfo, DateTimeIdCursor>>
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     tracing::debug!(
         limit,
-        offset,
         has_keyword = filters.keyword.is_some(),
         has_role_filter = filters.role.is_some(),
         has_status_filter = filters.status.is_some(),
-        sort_by = ?sort_by,
-        sort_order = ?sort_order,
         "listing admin users"
     );
-    let page = user_repo::list_admin_paginated(
+    let page = user_repo::list_admin_cursor(
         state.reader_db(),
         user_repo::AdminUserFilters {
             keyword: filters.keyword,
             role: filters.role,
             status: filters.status,
         },
-        sort_by,
-        sort_order,
         limit,
-        offset,
+        cursor,
     )
     .await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|user| DateTimeIdCursor {
+            value: user.created_at,
+            id: user.id,
+        })
+    } else {
+        None
+    };
     let items = hydrate_users(state, page.items).await?;
     tracing::debug!(
         returned = items.len(),
         total = page.total,
         "listed admin users"
     );
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(
+        items,
+        page.total,
+        limit.clamp(1, 100),
+        0,
+        next_cursor,
+    ))
 }
 
 pub async fn get_user<S>(state: &S, id: i64) -> Result<AdminUserInfo>
@@ -581,6 +588,8 @@ mod tests {
             metrics: crate::metrics_core::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
             yggdrasil_rate_limiter,
+            yggdrasil_session_forward_http_client:
+                AppState::new_yggdrasil_session_forward_http_client(),
             background_task_dispatch_wakeup: AppState::new_background_task_dispatch_wakeup(),
         };
         TestContext {
@@ -793,14 +802,12 @@ mod tests {
         let page = list_users(
             &ctx.state,
             20,
-            0,
             AdminUserListFilters {
                 keyword: Some("NEW-USER".to_string()),
                 role: Some(UserRole::User),
                 status: Some(UserStatus::Active),
             },
-            AdminUserSortBy::Username,
-            SortOrder::Asc,
+            None,
         )
         .await
         .unwrap();
