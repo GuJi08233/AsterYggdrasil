@@ -936,6 +936,9 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
     aster_yggdrasil::services::system_config_service::ensure_defaults(&writer)
         .await
         .expect("system config defaults should seed");
+    aster_yggdrasil::services::yggdrasil_session_forward_service::ensure_builtin_servers(&writer)
+        .await
+        .expect("yggdrasil session forward defaults should seed");
     aster_yggdrasil::services::yggdrasil_signature::ensure_signature_key(&writer)
         .await
         .expect("yggdrasil signature key should initialize");

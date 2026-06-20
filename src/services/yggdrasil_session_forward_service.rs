@@ -23,6 +23,9 @@ const MIN_WEIGHT: i32 = 1;
 const MAX_WEIGHT: i32 = 1_000;
 const MIN_TIMEOUT_MS: i32 = 100;
 const MAX_TIMEOUT_MS: i32 = 10_000;
+const LOCAL_DISPLAY_NAME: &str = "AsterYggdrasil";
+const MOJANG_DISPLAY_NAME: &str = "Mojang";
+const MOJANG_SESSION_SERVER_BASE_URL: &str = "https://sessionserver.mojang.com";
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -70,6 +73,28 @@ pub struct UpdateYggdrasilSessionForwardServerInput {
     pub weight: Option<i32>,
     pub timeout_ms: Option<i32>,
     pub texture_forward_enabled: Option<bool>,
+}
+
+pub async fn ensure_builtin_servers(db: &sea_orm::DatabaseConnection) -> Result<usize> {
+    let mut inserted = 0;
+
+    if yggdrasil_session_forward_server_repo::find_local(db)
+        .await?
+        .is_none()
+    {
+        yggdrasil_session_forward_server_repo::create(db, local_builtin_server()).await?;
+        inserted += 1;
+    }
+
+    if yggdrasil_session_forward_server_repo::find_by_base_url(db, MOJANG_SESSION_SERVER_BASE_URL)
+        .await?
+        .is_none()
+    {
+        yggdrasil_session_forward_server_repo::create(db, mojang_builtin_server()).await?;
+        inserted += 1;
+    }
+
+    Ok(inserted)
 }
 
 pub async fn list_servers<S>(
@@ -268,6 +293,52 @@ fn server_to_admin(
     }
 }
 
+fn local_builtin_server() -> yggdrasil_session_forward_server::ActiveModel {
+    let now = Utc::now();
+    yggdrasil_session_forward_server::ActiveModel {
+        display_name: Set(LOCAL_DISPLAY_NAME.to_string()),
+        provider_kind: Set(YggdrasilSessionForwardProviderKind::Local),
+        endpoint_kind: Set(YggdrasilSessionForwardEndpointKind::AuthlibInjector),
+        base_url: Set(None),
+        builtin: Set(true),
+        enabled: Set(true),
+        priority: Set(100),
+        weight: Set(1),
+        timeout_ms: Set(1500),
+        texture_forward_enabled: Set(false),
+        last_checked_at: Set(None),
+        last_success_at: Set(None),
+        last_failure_at: Set(None),
+        last_failure_message: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+}
+
+fn mojang_builtin_server() -> yggdrasil_session_forward_server::ActiveModel {
+    let now = Utc::now();
+    yggdrasil_session_forward_server::ActiveModel {
+        display_name: Set(MOJANG_DISPLAY_NAME.to_string()),
+        provider_kind: Set(YggdrasilSessionForwardProviderKind::Remote),
+        endpoint_kind: Set(YggdrasilSessionForwardEndpointKind::MojangSession),
+        base_url: Set(Some(MOJANG_SESSION_SERVER_BASE_URL.to_string())),
+        builtin: Set(true),
+        enabled: Set(false),
+        priority: Set(200),
+        weight: Set(1),
+        timeout_ms: Set(1500),
+        texture_forward_enabled: Set(false),
+        last_checked_at: Set(None),
+        last_success_at: Set(None),
+        last_failure_at: Set(None),
+        last_failure_message: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+}
+
 pub fn server_audit_details(
     server: &AdminYggdrasilSessionForwardServerInfo,
 ) -> Option<serde_json::Value> {
@@ -338,6 +409,7 @@ fn normalize_timeout_ms(value: i32) -> Result<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder};
 
     #[test]
     fn base_url_normalization_accepts_api_root_path_and_trims_slash() {
@@ -362,5 +434,52 @@ mod tests {
         assert!(normalize_weight(0).is_err());
         assert!(normalize_timeout_ms(100).is_ok());
         assert!(normalize_timeout_ms(99).is_err());
+    }
+
+    #[tokio::test]
+    async fn ensure_builtin_servers_seeds_empty_migrated_database_once() {
+        let db_cfg = crate::config::DatabaseConfig {
+            url: "sqlite::memory:".to_string(),
+            pool_size: 1,
+            retry_count: 0,
+        };
+        let db = crate::db::connect_with_metrics(&db_cfg, crate::metrics_core::NoopMetrics::arc())
+            .await
+            .expect("test database should connect");
+        migration::Migrator::up(&db, None)
+            .await
+            .expect("test database migrations should run");
+
+        let before = yggdrasil_session_forward_server::Entity::find()
+            .count(&db)
+            .await
+            .expect("forward servers should count");
+        assert_eq!(before, 0);
+
+        let inserted = ensure_builtin_servers(&db)
+            .await
+            .expect("builtin forward servers should seed");
+        assert_eq!(inserted, 2);
+
+        let inserted_again = ensure_builtin_servers(&db)
+            .await
+            .expect("builtin forward servers should be idempotent");
+        assert_eq!(inserted_again, 0);
+
+        let servers = yggdrasil_session_forward_server::Entity::find()
+            .order_by_asc(yggdrasil_session_forward_server::Column::Priority)
+            .all(&db)
+            .await
+            .expect("forward servers should list");
+        assert_eq!(servers.len(), 2);
+        assert_eq!(
+            servers[0].provider_kind,
+            YggdrasilSessionForwardProviderKind::Local
+        );
+        assert_eq!(servers[0].display_name, LOCAL_DISPLAY_NAME);
+        assert_eq!(
+            servers[1].base_url.as_deref(),
+            Some(MOJANG_SESSION_SERVER_BASE_URL)
+        );
     }
 }

@@ -6,7 +6,7 @@ use crate::db;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::metrics_core::SharedMetricsRecorder;
 use crate::object_storage;
-use crate::services::system_config_service;
+use crate::services::{system_config_service, yggdrasil_session_forward_service};
 
 pub(super) struct CommonRuntimeParts {
     pub config: Arc<Config>,
@@ -35,6 +35,7 @@ pub(super) async fn prepare_common(config: Arc<Config>) -> Result<CommonRuntimeP
     )
     .await?;
     system_config_service::ensure_defaults(db_handles.writer()).await?;
+    yggdrasil_session_forward_service::ensure_builtin_servers(db_handles.writer()).await?;
     crate::services::yggdrasil_signature::ensure_signature_key(db_handles.writer()).await?;
     let runtime_config = Arc::new(RuntimeConfig::new());
     runtime_config.reload(db_handles.reader()).await?;
