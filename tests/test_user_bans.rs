@@ -483,7 +483,11 @@ async fn user_ban_record_supports_multiple_scopes_and_rejects_overlap() {
         .all(state.writer_db())
         .await
         .unwrap();
-    assert_eq!(events.len(), 1, "failed overlap writes must not create events");
+    assert_eq!(
+        events.len(),
+        1,
+        "failed overlap writes must not create events"
+    );
     assert_eq!(
         events[0].next_scopes.as_ref().unwrap().as_vec().unwrap(),
         vec![

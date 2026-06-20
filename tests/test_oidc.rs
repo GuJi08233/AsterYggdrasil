@@ -2201,16 +2201,16 @@ async fn oidc_links_can_be_listed_and_deleted_after_login() {
     let link_id = links[0]["id"].as_i64().expect("link id should exist");
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/auth/external-auth/links?limit=9999&offset=1")
+        .uri("/api/v1/auth/external-auth/links?limit=9999")
         .insert_header(("Cookie", common::access_cookie_header(&access_token)))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 1);
-    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 0);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
 
     let req = test::TestRequest::delete()
         .uri(&format!("/api/v1/auth/external-auth/links/{link_id}"))

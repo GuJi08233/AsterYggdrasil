@@ -253,10 +253,29 @@ async fn test_duplicate_invitation_revokes_previous_pending_and_only_new_token_w
     let app = create_test_app!(state);
     let (admin_token, _) = register_and_login!(app);
 
-    let first = create_invitation!(app, admin_token, "Duplicate@Example.COM");
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users/invitations")
+        .insert_header(("Cookie", common::access_cookie_header(&admin_token)))
+        .insert_header(common::csrf_header_for(&admin_token))
+        .set_json(serde_json::json!({ "email": "Duplicate@Example.COM" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201, "create invitation should return 201");
+    let body: Value = test::read_body_json(resp).await;
+    let first = body["data"].clone();
     let first_id = first["id"].as_i64().unwrap();
     let first_token = extract_invitation_token(&first);
-    let second = create_invitation!(app, admin_token, "duplicate@example.com");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users/invitations")
+        .insert_header(("Cookie", common::access_cookie_header(&admin_token)))
+        .insert_header(common::csrf_header_for(&admin_token))
+        .set_json(serde_json::json!({ "email": "duplicate@example.com" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201, "create invitation should return 201");
+    let body: Value = test::read_body_json(resp).await;
+    let second = body["data"].clone();
     let second_id = second["id"].as_i64().unwrap();
     let second_token = extract_invitation_token(&second);
     assert_ne!(first_id, second_id);

@@ -789,7 +789,8 @@ pub async fn setup_with_memory_cache() -> AppState {
             &base.config,
         ),
         yggdrasil_session_forward_http_client:
-            aster_yggdrasil::runtime::AppState::new_yggdrasil_session_forward_http_client(),
+            aster_yggdrasil::runtime::AppState::new_yggdrasil_session_forward_http_client()
+                .expect("Yggdrasil session forward HTTP client should build"),
         background_task_dispatch_wakeup:
             aster_yggdrasil::runtime::AppState::new_background_task_dispatch_wakeup(),
     }
@@ -998,7 +999,8 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter,
         yggdrasil_session_forward_http_client:
-            aster_yggdrasil::runtime::AppState::new_yggdrasil_session_forward_http_client(),
+            aster_yggdrasil::runtime::AppState::new_yggdrasil_session_forward_http_client()
+                .expect("Yggdrasil session forward HTTP client should build"),
         background_task_dispatch_wakeup:
             aster_yggdrasil::runtime::AppState::new_background_task_dispatch_wakeup(),
     }

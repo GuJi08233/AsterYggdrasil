@@ -10,6 +10,7 @@ use crate::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
 use crate::cache::CacheBackend;
 use crate::config::{Config, RuntimeConfig};
 use crate::db::DbHandles;
+use crate::errors::{AsterError, Result};
 use crate::metrics_core::SharedMetricsRecorder;
 use crate::object_storage::ObjectStorage;
 use crate::services::mail_service::MailSender;
@@ -52,12 +53,16 @@ impl AppState {
         YggdrasilRateLimiter::from_config(&config.rate_limit)
     }
 
-    pub fn new_yggdrasil_session_forward_http_client() -> reqwest::Client {
+    pub fn new_yggdrasil_session_forward_http_client() -> Result<reqwest::Client> {
         reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
             .user_agent(YGGDRASIL_SESSION_FORWARD_USER_AGENT)
             .build()
-            .expect("static Yggdrasil session forward HTTP client config should be valid")
+            .map_err(|error| {
+                AsterError::internal_error(format!(
+                    "build Yggdrasil session forward HTTP client: {error}"
+                ))
+            })
     }
 
     pub fn writer_db(&self) -> &DatabaseConnection {

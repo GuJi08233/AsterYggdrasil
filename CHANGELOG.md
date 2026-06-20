@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.0-beta.1] - 2026-06-20
+
+### Release Highlights
+
+**AsterYggdrasil 进入 Beta 阶段！** 经过 6 个 alpha 版本的迭代，核心功能（Yggdrasil 全协议、皮肤站、多登录方式、材质库审核工作流、operator 细粒度管理）已趋于稳定，本版本转向 beta 通道：聚焦运营治理与可扩展性。
+
+- **用户能力封禁系统** — 管理员可按 scope 精确封禁用户的特定能力（Yggdrasil 认证 / 加入服务器 / Profile 管理 / 材质上传 / 材质库互动），支持永久或限时、公开理由、撤销与 append-only 事件审计，无需禁用整个账号
+- **Yggdrasil 上游 session 转发** — `hasJoined` 校验可编排本地与远程（含正版 Mojang）Yggdrasil 兼容 session 服务器，按 priority/weight 依次探测、可代理上游材质，支持混合认证架构
+- **全系统 cursor 分页** — 所有列表端点从 offset 分页迁移到 cursor 分页，大数据量下性能显著提升（复合索引 + 固定排序）
+- **外部认证增强** — 邮箱补验、密码绑定、auto-provisioning/linking、邮箱域名白名单、Microsoft tenant、OIDC claim 映射，第三方登录更灵活可控
+
+### Breaking Changes
+
+- **列表端点统一改为 cursor 分页**：审计日志、后台任务、用户、Profile、材质、会话、Passkey、邀请等列表端点从 offset 分页（`{ items, limit, offset, total }`）改为 cursor 分页。游标基于复合键 `(created_at, id)`（部分表 `(updated_at, id)`），响应新增 `next_cursor` / `has_more` 字段；查询参数移除 `sort_by` / `sort_order`，改为固定 `created_at DESC, id DESC` 排序，分页入参由 `limit` + `after_created_at` / `after_id`（或字符串游标）驱动。迁移 `m20260619_000001_cursor_pagination_indexes` 为受影响表补齐复合索引以支撑游标查询。按旧 offset / 排序参数调用列表端点的第三方脚本与自定义客户端需适配新响应结构与查询参数。
+
+### Added
+
+- **用户能力封禁系统（user capability bans）**：管理员可对用户发起细粒度能力封禁，按 scope 精确阻断特定操作而无需禁用整个账号。封禁 scope 共 5 个：`yggdrasil_access`（Yggdrasil 认证 / token validate）、`yggdrasil_join`（session join / hasJoined）、`minecraft_profile_manage`（profile 重命名）、`texture_upload`（皮肤 / 披风上传）、`texture_library_interact`（公共库复制 / 提交 / 举报）。封禁状态 `UserBanStatus`：`active` / `revoked` / `expired`；响应额外提供 `effective_status`（`active` 但已过 `expires_at` 时返回 `expired`）与 `effective` 布尔。封禁支持时间窗口 `starts_at` / `expires_at`（`expires_at` 留空即永久）、`reason`（必填，≤128 字符）、`public_reason` / `admin_note`（可选，≤1000 字符）、`revoke_note`。管理员 API：`GET /api/v1/admin/user-bans`（cursor 分页，支持 `user_id` / `scope` / `status` / `effective_only` 过滤）、`GET /api/v1/admin/user-bans/{ban_id}`、`POST /api/v1/admin/users/{user_id}/bans`（创建，事务内建封禁 + append-only `created` 事件）、`PATCH /api/v1/admin/user-bans/{ban_id}`（更新，仅 active 可改，改 scope 前校验同 scope 无其他有效封禁）、`POST /api/v1/admin/user-bans/{ban_id}/revoke`（撤销 + `revoked` 事件）、`GET /api/v1/admin/user-bans/{ban_id}/events`（append-only 事件历史）。强制执行：`yggdrasil_access` 在 `authenticate` / `validate` 拦截，`yggdrasil_join` 在 `join` / `hasJoined` / Minecraft Services 拦截，`minecraft_profile_manage` 在 profile 重命名拦截，`texture_upload` / `texture_library_interact` 在衣橱上传、公共库复制 / 提交 / 举报拦截，命中返回 `user_ban.forbidden`（`auth_forbidden` 系列）。审计动作 `AdminCreateUserBan` / `AdminUpdateUserBan` / `AdminRevokeUserBan`，新增 entity type `UserBan`，前端用户详情页新增 `UserDetailBanSection`（中英 i18n）。迁移 `m20260620_000002_user_bans` 新建两张表：`user_bans`（含 `user_id` CASCADE / `created_by` / `revoked_by` SET NULL 三组 FK，索引 `idx_user_bans_user_status` / `idx_user_bans_status_created` / `idx_user_bans_expires_at`）与 append-only `user_ban_events`（`ban_id` CASCADE / `actor` SET NULL，记录 created / updated / revoked 的前后状态 / scope / 过期时间，索引 `idx_user_ban_events_ban_created` / `idx_user_ban_events_actor_created`）。
+
+- **Yggdrasil 上游 session 转发（session forwarding）**：`sessionserver/hasJoined` 校验时可编排本地与远程 Yggdrasil 兼容 session 服务器。新表 `yggdrasil_session_forward_servers`（迁移 `m20260620_000001`，内置本地 provider + 一个禁用的 Mojang 远程条目作为种子）。session forward service 按 `priority` / `weight` 依次选择服务器调用上游 hasJoined，命中后可选经新的 `forwardedTextures` 路由代理上游材质。管理员 CRUD API `GET/POST /api/v1/admin/yggdrasil/session-forward-servers`、`GET/PATCH/DELETE /api/v1/admin/yggdrasil/session-forward-servers/{id}`（统一受 `settings` operator scope 约束），前端新增 `AdminYggdrasilForwardingPage`（排序、健康状态、enable / texture-forward 开关）。审计：forwarding server 的 create / update / delete 及每次转发检查均落审计（中英 i18n）。新增文档页《Yggdrasil Forwarding》（中英）并接入文档站导航。
+
+- **外部认证增强**：外部认证身份补齐已验证邮箱的本地校验流程（provider 回调未带已验证邮箱时走本地邮箱补验）；支持基于密码绑定外部身份；新增 auto-provisioning / auto-linking 配置开关、provider 的 allowed email domains 过滤、Microsoft tenant 配置（`consumers` / `organizations` / `common` / custom）、OIDC claim mappings 自定义；外部认证成功后提供 redirect toast 提示。
+
+- **cursor 分页基础设施**：新增 `DateTimeIdCursor` / `DateTimeStringCursor` 游标类型与 `CursorPage` 响应结构（`items` / `total` / `limit` / `next_cursor` / `has_more`），为全系统列表端点的游标分页提供统一抽象。
+
+- **审计动作与错误码扩展**：新增审计动作 `admin_create_user_ban` / `admin_update_user_ban` / `admin_revoke_user_ban`（group `admin`）与 Yggdrasil session forwarding server 管理及转发检查动作；新增 entity type `UserBan`。新增错误码：`user_ban.not_found` / `user_ban.already_active` / `user_ban.not_active` / `user_ban.duration_invalid` / `user_ban.reason_invalid` / `user_ban.forbidden`。
+
+### Changed
+
+- **依赖升级与 MSRV 调整**：`sysinfo` 升至 0.39，`rust-version`（MSRV）提升至 1.95.0；顺带升级 `aws-sdk-s3` / `redis` / `sea-orm` / `sea-orm-migration` / `@base-ui/react` / `@types/node` / `@typescript/native-preview`，移除未使用的 `papaparse` 依赖及其 vite chunk。
+
+---
+
+**统计数据**：
+- 213 files changed, 20810 insertions(+), 4222 deletions(-)
+- 4 commits（3 功能 + 1 依赖升级）
+- 新增 3 个数据库迁移（`m20260619_000001` cursor 分页索引、`m20260620_000001` `yggdrasil_session_forward_servers`、`m20260620_000002` `user_bans` + `user_ban_events`）
+
 ## [v0.1.0-alpha.6] - 2026-06-19
 
 ### Breaking Changes
@@ -421,7 +459,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 前端 189 个 TS/TSX 文件
 - Rust Edition 2024, MSRV 1.94.0
 
-[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.6...HEAD
+[Unreleased]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-beta.1...HEAD
+[v0.1.0-beta.1]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.6...v0.1.0-beta.1
 [v0.1.0-alpha.6]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [v0.1.0-alpha.5]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [v0.1.0-alpha.4]: https://github.com/AsterCommunity/AsterYggdrasil/compare/v0.1.0-alpha.3...v0.1.0-alpha.4

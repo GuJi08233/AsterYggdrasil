@@ -331,12 +331,14 @@ where
                 log_forward_check(
                     state,
                     request_info,
-                    username,
-                    &server_id_hash,
-                    &upstream,
-                    "matched",
-                    Some(&profile.id),
-                    None,
+                    ForwardCheckAuditEvent {
+                        username,
+                        server_id_hash: &server_id_hash,
+                        upstream: &upstream,
+                        result: "matched",
+                        profile_uuid: Some(&profile.id),
+                        error: None,
+                    },
                 )
                 .await;
                 return Ok(Some(profile));
@@ -364,12 +366,14 @@ where
                 log_forward_check(
                     state,
                     request_info,
-                    username,
-                    &server_id_hash,
-                    &upstream,
-                    "no_match",
-                    None,
-                    None,
+                    ForwardCheckAuditEvent {
+                        username,
+                        server_id_hash: &server_id_hash,
+                        upstream: &upstream,
+                        result: "no_match",
+                        profile_uuid: None,
+                        error: None,
+                    },
                 )
                 .await;
             }
@@ -398,12 +402,14 @@ where
                 log_forward_check(
                     state,
                     request_info,
-                    username,
-                    &server_id_hash,
-                    &upstream,
-                    "failed",
-                    None,
-                    Some(&error),
+                    ForwardCheckAuditEvent {
+                        username,
+                        server_id_hash: &server_id_hash,
+                        upstream: &upstream,
+                        result: "failed",
+                        profile_uuid: None,
+                        error: Some(&error),
+                    },
                 )
                 .await;
             }
@@ -413,19 +419,24 @@ where
     Ok(None)
 }
 
+struct ForwardCheckAuditEvent<'a> {
+    username: &'a str,
+    server_id_hash: &'a str,
+    upstream: &'a yggdrasil_session_forward_server::Model,
+    result: &'a str,
+    profile_uuid: Option<&'a str>,
+    error: Option<&'a str>,
+}
+
 async fn log_forward_check<S>(
     state: &S,
     request_info: &audit_service::AuditRequestInfo,
-    username: &str,
-    server_id_hash: &str,
-    upstream: &yggdrasil_session_forward_server::Model,
-    result: &str,
-    profile_uuid: Option<&str>,
-    error: Option<&str>,
+    event: ForwardCheckAuditEvent<'_>,
 ) where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     let ctx = request_info.to_context(0);
+    let upstream = event.upstream;
     audit_service::log_with_details(
         state,
         &ctx,
@@ -435,16 +446,16 @@ async fn log_forward_check<S>(
         Some(&upstream.display_name),
         || {
             audit_service::details(audit_service::YggdrasilSessionForwardCheckAuditDetails {
-                username,
-                server_id_hash,
+                username: event.username,
+                server_id_hash: event.server_id_hash,
                 upstream_id: upstream.id,
                 upstream_name: &upstream.display_name,
                 provider_kind: upstream.provider_kind.as_str(),
                 endpoint_kind: upstream.endpoint_kind.as_str(),
-                result,
+                result: event.result,
                 texture_forward_enabled: upstream.texture_forward_enabled,
-                profile_uuid,
-                error,
+                profile_uuid: event.profile_uuid,
+                error: event.error,
             })
         },
     )

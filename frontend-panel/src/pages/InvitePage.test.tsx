@@ -15,12 +15,28 @@ const toastMock = vi.hoisted(() => ({
 	success: vi.fn(),
 }));
 
+const translationMock = vi.hoisted(() => ({
+	i18n: {
+		changeLanguage: vi.fn(),
+		language: "en-US",
+	},
+	t: (key: string) => key,
+}));
+
 vi.mock("@/services/authService", () => ({
 	authService: authServiceMock,
 }));
 
 vi.mock("sonner", () => ({
 	toast: toastMock,
+}));
+
+vi.mock("react-i18next", () => ({
+	initReactI18next: {
+		init: vi.fn(),
+		type: "3rdParty",
+	},
+	useTranslation: () => translationMock,
 }));
 
 const invitation: PublicUserInvitationInfo = {

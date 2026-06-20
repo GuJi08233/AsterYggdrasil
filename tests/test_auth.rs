@@ -1754,7 +1754,7 @@ async fn auth_sessions_mark_current_and_revoke_selected_session() {
 }
 
 #[actix_web::test]
-async fn auth_sessions_list_clamps_limit_and_applies_offset() {
+async fn auth_sessions_list_clamps_limit_and_uses_cursor() {
     let state = common::setup().await;
     let app = create_test_app!(state.clone());
     let _ = setup_admin!(app);
@@ -1764,7 +1764,7 @@ async fn auth_sessions_list_clamps_limit_and_applies_offset() {
     let _ = login_session!(app, "admin", "password1234");
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/auth/sessions?limit=9999&offset=1")
+        .uri("/api/v1/auth/sessions?limit=9999")
         .insert_header((
             "Cookie",
             common::access_and_refresh_cookie_header(
@@ -1778,9 +1778,54 @@ async fn auth_sessions_list_clamps_limit_and_applies_offset() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert!(body["data"]["total"].as_u64().unwrap() >= 3);
-    assert!(body["data"]["items"].as_array().unwrap().len() >= 2);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/sessions?limit=1")
+        .insert_header((
+            "Cookie",
+            common::access_and_refresh_cookie_header(
+                &current_access,
+                &current_refresh,
+                &current_csrf,
+            ),
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let first_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(first_page_items.len(), 1);
+    let next_cursor = &body["data"]["next_cursor"];
+    let after_last_seen_at = next_cursor["value"]
+        .as_str()
+        .expect("next cursor should include last_seen_at value");
+    let after_id = next_cursor["id"]
+        .as_str()
+        .expect("next cursor should include session id");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/auth/sessions?limit=1&after_last_seen_at={}&after_id={}",
+            urlencoding::encode(after_last_seen_at),
+            urlencoding::encode(after_id),
+        ))
+        .insert_header((
+            "Cookie",
+            common::access_and_refresh_cookie_header(
+                &current_access,
+                &current_refresh,
+                &current_csrf,
+            ),
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let second_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(second_page_items.len(), 1);
+    assert_ne!(second_page_items[0]["id"], first_page_items[0]["id"]);
 }
 
 #[actix_web::test]
@@ -1836,7 +1881,7 @@ async fn auth_sessions_revoke_others_keeps_current_session() {
 }
 
 #[actix_web::test]
-async fn passkeys_list_clamps_limit_and_applies_offset() {
+async fn passkeys_list_clamps_limit_and_uses_cursor() {
     let state = common::setup().await;
     configure_passkey_public_site_url(&state);
     let app = create_test_app!(state.clone());
@@ -1866,19 +1911,52 @@ async fn passkeys_list_clamps_limit_and_applies_offset() {
     }
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/auth/passkeys?limit=9999&offset=1")
+        .uri("/api/v1/auth/passkeys?limit=9999")
         .insert_header(("Cookie", access_and_csrf_cookie_header(&access, &csrf)))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 3);
     let items = body["data"]["items"].as_array().unwrap();
-    assert_eq!(items.len(), 2);
-    assert_eq!(items[0]["name"], "Device 1");
-    assert_eq!(items[1]["name"], "Device 0");
+    assert_eq!(items.len(), 3);
+    assert_eq!(items[0]["name"], "Device 2");
+    assert_eq!(items[1]["name"], "Device 1");
+    assert_eq!(items[2]["name"], "Device 0");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/passkeys?limit=1")
+        .insert_header(("Cookie", access_and_csrf_cookie_header(&access, &csrf)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let first_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(first_page_items.len(), 1);
+    assert_eq!(first_page_items[0]["name"], "Device 2");
+    let next_cursor = &body["data"]["next_cursor"];
+    let after_created_at = next_cursor["value"]
+        .as_str()
+        .expect("next cursor should include created_at value");
+    let after_id = next_cursor["id"]
+        .as_i64()
+        .expect("next cursor should include passkey id");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/auth/passkeys?limit=1&after_created_at={}&after_id={after_id}",
+            urlencoding::encode(after_created_at),
+        ))
+        .insert_header(("Cookie", access_and_csrf_cookie_header(&access, &csrf)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let second_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(second_page_items.len(), 1);
+    assert_eq!(second_page_items[0]["name"], "Device 1");
 }
 
 #[actix_web::test]

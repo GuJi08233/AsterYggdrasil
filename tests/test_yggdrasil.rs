@@ -1398,14 +1398,44 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(items[1]["name"], "ABCDEFGHIJKLMNOP");
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/profiles/minecraft?limit=9999&offset=1")
+        .uri("/api/v1/profiles/minecraft?limit=9999")
         .insert_header(common::bearer_header(&access))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["total"], 2);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/profiles/minecraft?limit=1")
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["total"], 2);
+    let page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(page_items.len(), 1);
+    assert_eq!(page_items[0]["id"], min_profile);
+    let profile_cursor_id = body["data"]["next_cursor"]["id"]
+        .as_i64()
+        .expect("minecraft profile page should expose next cursor id");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/profiles/minecraft?limit=1&after_id={profile_cursor_id}"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 2);
     let page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(page_items.len(), 1);
@@ -1478,7 +1508,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
 
     let req = test::TestRequest::get()
         .uri(&format!(
-            "/api/v1/admin/users/{user_id}/minecraft-profiles?limit=1&offset=1"
+            "/api/v1/admin/users/{user_id}/minecraft-profiles?limit=1"
         ))
         .insert_header(common::bearer_header(&access))
         .to_request();
@@ -1486,7 +1516,26 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["total"], 2);
+    let admin_page_items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(admin_page_items.len(), 1);
+    assert_eq!(admin_page_items[0]["id"], min_profile);
+    let admin_profile_cursor_id = body["data"]["next_cursor"]["id"]
+        .as_i64()
+        .expect("admin user minecraft profile page should expose next cursor id");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/admin/users/{user_id}/minecraft-profiles?limit=1&after_id={admin_profile_cursor_id}"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 2);
     let admin_page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(admin_page_items.len(), 1);
@@ -4089,13 +4138,35 @@ async fn wardrobe_texture_list_filters_by_type_keyword_pagination_and_user_scope
     let resp = list_wardrobe_textures_req!(
         app,
         &admin_access,
-        "/api/v1/wardrobe/textures?texture_type=skin&limit=1&offset=1"
+        "/api/v1/wardrobe/textures?texture_type=skin&limit=1"
     );
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 1);
+    assert_eq!(body["data"]["offset"], 0);
+    assert_eq!(body["data"]["total"], 2);
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["texture_type"], "skin");
+    let next_cursor = &body["data"]["next_cursor"];
+    let cursor_value = next_cursor["value"]
+        .as_str()
+        .expect("wardrobe texture page should expose next cursor value");
+    let cursor_id = next_cursor["id"]
+        .as_i64()
+        .expect("wardrobe texture page should expose next cursor id");
+
+    let cursor_uri = format!(
+        "/api/v1/wardrobe/textures?texture_type=skin&limit=1&after_updated_at={}&after_id={}",
+        urlencoding::encode(cursor_value),
+        cursor_id
+    );
+    let resp = list_wardrobe_textures_req!(app, &admin_access, cursor_uri.as_str());
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let items = body["data"]["items"].as_array().unwrap();
+    assert_eq!(body["data"]["limit"], 1);
+    assert_eq!(body["data"]["offset"], 0);
     assert_eq!(body["data"]["total"], 2);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["texture_type"], "skin");
@@ -6322,20 +6393,22 @@ async fn yggdrasil_has_joined_uses_mojang_session_endpoint_path() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["id"], remote_profile_id);
 
-    let paths = remote_upstream
-        .request_paths
-        .lock()
-        .expect("request paths lock should not be poisoned");
-    assert!(
-        paths
-            .iter()
-            .any(|path| path == "/session/minecraft/hasJoined")
-    );
-    assert!(
-        !paths
-            .iter()
-            .any(|path| path == "/sessionserver/session/minecraft/hasJoined")
-    );
+    let (used_mojang_path, used_authlib_path) = {
+        let paths = remote_upstream
+            .request_paths
+            .lock()
+            .expect("request paths lock should not be poisoned");
+        (
+            paths
+                .iter()
+                .any(|path| path == "/session/minecraft/hasJoined"),
+            paths
+                .iter()
+                .any(|path| path == "/sessionserver/session/minecraft/hasJoined"),
+        )
+    };
+    assert!(used_mojang_path);
+    assert!(!used_authlib_path);
 
     remote_handle.stop(true).await;
 }

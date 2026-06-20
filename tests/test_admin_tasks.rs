@@ -133,18 +133,6 @@ async fn insert_task(state: &AppState, task_insert: TestTaskInsert) -> i64 {
     task.id
 }
 
-fn json_string_values(items: &[Value], key: &str) -> Vec<String> {
-    items
-        .iter()
-        .map(|item| {
-            item[key]
-                .as_str()
-                .unwrap_or_else(|| panic!("{key} should be a string in {item}"))
-                .to_string()
-        })
-        .collect()
-}
-
 fn json_i64_values(items: &[Value], key: &str) -> Vec<i64> {
     items
         .iter()
@@ -275,7 +263,7 @@ async fn admin_can_list_retry_and_cleanup_tasks() {
 }
 
 #[actix_web::test]
-async fn admin_tasks_support_explicit_sorting_and_id_tiebreaker() {
+async fn admin_tasks_default_sort_uses_updated_at_and_id_tiebreaker() {
     let state = common::setup().await;
     let state_for_insert = state.clone();
     let app = create_test_app!(state);
@@ -296,33 +284,22 @@ async fn admin_tasks_support_explicit_sorting_and_id_tiebreaker() {
     }
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/admin/tasks?sort_by=display_name&sort_order=asc&limit=10")
+        .uri("/api/v1/admin/tasks?limit=3")
         .insert_header(common::bearer_header(&token))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     let tasks = body["data"]["items"].as_array().unwrap();
-    assert_eq!(
-        json_string_values(tasks, "display_name"),
-        vec!["Task Sort Alpha", "Task Sort Beta", "Task Sort Zeta"]
-    );
 
     inserted_ids.sort_unstable();
     inserted_ids.reverse();
-    let req = test::TestRequest::get()
-        .uri("/api/v1/admin/tasks?sort_by=progress&sort_order=desc&limit=3")
-        .insert_header(common::bearer_header(&token))
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    let tasks = body["data"]["items"].as_array().unwrap();
     assert_eq!(json_i64_values(tasks, "id"), inserted_ids);
+    assert!(body["data"]["next_cursor"].is_null());
 }
 
 #[actix_web::test]
-async fn admin_tasks_default_list_supports_limit_offset() {
+async fn admin_tasks_default_list_supports_cursor_pagination() {
     let state = common::setup().await;
     let state_for_insert = state.clone();
     let app = create_test_app!(state);
@@ -369,9 +346,16 @@ async fn admin_tasks_default_list_supports_limit_offset() {
     assert_eq!(items[1]["id"], middle_task);
     assert_eq!(items[1]["status"], "failed");
     assert_eq!(items[1]["can_retry"], true);
+    let next_cursor = &body["data"]["next_cursor"];
+    assert_eq!(next_cursor["id"], middle_task);
+    let after_updated_at = next_cursor["value"]
+        .as_str()
+        .expect("next cursor should include updated_at value");
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/admin/tasks?limit=2&offset=2")
+        .uri(&format!(
+            "/api/v1/admin/tasks?limit=2&after_updated_at={after_updated_at}&after_id={middle_task}"
+        ))
         .insert_header(common::bearer_header(token))
         .to_request();
     let resp = test::call_service(&app, req).await;

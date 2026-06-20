@@ -202,7 +202,8 @@ mod tests {
             started_at: crate::runtime::AppState::new_started_at(),
             yggdrasil_rate_limiter,
             yggdrasil_session_forward_http_client:
-                crate::runtime::AppState::new_yggdrasil_session_forward_http_client(),
+                crate::runtime::AppState::new_yggdrasil_session_forward_http_client()
+                    .expect("Yggdrasil session forward HTTP client should build"),
             background_task_dispatch_wakeup:
                 crate::runtime::AppState::new_background_task_dispatch_wakeup(),
         }
