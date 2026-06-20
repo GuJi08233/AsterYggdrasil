@@ -903,7 +903,6 @@ where
         items,
         page.total,
         limit,
-        0,
         next_cursor,
     ))
 }

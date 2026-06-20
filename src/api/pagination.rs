@@ -117,17 +117,15 @@ pub struct CursorPage<T: Serialize + ApiSchema, C: Serialize + ApiSchema> {
     pub items: Vec<T>,
     pub total: u64,
     pub limit: u64,
-    pub offset: u64,
     pub next_cursor: Option<C>,
 }
 
 impl<T: Serialize + ApiSchema, C: Serialize + ApiSchema> CursorPage<T, C> {
-    pub fn new(items: Vec<T>, total: u64, limit: u64, offset: u64, next_cursor: Option<C>) -> Self {
+    pub fn new(items: Vec<T>, total: u64, limit: u64, next_cursor: Option<C>) -> Self {
         Self {
             items,
             total,
             limit,
-            offset,
             next_cursor,
         }
     }

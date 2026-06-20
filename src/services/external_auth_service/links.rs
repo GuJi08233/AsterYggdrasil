@@ -72,7 +72,7 @@ pub async fn list_links_paginated(
             Some(link_to_info(identity, provider))
         })
         .collect::<Vec<_>>();
-    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 fn link_to_info(

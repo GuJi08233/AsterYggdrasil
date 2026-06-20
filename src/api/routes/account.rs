@@ -160,7 +160,6 @@ pub async fn list_user_bans(
         items,
         page.total,
         page.limit,
-        page.offset,
         page.next_cursor,
     );
     tracing::debug!(

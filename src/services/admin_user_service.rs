@@ -233,7 +233,6 @@ where
         items,
         page.total,
         limit.clamp(1, 100),
-        0,
         next_cursor,
     ))
 }

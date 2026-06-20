@@ -307,7 +307,6 @@ pub async fn list_minecraft_profiles(
         profiles,
         slice.total,
         limit,
-        0,
         next_cursor,
     ))))
 }

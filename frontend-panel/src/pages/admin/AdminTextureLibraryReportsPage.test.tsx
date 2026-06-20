@@ -63,7 +63,6 @@ function reportPage(
 		items,
 		limit: 20,
 		next_cursor: null,
-		offset: 0,
 		total: items.length,
 	};
 }

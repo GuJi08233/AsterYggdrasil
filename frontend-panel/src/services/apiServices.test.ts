@@ -380,7 +380,6 @@ describe("accountService", () => {
 			items: [],
 			limit: 8,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 		const { accountService } = await import("./accountService");
@@ -585,7 +584,6 @@ describe("admin services", () => {
 			items: [ban],
 			limit: 20,
 			next_cursor: null,
-			offset: 0,
 			total: 1,
 		});
 		apiMock.post.mockResolvedValueOnce(ban);

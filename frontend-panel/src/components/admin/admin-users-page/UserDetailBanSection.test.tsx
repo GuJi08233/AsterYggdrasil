@@ -72,7 +72,6 @@ function banPage(items: UserBanInfo[] = [ban()]): AdminUserBanPage {
 		items,
 		limit: 50,
 		next_cursor: null,
-		offset: 0,
 		total: items.length,
 	};
 }

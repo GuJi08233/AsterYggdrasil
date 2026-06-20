@@ -107,7 +107,6 @@ pub async fn list_minecraft_profiles(
         items,
         slice.total,
         limit,
-        0,
         next_cursor,
     ))))
 }
@@ -178,7 +177,6 @@ pub async fn list_user_minecraft_profiles(
         profiles,
         slice.total,
         limit,
-        0,
         next_cursor,
     ))))
 }

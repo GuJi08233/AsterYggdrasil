@@ -96,14 +96,12 @@ const baseUser: AuthUserInfo = {
 const emptyAuthSessionPage: AuthSessionPage = {
 	items: [],
 	limit: 50,
-	offset: 0,
 	total: 0,
 };
 
 const emptyExternalAuthLinkPage: ExternalAuthLinkPage = {
 	items: [],
 	limit: 20,
-	offset: 0,
 	total: 0,
 };
 

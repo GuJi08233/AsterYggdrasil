@@ -106,7 +106,6 @@ describe("AccountOverviewPage", () => {
 			items: [],
 			limit: 8,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 	});
@@ -158,7 +157,6 @@ describe("AccountOverviewPage", () => {
 			items: [activeBan],
 			limit: 8,
 			next_cursor: null,
-			offset: 0,
 			total: 1,
 		});
 

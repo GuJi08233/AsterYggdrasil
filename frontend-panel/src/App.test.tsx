@@ -108,7 +108,6 @@ function sessionsPage(items: AuthSessionInfo[]): AuthSessionPage {
 	return {
 		items,
 		limit: 50,
-		offset: 0,
 		total: items.length,
 	};
 }
@@ -117,7 +116,6 @@ function passkeyPage(items: PasskeyPage["items"]): PasskeyPage {
 	return {
 		items,
 		limit: 20,
-		offset: 0,
 		total: items.length,
 	};
 }

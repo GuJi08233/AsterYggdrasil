@@ -62,7 +62,6 @@ function sessionsPage(
 	return {
 		items,
 		limit: 5,
-		offset: 0,
 		total,
 	};
 }

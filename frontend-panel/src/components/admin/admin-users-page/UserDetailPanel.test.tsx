@@ -83,7 +83,6 @@ describe("UserDetailPanel", () => {
 			items: [],
 			limit: 5,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 		adminMinecraftProfileServiceMock.listTextures.mockResolvedValue([]);
@@ -91,7 +90,6 @@ describe("UserDetailPanel", () => {
 			items: [],
 			limit: 50,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 	});
@@ -151,14 +149,12 @@ describe("UserDetailPanel", () => {
 				})),
 				limit: 5,
 				next_cursor: { id: 5 },
-				offset: 0,
 				total: 6,
 			})
 			.mockResolvedValueOnce({
 				items: [{ id: "profile-6", name: "角色 6" }],
 				limit: 5,
 				next_cursor: null,
-				offset: 5,
 				total: 6,
 			});
 
@@ -185,7 +181,6 @@ describe("UserDetailPanel", () => {
 			],
 			limit: 5,
 			next_cursor: null,
-			offset: 0,
 			total: 2,
 		});
 		adminMinecraftProfileServiceMock.listTextures.mockImplementation(
@@ -240,7 +235,6 @@ describe("UserDetailPanel", () => {
 			items: [{ id: longUuid, name: longName }],
 			limit: 5,
 			next_cursor: null,
-			offset: 0,
 			total: 1,
 		});
 
@@ -259,7 +253,6 @@ describe("UserDetailPanel", () => {
 			items: [{ id: "profile-one", name: "角色 1" }],
 			limit: 5,
 			next_cursor: null,
-			offset: 0,
 			total: 1,
 		});
 
@@ -303,21 +296,18 @@ describe("UserDetailPanel", () => {
 				})),
 				limit: 5,
 				next_cursor: { id: 5 },
-				offset: 0,
 				total: 6,
 			})
 			.mockResolvedValueOnce({
 				items: [],
 				limit: 5,
 				next_cursor: null,
-				offset: 5,
 				total: 5,
 			})
 			.mockResolvedValueOnce({
 				items: [{ id: "profile-5", name: "角色 5" }],
 				limit: 5,
 				next_cursor: null,
-				offset: 0,
 				total: 5,
 			});
 
