@@ -15,6 +15,8 @@ import type {
 	AdminTextureLibraryTagQuery,
 	AdminTextureReportPage,
 	AdminTextureReportQuery,
+	AdminUserBanListQuery,
+	AdminUserBanPage,
 	AdminUserInvitationInfo,
 	AdminUserInvitationPage,
 	AdminUserInvitationQuery,
@@ -30,6 +32,7 @@ import type {
 	CreateAdminUserRequest,
 	CreateExternalAuthProviderRequest,
 	CreateMinecraftTextureTagRequest,
+	CreateUserBanRequest,
 	CreateUserInvitationRequest,
 	CreateYggdrasilSessionForwardServerRequest,
 	ExecuteConfigActionRequest,
@@ -55,6 +58,7 @@ import type {
 	UpdateAdminUserRequest,
 	UpdateExternalAuthProviderRequest,
 	UpdateMinecraftTextureTagRequest,
+	UpdateUserBanRequest,
 	UpdateYggdrasilSessionForwardServerRequest,
 	YggdrasilProfilePage,
 } from "@/types/api";
@@ -65,6 +69,7 @@ type AdminExternalAuthProviderPath =
 	OperationPath<"admin_get_external_auth_provider">;
 type AdminRetryTaskPath = OperationPath<"admin_retry_task">;
 type AdminUserPath = OperationPath<"admin_get_user">;
+type AdminUserBanPath = OperationPath<"admin_get_user_ban">;
 type AdminTextureLibraryTagPath =
 	OperationPath<"admin_update_texture_library_tag">;
 type AdminTextureLibraryTexturePath =
@@ -338,6 +343,40 @@ export const adminUserService = {
 	revokeSessions: (id: AdminUserPath["id"]) =>
 		api.post<OperationData<"admin_revoke_user_sessions">>(
 			`/admin/users/${id}/sessions/revoke`,
+		),
+	listBans: (params: AdminUserBanListQuery = {}) =>
+		api.get<AdminUserBanPage>(
+			withQuery("/admin/user-bans", {
+				limit: params.limit,
+				user_id: params.user_id,
+				scope: params.scope,
+				status: params.status,
+				effective_only: params.effective_only,
+				after_created_at: params.after_created_at,
+				after_id: params.after_id,
+			}),
+		),
+	createBan: (id: AdminUserPath["id"], data: CreateUserBanRequest) =>
+		api.post<
+			OperationData<"admin_create_user_ban">,
+			OperationRequestBody<"admin_create_user_ban">
+		>(`/admin/users/${id}/bans`, data),
+	updateBan: (id: AdminUserBanPath["ban_id"], data: UpdateUserBanRequest) =>
+		api.patch<
+			OperationData<"admin_update_user_ban">,
+			OperationRequestBody<"admin_update_user_ban">
+		>(`/admin/user-bans/${id}`, data),
+	revokeBan: (
+		id: AdminUserBanPath["ban_id"],
+		data: OperationRequestBody<"admin_revoke_user_ban">,
+	) =>
+		api.post<
+			OperationData<"admin_revoke_user_ban">,
+			OperationRequestBody<"admin_revoke_user_ban">
+		>(`/admin/user-bans/${id}/revoke`, data),
+	listBanEvents: (id: AdminUserBanPath["ban_id"]) =>
+		api.get<OperationData<"admin_list_user_ban_events">>(
+			`/admin/user-bans/${id}/events`,
 		),
 	listInvitations: (params: AdminUserInvitationQuery = {}) =>
 		api.get<AdminUserInvitationPage>(

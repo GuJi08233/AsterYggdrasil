@@ -35,6 +35,27 @@
 		"recentActivityEyebrow": "审计",
 		"recentActivityTitle": "近期活动",
 		"recentActivityEmpty": "暂无近期活动。",
+		"bans": {
+			"title": "能力状态",
+			"activeSummary": "当前有 {{count}} 项能力受限。",
+			"clearSummary": "当前没有生效中的能力限制。",
+			"empty": "账号能力未被限制。",
+			"startsAt": "开始",
+			"expiresAt": "结束",
+			"noExpiration": "长期",
+			"scope": {
+				"yggdrasil_access": "Yggdrasil 登录",
+				"yggdrasil_join": "服务器加入",
+				"minecraft_profile_manage": "角色档案管理",
+				"texture_upload": "材质上传",
+				"texture_library_interact": "公开材质库互动"
+			},
+			"status": {
+				"active": "生效中",
+				"revoked": "已撤销",
+				"expired": "已过期"
+			}
+		},
 		"quickActions": "快速操作",
 		"actionProfilesTitle": "管理角色档案",
 		"actionProfilesDescription": "维护角色名、UUID 与材质绑定",

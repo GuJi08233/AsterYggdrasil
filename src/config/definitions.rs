@@ -643,7 +643,7 @@ pub static ALL_CONFIGS: &[ConfigDef] = &[
         label_i18n_key: "settings_item_audit_log_retention_days_label",
         description_i18n_key: "settings_item_audit_log_retention_days_desc",
         value_type: SystemConfigValueType::Number,
-        default_fn: || "90".to_string(),
+        default_fn: || "180".to_string(),
         requires_restart: false,
         is_sensitive: false,
         category: CONFIG_CATEGORY_AUDIT_LOG,

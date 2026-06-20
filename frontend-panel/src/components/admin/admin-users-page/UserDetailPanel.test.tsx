@@ -10,12 +10,20 @@ const adminMinecraftProfileServiceMock = vi.hoisted(() => ({
 	listTextures: vi.fn(),
 }));
 
+const adminUserServiceMock = vi.hoisted(() => ({
+	listBans: vi.fn(),
+}));
+
 vi.mock("@/services/adminService", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("@/services/adminService")>();
 	return {
 		...actual,
 		adminMinecraftProfileService: adminMinecraftProfileServiceMock,
+		adminUserService: {
+			...actual.adminUserService,
+			...adminUserServiceMock,
+		},
 	};
 });
 
@@ -79,6 +87,13 @@ describe("UserDetailPanel", () => {
 			total: 0,
 		});
 		adminMinecraftProfileServiceMock.listTextures.mockResolvedValue([]);
+		adminUserServiceMock.listBans.mockResolvedValue({
+			items: [],
+			limit: 50,
+			next_cursor: null,
+			offset: 0,
+			total: 0,
+		});
 	});
 
 	it("renders page detail sections without internal session version", () => {

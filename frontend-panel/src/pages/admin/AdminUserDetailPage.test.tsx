@@ -8,6 +8,7 @@ import AdminUserDetailPage from "./AdminUserDetailPage";
 
 const adminUserServiceMock = vi.hoisted(() => ({
 	get: vi.fn(),
+	listBans: vi.fn(),
 	revokeSessions: vi.fn(),
 	update: vi.fn(),
 }));
@@ -62,6 +63,13 @@ describe("AdminUserDetailPage", () => {
 		vi.clearAllMocks();
 		await i18next.changeLanguage("zh-CN");
 		adminUserServiceMock.get.mockResolvedValue(user);
+		adminUserServiceMock.listBans.mockResolvedValue({
+			items: [],
+			limit: 50,
+			next_cursor: null,
+			offset: 0,
+			total: 0,
+		});
 		adminUserServiceMock.revokeSessions.mockResolvedValue({ removed: 0 });
 		adminUserServiceMock.update.mockResolvedValue(user);
 		adminMinecraftProfileServiceMock.listByUserPage.mockResolvedValue({

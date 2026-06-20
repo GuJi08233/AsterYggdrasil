@@ -374,6 +374,43 @@ describe("authService", () => {
 	});
 });
 
+describe("accountService", () => {
+	it("loads account audit logs and capability bans with cursor filters", async () => {
+		apiMock.get.mockResolvedValue({
+			items: [],
+			limit: 8,
+			next_cursor: null,
+			offset: 0,
+			total: 0,
+		});
+		const { accountService } = await import("./accountService");
+
+		await accountService.listAuditLogs({
+			action: "user_login",
+			after_created_at: "2026-06-18T00:00:00Z",
+			after_id: 9,
+			limit: 10,
+		});
+		await accountService.listBans({
+			after_created_at: "2026-06-18T00:00:00Z",
+			after_id: 11,
+			effective_only: true,
+			limit: 8,
+			scope: "texture_upload",
+			status: "active",
+		});
+
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			1,
+			"/account/audit-logs?limit=10&action=user_login&after_created_at=2026-06-18T00%3A00%3A00Z&after_id=9",
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			2,
+			"/account/bans?limit=8&scope=texture_upload&status=active&effective_only=true&after_created_at=2026-06-18T00%3A00%3A00Z&after_id=11",
+		);
+	});
+});
+
 describe("admin services", () => {
 	it("loads authenticated system info from the admin endpoint", async () => {
 		apiMock.get.mockResolvedValue({
@@ -522,6 +559,100 @@ describe("admin services", () => {
 			"/admin/users/7/sessions/revoke",
 		);
 		expect(apiMock.deleteRequest).toHaveBeenCalledWith("/admin/users/7");
+	});
+
+	it("uses admin user capability ban endpoints", async () => {
+		const ban = {
+			admin_note: "internal",
+			created_at: "2026-06-18T00:00:00Z",
+			created_by_user_id: 1,
+			effective: true,
+			effective_status: "active",
+			expires_at: null,
+			id: 11,
+			public_reason: "policy",
+			reason: "spam",
+			revoke_note: null,
+			revoked_at: null,
+			revoked_by_user_id: null,
+			scopes: ["texture_upload"],
+			starts_at: "2026-06-18T00:00:00Z",
+			status: "active",
+			updated_at: "2026-06-18T00:00:00Z",
+			user_id: 7,
+		} satisfies import("@/types/api").UserBanInfo;
+		apiMock.get.mockResolvedValueOnce({
+			items: [ban],
+			limit: 20,
+			next_cursor: null,
+			offset: 0,
+			total: 1,
+		});
+		apiMock.post.mockResolvedValueOnce(ban);
+		apiMock.patch.mockResolvedValueOnce({ ...ban, reason: "abuse" });
+		apiMock.post.mockResolvedValueOnce({ ...ban, status: "revoked" });
+		apiMock.get.mockResolvedValueOnce([
+			{
+				actor_user_id: 1,
+				ban_id: 11,
+				created_at: "2026-06-18T00:00:00Z",
+				event_type: "created",
+				id: 21,
+				next_expires_at: null,
+				next_scopes: ["texture_upload"],
+				next_status: "active",
+				note: "spam",
+				previous_expires_at: null,
+				previous_scopes: null,
+				previous_status: null,
+			},
+		] satisfies import("@/types/api").UserBanEventInfo[]);
+		const { adminUserService } = await import("./adminService");
+
+		await adminUserService.listBans({
+			after_created_at: "2026-06-18T00:00:00Z",
+			after_id: 11,
+			effective_only: true,
+			limit: 20,
+			scope: "texture_upload",
+			user_id: 7,
+		});
+		await adminUserService.createBan(7, {
+			admin_note: "internal",
+			expires_at: null,
+			public_reason: "policy",
+			reason: "spam",
+			scopes: ["texture_upload"],
+			starts_at: null,
+		});
+		await adminUserService.updateBan(11, { reason: "abuse" });
+		await adminUserService.revokeBan(11, { revoke_note: "appeal accepted" });
+		await adminUserService.listBanEvents(11);
+
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			1,
+			"/admin/user-bans?limit=20&user_id=7&scope=texture_upload&effective_only=true&after_created_at=2026-06-18T00%3A00%3A00Z&after_id=11",
+		);
+		expect(apiMock.post).toHaveBeenNthCalledWith(1, "/admin/users/7/bans", {
+			admin_note: "internal",
+			expires_at: null,
+			public_reason: "policy",
+			reason: "spam",
+			scopes: ["texture_upload"],
+			starts_at: null,
+		});
+		expect(apiMock.patch).toHaveBeenCalledWith("/admin/user-bans/11", {
+			reason: "abuse",
+		});
+		expect(apiMock.post).toHaveBeenNthCalledWith(
+			2,
+			"/admin/user-bans/11/revoke",
+			{ revoke_note: "appeal accepted" },
+		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(
+			2,
+			"/admin/user-bans/11/events",
+		);
 	});
 
 	it("passes config updates as generated request bodies", async () => {

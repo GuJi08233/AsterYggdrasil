@@ -4,7 +4,8 @@ use crate::db::repository::{minecraft_profile_repo, yggdrasil_token_repo};
 use crate::entities::minecraft_profile;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
-use crate::services::texture_service;
+use crate::services::{ban_service, texture_service};
+use crate::types::UserBanScope;
 use serde::Serialize;
 
 #[derive(Debug, Clone)]
@@ -66,6 +67,8 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     tracing::debug!(user_id, name_len = name.len(), "creating minecraft profile");
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
+        .await?;
     validate_profile_name(name)?;
     if minecraft_profile_repo::find_by_name(state.reader_db(), name)
         .await?
@@ -114,6 +117,8 @@ where
         profile_uuid = uuid,
         "deleting minecraft profile for user"
     );
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
+        .await?;
     let Some(profile) =
         minecraft_profile_repo::find_by_uuid_for_user(state.reader_db(), uuid, user_id).await?
     else {
@@ -165,6 +170,8 @@ where
         new_name_len = new_name.len(),
         "renaming minecraft profile for user"
     );
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
+        .await?;
     validate_profile_name(new_name)?;
     let Some(profile) =
         minecraft_profile_repo::find_by_uuid_for_user(state.reader_db(), uuid, user_id).await?

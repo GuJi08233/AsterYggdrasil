@@ -6,7 +6,7 @@ use crate::types::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType,
 };
-use crate::types::{UserRole, UserStatus};
+use crate::types::{UserBanScope, UserBanStatus, UserRole, UserStatus};
 
 #[derive(Serialize)]
 pub struct ConfigUpdateDetails<'a> {
@@ -105,6 +105,24 @@ pub struct UserAuditDetails<'a> {
 #[derive(Serialize)]
 pub struct UserSessionRevokeAuditDetails {
     pub removed: u64,
+}
+
+#[derive(Serialize)]
+pub struct UserBanAuditDetails<'a> {
+    pub target_user_id: i64,
+    pub scopes: &'a [UserBanScope],
+    pub status: UserBanStatus,
+    pub effective_status: UserBanStatus,
+    pub reason: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_reason: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admin_note: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoke_note: Option<&'a str>,
+    pub starts_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize)]

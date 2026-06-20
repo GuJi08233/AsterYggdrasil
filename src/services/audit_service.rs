@@ -15,7 +15,7 @@ pub use details::{
     ConfigUpdateDetails, ExternalAuthProviderTestParamsAuditDetails, LoginAuditDetails,
     MailAuditDetails, MinecraftProfileAuditDetails, MinecraftProfileRenameAuditDetails,
     MinecraftTextureAuditDetails, MinecraftTextureReportAuditDetails, PasskeyAuditDetails,
-    TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
+    TaskRetryAuditDetails, UserAuditDetails, UserBanAuditDetails, UserSessionRevokeAuditDetails,
     YggdrasilAuthenticateAuditDetails, YggdrasilJoinAuditDetails,
     YggdrasilSessionForwardCheckAuditDetails, YggdrasilSessionForwardServerAuditDetails,
     YggdrasilTokenAuditDetails, details,

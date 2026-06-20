@@ -20,7 +20,10 @@ pub use super::task::{
     BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
     StoredTaskRuntime, StoredTaskSteps,
 };
-pub use super::user::{AvatarSource, OperatorScope, UserInvitationStatus, UserRole, UserStatus};
+pub use super::user::{
+    AvatarSource, OperatorScope, UserBanEventType, UserBanScope, UserBanScopes, UserBanScopesError,
+    UserBanStatus, UserInvitationStatus, UserRole, UserStatus,
+};
 pub use super::yggdrasil::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility,

@@ -15,10 +15,10 @@ use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_texture_repo::WardrobeTextureListFilter;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
-use crate::services::{audit_service, auth_service, texture_service};
+use crate::services::{audit_service, auth_service, ban_service, texture_service};
 use crate::types::{
     MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
-    TextureTagSearchMethod,
+    TextureTagSearchMethod, UserBanScope,
 };
 
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -460,6 +460,8 @@ pub async fn upload_wardrobe_texture(
         texture_type = ?texture_type,
         "receiving wardrobe texture upload"
     );
+    ban_service::ensure_user_not_banned(state.get_ref(), user.id, UserBanScope::TextureUpload)
+        .await?;
     let upload = receive_texture_upload(&state, payload, texture_type)
         .await
         .map_err(texture_error_to_api_error)?;
@@ -816,6 +818,10 @@ fn texture_error_to_api_error(error: texture_service::TextureError) -> AsterErro
         }
         texture_service::TextureErrorKind::UploadDisabled => AsterError::auth_forbidden_code(
             AsterErrorCode::MinecraftTextureUploadDisabled,
+            error.protocol_message(),
+        ),
+        texture_service::TextureErrorKind::UserBanForbidden => AsterError::auth_forbidden_code(
+            AsterErrorCode::UserBanForbidden,
             error.protocol_message(),
         ),
         texture_service::TextureErrorKind::NotFound => AsterError::record_not_found_code(

@@ -1,6 +1,6 @@
 [package]
 name = "aster_yggdrasil"
-version = "0.1.0-alpha.6"
+version = "0.1.0-beta.1"
 description = "Self-hosted Minecraft skin site and Yggdrasil authentication server."
 authors = [
     "AptS-1547 <apts-1547@esaps.net>",

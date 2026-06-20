@@ -4,6 +4,7 @@ use crate::errors::AsterError;
 pub enum TextureErrorKind {
     InvalidTextureType,
     UploadDisabled,
+    UserBanForbidden,
     InvalidToken,
     ForbiddenProfile,
     NotFound,
@@ -42,9 +43,9 @@ impl TextureError {
             // common Yggdrasil invalid-token rule: this endpoint requires 401
             // for a missing Authorization header or invalid access token.
             TextureErrorKind::InvalidToken => actix_web::http::StatusCode::UNAUTHORIZED,
-            TextureErrorKind::ForbiddenProfile | TextureErrorKind::UploadDisabled => {
-                actix_web::http::StatusCode::FORBIDDEN
-            }
+            TextureErrorKind::ForbiddenProfile
+            | TextureErrorKind::UploadDisabled
+            | TextureErrorKind::UserBanForbidden => actix_web::http::StatusCode::FORBIDDEN,
             TextureErrorKind::NotFound => actix_web::http::StatusCode::NOT_FOUND,
             TextureErrorKind::InvalidTextureType
             | TextureErrorKind::InvalidContentType
@@ -59,7 +60,8 @@ impl TextureError {
         match self.kind {
             TextureErrorKind::InvalidToken
             | TextureErrorKind::ForbiddenProfile
-            | TextureErrorKind::UploadDisabled => "ForbiddenOperationException",
+            | TextureErrorKind::UploadDisabled
+            | TextureErrorKind::UserBanForbidden => "ForbiddenOperationException",
             TextureErrorKind::NotFound => "IllegalArgumentException",
             TextureErrorKind::InvalidTextureType
             | TextureErrorKind::InvalidContentType
@@ -74,6 +76,9 @@ impl TextureError {
         match self.kind {
             TextureErrorKind::InvalidTextureType => "Invalid texture type.".to_string(),
             TextureErrorKind::UploadDisabled => "Texture upload is disabled.".to_string(),
+            TextureErrorKind::UserBanForbidden => {
+                "Texture upload is restricted for this account.".to_string()
+            }
             TextureErrorKind::InvalidToken => "Invalid token.".to_string(),
             TextureErrorKind::ForbiddenProfile => {
                 "Profile does not belong to this user.".to_string()
@@ -99,6 +104,12 @@ impl TextureError {
 
 impl From<AsterError> for TextureError {
     fn from(value: AsterError) -> Self {
+        if value.api_error_code_override()
+            == Some(crate::api::error_code::AsterErrorCode::UserBanForbidden)
+        {
+            tracing::debug!(error = %value, "texture service rejected by user capability ban");
+            return Self::new(TextureErrorKind::UserBanForbidden);
+        }
         tracing::warn!(error = %value, "texture service failed");
         Self::new(TextureErrorKind::Storage)
     }
@@ -127,5 +138,19 @@ mod tests {
 
         assert_eq!(error.kind(), TextureErrorKind::Storage);
         assert_eq!(error.protocol_message(), "Object storage failed.");
+    }
+
+    #[test]
+    fn user_ban_errors_keep_their_own_texture_error_kind() {
+        let error = TextureError::from(AsterError::auth_forbidden_code(
+            crate::api::error_code::AsterErrorCode::UserBanForbidden,
+            "user is banned from texture_upload",
+        ));
+
+        assert_eq!(error.kind(), TextureErrorKind::UserBanForbidden);
+        assert_eq!(
+            error.protocol_message(),
+            "Texture upload is restricted for this account."
+        );
     }
 }

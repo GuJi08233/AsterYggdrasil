@@ -18,6 +18,7 @@ export const AUDIT_ENTITY_TYPE_FILTER_VALUES = [
 	"api_token",
 	"mail",
 	"task",
+	"user_ban",
 	"minecraft_profile",
 	"minecraft_texture",
 	"yggdrasil_token",

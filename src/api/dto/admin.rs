@@ -18,8 +18,8 @@ use crate::services::yggdrasil_session_forward_service::{
 };
 use crate::types::{
     BackgroundTaskKind, BackgroundTaskStatus, ExternalAuthKind, ExternalAuthProviderOptions,
-    NullablePatch, OperatorScope, SystemConfigVisibility, UserRole, UserStatus,
-    YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardServerSortBy,
+    NullablePatch, OperatorScope, SystemConfigVisibility, UserBanScope, UserBanStatus, UserRole,
+    UserStatus, YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardServerSortBy,
 };
 
 #[derive(Debug, Deserialize)]
@@ -81,6 +81,81 @@ pub struct AdminUserListQuery {
     pub status: Option<UserStatus>,
     pub after_created_at: Option<DateTime<Utc>>,
     pub after_id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(IntoParams, ToSchema)
+)]
+pub struct AdminUserBanListQuery {
+    pub user_id: Option<i64>,
+    pub scope: Option<UserBanScope>,
+    pub status: Option<UserBanStatus>,
+    #[serde(default)]
+    pub effective_only: bool,
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct CreateUserBanReq {
+    pub scopes: Vec<UserBanScope>,
+    #[validate(length(min = 1, max = 128, message = "reason must be 1-128 characters"))]
+    pub reason: String,
+    #[validate(length(max = 1000, message = "public_reason must not exceed 1000 characters"))]
+    pub public_reason: Option<String>,
+    #[validate(length(max = 1000, message = "admin_note must not exceed 1000 characters"))]
+    pub admin_note: Option<String>,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct UpdateUserBanReq {
+    pub scopes: Option<Vec<UserBanScope>>,
+    #[validate(length(min = 1, max = 128, message = "reason must be 1-128 characters"))]
+    pub reason: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "crate::types::deserialize_nullable_patch_option"
+    )]
+    #[cfg_attr(
+        all(debug_assertions, feature = "openapi"),
+        schema(value_type = Option<String>)
+    )]
+    pub public_reason: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::types::deserialize_nullable_patch_option"
+    )]
+    #[cfg_attr(
+        all(debug_assertions, feature = "openapi"),
+        schema(value_type = Option<String>)
+    )]
+    pub admin_note: Option<NullablePatch<String>>,
+    pub starts_at: Option<DateTime<Utc>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::types::deserialize_nullable_patch_option"
+    )]
+    #[cfg_attr(
+        all(debug_assertions, feature = "openapi"),
+        schema(value_type = Option<String>)
+    )]
+    pub expires_at: Option<NullablePatch<DateTime<Utc>>>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct RevokeUserBanReq {
+    #[validate(length(max = 1000, message = "revoke_note must not exceed 1000 characters"))]
+    pub revoke_note: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]

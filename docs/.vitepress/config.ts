@@ -5,6 +5,33 @@ import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const SITE_URL = "https://yggdrasil.astercosm.com/";
+const ZH_SITE_DESCRIPTION =
+	"AsterYggdrasil 官方文档中心，覆盖 Minecraft 皮肤站、Yggdrasil/authlib-injector 接入、玩家档案、材质管理、管理员配置和部署维护。";
+const EN_SITE_DESCRIPTION =
+	"Official AsterYggdrasil documentation covering the Minecraft skin site, Yggdrasil/authlib-injector integration, player profiles, texture management, administrator configuration, and deployment.";
+
+type LocaleKey = "root" | "en";
+
+const locales: Record<
+	LocaleKey,
+	{
+		lang: string;
+		siteDescription: string;
+		ogLocale: string;
+	}
+> = {
+	root: {
+		lang: "zh-CN",
+		siteDescription: ZH_SITE_DESCRIPTION,
+		ogLocale: "zh_CN",
+	},
+	en: {
+		lang: "en-US",
+		siteDescription: EN_SITE_DESCRIPTION,
+		ogLocale: "en_US",
+	},
+};
 
 function getVersion(): string {
 	try {
@@ -18,25 +45,196 @@ function getVersion(): string {
 }
 
 const version = getVersion();
+const PAGE_DESCRIPTION_LIMIT = 160;
+const MIN_USEFUL_DESCRIPTION_LENGTH = 24;
+const descriptionCache = new Map<string, string>();
+
+function toCanonicalPath(page: string): string {
+	const normalizedPage = page.replace(/\\/g, "/").replace(/\.md$/, "");
+
+	if (normalizedPage === "index") {
+		return "/";
+	}
+
+	if (normalizedPage.endsWith("/index")) {
+		return `/${normalizedPage.slice(0, -"/index".length)}/`;
+	}
+
+	return `/${normalizedPage}`;
+}
+
+function getLocaleForPage(page: string): LocaleKey {
+	return page.replace(/\\/g, "/").startsWith("en/") ? "en" : "root";
+}
+
+function getBasePage(page: string): string {
+	const normalizedPage = page.replace(/\\/g, "/");
+	return normalizedPage.startsWith("en/") ? normalizedPage.slice("en/".length) : normalizedPage;
+}
+
+function getLocalizedPage(page: string, locale: LocaleKey): string {
+	const basePage = getBasePage(page);
+	return locale === "en" ? `en/${basePage}` : basePage;
+}
+
+function stripFrontmatter(source: string): string {
+	const normalizedSource = source.replace(/^\uFEFF/, "");
+	const match = normalizedSource.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+	return match ? normalizedSource.slice(match[0].length) : normalizedSource;
+}
+
+function normalizeInlineMarkdown(text: string): string {
+	return text
+		.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1")
+		.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+		.replace(/`([^`]+)`/g, "$1")
+		.replace(/[*_]/g, "")
+		.replace(/<[^>]+>/g, "")
+		.replace(/\s+/g, " ")
+		.replace(/\s+([，。！？；：,.!?;:])/g, "$1")
+		.trim();
+}
+
+function truncateDescription(text: string): string {
+	if (text.length <= PAGE_DESCRIPTION_LIMIT) {
+		return text;
+	}
+
+	const sliced = text.slice(0, PAGE_DESCRIPTION_LIMIT).replace(/[\s，。！？；：,.!?;:]+$/u, "");
+	return `${sliced}…`;
+}
+
+function extractDescriptionFromMarkdown(source: string): string {
+	const lines = stripFrontmatter(source).split(/\r?\n/);
+	let shortFallback = "";
+
+	for (let index = 0; index < lines.length; ) {
+		const line = lines[index].trim();
+
+		if (!line || line.startsWith("#")) {
+			index += 1;
+			continue;
+		}
+
+		if (/^:::\s*/.test(line)) {
+			const customBlockLines: string[] = [];
+			index += 1;
+			while (index < lines.length && !/^\s*:::\s*$/.test(lines[index].trim())) {
+				customBlockLines.push(lines[index]);
+				index += 1;
+			}
+			if (index < lines.length) {
+				index += 1;
+			}
+
+			const customBlockDescription = extractDescriptionFromMarkdown(customBlockLines.join("\n"));
+			if (customBlockDescription.length >= MIN_USEFUL_DESCRIPTION_LENGTH) {
+				return customBlockDescription;
+			}
+			if (customBlockDescription && !shortFallback) {
+				shortFallback = customBlockDescription;
+			}
+
+			continue;
+		}
+
+		if (/^```/.test(line) || /^~~~/.test(line)) {
+			const fence = line.startsWith("```") ? "```" : "~~~";
+			index += 1;
+			while (index < lines.length && !lines[index].trim().startsWith(fence)) {
+				index += 1;
+			}
+			if (index < lines.length) {
+				index += 1;
+			}
+			continue;
+		}
+
+		if (/^[>*+\-|]\s/.test(line) || /^\|/.test(line)) {
+			index += 1;
+			while (index < lines.length && lines[index].trim()) {
+				index += 1;
+			}
+			continue;
+		}
+
+		const paragraphLines = [line];
+		index += 1;
+
+		while (index < lines.length) {
+			const nextLine = lines[index].trim();
+			if (
+				!nextLine ||
+				nextLine.startsWith("#") ||
+				/^:::\s*/.test(nextLine) ||
+				/^```/.test(nextLine) ||
+				/^~~~/.test(nextLine) ||
+				/^[>*+\-|]\s/.test(nextLine) ||
+				/^\|/.test(nextLine)
+			) {
+				break;
+			}
+			paragraphLines.push(nextLine);
+			index += 1;
+		}
+
+		const paragraph = normalizeInlineMarkdown(paragraphLines.join(" "));
+		if (!paragraph) {
+			continue;
+		}
+
+		if (paragraph.length >= MIN_USEFUL_DESCRIPTION_LENGTH) {
+			return truncateDescription(paragraph);
+		}
+
+		if (!shortFallback) {
+			shortFallback = paragraph;
+		}
+	}
+
+	return shortFallback ? truncateDescription(shortFallback) : "";
+}
+
+function getPageDescription(sourceDir: string, relativePath: string): string {
+	const absolutePath = resolve(sourceDir, relativePath);
+	const cached = descriptionCache.get(absolutePath);
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	try {
+		const description = extractDescriptionFromMarkdown(readFileSync(absolutePath, "utf-8"));
+		descriptionCache.set(absolutePath, description);
+		return description;
+	} catch {
+		descriptionCache.set(absolutePath, "");
+		return "";
+	}
+}
 
 export default withMermaid(
 	defineConfig({
 		title: "AsterYggdrasil",
-		description:
-			"Self-hosted Minecraft skin site and Yggdrasil authentication server.",
+		description: ZH_SITE_DESCRIPTION,
 		lang: "zh-CN",
 		cleanUrls: true,
 		lastUpdated: true,
+		sitemap: {
+			hostname: SITE_URL,
+		},
 		head: [
 			["meta", { name: "theme-color", content: "#111827" }],
-			["link", { rel: "icon", href: "/favicon.svg" }],
+			["link", { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+			["meta", { property: "og:type", content: "website" }],
+			["meta", { property: "og:site_name", content: "AsterYggdrasil" }],
+			["meta", { name: "twitter:card", content: "summary" }],
 		],
 		locales: {
 			root: {
 				label: "简体中文",
 				lang: "zh-CN",
 				title: "AsterYggdrasil",
-				description: "自建 Minecraft 皮肤站与 Yggdrasil 认证服务器。",
+				description: ZH_SITE_DESCRIPTION,
 				themeConfig: {
 					outline: {
 						label: "本页内容",
@@ -122,6 +320,7 @@ export default withMermaid(
 							text: "管理维护",
 							items: [
 								{ text: "管理员指南", link: "/guide/admin-guide" },
+								{ text: "能力封禁", link: "/guide/user-bans" },
 								{ text: "配置和密钥", link: "/guide/configuration" },
 								{ text: "对象存储", link: "/guide/storage" },
 								{ text: "审计与后台任务", link: "/guide/audit-tasks" },
@@ -148,8 +347,8 @@ export default withMermaid(
 				label: "English",
 				lang: "en-US",
 				title: "AsterYggdrasil",
-				description:
-					"Self-hosted Minecraft skin site and Yggdrasil authentication server.",
+				link: "/en/",
+				description: EN_SITE_DESCRIPTION,
 				themeConfig: {
 					nav: [
 						{ text: "Home", link: "/en/" },
@@ -192,6 +391,7 @@ export default withMermaid(
 							text: "Admin Maintenance",
 							items: [
 								{ text: "Admin Guide", link: "/en/guide/admin-guide" },
+								{ text: "Capability Bans", link: "/en/guide/user-bans" },
 								{ text: "Config and Keys", link: "/en/guide/configuration" },
 								{ text: "Object Storage", link: "/en/guide/storage" },
 								{ text: "Audit and Tasks", link: "/en/guide/audit-tasks" },
@@ -214,6 +414,52 @@ export default withMermaid(
 					],
 				},
 			},
+		},
+		transformHead(context) {
+			if (context.page === "404.md") {
+				return [["meta", { name: "robots", content: "noindex, nofollow" }]];
+			}
+
+			const locale = getLocaleForPage(context.page);
+			const canonicalUrl = new URL(toCanonicalPath(context.page), SITE_URL).href;
+			const rootUrl = new URL(toCanonicalPath(getLocalizedPage(context.page, "root")), SITE_URL).href;
+			const enUrl = new URL(toCanonicalPath(getLocalizedPage(context.page, "en")), SITE_URL).href;
+			const title = context.title || "AsterYggdrasil";
+			const description = context.description || locales[locale].siteDescription;
+
+			return [
+				["link", { rel: "canonical", href: canonicalUrl }],
+				["link", { rel: "alternate", hreflang: locales.root.lang, href: rootUrl }],
+				["link", { rel: "alternate", hreflang: locales.en.lang, href: enUrl }],
+				["link", { rel: "alternate", hreflang: "x-default", href: rootUrl }],
+				["meta", { property: "og:title", content: title }],
+				["meta", { property: "og:description", content: description }],
+				["meta", { property: "og:url", content: canonicalUrl }],
+				["meta", { property: "og:locale", content: locales[locale].ogLocale }],
+				[
+					"meta",
+					{
+						property: "og:locale:alternate",
+						content: locales[locale === "en" ? "root" : "en"].ogLocale,
+					},
+				],
+				["meta", { name: "twitter:title", content: title }],
+				["meta", { name: "twitter:description", content: description }],
+			];
+		},
+		transformPageData(pageData, { siteConfig }) {
+			if (pageData.description) {
+				return undefined;
+			}
+
+			const inferredDescription = getPageDescription(siteConfig.srcDir, pageData.filePath);
+			if (!inferredDescription) {
+				return undefined;
+			}
+
+			return {
+				description: inferredDescription,
+			};
 		},
 		themeConfig: {
 			search: {

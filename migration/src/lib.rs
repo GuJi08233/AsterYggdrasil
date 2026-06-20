@@ -6,7 +6,9 @@
         clippy::unwrap_used,
         clippy::unreachable,
         clippy::expect_used,
-        clippy::panic
+        clippy::panic,
+        clippy::unimplemented,
+        clippy::todo
     )
 )]
 
@@ -26,6 +28,7 @@ mod m20260618_000006_texture_library_review;
 mod m20260618_000007_texture_library_reports;
 mod m20260619_000001_cursor_pagination_indexes;
 mod m20260620_000001_yggdrasil_session_forward_servers;
+mod m20260620_000002_user_bans;
 mod time;
 
 pub struct Migrator;
@@ -57,6 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260618_000007_texture_library_reports::Migration),
             Box::new(m20260619_000001_cursor_pagination_indexes::Migration),
             Box::new(m20260620_000001_yggdrasil_session_forward_servers::Migration),
+            Box::new(m20260620_000002_user_bans::Migration),
         ]
     }
 }

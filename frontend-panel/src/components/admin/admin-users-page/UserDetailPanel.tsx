@@ -15,6 +15,7 @@ import type {
 	UserStatus,
 } from "@/types/api";
 import { UserDetailAccountSection } from "./UserDetailAccountSection";
+import { UserDetailBanSection } from "./UserDetailBanSection";
 import { UserDetailFooterActions } from "./UserDetailFooterActions";
 import {
 	UserDetailMinecraftSection,
@@ -461,6 +462,7 @@ export function UserDetailPanel({
 								}
 								onSessionRevoke={() => void handleSessionRevoke()}
 							/>
+							<UserDetailBanSection userId={user.id} />
 							<UserDetailMinecraftSection
 								currentPage={minecraftProfileCursorStack.length + 1}
 								loading={profilesLoading}

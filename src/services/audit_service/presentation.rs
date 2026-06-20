@@ -71,6 +71,14 @@ fn summary_message(
             copy_string_param(details, &mut params, "endpoint_kind");
             copy_string_param(details, &mut params, "base_url");
         }
+        AuditAction::AdminCreateUserBan
+        | AuditAction::AdminUpdateUserBan
+        | AuditAction::AdminRevokeUserBan => {
+            copy_any_param(details, &mut params, "scopes");
+            copy_string_param(details, &mut params, "status");
+            copy_string_param(details, &mut params, "effective_status");
+            copy_string_param(details, &mut params, "reason");
+        }
         AuditAction::MinecraftProfileCreate
         | AuditAction::MinecraftProfileRename
         | AuditAction::MinecraftProfileDelete
@@ -233,6 +241,21 @@ fn detail_message(
             copy_param(details, &mut params, "texture_forward_enabled");
             Some(message("yggdrasil_session_forward_server_changed", params))
         }
+        AuditAction::AdminCreateUserBan
+        | AuditAction::AdminUpdateUserBan
+        | AuditAction::AdminRevokeUserBan => {
+            copy_param(details, &mut params, "target_user_id");
+            copy_param(details, &mut params, "scopes");
+            copy_param(details, &mut params, "status");
+            copy_param(details, &mut params, "effective_status");
+            copy_param(details, &mut params, "reason");
+            copy_param(details, &mut params, "public_reason");
+            copy_param(details, &mut params, "admin_note");
+            copy_param(details, &mut params, "revoke_note");
+            copy_param(details, &mut params, "starts_at");
+            copy_param(details, &mut params, "expires_at");
+            Some(message("user_ban_changed", params))
+        }
         AuditAction::MinecraftProfileCreate => {
             copy_param(details, &mut params, "profile_uuid");
             copy_param(details, &mut params, "profile_name");
@@ -363,6 +386,16 @@ fn copy_string_param(source: Option<&Value>, params: &mut BTreeMap<String, Value
         return;
     };
     params.insert(key.to_string(), Value::String(value.to_string()));
+}
+
+fn copy_any_param(source: Option<&Value>, params: &mut BTreeMap<String, Value>, key: &str) {
+    let Some(value) = source.and_then(|source| source.get(key)) else {
+        return;
+    };
+    if value.is_null() {
+        return;
+    }
+    params.insert(key.to_string(), value.clone());
 }
 
 fn copy_param(source: &Value, params: &mut BTreeMap<String, Value>, key: &str) {

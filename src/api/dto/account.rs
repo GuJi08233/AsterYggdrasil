@@ -6,8 +6,8 @@ use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::{IntoParams, ToSchema};
 
-use crate::services::audit_service::AuditLogEntry;
-use crate::types::AuditEntityType;
+use crate::services::{audit_service::AuditLogEntry, ban_service::UserBanInfo};
+use crate::types::{AuditEntityType, UserBanScope, UserBanStatus};
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -48,5 +48,65 @@ impl AccountAuditLogFilterQuery {
                 after_id: self.after_id,
             },
         )
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(IntoParams, ToSchema)
+)]
+pub struct AccountUserBanListQuery {
+    pub scope: Option<UserBanScope>,
+    pub status: Option<UserBanStatus>,
+    pub effective_only: Option<bool>,
+    pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct AccountUserBanInfo {
+    pub id: i64,
+    pub scopes: Vec<UserBanScope>,
+    pub status: UserBanStatus,
+    pub effective_status: UserBanStatus,
+    pub effective: bool,
+    pub reason: String,
+    pub public_reason: Option<String>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub starts_at: DateTime<Utc>,
+    #[cfg_attr(
+        all(debug_assertions, feature = "openapi"),
+        schema(value_type = Option<String>)
+    )]
+    pub expires_at: Option<DateTime<Utc>>,
+    #[cfg_attr(
+        all(debug_assertions, feature = "openapi"),
+        schema(value_type = Option<String>)
+    )]
+    pub revoked_at: Option<DateTime<Utc>>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub created_at: DateTime<Utc>,
+    #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<UserBanInfo> for AccountUserBanInfo {
+    fn from(value: UserBanInfo) -> Self {
+        Self {
+            id: value.id,
+            scopes: value.scopes,
+            status: value.status,
+            effective_status: value.effective_status,
+            effective: value.effective,
+            reason: value.reason,
+            public_reason: value.public_reason,
+            starts_at: value.starts_at,
+            expires_at: value.expires_at,
+            revoked_at: value.revoked_at,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
     }
 }

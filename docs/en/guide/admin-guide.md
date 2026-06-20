@@ -17,6 +17,7 @@ Administrators mainly maintain six kinds of state:
 | Users | Who can sign in, who is admin, and whether sessions must be revoked |
 | Minecraft profiles | Player names, UUIDs, owners, renames, and deletion |
 | Textures | Skin/cape upload, binding, public reads, and orphan cleanup |
+| Capability bans | Restrict user access to Yggdrasil, profiles, texture upload, and public texture library interactions by scope |
 | Yggdrasil config | Public URLs, profile-name login, upload switches, token policy |
 | Signing keys | Metadata public key, textures property signatures, key rotation |
 | Audit and tasks | Admin actions, protocol login behavior, cleanup tasks, retries |
@@ -45,6 +46,23 @@ The first account becomes administrator. Administrators can manage users, runtim
 - `external_auth`
 
 When creating or updating users, administrators can set role and operator scopes. Operators without the required scope cannot access the related admin API and will not see the corresponding frontend navigation entry.
+
+## Capability Bans
+
+Capability bans restrict whether a user can use specific features. They do not disable the whole account and they do not target a single Minecraft profile.
+
+Common admin APIs:
+
+```text
+GET    /api/v1/admin/user-bans
+GET    /api/v1/admin/user-bans/{ban_id}
+POST   /api/v1/admin/users/{user_id}/bans
+PATCH  /api/v1/admin/user-bans/{ban_id}
+POST   /api/v1/admin/user-bans/{ban_id}/revoke
+GET    /api/v1/admin/user-bans/{ban_id}/events
+```
+
+One ban record can contain multiple scopes. The account page defaults to showing only currently effective restrictions and does not show revoked or expired records. For scope details and error codes, read [Capability Bans](/en/guide/user-bans).
 
 ## Users and Profiles
 

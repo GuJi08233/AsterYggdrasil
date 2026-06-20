@@ -7,7 +7,8 @@ use crate::api::dto::yggdrasil::{
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_repo, user_repo};
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::services::audit_service;
+use crate::services::{audit_service, ban_service};
+use crate::types::UserBanScope;
 use crate::utils::hash::verify_password;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
@@ -74,6 +75,16 @@ where
         tracing::debug!(
             user_id = login_target.user.id,
             "yggdrasil authenticate rejected password mismatch"
+        );
+        return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
+    }
+    if ban_service::is_user_banned(state, login_target.user.id, UserBanScope::YggdrasilAccess)
+        .await
+        .map_err(YggdrasilError::from)?
+    {
+        tracing::debug!(
+            user_id = login_target.user.id,
+            "yggdrasil authenticate rejected because user is banned from yggdrasil access"
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }

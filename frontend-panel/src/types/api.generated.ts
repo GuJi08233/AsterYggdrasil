@@ -20,6 +20,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_account_user_bans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/account/overview": {
         parameters: {
             query?: never;
@@ -580,6 +596,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/user-bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_user_bans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-bans/{ban_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_get_user_ban"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["admin_update_user_ban"];
+        trace?: never;
+    };
+    "/api/v1/admin/user-bans/{ban_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_list_user_ban_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/user-bans/{ban_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_revoke_user_ban"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -654,6 +734,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["admin_revoke_user_sessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/bans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_create_user_ban"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1994,6 +2090,30 @@ export interface components {
             profile_count: number;
             recent_activity: components["schemas"]["AuditLogEntry"][];
         };
+        AccountUserBanInfo: {
+            created_at: string;
+            effective: boolean;
+            effective_status: components["schemas"]["UserBanStatus"];
+            expires_at?: string | null;
+            /** Format: int64 */
+            id: number;
+            public_reason?: string | null;
+            reason: string;
+            revoked_at?: string | null;
+            scopes: components["schemas"]["UserBanScope"][];
+            starts_at: string;
+            status: components["schemas"]["UserBanStatus"];
+            updated_at: string;
+        };
+        AccountUserBanListQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
+            effective_only?: boolean | null;
+            scope?: null | components["schemas"]["UserBanScope"];
+            status?: null | components["schemas"]["UserBanStatus"];
+        };
         ActionMessageResp: {
             message: string;
         };
@@ -2133,6 +2253,17 @@ export interface components {
             /** Format: int64 */
             texture_id?: number | null;
         };
+        AdminUserBanListQuery: {
+            /** Format: date-time */
+            after_created_at?: string | null;
+            /** Format: int64 */
+            after_id?: number | null;
+            effective_only?: boolean;
+            scope?: null | components["schemas"]["UserBanScope"];
+            status?: null | components["schemas"]["UserBanStatus"];
+            /** Format: int64 */
+            user_id?: number | null;
+        };
         AdminUserInfo: {
             /** Format: int64 */
             active_session_count: number;
@@ -2215,11 +2346,11 @@ export interface components {
             retryable?: boolean | null;
         };
         /** @enum {string} */
-        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
+        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "user_ban.not_found" | "user_ban.already_active" | "user_ban.not_active" | "user_ban.duration_invalid" | "user_ban.reason_invalid" | "user_ban.forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
-        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "admin_create_yggdrasil_session_forward_server" | "admin_update_yggdrasil_session_forward_server" | "admin_delete_yggdrasil_session_forward_server" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "minecraft_texture_library_submit" | "minecraft_texture_library_withdraw" | "minecraft_texture_library_approve" | "minecraft_texture_library_reject" | "minecraft_texture_library_unpublish" | "minecraft_texture_report_create" | "minecraft_texture_report_accept" | "minecraft_texture_report_reject" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server" | "yggdrasil_session_forward_check";
+        AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_create_user_ban" | "admin_update_user_ban" | "admin_revoke_user_ban" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "admin_create_yggdrasil_session_forward_server" | "admin_update_yggdrasil_session_forward_server" | "admin_delete_yggdrasil_session_forward_server" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "minecraft_texture_library_submit" | "minecraft_texture_library_withdraw" | "minecraft_texture_library_approve" | "minecraft_texture_library_reject" | "minecraft_texture_library_unpublish" | "minecraft_texture_report_create" | "minecraft_texture_report_accept" | "minecraft_texture_report_reject" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server" | "yggdrasil_session_forward_check";
         /** @enum {string} */
-        AuditEntityType: "system" | "system_config" | "user" | "invitation" | "auth_session" | "passkey" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task" | "minecraft_profile" | "minecraft_texture" | "yggdrasil_token" | "yggdrasil_session";
+        AuditEntityType: "system" | "system_config" | "user" | "invitation" | "auth_session" | "passkey" | "external_auth_provider" | "external_auth_identity" | "api_token" | "mail" | "task" | "user_ban" | "minecraft_profile" | "minecraft_texture" | "yggdrasil_token" | "yggdrasil_session";
         AuditLogEntry: {
             action: components["schemas"]["AuditAction"];
             created_at: string;
@@ -2478,6 +2609,16 @@ export interface components {
             message?: string | null;
             reason: components["schemas"]["MinecraftTextureReportReason"];
         };
+        CreateUserBanReq: {
+            admin_note?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+            public_reason?: string | null;
+            reason: string;
+            scopes: components["schemas"]["UserBanScope"][];
+            /** Format: date-time */
+            starts_at?: string | null;
+        };
         CreateUserInvitationReq: {
             email: string;
         };
@@ -2504,6 +2645,34 @@ export interface components {
             /** Format: int64 */
             after_id?: number | null;
             query?: string | null;
+        };
+        CursorPage_AccountUserBanInfo_DateTimeIdCursor: {
+            items: {
+                created_at: string;
+                effective: boolean;
+                effective_status: components["schemas"]["UserBanStatus"];
+                expires_at?: string | null;
+                /** Format: int64 */
+                id: number;
+                public_reason?: string | null;
+                reason: string;
+                revoked_at?: string | null;
+                scopes: components["schemas"]["UserBanScope"][];
+                starts_at: string;
+                status: components["schemas"]["UserBanStatus"];
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
         };
         CursorPage_AdminUserInfo_DateTimeIdCursor: {
             items: {
@@ -2825,6 +2994,42 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        CursorPage_UserBanInfo_DateTimeIdCursor: {
+            items: {
+                admin_note?: string | null;
+                created_at: string;
+                /** Format: int64 */
+                created_by_user_id?: number | null;
+                effective: boolean;
+                effective_status: components["schemas"]["UserBanStatus"];
+                expires_at?: string | null;
+                /** Format: int64 */
+                id: number;
+                public_reason?: string | null;
+                reason: string;
+                revoke_note?: string | null;
+                revoked_at?: string | null;
+                /** Format: int64 */
+                revoked_by_user_id?: number | null;
+                scopes: components["schemas"]["UserBanScope"][];
+                starts_at: string;
+                status: components["schemas"]["UserBanStatus"];
+                updated_at: string;
+                /** Format: int64 */
+                user_id: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            offset: number;
+            /** Format: int64 */
+            total: number;
+        };
         CursorPage_YggdrasilProfile_IdCursor: {
             items: {
                 id: string;
@@ -3029,7 +3234,10 @@ export interface components {
             /** @description Map of banned service scopes. Empty means no active Minecraft services ban. */
             bannedScopes: components["schemas"]["MinecraftServicesBannedScopes"];
         };
-        MinecraftServicesBannedScopes: Record<string, never>;
+        MinecraftServicesBannedScopes: {
+            /** @description Multiplayer/server-join access is banned. */
+            MULTIPLAYER?: boolean;
+        };
         MinecraftServicesCertificateResp: {
             /** @description RFC3339 timestamp after which the certificate should no longer be used. */
             expiresAt: string;
@@ -3648,6 +3856,9 @@ export interface components {
             review_note?: string | null;
             tag_ids?: number[] | null;
         };
+        RevokeUserBanReq: {
+            revoke_note?: string | null;
+        };
         RuntimeSystemHealthComponent: {
             message: string;
             name: string;
@@ -3893,6 +4104,15 @@ export interface components {
         UpdateProfileReq: {
             display_name?: string | null;
         };
+        UpdateUserBanReq: {
+            admin_note?: string | null;
+            expires_at?: string | null;
+            public_reason?: string | null;
+            reason?: string | null;
+            scopes?: components["schemas"]["UserBanScope"][] | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+        };
         UpdateWardrobeTextureReq: {
             display_name?: string | null;
             texture_model?: null | components["schemas"]["MinecraftTextureModel"];
@@ -3917,6 +4137,52 @@ export interface components {
             /** Format: date-time */
             after_updated_at?: string | null;
         };
+        UserBanEventInfo: {
+            /** Format: int64 */
+            actor_user_id?: number | null;
+            /** Format: int64 */
+            ban_id: number;
+            created_at: string;
+            event_type: components["schemas"]["UserBanEventType"];
+            /** Format: int64 */
+            id: number;
+            next_expires_at?: string | null;
+            next_scopes?: components["schemas"]["UserBanScope"][] | null;
+            next_status?: null | components["schemas"]["UserBanStatus"];
+            note?: string | null;
+            previous_expires_at?: string | null;
+            previous_scopes?: components["schemas"]["UserBanScope"][] | null;
+            previous_status?: null | components["schemas"]["UserBanStatus"];
+        };
+        /** @enum {string} */
+        UserBanEventType: "created" | "updated" | "revoked";
+        UserBanInfo: {
+            admin_note?: string | null;
+            created_at: string;
+            /** Format: int64 */
+            created_by_user_id?: number | null;
+            effective: boolean;
+            effective_status: components["schemas"]["UserBanStatus"];
+            expires_at?: string | null;
+            /** Format: int64 */
+            id: number;
+            public_reason?: string | null;
+            reason: string;
+            revoke_note?: string | null;
+            revoked_at?: string | null;
+            /** Format: int64 */
+            revoked_by_user_id?: number | null;
+            scopes: components["schemas"]["UserBanScope"][];
+            starts_at: string;
+            status: components["schemas"]["UserBanStatus"];
+            updated_at: string;
+            /** Format: int64 */
+            user_id: number;
+        };
+        /** @enum {string} */
+        UserBanScope: "yggdrasil_access" | "yggdrasil_join" | "minecraft_profile_manage" | "texture_upload" | "texture_library_interact";
+        /** @enum {string} */
+        UserBanStatus: "active" | "revoked" | "expired";
         /** @enum {string} */
         UserInvitationStatus: "pending" | "accepted" | "expired" | "revoked";
         UserModel: {
@@ -4091,6 +4357,72 @@ export interface operations {
                                 user_agent?: string | null;
                                 /** Format: int64 */
                                 user_id: number;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_account_user_bans: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                scope?: null | components["schemas"]["UserBanScope"];
+                status?: null | components["schemas"]["UserBanStatus"];
+                effective_only?: boolean | null;
+                after_created_at?: string | null;
+                after_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current user's capability bans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                created_at: string;
+                                effective: boolean;
+                                effective_status: components["schemas"]["UserBanStatus"];
+                                expires_at?: string | null;
+                                /** Format: int64 */
+                                id: number;
+                                public_reason?: string | null;
+                                reason: string;
+                                revoked_at?: string | null;
+                                scopes: components["schemas"]["UserBanScope"][];
+                                starts_at: string;
+                                status: components["schemas"]["UserBanStatus"];
+                                updated_at: string;
                             }[];
                             /** Format: int64 */
                             limit: number;
@@ -6945,6 +7277,388 @@ export interface operations {
             };
         };
     };
+    admin_list_user_bans: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                user_id?: number | null;
+                scope?: null | components["schemas"]["UserBanScope"];
+                status?: null | components["schemas"]["UserBanStatus"];
+                effective_only?: boolean;
+                after_created_at?: string | null;
+                after_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User capability bans */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            items: {
+                                admin_note?: string | null;
+                                created_at: string;
+                                /** Format: int64 */
+                                created_by_user_id?: number | null;
+                                effective: boolean;
+                                effective_status: components["schemas"]["UserBanStatus"];
+                                expires_at?: string | null;
+                                /** Format: int64 */
+                                id: number;
+                                public_reason?: string | null;
+                                reason: string;
+                                revoke_note?: string | null;
+                                revoked_at?: string | null;
+                                /** Format: int64 */
+                                revoked_by_user_id?: number | null;
+                                scopes: components["schemas"]["UserBanScope"][];
+                                starts_at: string;
+                                status: components["schemas"]["UserBanStatus"];
+                                updated_at: string;
+                                /** Format: int64 */
+                                user_id: number;
+                            }[];
+                            /** Format: int64 */
+                            limit: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
+                            /** Format: int64 */
+                            offset: number;
+                            /** Format: int64 */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_get_user_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ban ID */
+                ban_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User capability ban detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            /** Format: int64 */
+                            created_by_user_id?: number | null;
+                            effective: boolean;
+                            effective_status: components["schemas"]["UserBanStatus"];
+                            expires_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            public_reason?: string | null;
+                            reason: string;
+                            revoke_note?: string | null;
+                            revoked_at?: string | null;
+                            /** Format: int64 */
+                            revoked_by_user_id?: number | null;
+                            scopes: components["schemas"]["UserBanScope"][];
+                            starts_at: string;
+                            status: components["schemas"]["UserBanStatus"];
+                            updated_at: string;
+                            /** Format: int64 */
+                            user_id: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User ban not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_update_user_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ban ID */
+                ban_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserBanReq"];
+            };
+        };
+        responses: {
+            /** @description Updated user capability ban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            /** Format: int64 */
+                            created_by_user_id?: number | null;
+                            effective: boolean;
+                            effective_status: components["schemas"]["UserBanStatus"];
+                            expires_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            public_reason?: string | null;
+                            reason: string;
+                            revoke_note?: string | null;
+                            revoked_at?: string | null;
+                            /** Format: int64 */
+                            revoked_by_user_id?: number | null;
+                            scopes: components["schemas"]["UserBanScope"][];
+                            starts_at: string;
+                            status: components["schemas"]["UserBanStatus"];
+                            updated_at: string;
+                            /** Format: int64 */
+                            user_id: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid user ban request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User ban not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_list_user_ban_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ban ID */
+                ban_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User ban events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            actor_user_id?: number | null;
+                            /** Format: int64 */
+                            ban_id: number;
+                            created_at: string;
+                            event_type: components["schemas"]["UserBanEventType"];
+                            /** Format: int64 */
+                            id: number;
+                            next_expires_at?: string | null;
+                            next_scopes?: components["schemas"]["UserBanScope"][] | null;
+                            next_status?: null | components["schemas"]["UserBanStatus"];
+                            note?: string | null;
+                            previous_expires_at?: string | null;
+                            previous_scopes?: components["schemas"]["UserBanScope"][] | null;
+                            previous_status?: null | components["schemas"]["UserBanStatus"];
+                        }[];
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User ban not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_revoke_user_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ban ID */
+                ban_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeUserBanReq"];
+            };
+        };
+        responses: {
+            /** @description Revoked user capability ban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            /** Format: int64 */
+                            created_by_user_id?: number | null;
+                            effective: boolean;
+                            effective_status: components["schemas"]["UserBanStatus"];
+                            expires_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            public_reason?: string | null;
+                            reason: string;
+                            revoke_note?: string | null;
+                            revoked_at?: string | null;
+                            /** Format: int64 */
+                            revoked_by_user_id?: number | null;
+                            scopes: components["schemas"]["UserBanScope"][];
+                            starts_at: string;
+                            status: components["schemas"]["UserBanStatus"];
+                            updated_at: string;
+                            /** Format: int64 */
+                            user_id: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid user ban state */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User ban not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     admin_list_users: {
         parameters: {
             query?: {
@@ -7538,6 +8252,88 @@ export interface operations {
                 content?: never;
             };
             /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    admin_create_user_ban: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Target user ID */
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserBanReq"];
+            };
+        };
+        responses: {
+            /** @description Created user capability ban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            admin_note?: string | null;
+                            created_at: string;
+                            /** Format: int64 */
+                            created_by_user_id?: number | null;
+                            effective: boolean;
+                            effective_status: components["schemas"]["UserBanStatus"];
+                            expires_at?: string | null;
+                            /** Format: int64 */
+                            id: number;
+                            public_reason?: string | null;
+                            reason: string;
+                            revoke_note?: string | null;
+                            revoked_at?: string | null;
+                            /** Format: int64 */
+                            revoked_by_user_id?: number | null;
+                            scopes: components["schemas"]["UserBanScope"][];
+                            starts_at: string;
+                            status: components["schemas"]["UserBanStatus"];
+                            updated_at: string;
+                            /** Format: int64 */
+                            user_id: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid user ban request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Target user not found */
             404: {
                 headers: {
                     [name: string]: unknown;

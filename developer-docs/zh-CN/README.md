@@ -120,6 +120,8 @@ Admin API 可以 list、retry、cleanup；普通用户任务 API 当前没有。
 
 Yggdrasil/authlib-injector 协议端点、鉴权、错误形状、Minecraft services 兼容层和测试要求见 [Yggdrasil API 实现说明](./yggdrasil-api.md)。
 
+用户能力封禁的 scope 模型、存储 wrapper、API、错误映射和测试要求见 [用户能力封禁实现说明](./user-bans.md)。
+
 ## Audit Service
 
 Audit 代码在 `src/services/audit_service/`，稳定枚举在 `src/types/audit.rs`。
@@ -134,6 +136,7 @@ Audit 代码在 `src/services/audit_service/`，稳定枚举在 `src/types/audit
 - admin external auth provider 创建、更新、删除、测试
 - external auth 登录、绑定、解绑
 - admin task retry 和 cleanup
+- admin user capability ban 创建、更新和撤销
 - mail send 和 mail delivery failure
 - Minecraft profile 创建和删除
 - Minecraft texture 上传、绑定和删除

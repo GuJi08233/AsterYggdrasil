@@ -665,6 +665,10 @@ fn texture_error_to_api_error(error: texture_service::TextureError) -> AsterErro
             AsterErrorCode::MinecraftTextureUploadDisabled,
             error.protocol_message(),
         ),
+        texture_service::TextureErrorKind::UserBanForbidden => AsterError::auth_forbidden_code(
+            AsterErrorCode::UserBanForbidden,
+            error.protocol_message(),
+        ),
         texture_service::TextureErrorKind::NotFound => AsterError::record_not_found_code(
             AsterErrorCode::MinecraftTextureNotFound,
             error.protocol_message(),

@@ -92,6 +92,9 @@ export type AdminAuditLogQuery = OperationQuery<"list_audit_logs">;
 export type AccountAuditLogQuery = OperationQuery<"list_account_audit_logs">;
 export type AccountAuditLogPage = OperationData<"list_account_audit_logs">;
 export type AccountOverview = OperationData<"get_account_overview">;
+export type AccountUserBanInfo = components["schemas"]["AccountUserBanInfo"];
+export type AccountUserBanListQuery = OperationQuery<"list_account_user_bans">;
+export type AccountUserBanPage = OperationData<"list_account_user_bans">;
 export type AuditAction = components["schemas"]["AuditAction"];
 export type AuditEntityType = components["schemas"]["AuditEntityType"];
 export type AuditLogEntry = components["schemas"]["AuditLogEntry"];
@@ -106,6 +109,19 @@ export type AuthUserInfo = components["schemas"]["AuthUserInfo"];
 export type AdminUserInfo = components["schemas"]["AdminUserInfo"];
 export type AdminUserListQuery = OperationQuery<"admin_list_users">;
 export type AdminUserPage = OperationData<"admin_list_users">;
+export type AdminUserBanListQuery = OperationQuery<"admin_list_user_bans">;
+export type AdminUserBanPage = OperationData<"admin_list_user_bans">;
+export type CreateUserBanRequest =
+	OperationRequestBody<"admin_create_user_ban">;
+export type RevokeUserBanRequest =
+	OperationRequestBody<"admin_revoke_user_ban">;
+export type UpdateUserBanRequest =
+	OperationRequestBody<"admin_update_user_ban">;
+export type UserBanEventInfo = components["schemas"]["UserBanEventInfo"];
+export type UserBanEventType = components["schemas"]["UserBanEventType"];
+export type UserBanInfo = components["schemas"]["UserBanInfo"];
+export type UserBanScope = components["schemas"]["UserBanScope"];
+export type UserBanStatus = components["schemas"]["UserBanStatus"];
 export type AdminUserInvitationInfo =
 	components["schemas"]["AdminUserInvitationInfo"];
 export type AdminUserInvitationPage =

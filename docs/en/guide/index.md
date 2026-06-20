@@ -42,6 +42,7 @@ For authlib-injector, launchers, or Minecraft servers, read:
 Administrators need to keep three layers separate: startup config, runtime config, and externally visible protocol behavior.
 
 - [Admin Guide](./admin-guide): users, profiles, textures, config, audit logs, and tasks
+- [Capability Bans](./user-bans): restrict user access to Yggdrasil, profiles, texture upload, and public texture library interactions by scope
 - [Config and Keys](./configuration): `config.toml`, `system_config`, public URLs, and signing key rotation
 - [Object Storage](./storage): local/S3/MinIO backends, storage paths, public URLs, and consistency checks
 - [Audit and Tasks](./audit-tasks): audit coverage, runtime tasks, primary/follower mode, and maintenance guidance

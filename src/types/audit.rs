@@ -78,6 +78,9 @@ define_audit_actions! {
     AdminCreateInvitation => "admin_create_invitation",
     AdminRevokeInvitation => "admin_revoke_invitation",
     AdminRevokeUserSessions => "admin_revoke_user_sessions",
+    AdminCreateUserBan => "admin_create_user_ban",
+    AdminUpdateUserBan => "admin_update_user_ban",
+    AdminRevokeUserBan => "admin_revoke_user_ban",
     AdminDeleteConfig => "admin_delete_config",
     AdminCleanupTasks => "admin_cleanup_tasks",
     TaskRetry => "task_retry",
@@ -175,7 +178,10 @@ impl AuditAction {
             | Self::AdminDeleteUser
             | Self::AdminCreateInvitation
             | Self::AdminRevokeInvitation
-            | Self::AdminRevokeUserSessions => "admin",
+            | Self::AdminRevokeUserSessions
+            | Self::AdminCreateUserBan
+            | Self::AdminUpdateUserBan
+            | Self::AdminRevokeUserBan => "admin",
             Self::MinecraftTextureLibraryApprove
             | Self::MinecraftTextureLibraryReject
             | Self::MinecraftTextureLibraryUnpublish
@@ -217,6 +223,7 @@ pub enum AuditEntityType {
     ApiToken,
     Mail,
     Task,
+    UserBan,
     MinecraftProfile,
     MinecraftTexture,
     YggdrasilToken,
@@ -237,6 +244,7 @@ impl AuditEntityType {
             Self::ApiToken => "api_token",
             Self::Mail => "mail",
             Self::Task => "task",
+            Self::UserBan => "user_ban",
             Self::MinecraftProfile => "minecraft_profile",
             Self::MinecraftTexture => "minecraft_texture",
             Self::YggdrasilToken => "yggdrasil_token",
@@ -257,6 +265,7 @@ impl AuditEntityType {
             "api_token" => Some(Self::ApiToken),
             "mail" => Some(Self::Mail),
             "task" => Some(Self::Task),
+            "user_ban" => Some(Self::UserBan),
             "minecraft_profile" => Some(Self::MinecraftProfile),
             "minecraft_texture" => Some(Self::MinecraftTexture),
             "yggdrasil_token" => Some(Self::YggdrasilToken),

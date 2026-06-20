@@ -17,7 +17,8 @@ use crate::runtime::{
     AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState,
     YggdrasilSessionForwardRuntimeState,
 };
-use crate::services::{audit_service, yggdrasil_signature};
+use crate::services::{audit_service, ban_service, yggdrasil_signature};
+use crate::types::UserBanScope;
 use crate::types::{YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardProviderKind};
 use crate::utils::hash::sha256_hex;
 
@@ -54,6 +55,17 @@ where
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
     };
+    if ban_service::is_user_banned(state, token.user_id, UserBanScope::YggdrasilJoin)
+        .await
+        .map_err(YggdrasilError::from)?
+    {
+        tracing::debug!(
+            token_id = token.id,
+            user_id = token.user_id,
+            "yggdrasil join rejected because user is banned from joining servers"
+        );
+        return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
+    }
     let profile = minecraft_profile_repo::find_by_id(state.reader_db(), selected_profile_id)
         .await
         .map_err(YggdrasilError::from)?;
@@ -205,6 +217,18 @@ where
     let profile = minecraft_profile_repo::find_by_id(state.reader_db(), session.profile_id)
         .await
         .map_err(YggdrasilError::from)?;
+    if ban_service::is_user_banned(state, profile.user_id, UserBanScope::YggdrasilJoin)
+        .await
+        .map_err(YggdrasilError::from)?
+    {
+        tracing::debug!(
+            profile_id = profile.id,
+            user_id = profile.user_id,
+            server_id_hash = %server_id_hash,
+            "yggdrasil hasJoined ignored cached session because user is banned from joining servers"
+        );
+        return Ok(None);
+    }
     tracing::debug!(
         profile_id = profile.id,
         profile_uuid = %profile.uuid,

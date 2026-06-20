@@ -19,6 +19,7 @@ pub mod passkey_repo;
 pub mod search_query;
 pub mod sort;
 pub mod system_config_repo;
+pub mod user_ban_repo;
 pub mod user_invitation_repo;
 pub mod user_operator_scope_repo;
 pub mod user_profile_repo;

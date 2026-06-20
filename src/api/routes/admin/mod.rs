@@ -16,6 +16,7 @@ pub mod profiles;
 pub mod system_info;
 pub mod tasks;
 pub mod texture_library;
+pub mod user_bans;
 pub mod users;
 pub mod yggdrasil;
 
@@ -44,6 +45,10 @@ pub use texture_library::{
     get_texture_library_texture, list_texture_library_reports, list_texture_library_tags,
     list_texture_library_textures, reject_texture_library_report, reject_texture_library_texture,
     unpublish_texture_library_texture, update_texture_library_tag,
+};
+pub use user_bans::{
+    create_user_ban, get_user_ban, list_user_ban_events, list_user_bans, revoke_user_ban,
+    update_user_ban,
 };
 pub use users::{
     create_user, create_user_invitation, delete_user, get_user, list_user_invitations, list_users,
@@ -161,6 +166,7 @@ pub fn routes(
                             web::post().to(revoke_user_invitation),
                         )
                         .route("/{id}", web::get().to(get_user))
+                        .route("/{id}/bans", web::post().to(create_user_ban))
                         .route("/{id}", web::patch().to(update_user))
                         .route("/{id}", web::delete().to(delete_user))
                         .route(
@@ -171,6 +177,15 @@ pub fn routes(
                             "/{user_id}/minecraft-profiles",
                             web::get().to(list_user_minecraft_profiles),
                         ),
+                )
+                .service(
+                    web::scope("/user-bans")
+                        .wrap(RequireAdminOrScope::new(OperatorScope::Users))
+                        .route("", web::get().to(list_user_bans))
+                        .route("/{ban_id}", web::get().to(get_user_ban))
+                        .route("/{ban_id}", web::patch().to(update_user_ban))
+                        .route("/{ban_id}/revoke", web::post().to(revoke_user_ban))
+                        .route("/{ban_id}/events", web::get().to(list_user_ban_events)),
                 )
                 .service(
                     web::scope("/avatars")

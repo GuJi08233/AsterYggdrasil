@@ -120,6 +120,8 @@ Mail outbox delivery is also a system runtime task. See [Mail Runtime Extension]
 
 Yggdrasil/authlib-injector protocol endpoints, authentication, error shapes, the Minecraft services compatibility layer, and test expectations are covered in [Yggdrasil API Implementation](./yggdrasil-api.md).
 
+User capability ban scopes, storage wrappers, APIs, error mapping, and test requirements are covered in [User Capability Ban Implementation](./user-bans.md).
+
 ## Audit Service
 
 Audit code lives in `src/services/audit_service/`; stable enums live in `src/types/audit.rs`.
@@ -134,6 +136,7 @@ Use audit for:
 - admin external auth provider create, update, delete, and test
 - external auth login, link, and unlink
 - admin task retry and cleanup
+- admin user capability ban create, update, and revoke
 - mail send and mail delivery failure
 - Minecraft profile create and delete
 - Minecraft texture upload, bind, and delete

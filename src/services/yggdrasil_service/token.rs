@@ -6,6 +6,8 @@ use crate::db::repository::{minecraft_profile_repo, yggdrasil_token_repo};
 use crate::entities::{minecraft_profile, yggdrasil_token};
 use crate::errors::Result;
 use crate::runtime::DatabaseRuntimeState;
+use crate::services::ban_service;
+use crate::types::UserBanScope;
 use crate::utils::hash::sha256_hex;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
@@ -243,6 +245,17 @@ async fn token_for_operation<S: DatabaseRuntimeState>(
             token_id = token.id,
             user_id = token.user_id,
             "yggdrasil token rejected because client token did not match"
+        );
+        return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
+    }
+    if ban_service::is_user_banned(state, token.user_id, UserBanScope::YggdrasilAccess)
+        .await
+        .map_err(YggdrasilError::from)?
+    {
+        tracing::debug!(
+            token_id = token.id,
+            user_id = token.user_id,
+            "yggdrasil token rejected because user is banned from yggdrasil access"
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidToken));
     }

@@ -144,6 +144,14 @@ define_error_codes! {
     MinecraftProfileLimitExceeded => "minecraft_profile.limit_exceeded",
     MinecraftProfileDeleteForbidden => "minecraft_profile.delete_forbidden",
 
+    // User capability ban errors.
+    UserBanNotFound => "user_ban.not_found",
+    UserBanAlreadyActive => "user_ban.already_active",
+    UserBanNotActive => "user_ban.not_active",
+    UserBanDurationInvalid => "user_ban.duration_invalid",
+    UserBanReasonInvalid => "user_ban.reason_invalid",
+    UserBanForbidden => "user_ban.forbidden",
+
     // Minecraft texture asset and binding errors.
     MinecraftTextureNotFound => "minecraft_texture.not_found",
     MinecraftTextureInvalidType => "minecraft_texture.invalid_type",

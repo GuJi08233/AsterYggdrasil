@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { DateTimeText } from "@/components/common/DateTimeText";
 import { StatusIndicator } from "@/components/common/StatusIndicator";
+import { Badge } from "@/components/ui/badge";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { LauncherSetupCard } from "@/components/yggdrasil/LauncherSetupCard";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -14,7 +15,13 @@ import {
 import { accountPaths, adminPaths } from "@/routes/routePaths";
 import { accountService } from "@/services/accountService";
 import { useAuthStore } from "@/stores/authStore";
-import type { AccountOverview, AuditLogEntry, AuthUserInfo } from "@/types/api";
+import type {
+	AccountOverview,
+	AccountUserBanInfo,
+	AuditLogEntry,
+	AuthUserInfo,
+	UserBanStatus,
+} from "@/types/api";
 
 const actionItems = [
 	{
@@ -73,6 +80,7 @@ export default function AccountOverviewPage() {
 	const user = useAuthStore((state) => state.user);
 	const isAdmin = useAuthStore((state) => state.isAdmin);
 	const [overview, setOverview] = useState<AccountOverview | null>(null);
+	const [bans, setBans] = useState<AccountUserBanInfo[]>([]);
 	const accountName = displayNameForAccountUser(user);
 
 	usePageTitle(
@@ -85,6 +93,10 @@ export default function AccountOverviewPage() {
 		void accountService
 			.overview()
 			.then(setOverview)
+			.catch(() => undefined);
+		void accountService
+			.listBans({ effective_only: true, limit: 8 })
+			.then((page) => setBans(page.items))
 			.catch(() => undefined);
 	}, []);
 
@@ -109,6 +121,7 @@ export default function AccountOverviewPage() {
 
 				<aside className="contents lg:sticky lg:top-20 lg:block lg:self-start lg:space-y-5">
 					<QuickActionsPanel items={visibleActions} />
+					<CapabilityStatusPanel bans={bans} />
 					<RecentActivityPanel items={recentActivity} />
 				</aside>
 			</div>
@@ -216,6 +229,111 @@ function WorkflowCard({
 			</div>
 		</Link>
 	);
+}
+
+function CapabilityStatusPanel({ bans }: { bans: AccountUserBanInfo[] }) {
+	const { t } = useTranslation();
+	const activeBans = bans.filter((ban) => ban.effective);
+	const displayBans = activeBans.length > 0 ? activeBans : bans.slice(0, 3);
+	const hasActiveBans = activeBans.length > 0;
+
+	return (
+		<section className="order-2 min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card/82 p-5 shadow-sm backdrop-blur dark:border-white/10 dark:bg-card/72 dark:shadow-none lg:order-none">
+			<div className="flex items-start justify-between gap-3">
+				<div className="min-w-0">
+					<h2 className="text-lg font-semibold">{t("account.bans.title")}</h2>
+					<p className="mt-1 text-xs leading-5 text-muted-foreground">
+						{hasActiveBans
+							? t("account.bans.activeSummary", { count: activeBans.length })
+							: t("account.bans.clearSummary")}
+					</p>
+				</div>
+				<div
+					className={
+						hasActiveBans
+							? "rounded-full border border-destructive/25 bg-destructive/10 p-2 text-destructive"
+							: "rounded-full border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400"
+					}
+				>
+					<Icon name={hasActiveBans ? "Warning" : "Check"} className="size-4" />
+				</div>
+			</div>
+
+			{displayBans.length > 0 ? (
+				<div className="mt-4 grid max-h-[24rem] gap-2 overflow-y-auto pr-1">
+					{displayBans.map((ban) => (
+						<CapabilityBanRow key={ban.id} ban={ban} />
+					))}
+				</div>
+			) : (
+				<div className="mt-4 rounded-lg border border-dashed border-border/70 p-4 text-sm leading-6 text-muted-foreground dark:border-white/12">
+					{t("account.bans.empty")}
+				</div>
+			)}
+		</section>
+	);
+}
+
+function CapabilityBanRow({ ban }: { ban: AccountUserBanInfo }) {
+	const { t } = useTranslation();
+	const reason = ban.public_reason || ban.reason;
+
+	return (
+		<div className="rounded-lg border border-border/60 bg-background/55 p-3 dark:border-white/10 dark:bg-background/28">
+			<div className="flex min-w-0 items-start justify-between gap-3">
+				<div className="min-w-0">
+					<div className="flex max-h-20 flex-wrap gap-1.5 overflow-y-auto pr-1">
+						{ban.scopes.map((scope) => (
+							<Badge
+								key={scope}
+								variant="outline"
+								className="max-w-full rounded-md border-border/70 bg-muted/35 text-foreground"
+							>
+								<span className="min-w-0 truncate">
+									{t(`account.bans.scope.${scope}`)}
+								</span>
+							</Badge>
+						))}
+					</div>
+					<div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+						{reason}
+					</div>
+				</div>
+				<span
+					className={
+						ban.effective
+							? "shrink-0 rounded-full border border-destructive/25 bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive"
+							: "shrink-0 rounded-full border border-border/70 bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+					}
+				>
+					{statusLabel(t, ban.effective_status)}
+				</span>
+			</div>
+			<div className="mt-3 grid gap-1 text-xs text-muted-foreground">
+				<div className="flex min-w-0 items-center justify-between gap-3">
+					<span>{t("account.bans.startsAt")}</span>
+					<DateTimeText value={ban.starts_at} className="min-w-0 truncate" />
+				</div>
+				<div className="flex min-w-0 items-center justify-between gap-3">
+					<span>{t("account.bans.expiresAt")}</span>
+					{ban.expires_at ? (
+						<DateTimeText value={ban.expires_at} className="min-w-0 truncate" />
+					) : (
+						<span className="min-w-0 truncate">
+							{t("account.bans.noExpiration")}
+						</span>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function statusLabel(
+	t: ReturnType<typeof useTranslation>["t"],
+	status: UserBanStatus,
+) {
+	return t(`account.bans.status.${status}`);
 }
 
 function RecentActivityPanel({ items }: { items: AuditLogEntry[] }) {

@@ -37,6 +37,28 @@
 		"recentActivityEyebrow": "Audit",
 		"recentActivityTitle": "Recent activity",
 		"recentActivityEmpty": "No recent activity.",
+		"bans": {
+			"title": "Capability status",
+			"activeSummary": "{{count}} capability is currently restricted.",
+			"activeSummary_plural": "{{count}} capabilities are currently restricted.",
+			"clearSummary": "No capability restrictions are currently active.",
+			"empty": "No account capabilities are restricted.",
+			"startsAt": "Starts",
+			"expiresAt": "Ends",
+			"noExpiration": "No expiration",
+			"scope": {
+				"yggdrasil_access": "Yggdrasil sign-in",
+				"yggdrasil_join": "Server join",
+				"minecraft_profile_manage": "Profile management",
+				"texture_upload": "Texture upload",
+				"texture_library_interact": "Public library interaction"
+			},
+			"status": {
+				"active": "Active",
+				"revoked": "Revoked",
+				"expired": "Expired"
+			}
+		},
 		"quickActions": "Quick actions",
 		"actionProfilesTitle": "Manage profiles",
 		"actionProfilesDescription": "Maintain names, UUIDs, and texture bindings",

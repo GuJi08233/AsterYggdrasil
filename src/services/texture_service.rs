@@ -51,9 +51,11 @@ use crate::entities::{
 };
 use crate::errors::{AsterError, Result};
 use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
+use crate::services::ban_service;
 use crate::types::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility, NullablePatch,
+    UserBanScope,
 };
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
@@ -229,6 +231,7 @@ pub async fn update_wardrobe_texture_metadata<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureUpload).await?;
     if texture_id <= 0 {
         return Err(AsterError::record_not_found_code(
             crate::api::error_code::AsterErrorCode::WardrobeTextureNotFound,
@@ -285,6 +288,7 @@ pub async fn replace_wardrobe_texture_tags<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureUpload).await?;
     if texture_id <= 0 {
         return Err(AsterError::record_not_found_code(
             crate::api::error_code::AsterErrorCode::WardrobeTextureNotFound,
@@ -327,6 +331,8 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     ensure_texture_library_enabled(state)?;
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureLibraryInteract)
+        .await?;
     let texture = user_wardrobe_texture(state, user_id, texture_id).await?;
     if texture.visibility != MinecraftTextureVisibility::Public {
         return Err(AsterError::validation_error_code(
@@ -372,6 +378,8 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     ensure_texture_library_enabled(state)?;
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureLibraryInteract)
+        .await?;
     let texture = user_wardrobe_texture(state, user_id, texture_id).await?;
     let updated = minecraft_texture_repo::update_library_review(
         state.writer_db(),
@@ -660,6 +668,12 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     ensure_texture_library_enabled(state)?;
+    ban_service::ensure_user_not_banned(
+        state,
+        reporter_user_id,
+        UserBanScope::TextureLibraryInteract,
+    )
+    .await?;
     let texture = public_reportable_texture(state, texture_id).await?;
     if texture.user_id == reporter_user_id {
         return Err(AsterError::validation_error_code(
@@ -1296,6 +1310,16 @@ pub async fn store_texture<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, profile.user_id, UserBanScope::TextureUpload)
+        .await
+        .map_err(TextureError::from)?;
+    ban_service::ensure_user_not_banned(
+        state,
+        profile.user_id,
+        UserBanScope::MinecraftProfileManage,
+    )
+    .await
+    .map_err(TextureError::from)?;
     tracing::debug!(
         profile_id = profile.id,
         profile_uuid = %profile.uuid,
@@ -1375,6 +1399,9 @@ pub async fn store_wardrobe_texture<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState + ObjectStorageRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureUpload)
+        .await
+        .map_err(TextureError::from)?;
     tracing::debug!(
         user_id,
         texture_type = ?texture_type,
@@ -1827,6 +1854,8 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     ensure_texture_library_enabled(state)?;
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureLibraryInteract)
+        .await?;
     if texture_id <= 0 {
         return Err(AsterError::record_not_found_code(
             crate::api::error_code::AsterErrorCode::TextureLibraryTextureNotFound,
@@ -1911,11 +1940,25 @@ pub async fn delete_wardrobe_texture<S>(
 where
     S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureUpload)
+        .await
+        .map_err(TextureError::from)?;
     tracing::debug!(
         user_id,
         texture_id = wardrobe_texture_id,
         "deleting wardrobe texture"
     );
+    delete_wardrobe_texture_unchecked(state, user_id, wardrobe_texture_id).await
+}
+
+async fn delete_wardrobe_texture_unchecked<S>(
+    state: &S,
+    user_id: i64,
+    wardrobe_texture_id: i64,
+) -> std::result::Result<minecraft_texture::Model, TextureError>
+where
+    S: DatabaseRuntimeState + ObjectStorageRuntimeState,
+{
     let Some(deleted) = minecraft_texture_repo::delete_by_id_for_user(
         state.writer_db(),
         wardrobe_texture_id,
@@ -1954,7 +1997,7 @@ where
     let mut deleted = Vec::with_capacity(textures.len());
     for texture in textures {
         let texture_id = texture.id;
-        match delete_wardrobe_texture(state, user_id, texture_id).await {
+        match delete_wardrobe_texture_unchecked(state, user_id, texture_id).await {
             Ok(texture) => deleted.push(texture),
             Err(error) if error.kind() == TextureErrorKind::NotFound => {}
             Err(error) => return Err(error),
@@ -1973,6 +2016,12 @@ pub async fn bind_wardrobe_texture_to_profile<S>(
 where
     S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::TextureUpload)
+        .await
+        .map_err(TextureError::from)?;
+    ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
+        .await
+        .map_err(TextureError::from)?;
     tracing::debug!(
         user_id,
         profile_id = profile.id,
@@ -2048,6 +2097,16 @@ pub async fn delete_texture<S>(
 where
     S: DatabaseRuntimeState + ObjectStorageRuntimeState,
 {
+    ban_service::ensure_user_not_banned(state, profile.user_id, UserBanScope::TextureUpload)
+        .await
+        .map_err(TextureError::from)?;
+    ban_service::ensure_user_not_banned(
+        state,
+        profile.user_id,
+        UserBanScope::MinecraftProfileManage,
+    )
+    .await
+    .map_err(TextureError::from)?;
     tracing::debug!(
         profile_id = profile.id,
         texture_type = ?texture_type,

@@ -18,6 +18,8 @@ pub mod minecraft_texture_tag_binding;
 pub mod passkey;
 pub mod system_config;
 pub mod user;
+pub mod user_ban;
+pub mod user_ban_event;
 pub mod user_invitation;
 pub mod user_operator_scope;
 pub mod user_profile;

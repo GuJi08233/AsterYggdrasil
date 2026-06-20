@@ -36,6 +36,7 @@ use sea_orm::{
 };
 use serde_json::Value;
 use std::{
+    fs,
     io::Cursor,
     num::{NonZeroU32, NonZeroU64},
     path::Path,
@@ -1991,6 +1992,190 @@ async fn yggdrasil_join_has_joined_and_profile_query_use_cache_session() {
             .and_then(|value| value.to_str().ok()),
         Some("image/png")
     );
+}
+
+#[actix_web::test]
+async fn user_ban_yggdrasil_join_scope_blocks_join_without_invalidating_login() {
+    let state = setup_yggdrasil_with_memory_cache().await;
+    let app = create_test_app!(state);
+    let admin_access = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({ "name": "BanJoinUser" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let profile_body: Value = test::read_body_json(resp).await;
+    let profile_id = profile_body["data"]["id"].as_str().unwrap().to_string();
+
+    let login = ygg_login!(&app, "admin@example.com", "join-ban-client");
+    validate_ygg_token_status!(&app, &login.access_token, "join-ban-client", 204);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users/1/bans")
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({
+            "scopes": ["yggdrasil_join"],
+            "reason": "join policy violation",
+            "public_reason": "join disabled by moderation"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let ban_body: Value = test::read_body_json(resp).await;
+    let ban_id = ban_body["data"]["id"].as_i64().unwrap();
+    assert_eq!(
+        ban_body["data"]["scopes"],
+        serde_json::json!(["yggdrasil_join"])
+    );
+    assert_eq!(ban_body["data"]["effective"], true);
+
+    validate_ygg_token_status!(&app, &login.access_token, "join-ban-client", 204);
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/minecraftservices/player/attributes")
+        .insert_header(("Authorization", format!("Bearer {}", login.access_token)))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let attributes: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        attributes["privileges"]["multiplayerServer"]["enabled"],
+        false
+    );
+    assert_eq!(attributes["banStatus"]["bannedScopes"]["MULTIPLAYER"], true);
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/sessionserver/session/minecraft/join")
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "selectedProfile": profile_id,
+            "serverId": "join-ban-server"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+
+    let req = test::TestRequest::post()
+        .uri(&format!("/api/v1/admin/user-bans/{ban_id}/revoke"))
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({ "revoke_note": "appeal accepted" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let revoked_body: Value = test::read_body_json(resp).await;
+    assert_eq!(revoked_body["data"]["status"], "revoked");
+    assert_eq!(revoked_body["data"]["effective"], false);
+
+    let req = test::TestRequest::get()
+        .uri(&format!("/api/v1/admin/user-bans/{ban_id}/events"))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let events_body: Value = test::read_body_json(resp).await;
+    let events = events_body["data"].as_array().unwrap();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0]["event_type"], "revoked");
+    assert_eq!(events[1]["event_type"], "created");
+
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/sessionserver/session/minecraft/join")
+        .peer_addr("127.0.0.1:23456".parse().unwrap())
+        .set_json(serde_json::json!({
+            "accessToken": login.access_token,
+            "selectedProfile": profile_id,
+            "serverId": "join-ban-server-after-revoke"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+}
+
+#[actix_web::test]
+async fn user_ban_texture_upload_scope_blocks_wardrobe_upload_before_temp_or_record_write() {
+    let state = setup_yggdrasil().await;
+    let temp_runtime_dir = Path::new(&state.config().server.temp_dir).join("_runtime");
+    let app = create_test_app!(state.clone());
+    let admin_access = setup_admin!(app);
+    let profile_id = create_profile!(app, &admin_access, "TextureBanUser");
+
+    let existing_skin = png_texture_with_color(64, 64, image::Rgba([12, 34, 56, 255]));
+    let resp =
+        upload_wardrobe_texture_req!(app, &admin_access, "skin", Some("default"), &existing_skin);
+    assert_eq!(resp.status(), 200);
+    let existing_body: Value = test::read_body_json(resp).await;
+    let existing_texture_id = existing_body["data"]["id"].as_i64().unwrap();
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users/1/bans")
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({
+            "scopes": ["texture_upload"],
+            "reason": "upload policy violation",
+            "public_reason": "texture upload disabled by moderation"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
+            "/api/v1/profiles/minecraft/{profile_id}/textures/skin"
+        ))
+        .insert_header(common::bearer_header(&admin_access))
+        .set_json(serde_json::json!({ "texture_id": existing_texture_id }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_user_ban_api_error(resp).await;
+
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v1/wardrobe/textures/{existing_texture_id}"))
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_user_ban_api_error(resp).await;
+
+    let (content_type, body) = texture_multipart_body(Some("default"), &png_texture(64, 64));
+    let req = test::TestRequest::post()
+        .uri("/api/v1/wardrobe/textures/skin")
+        .insert_header(common::bearer_header(&admin_access))
+        .insert_header(("Content-Type", content_type))
+        .set_payload(body)
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_user_ban_api_error(resp).await;
+
+    let texture_count = minecraft_texture::Entity::find()
+        .count(state.writer_db())
+        .await
+        .unwrap();
+    assert_eq!(texture_count, 1);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/wardrobe/textures")
+        .insert_header(common::bearer_header(&admin_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let list_body: Value = test::read_body_json(resp).await;
+    assert_eq!(list_body["data"]["total"], 1);
+
+    if temp_runtime_dir.exists() {
+        let leaked_uploads = fs::read_dir(&temp_runtime_dir)
+            .unwrap()
+            .filter_map(std::result::Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("wardrobe-texture-upload-")
+            })
+            .count();
+        assert_eq!(leaked_uploads, 0);
+    }
 }
 
 #[actix_web::test]
@@ -6326,6 +6511,16 @@ async fn assert_ygg_error<B>(
         "expected errorMessage to contain {message_contains:?}, got {:?}",
         body["errorMessage"]
     );
+}
+
+async fn assert_user_ban_api_error<B>(resp: actix_web::dev::ServiceResponse<B>)
+where
+    B: actix_web::body::MessageBody + 'static,
+{
+    assert_eq!(resp.status(), 403);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "user_ban.forbidden");
+    assert_eq!(body["error"]["code"], "user_ban.forbidden");
 }
 
 fn assert_unsigned_uuid(value: &str) {

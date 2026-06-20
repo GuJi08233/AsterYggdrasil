@@ -345,7 +345,15 @@ pub struct MinecraftServicesBanStatus {
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
-pub struct MinecraftServicesBannedScopes {}
+pub struct MinecraftServicesBannedScopes {
+    /// Multiplayer/server-join access is banned.
+    #[serde(rename = "MULTIPLAYER", skip_serializing_if = "is_false")]
+    pub multiplayer: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]

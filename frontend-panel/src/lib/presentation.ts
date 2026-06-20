@@ -42,6 +42,7 @@ const AUDIT_ACTION_LABELS = {
 	admin_create_external_auth_provider: "External auth provider created",
 	admin_create_invitation: "Invitation created",
 	admin_create_user: "User created",
+	admin_create_user_ban: "User ban created",
 	admin_create_yggdrasil_session_forward_server:
 		"Yggdrasil session forwarding server created",
 	admin_delete_config: "Config deleted",
@@ -51,10 +52,12 @@ const AUDIT_ACTION_LABELS = {
 		"Yggdrasil session forwarding server deleted",
 	admin_disable_user: "User disabled",
 	admin_revoke_invitation: "Invitation revoked",
+	admin_revoke_user_ban: "User ban revoked",
 	admin_revoke_user_sessions: "User sessions revoked",
 	admin_test_external_auth_provider: "External auth provider tested",
 	admin_update_external_auth_provider: "External auth provider updated",
 	admin_update_user: "User updated",
+	admin_update_user_ban: "User ban updated",
 	admin_update_yggdrasil_session_forward_server:
 		"Yggdrasil session forwarding server updated",
 	config_action_execute: "Config action executed",
@@ -127,6 +130,7 @@ const AUDIT_ENTITY_LABELS = {
 	system_config: "System config",
 	task: "Task",
 	user: "User",
+	user_ban: "User ban",
 	yggdrasil_session: "Yggdrasil session",
 	yggdrasil_token: "Yggdrasil token",
 } as const satisfies Record<AuditEntityType | "server", string>;
