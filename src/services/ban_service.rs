@@ -197,7 +197,6 @@ where
         items,
         total,
         input.limit.clamp(1, 100),
-        0,
         next_cursor,
     ))
 }

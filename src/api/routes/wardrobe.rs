@@ -222,7 +222,7 @@ pub async fn list_texture_library_tags(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
-    tracing::debug!(
+    tracing::debug!(    
         user_id = user.id,
         limit,
         offset,

@@ -2670,8 +2670,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_AdminUserInfo_DateTimeIdCursor: {
@@ -2704,8 +2702,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_AdminUserInvitationInfo_DateTimeIdCursor: {
@@ -2734,8 +2730,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_AuthSessionInfo_DateTimeStringCursor: {
@@ -2755,8 +2749,6 @@ export interface components {
                 id: string;
                 value: string;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -2786,8 +2778,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_MinecraftProfileInfo_IdCursor: {
@@ -2809,8 +2799,6 @@ export interface components {
                 /** Format: int64 */
                 id: number;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -2849,8 +2837,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_PasskeyInfo_DateTimeIdCursor: {
@@ -2874,8 +2860,6 @@ export interface components {
                 id: number;
                 value: string;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -2914,8 +2898,6 @@ export interface components {
                 id: number;
                 value: string;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -2961,8 +2943,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_TextureReportInfo_DateTimeIdCursor: {
@@ -2989,8 +2969,6 @@ export interface components {
                 id: number;
                 value: string;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -3026,8 +3004,6 @@ export interface components {
                 value: string;
             };
             /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
             total: number;
         };
         CursorPage_YggdrasilProfile_IdCursor: {
@@ -3042,8 +3018,6 @@ export interface components {
                 /** Format: int64 */
                 id: number;
             };
-            /** Format: int64 */
-            offset: number;
             /** Format: int64 */
             total: number;
         };
@@ -4366,8 +4340,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -4431,8 +4403,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -4538,8 +4508,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -5594,8 +5562,6 @@ export interface operations {
                                 id: number;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -6130,8 +6096,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -6344,8 +6308,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -6877,8 +6839,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -7334,8 +7294,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -7713,8 +7671,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -7837,8 +7793,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -8381,8 +8335,6 @@ export interface operations {
                                 /** Format: int64 */
                                 id: number;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -9116,8 +9068,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -9648,8 +9598,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -10401,8 +10349,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -10583,8 +10529,6 @@ export interface operations {
                                 /** Format: int64 */
                                 id: number;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };
@@ -11103,8 +11047,6 @@ export interface operations {
                                 value: string;
                             };
                             /** Format: int64 */
-                            offset: number;
-                            /** Format: int64 */
                             total: number;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -11472,8 +11414,6 @@ export interface operations {
                                 id: number;
                                 value: string;
                             };
-                            /** Format: int64 */
-                            offset: number;
                             /** Format: int64 */
                             total: number;
                         };

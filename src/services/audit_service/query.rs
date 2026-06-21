@@ -98,7 +98,7 @@ pub async fn query<S: DatabaseRuntimeState>(
         None
     };
     let items = build_audit_entries(state, page.items).await?;
-    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub async fn recent<S: DatabaseRuntimeState>(

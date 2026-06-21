@@ -67,7 +67,6 @@ describe("AdminUserDetailPage", () => {
 			items: [],
 			limit: 50,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 		adminUserServiceMock.revokeSessions.mockResolvedValue({ removed: 0 });
@@ -75,7 +74,6 @@ describe("AdminUserDetailPage", () => {
 		adminMinecraftProfileServiceMock.listByUserPage.mockResolvedValue({
 			items: [],
 			limit: 5,
-			offset: 0,
 			total: 0,
 		});
 	});

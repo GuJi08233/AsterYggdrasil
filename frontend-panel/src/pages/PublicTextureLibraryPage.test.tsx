@@ -158,7 +158,7 @@ function page(
 	items: PublicTextureLibraryTextureMetadata[],
 	total = items.length,
 ): PublicTextureLibraryPageData {
-	return { items, limit: 12, offset: 0, total };
+	return { items, limit: 12, total };
 }
 
 async function renderPage() {
@@ -190,7 +190,6 @@ describe("PublicTextureLibraryPage", () => {
 				},
 			],
 			limit: 30,
-			offset: 0,
 			total: 1,
 		});
 		yggdrasilServiceMock.copyPublicTextureToWardrobe.mockResolvedValue(
@@ -285,7 +284,6 @@ describe("PublicTextureLibraryPage", () => {
 				yggdrasilServiceMock.listPublicTextureLibraryTags,
 			).toHaveBeenCalledWith({
 				limit: 30,
-				offset: 0,
 				keyword: undefined,
 			});
 		});

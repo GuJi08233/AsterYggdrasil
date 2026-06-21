@@ -76,7 +76,7 @@ pub(crate) async fn list_tasks_paginated_for_admin(
         limit,
         "admin listed background tasks"
     );
-    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub(crate) async fn cleanup_tasks_for_admin(

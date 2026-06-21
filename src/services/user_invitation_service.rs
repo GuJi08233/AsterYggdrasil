@@ -138,7 +138,7 @@ where
         .map(invitation_list_view)
         .map(|item| to_admin_info(item, None, false))
         .collect();
-    Ok(CursorPage::new(items, page.total, limit, 0, next_cursor))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub async fn revoke_invitation<S>(state: &S, id: i64) -> Result<AdminUserInvitationInfo>

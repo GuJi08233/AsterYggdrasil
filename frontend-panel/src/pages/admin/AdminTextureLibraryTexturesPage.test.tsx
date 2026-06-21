@@ -85,7 +85,6 @@ function texturePage(
 	return {
 		items,
 		limit: 20,
-		offset: 0,
 		total: items.length,
 	};
 }

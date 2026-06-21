@@ -533,7 +533,6 @@ pub async fn list_passkeys_cursor(
         items,
         page.total,
         limit,
-        0,
         next_cursor,
     ))
 }

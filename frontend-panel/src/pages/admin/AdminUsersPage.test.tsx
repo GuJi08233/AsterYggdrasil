@@ -65,7 +65,6 @@ describe("AdminUsersPage", () => {
 			items: [],
 			limit: 20,
 			next_cursor: null,
-			offset: 0,
 			total: 0,
 		});
 		adminUserServiceMock.create.mockResolvedValue({
