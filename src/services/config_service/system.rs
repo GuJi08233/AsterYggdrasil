@@ -1,4 +1,4 @@
-use crate::api::pagination::{OffsetPage, load_offset_page};
+use crate::api::pagination::{CursorPage, IdCursor};
 use crate::config::definitions::{ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY};
 use crate::config::system_config as shared_system_config;
 use crate::config::yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY;
@@ -177,16 +177,23 @@ pub async fn bootstrap_insecure_cookies<C: ConnectionTrait>(
     Ok(())
 }
 
-pub async fn list_paginated(
+pub async fn list_cursor(
     state: &impl DatabaseRuntimeState,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<SystemConfig>> {
-    tracing::debug!(limit, offset, "listing system configs");
-    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
-        system_config_repo::find_paginated(state.reader_db(), limit, offset).await
-    })
-    .await?;
+    after_id: Option<i64>,
+) -> Result<CursorPage<SystemConfig, IdCursor>> {
+    tracing::debug!(
+        limit,
+        has_cursor = after_id.is_some(),
+        "listing system configs"
+    );
+    let page = system_config_repo::find_cursor(state.reader_db(), limit, after_id).await?;
+    let next_cursor = if page.has_more {
+        page.items.last().map(|config| IdCursor { id: config.id })
+    } else {
+        None
+    };
+    let limit = limit.clamp(1, 100);
     let items: Vec<SystemConfig> = page
         .items
         .into_iter()
@@ -194,13 +201,13 @@ pub async fn list_paginated(
         .map(Into::into)
         .collect();
     tracing::debug!(
-        limit = page.limit,
-        offset = page.offset,
+        limit,
         total = page.total,
         count = items.len(),
+        has_next_cursor = next_cursor.is_some(),
         "listed system configs"
     );
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub async fn get_by_key(state: &impl DatabaseRuntimeState, key: &str) -> Result<SystemConfig> {
@@ -428,7 +435,7 @@ fn config_warnings_for_key(
 mod tests {
     use super::{
         SystemConfigValue, bootstrap_insecure_cookies, delete, delete_with_audit, ensure_defaults,
-        get_by_key, list_paginated, set, set_with_audit, set_with_visibility,
+        get_by_key, list_cursor, set, set_with_audit, set_with_visibility,
     };
     use crate::cache;
     use crate::config::definitions::{
@@ -576,10 +583,10 @@ mod tests {
     async fn list_get_and_set_system_config_updates_runtime_snapshot() {
         let state = build_test_state().await;
 
-        let page = list_paginated(&state, 2, 0).await.unwrap();
+        let page = list_cursor(&state, 2, None).await.unwrap();
         assert_eq!(page.total, ALL_CONFIGS.len() as u64);
         assert_eq!(page.limit, 2);
-        assert_eq!(page.offset, 0);
+        assert!(page.next_cursor.is_some());
         assert_eq!(page.items.len(), 2);
 
         let initial = get_by_key(&state, BRANDING_TITLE_KEY).await.unwrap();

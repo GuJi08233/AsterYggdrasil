@@ -14,7 +14,6 @@ pub mod minecraft_profile_texture_repo;
 pub mod minecraft_texture_repo;
 pub mod minecraft_texture_report_repo;
 pub mod minecraft_texture_tag_repo;
-pub mod pagination_repo;
 pub mod passkey_repo;
 pub mod search_query;
 pub mod sort;

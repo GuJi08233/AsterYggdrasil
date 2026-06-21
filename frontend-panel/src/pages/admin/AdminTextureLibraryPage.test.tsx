@@ -74,7 +74,7 @@ function tagPage(items = [tag()]) {
 	return {
 		items,
 		limit: 20,
-		offset: 0,
+		next_cursor: null,
 		total: items.length,
 	};
 }
@@ -115,7 +115,9 @@ describe("AdminTextureLibraryPage", () => {
 
 		expect(adminTextureLibraryServiceMock.listTags).toHaveBeenCalledWith({
 			limit: 20,
-			offset: 0,
+			after_id: undefined,
+			after_name: undefined,
+			after_sort_order: undefined,
 		});
 		expect(
 			screen.getByRole("link", {

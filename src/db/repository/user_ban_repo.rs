@@ -1,5 +1,6 @@
 //! Repository helpers for user capability bans.
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::user_ban::{self, Entity as UserBan};
 use crate::entities::user_ban_event::{self, Entity as UserBanEvent};
 use crate::errors::{AsterError, MapAsterErr, Result};
@@ -51,13 +52,6 @@ pub struct UserBanListFilter {
     pub user_id: Option<i64>,
     pub status: Option<UserBanStatus>,
     pub effective_only: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct UserBanCursorSlice {
-    pub items: Vec<user_ban::Model>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(db: &C, input: CreateUserBan) -> Result<user_ban::Model> {
@@ -126,7 +120,7 @@ pub async fn list_cursor<C: ConnectionTrait>(
     limit: u64,
     filter: UserBanListFilter,
     after: Option<(DateTime<Utc>, i64)>,
-) -> Result<UserBanCursorSlice> {
+) -> Result<CursorSlice<user_ban::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = filtered_query(filter);
     let total = query
@@ -147,26 +141,20 @@ pub async fn list_cursor<C: ConnectionTrait>(
         );
     }
 
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(user_ban::Column::CreatedAt)
         .order_by_desc(user_ban::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more = crate::utils::numbers::usize_to_u64(items.len(), "user ban page size")? > limit;
-    if has_more {
-        items.truncate(crate::utils::numbers::u64_to_usize(
-            limit,
-            "user ban cursor limit",
-        )?);
-    }
-    Ok(UserBanCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "user ban page size",
+        "user ban cursor limit",
+    )
 }
 
 pub async fn update<C: ConnectionTrait>(

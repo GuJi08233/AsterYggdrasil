@@ -1,7 +1,7 @@
 use chrono::Utc;
 use sea_orm::{ActiveValue::Set, IntoActiveModel};
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
+use crate::api::pagination::{CursorPage, StringIdCursor};
 use crate::db::repository::external_auth_provider_repo;
 use crate::entities::external_auth_provider;
 use crate::errors::{AsterError, Result};
@@ -391,20 +391,19 @@ pub async fn list_public_providers(
 pub async fn list_public_providers_paginated(
     state: &impl SharedRuntimeState,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<ExternalAuthPublicProvider>> {
-    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
-        external_auth_provider_repo::find_enabled_paginated(
-            state.writer_db(),
-            limit,
-            offset,
-            registry::default_registry().supported_kinds(),
-        )
-        .await
-    })
+    after: Option<(String, i64)>,
+) -> Result<CursorPage<ExternalAuthPublicProvider, StringIdCursor>> {
+    let limit = limit.clamp(1, 100);
+    let page = external_auth_provider_repo::find_enabled_cursor(
+        state.writer_db(),
+        limit,
+        after,
+        registry::default_registry().supported_kinds(),
+    )
     .await?;
+    let next_cursor = provider_next_cursor(&page.items, page.has_more);
     let items = page.items.into_iter().map(provider_to_public).collect();
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub async fn list_public_providers_by_kind(
@@ -425,48 +424,59 @@ pub async fn list_public_providers_by_kind_paginated(
     state: &impl SharedRuntimeState,
     provider_kind: ExternalAuthProviderKind,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<ExternalAuthPublicProvider>> {
-    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
-        external_auth_provider_repo::find_enabled_by_kind_paginated(
-            state.writer_db(),
-            provider_kind,
-            limit,
-            offset,
-        )
-        .await
-    })
+    after: Option<(String, i64)>,
+) -> Result<CursorPage<ExternalAuthPublicProvider, StringIdCursor>> {
+    let limit = limit.clamp(1, 100);
+    let page = external_auth_provider_repo::find_enabled_by_kind_cursor(
+        state.writer_db(),
+        provider_kind,
+        limit,
+        after,
+    )
     .await?;
+    let next_cursor = provider_next_cursor(&page.items, page.has_more);
     let items = page
         .items
         .into_iter()
         .filter(|provider| registry::default_registry().contains(provider.provider_kind))
         .map(provider_to_public)
         .collect();
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
 pub async fn list_admin_providers(
     state: &impl SharedRuntimeState,
     limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<AdminExternalAuthProviderInfo>> {
-    let page = load_offset_page(limit, offset, 100, |limit, offset| async move {
-        external_auth_provider_repo::find_paginated(
-            state.writer_db(),
-            limit,
-            offset,
-            registry::default_registry().supported_kinds(),
-        )
-        .await
-    })
+    after: Option<(String, i64)>,
+) -> Result<CursorPage<AdminExternalAuthProviderInfo, StringIdCursor>> {
+    let limit = limit.clamp(1, 100);
+    let page = external_auth_provider_repo::find_cursor(
+        state.writer_db(),
+        limit,
+        after,
+        registry::default_registry().supported_kinds(),
+    )
     .await?;
+    let next_cursor = provider_next_cursor(&page.items, page.has_more);
     let items = page
         .items
         .into_iter()
         .map(provider_to_admin)
         .collect::<Result<Vec<_>>>()?;
-    Ok(OffsetPage::new(items, page.total, page.limit, page.offset))
+    Ok(CursorPage::new(items, page.total, limit, next_cursor))
+}
+
+fn provider_next_cursor(
+    providers: &[external_auth_provider::Model],
+    has_more: bool,
+) -> Option<StringIdCursor> {
+    if !has_more {
+        return None;
+    }
+    providers.last().map(|provider| StringIdCursor {
+        value: provider.display_name.clone(),
+        id: provider.id,
+    })
 }
 
 pub fn list_provider_kinds() -> Vec<ExternalAuthProviderKindInfo> {

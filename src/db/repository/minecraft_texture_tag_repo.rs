@@ -1,15 +1,15 @@
 //! Minecraft texture library tag repository.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
-use crate::db::repository::{pagination_repo, search_query};
+use crate::api::pagination::CursorSlice;
+use crate::db::repository::search_query;
 use crate::entities::{
     minecraft_texture_tag::{self, Entity as MinecraftTextureTag},
     minecraft_texture_tag_binding::{self, Entity as MinecraftTextureTagBinding},
 };
 use crate::errors::{AsterError, MapAsterErr, Result};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, JoinType, QueryFilter,
-    QueryOrder, QuerySelect, RelationTrait, Select, Set,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, JoinType,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait, Select, Set,
 };
 use std::collections::BTreeMap;
 
@@ -62,23 +62,61 @@ pub async fn list<C: ConnectionTrait>(db: &C) -> Result<Vec<minecraft_texture_ta
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_paginated<C: ConnectionTrait>(
+pub async fn list_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-    offset: u64,
+    after: Option<(i32, String, i64)>,
     filter: MinecraftTextureTagListFilter,
-) -> Result<OffsetPage<minecraft_texture_tag::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = texture_tag_list_query(filter);
-        pagination_repo::fetch_offset_page(db, query, limit, offset).await
-    })
-    .await
+) -> Result<CursorSlice<minecraft_texture_tag::Model>> {
+    let limit = limit.clamp(1, 100);
+    let base = texture_tag_list_query(filter);
+    let total = base
+        .clone()
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    if total == 0 {
+        return Ok(CursorSlice::empty(total));
+    }
+
+    let mut query = base;
+    if let Some((sort_order, name, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(minecraft_texture_tag::Column::SortOrder.gt(sort_order))
+                .add(
+                    Condition::all()
+                        .add(minecraft_texture_tag::Column::SortOrder.eq(sort_order))
+                        .add(minecraft_texture_tag::Column::Name.gt(name.clone())),
+                )
+                .add(
+                    Condition::all()
+                        .add(minecraft_texture_tag::Column::SortOrder.eq(sort_order))
+                        .add(minecraft_texture_tag::Column::Name.eq(name))
+                        .add(minecraft_texture_tag::Column::Id.gt(id)),
+                ),
+        );
+    }
+
+    let items = query
+        .limit(limit.saturating_add(1))
+        .all(db)
+        .await
+        .map_aster_err(AsterError::database_operation)?;
+    CursorSlice::from_overfetch(
+        items,
+        total,
+        limit,
+        "texture tag page size",
+        "texture tag cursor limit",
+    )
 }
 
 fn texture_tag_list_query(filter: MinecraftTextureTagListFilter) -> Select<MinecraftTextureTag> {
     let mut query = MinecraftTextureTag::find()
         .order_by_asc(minecraft_texture_tag::Column::SortOrder)
-        .order_by_asc(minecraft_texture_tag::Column::Name);
+        .order_by_asc(minecraft_texture_tag::Column::Name)
+        .order_by_asc(minecraft_texture_tag::Column::Id);
 
     if let Some(keyword) = filter
         .keyword

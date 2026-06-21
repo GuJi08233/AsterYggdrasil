@@ -2191,7 +2191,7 @@ async fn oidc_links_can_be_listed_and_deleted_after_login() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["total"], 1);
     assert_eq!(body["data"]["limit"], 20);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     let links = body["data"]["items"]
         .as_array()
         .expect("links response should be an array");
@@ -2208,7 +2208,7 @@ async fn oidc_links_can_be_listed_and_deleted_after_login() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 1);
     assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
 

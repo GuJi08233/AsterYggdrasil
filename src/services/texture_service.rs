@@ -42,7 +42,7 @@ pub use types::{
     TextureDownload, TextureReportInfo, TextureReportUserInfo, WardrobeRegistrationResult,
 };
 
-use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, SortOrderNameIdCursor};
 use crate::db::repository::{
     minecraft_profile_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
     minecraft_texture_report_repo, minecraft_texture_tag_repo, user_repo,
@@ -150,21 +150,31 @@ pub async fn list_texture_library_tags<S: DatabaseRuntimeState>(
 pub async fn list_texture_library_tags_paginated<S: DatabaseRuntimeState>(
     state: &S,
     limit: u64,
-    offset: u64,
+    after: Option<(i32, String, i64)>,
     keyword: Option<String>,
-) -> Result<OffsetPage<MinecraftTextureTagInfo>> {
-    let page = minecraft_texture_tag_repo::list_paginated(
+) -> Result<CursorPage<MinecraftTextureTagInfo, SortOrderNameIdCursor>> {
+    let limit = limit.clamp(1, 100);
+    let page = minecraft_texture_tag_repo::list_cursor(
         state.reader_db(),
         limit,
-        offset,
+        after,
         minecraft_texture_tag_repo::MinecraftTextureTagListFilter { keyword },
     )
     .await?;
-    Ok(OffsetPage::new(
+    let next_cursor = if page.has_more {
+        page.items.last().map(|tag| SortOrderNameIdCursor {
+            sort_order: tag.sort_order,
+            name: tag.name.clone(),
+            id: tag.id,
+        })
+    } else {
+        None
+    };
+    Ok(CursorPage::new(
         page.items.into_iter().map(texture_tag_info).collect(),
         page.total,
-        page.limit,
-        page.offset,
+        limit,
+        next_cursor,
     ))
 }
 
@@ -444,31 +454,6 @@ where
     wardrobe_texture_with_current_tags(state, &updated).await
 }
 
-pub async fn list_admin_texture_library_textures_paginated<S>(
-    state: &S,
-    limit: u64,
-    offset: u64,
-    filter: minecraft_texture_repo::AdminTextureLibraryListFilter,
-) -> Result<OffsetPage<PublicTextureLibraryTextureMetadata>>
-where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
-{
-    let page = minecraft_texture_repo::list_admin_library_textures_paginated(
-        state.reader_db(),
-        limit,
-        offset,
-        filter,
-    )
-    .await?;
-    let textures = admin_texture_library_metadata_by_texture_ids(state, &page.items).await?;
-    Ok(OffsetPage::new(
-        textures,
-        page.total,
-        page.limit,
-        page.offset,
-    ))
-}
-
 pub async fn list_admin_texture_library_textures_cursor<S>(
     state: &S,
     limit: u64,
@@ -488,12 +473,7 @@ where
     .await?;
     let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
     let textures = admin_texture_library_metadata_by_texture_ids(state, &slice.items).await?;
-    Ok(CursorPage::new(
-        textures,
-        slice.total,
-        limit,
-        next_cursor,
-    ))
+    Ok(CursorPage::new(textures, slice.total, limit, next_cursor))
 }
 
 fn texture_next_cursor(
@@ -1771,35 +1751,6 @@ where
     Ok(textures)
 }
 
-pub async fn list_wardrobe_textures_paginated<S>(
-    state: &S,
-    user_id: i64,
-    limit: u64,
-    offset: u64,
-    filter: minecraft_texture_repo::WardrobeTextureListFilter,
-) -> Result<OffsetPage<minecraft_texture::Model>>
-where
-    S: DatabaseRuntimeState,
-{
-    let page = minecraft_texture_repo::list_by_user_paginated(
-        state.reader_db(),
-        user_id,
-        limit,
-        offset,
-        filter,
-    )
-    .await?;
-    tracing::debug!(
-        user_id,
-        returned = page.items.len(),
-        total = page.total,
-        limit = page.limit,
-        offset = page.offset,
-        "listed wardrobe textures page"
-    );
-    Ok(page)
-}
-
 pub async fn list_wardrobe_textures_cursor<S>(
     state: &S,
     user_id: i64,
@@ -1821,39 +1772,7 @@ where
     .await?;
     let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
     let textures = wardrobe_texture_metadata_by_texture_ids(state, &slice.items).await?;
-    Ok(CursorPage::new(
-        textures,
-        slice.total,
-        limit,
-        next_cursor,
-    ))
-}
-
-pub async fn list_public_texture_library_paginated<S>(
-    state: &S,
-    limit: u64,
-    offset: u64,
-    filter: minecraft_texture_repo::WardrobeTextureListFilter,
-) -> Result<OffsetPage<minecraft_texture::Model>>
-where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
-{
-    ensure_texture_library_enabled(state)?;
-    let page = minecraft_texture_repo::list_public_wardrobe_paginated(
-        state.reader_db(),
-        limit,
-        offset,
-        filter,
-    )
-    .await?;
-    tracing::debug!(
-        returned = page.items.len(),
-        total = page.total,
-        limit = page.limit,
-        offset = page.offset,
-        "listed public texture library page"
-    );
-    Ok(page)
+    Ok(CursorPage::new(textures, slice.total, limit, next_cursor))
 }
 
 pub async fn list_public_texture_library_cursor<S>(
@@ -1876,12 +1795,7 @@ where
     .await?;
     let next_cursor = texture_next_cursor(&slice.items, slice.has_more);
     let textures = public_texture_library_metadata_by_texture_ids(state, &slice.items).await?;
-    Ok(CursorPage::new(
-        textures,
-        slice.total,
-        limit,
-        next_cursor,
-    ))
+    Ok(CursorPage::new(textures, slice.total, limit, next_cursor))
 }
 
 pub async fn get_public_texture_library_texture<S>(

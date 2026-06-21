@@ -1438,7 +1438,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["total"], 2);
     assert_eq!(body["data"]["limit"], 50);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 2);
     assert_eq!(items[0]["id"], min_profile);
@@ -1454,7 +1454,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
 
     let req = test::TestRequest::get()
@@ -1465,7 +1465,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     let page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(page_items.len(), 1);
@@ -1484,7 +1484,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     let page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(page_items.len(), 1);
@@ -1565,7 +1565,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     let admin_page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(admin_page_items.len(), 1);
@@ -1584,7 +1584,7 @@ async fn minecraft_profile_management_validates_names_and_lists_profiles() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     let admin_page_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(admin_page_items.len(), 1);
@@ -1977,7 +1977,7 @@ async fn minecraft_profile_delete_unbinds_textures_keeps_wardrobe_revokes_tokens
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["total"], 1);
     assert_eq!(body["data"]["limit"], 50);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     let wardrobe_items = body["data"]["items"].as_array().unwrap();
     assert_eq!(wardrobe_items.len(), 1);
     assert_eq!(wardrobe_items[0]["hash"], texture_hash);
@@ -4369,7 +4369,7 @@ async fn wardrobe_texture_list_filters_by_type_keyword_pagination_and_user_scope
     let body: Value = test::read_body_json(resp).await;
     let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["texture_type"], "skin");
@@ -4391,7 +4391,7 @@ async fn wardrobe_texture_list_filters_by_type_keyword_pagination_and_user_scope
     let body: Value = test::read_body_json(resp).await;
     let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 2);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0]["texture_type"], "skin");
@@ -4498,14 +4498,15 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(tags_body["data"]["total"], 2);
     assert_eq!(tags_body["data"]["limit"], 30);
-    assert_eq!(tags_body["data"]["offset"], 0);
+    assert!(tags_body["data"].get("offset").is_none());
+    assert!(tags_body["data"]["next_cursor"].is_null());
     let tags = tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(tags.len(), 2);
     assert_eq!(tags[0]["id"], event_id);
     assert_eq!(tags[1]["id"], classic_id);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/wardrobe/tags?limit=30&offset=0&keyword=cla")
+        .uri("/api/v1/wardrobe/tags?limit=30&keyword=cla")
         .insert_header(common::bearer_header(&user_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -4513,13 +4514,36 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let filtered_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(filtered_tags_body["data"]["total"], 1);
     assert_eq!(filtered_tags_body["data"]["limit"], 30);
-    assert_eq!(filtered_tags_body["data"]["offset"], 0);
+    assert!(filtered_tags_body["data"].get("offset").is_none());
     let filtered_tags = filtered_tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(filtered_tags.len(), 1);
     assert_eq!(filtered_tags[0]["id"], classic_id);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/wardrobe/tags?limit=1&offset=1")
+        .uri("/api/v1/wardrobe/tags?limit=1")
+        .insert_header(common::bearer_header(&user_access))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let first_cursor_page_body: Value = test::read_body_json(resp).await;
+    assert_eq!(first_cursor_page_body["data"]["total"], 2);
+    assert_eq!(first_cursor_page_body["data"]["limit"], 1);
+    assert!(first_cursor_page_body["data"].get("offset").is_none());
+    let first_cursor_page_tags = first_cursor_page_body["data"]["items"].as_array().unwrap();
+    assert_eq!(first_cursor_page_tags.len(), 1);
+    assert_eq!(first_cursor_page_tags[0]["id"], event_id);
+    let next_cursor = &first_cursor_page_body["data"]["next_cursor"];
+    assert_eq!(next_cursor["sort_order"], 10);
+    assert_eq!(next_cursor["name"], "Event");
+    assert_eq!(next_cursor["id"], event_id);
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/wardrobe/tags?limit=1&after_sort_order={}&after_name={}&after_id={}",
+            next_cursor["sort_order"].as_i64().unwrap(),
+            next_cursor["name"].as_str().unwrap(),
+            next_cursor["id"].as_i64().unwrap()
+        ))
         .insert_header(common::bearer_header(&user_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -4527,13 +4551,14 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let paged_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(paged_tags_body["data"]["total"], 2);
     assert_eq!(paged_tags_body["data"]["limit"], 1);
-    assert_eq!(paged_tags_body["data"]["offset"], 1);
     let paged_tags = paged_tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(paged_tags.len(), 1);
     assert_eq!(paged_tags[0]["id"], classic_id);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/wardrobe/tags?limit=30&offset=999")
+        .uri(&format!(
+            "/api/v1/wardrobe/tags?limit=30&after_sort_order=20&after_name=Classic&after_id={classic_id}"
+        ))
         .insert_header(common::bearer_header(&user_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -4541,7 +4566,7 @@ async fn wardrobe_texture_names_and_admin_tags_support_user_binding_and_filters(
     let empty_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(empty_tags_body["data"]["total"], 2);
     assert_eq!(empty_tags_body["data"]["limit"], 30);
-    assert_eq!(empty_tags_body["data"]["offset"], 999);
+    assert!(empty_tags_body["data"].get("offset").is_none());
     assert_eq!(
         empty_tags_body["data"]["items"].as_array().unwrap().len(),
         0
@@ -4994,7 +5019,7 @@ async fn wardrobe_texture_admin_tag_crud_handles_update_pagination_and_missing_e
     assert_eq!(updated_body["data"]["sort_order"], 5);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/admin/texture-library/tags?limit=1&offset=0")
+        .uri("/api/v1/admin/texture-library/tags?limit=1")
         .insert_header(common::bearer_header(&admin_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -5002,12 +5027,21 @@ async fn wardrobe_texture_admin_tag_crud_handles_update_pagination_and_missing_e
     let first_page_body: Value = test::read_body_json(resp).await;
     assert_eq!(first_page_body["data"]["total"], 2);
     assert_eq!(first_page_body["data"]["limit"], 1);
-    assert_eq!(first_page_body["data"]["offset"], 0);
+    assert!(first_page_body["data"].get("offset").is_none());
     assert_eq!(first_page_body["data"]["items"][0]["id"], alpha_id);
     assert_eq!(first_page_body["data"]["items"][0]["name"], "Gamma");
+    let next_cursor = &first_page_body["data"]["next_cursor"];
+    assert_eq!(next_cursor["sort_order"], 5);
+    assert_eq!(next_cursor["name"], "Gamma");
+    assert_eq!(next_cursor["id"], alpha_id);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/admin/texture-library/tags?limit=1&offset=1")
+        .uri(&format!(
+            "/api/v1/admin/texture-library/tags?limit=1&after_sort_order={}&after_name={}&after_id={}",
+            next_cursor["sort_order"].as_i64().unwrap(),
+            next_cursor["name"].as_str().unwrap(),
+            next_cursor["id"].as_i64().unwrap()
+        ))
         .insert_header(common::bearer_header(&admin_access))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -7376,14 +7410,15 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
     let tag_id = tag_body["data"]["id"].as_i64().unwrap();
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/texture-library/tags?limit=1&offset=0")
+        .uri("/api/v1/texture-library/tags?limit=1")
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let public_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(public_tags_body["data"]["total"], 1);
     assert_eq!(public_tags_body["data"]["limit"], 1);
-    assert_eq!(public_tags_body["data"]["offset"], 0);
+    assert!(public_tags_body["data"].get("offset").is_none());
+    assert!(public_tags_body["data"]["next_cursor"].is_null());
     let public_tags = public_tags_body["data"]["items"].as_array().unwrap();
     assert_eq!(public_tags.len(), 1);
     assert_eq!(public_tags[0]["id"], tag_id);
@@ -7396,14 +7431,14 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
     );
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/texture-library/tags?limit=30&offset=0&keyword=fea")
+        .uri("/api/v1/texture-library/tags?limit=30&keyword=fea")
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let filtered_public_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(filtered_public_tags_body["data"]["total"], 1);
     assert_eq!(filtered_public_tags_body["data"]["limit"], 30);
-    assert_eq!(filtered_public_tags_body["data"]["offset"], 0);
+    assert!(filtered_public_tags_body["data"].get("offset").is_none());
     let filtered_public_tags = filtered_public_tags_body["data"]["items"]
         .as_array()
         .unwrap();
@@ -7411,7 +7446,7 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
     assert_eq!(filtered_public_tags[0]["id"], tag_id);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/texture-library/tags?limit=30&offset=0&keyword=missing")
+        .uri("/api/v1/texture-library/tags?limit=30&keyword=missing")
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
@@ -7426,14 +7461,16 @@ async fn public_texture_library_lists_public_textures_and_copies_to_user_wardrob
     );
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/texture-library/tags?limit=30&offset=999")
+        .uri(&format!(
+            "/api/v1/texture-library/tags?limit=30&after_sort_order=1&after_name=Featured&after_id={tag_id}"
+        ))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let empty_public_tags_body: Value = test::read_body_json(resp).await;
     assert_eq!(empty_public_tags_body["data"]["total"], 1);
     assert_eq!(empty_public_tags_body["data"]["limit"], 30);
-    assert_eq!(empty_public_tags_body["data"]["offset"], 999);
+    assert!(empty_public_tags_body["data"].get("offset").is_none());
     assert_eq!(
         empty_public_tags_body["data"]["items"]
             .as_array()
@@ -8709,7 +8746,7 @@ async fn texture_library_reports_require_login_and_follow_moderation_edges() {
     let resp = admin_list_texture_reports_req!(
         app,
         &texture_operator_access,
-        "/api/v1/admin/texture-library/reports?limit=20&offset=0&status=pending&reason=copyright"
+        "/api/v1/admin/texture-library/reports?limit=20&status=pending&reason=copyright"
     );
     assert_eq!(resp.status(), 200);
     let pending_copyright_body: Value = test::read_body_json(resp).await;

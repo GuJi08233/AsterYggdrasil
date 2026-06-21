@@ -54,7 +54,6 @@ import {
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
-	parseOffsetSearchParam,
 	parsePageSizeOption,
 	parsePageSizeSearchParam,
 } from "@/lib/pagination";
@@ -62,10 +61,15 @@ import { cn } from "@/lib/utils";
 import { adminYggdrasilSessionForwardService } from "@/services/adminService";
 import type {
 	AdminYggdrasilSessionForwardServerInfo,
+	AdminYggdrasilSessionForwardServerPage,
 	CreateYggdrasilSessionForwardServerRequest,
 	UpdateYggdrasilSessionForwardServerRequest,
 	YggdrasilSessionForwardServerSortBy,
 } from "@/types/api";
+
+type ForwardCursor = NonNullable<
+	AdminYggdrasilSessionForwardServerPage["next_cursor"]
+>;
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 20 as const;
@@ -174,14 +178,12 @@ export default function AdminYggdrasilForwardingPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	usePageTitle(t("admin.yggdrasilForwarding.title"));
 
-	const offset = parseOffsetSearchParam(searchParams.get("offset"));
 	const pageSize = parsePageSizeSearchParam(
 		searchParams.get("pageSize"),
 		PAGE_SIZE_OPTIONS,
 		DEFAULT_PAGE_SIZE,
 	);
 	const sort = parseForwardSort(searchParams.get("sort_by"));
-	const currentPage = Math.floor(offset / pageSize) + 1;
 	const [loading, setLoading] = useState(true);
 	const [servers, setServers] = useState<
 		AdminYggdrasilSessionForwardServerInfo[]
@@ -196,13 +198,19 @@ export default function AdminYggdrasilForwardingPage() {
 	const [form, setForm] = useState<ForwardForm>(() => emptyForm());
 	const [submitting, setSubmitting] = useState(false);
 	const [updatingId, setUpdatingId] = useState<number | null>(null);
+	const [cursorStack, setCursorStack] = useState<Array<ForwardCursor | null>>([
+		null,
+	]);
+	const [pageIndex, setPageIndex] = useState(0);
+	const [nextCursor, setNextCursor] = useState<ForwardCursor | null>(null);
 	const editDialogCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
 	const deleteDialogCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
+	const currentPage = pageIndex + 1;
+	const totalPages = Math.max(currentPage, Math.ceil(total / pageSize));
 	const pageSizeOptions = PAGE_SIZE_OPTIONS.map((size) => ({
 		label: t("admin.pagination.pageSizeOption", { count: size }),
 		value: String(size),
@@ -217,17 +225,13 @@ export default function AdminYggdrasilForwardingPage() {
 
 	const updatePagination = useCallback(
 		({
-			offset: nextOffset = offset,
 			pageSize: nextPageSize = pageSize,
 			sort: nextSort = sort,
 		}: {
-			offset?: number;
 			pageSize?: (typeof PAGE_SIZE_OPTIONS)[number];
 			sort?: ForwardSort;
 		}) => {
 			const next = new URLSearchParams(searchParams);
-			if (nextOffset > 0) next.set("offset", String(nextOffset));
-			else next.delete("offset");
 			if (nextPageSize !== DEFAULT_PAGE_SIZE) {
 				next.set("pageSize", String(nextPageSize));
 			} else {
@@ -238,35 +242,60 @@ export default function AdminYggdrasilForwardingPage() {
 			if (next.toString() !== searchParams.toString()) {
 				setSearchParams(next, { replace: true });
 			}
+			setCursorStack([null]);
+			setPageIndex(0);
+			setNextCursor(null);
 		},
-		[offset, pageSize, searchParams, setSearchParams, sort],
+		[pageSize, searchParams, setSearchParams, sort],
 	);
 
 	const loadServers = useCallback(async () => {
 		try {
 			setLoading(true);
+			const cursor = cursorStack[pageIndex] ?? null;
 			const page = await adminYggdrasilSessionForwardService.list({
 				limit: pageSize,
-				offset,
 				sort_by: sort,
+				after_enabled:
+					cursor && "call_order" in cursor
+						? cursor.call_order.enabled
+						: undefined,
+				after_priority:
+					cursor && "call_order" in cursor
+						? cursor.call_order.priority
+						: undefined,
+				after_id:
+					cursor && "call_order" in cursor
+						? cursor.call_order.id
+						: cursor && "id" in cursor
+							? cursor.id.id
+							: undefined,
 			});
-			if (page.items.length === 0 && page.total > 0 && offset > 0) {
-				updatePagination({
-					offset: Math.max(
-						0,
-						Math.floor((page.total - 1) / pageSize) * pageSize,
-					),
-				});
+			if (page.items.length === 0 && page.total > 0 && pageIndex > 0) {
+				setCursorStack((current) => current.slice(0, -1));
+				setPageIndex((current) => Math.max(0, current - 1));
 				return;
 			}
 			setServers(page.items);
 			setTotal(page.total);
+			setNextCursor(page.next_cursor ?? null);
 		} catch (error) {
 			handleApiError(error);
 		} finally {
 			setLoading(false);
 		}
-	}, [offset, pageSize, sort, updatePagination]);
+	}, [cursorStack, pageIndex, pageSize, sort]);
+
+	const goPreviousPage = useCallback(() => {
+		setCursorStack((current) => current.slice(0, -1));
+		setPageIndex((current) => Math.max(0, current - 1));
+	}, []);
+
+	const goNextPage = useCallback(() => {
+		if (!nextCursor) return;
+		setCursorStack((current) => [...current, nextCursor]);
+		setPageIndex((current) => current + 1);
+	}, [nextCursor]);
 
 	useEffect(() => {
 		void loadServers();
@@ -432,22 +461,22 @@ export default function AdminYggdrasilForwardingPage() {
 				totalPages={totalPages}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= total}
-				onPrevious={() =>
-					updatePagination({ offset: Math.max(0, offset - pageSize) })
-				}
-				onNext={() => updatePagination({ offset: offset + pageSize })}
+				prevDisabled={currentPage <= 1}
+				nextDisabled={nextCursor === null}
+				onPrevious={goPreviousPage}
+				onNext={goNextPage}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(value, PAGE_SIZE_OPTIONS);
 					if (next == null) return;
-					updatePagination({ offset: 0, pageSize: next });
+					updatePagination({ pageSize: next });
 				}}
 			/>
 		),
 		[
 			currentPage,
-			offset,
+			goNextPage,
+			goPreviousPage,
+			nextCursor,
 			pageSize,
 			pageSizeOptions,
 			total,
@@ -467,7 +496,6 @@ export default function AdminYggdrasilForwardingPage() {
 							value={sort}
 							onValueChange={(value) =>
 								updatePagination({
-									offset: 0,
 									sort: parseForwardSort(value),
 								})
 							}

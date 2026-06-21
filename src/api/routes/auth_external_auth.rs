@@ -5,10 +5,10 @@ use crate::api::error_code::AsterErrorCode;
 use crate::api::middleware::auth::JwtAuth;
 use crate::api::middleware::csrf::{self, RequestSourceMode};
 use crate::api::pagination::{
-    CreatedAtCursorQuery, LimitOffsetQuery, LimitQuery, parse_datetime_id_cursor,
+    CreatedAtCursorQuery, LimitQuery, parse_datetime_id_cursor, parse_string_id_cursor,
 };
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, StringIdCursor};
 use crate::api::response::ApiResponse;
 use crate::config::site_url;
 use crate::errors::{AsterError, Result};
@@ -18,7 +18,7 @@ use crate::services::{auth_service, external_auth_service};
 use crate::types::ExternalAuthKind;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const AUTH_REDIRECT_PARAM: &str = "auth_redirect";
 const AUTH_REDIRECT_LOGIN_SUCCESS: &str = "login_success";
@@ -54,24 +54,40 @@ fn parse_kind(value: &str) -> Result<ExternalAuthKind> {
     })
 }
 
+#[derive(Debug, Clone, Default, Deserialize)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct ExternalAuthProviderCursorQuery {
+    pub after_display_name: Option<String>,
+    pub after_id: Option<i64>,
+}
+
 #[api_docs_macros::path(
     get,
     path = "/api/v1/auth/external-auth/providers",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_providers",
-    params(LimitOffsetQuery),
+    params(LimitQuery, ExternalAuthProviderCursorQuery),
     responses(
-        (status = 200, description = "Enabled external auth providers", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthPublicProvider>>)),
+        (status = 200, description = "Enabled external auth providers", body = inline(ApiResponse<CursorPage<external_auth_service::ExternalAuthPublicProvider, StringIdCursor>>)),
     ),
 )]
 pub async fn list_providers(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor: web::Query<ExternalAuthProviderCursorQuery>,
 ) -> Result<HttpResponse> {
+    let after = parse_string_id_cursor(
+        cursor.after_display_name.clone(),
+        cursor.after_id,
+        "external auth provider",
+    )?;
     let providers = external_auth_service::list_public_providers_paginated(
         state.get_ref(),
         page.limit_or(20, 100),
-        page.offset(),
+        after,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))
@@ -82,23 +98,29 @@ pub async fn list_providers(
     path = "/api/v1/auth/external-auth/{kind}/providers",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_providers_by_kind",
-    params(("kind" = ExternalAuthKind, Path, description = "External auth provider kind"), LimitOffsetQuery),
+    params(("kind" = ExternalAuthKind, Path, description = "External auth provider kind"), LimitQuery, ExternalAuthProviderCursorQuery),
     responses(
-        (status = 200, description = "Enabled external auth providers for kind", body = inline(ApiResponse<OffsetPage<external_auth_service::ExternalAuthPublicProvider>>)),
+        (status = 200, description = "Enabled external auth providers for kind", body = inline(ApiResponse<CursorPage<external_auth_service::ExternalAuthPublicProvider, StringIdCursor>>)),
         (status = 404, description = "Provider kind not found"),
     ),
 )]
 pub async fn list_providers_by_kind(
     state: web::Data<AppState>,
     path: web::Path<String>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor: web::Query<ExternalAuthProviderCursorQuery>,
 ) -> Result<HttpResponse> {
     let kind = parse_kind(&path)?;
+    let after = parse_string_id_cursor(
+        cursor.after_display_name.clone(),
+        cursor.after_id,
+        "external auth provider",
+    )?;
     let providers = external_auth_service::list_public_providers_by_kind_paginated(
         state.get_ref(),
         kind,
         page.limit_or(20, 100),
-        page.offset(),
+        after,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))

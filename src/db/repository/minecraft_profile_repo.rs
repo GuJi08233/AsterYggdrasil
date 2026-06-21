@@ -1,6 +1,6 @@
 //! Minecraft profile repository.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
+use crate::api::pagination::CursorSlice;
 use crate::db::repository::search_query;
 use crate::entities::minecraft_profile::{self, Entity as MinecraftProfile};
 use crate::errors::{AsterError, MapAsterErr, Result};
@@ -17,13 +17,6 @@ pub struct MinecraftProfileFilters {
     pub name: Option<String>,
     pub uuid: Option<String>,
     pub query: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CursorSlice<T> {
-    pub items: Vec<T>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -186,31 +179,6 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_paginated<C: ConnectionTrait>(
-    db: &C,
-    filters: MinecraftProfileFilters,
-    limit: u64,
-    offset: u64,
-) -> Result<OffsetPage<minecraft_profile::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = apply_filters(MinecraftProfile::find(), &filters)
-            .order_by_asc(minecraft_profile::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
-    })
-    .await
-}
-
 pub async fn list_cursor<C: ConnectionTrait>(
     db: &C,
     filters: MinecraftProfileFilters,
@@ -224,11 +192,7 @@ pub async fn list_cursor<C: ConnectionTrait>(
         .await
         .map_aster_err(AsterError::database_operation)?;
     if total == 0 || limit == 0 {
-        return Ok(CursorSlice {
-            items: Vec::new(),
-            total,
-            has_more: false,
-        });
+        return Ok(CursorSlice::empty(total));
     }
 
     let mut query = base;
@@ -236,27 +200,19 @@ pub async fn list_cursor<C: ConnectionTrait>(
         query = query.filter(minecraft_profile::Column::Id.gt(after_id));
     }
 
-    let mut items = query
+    let items = query
         .order_by_asc(minecraft_profile::Column::Id)
         .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "minecraft profile cursor page size")?
-            > limit;
-    if has_more {
-        items.truncate(crate::utils::numbers::u64_to_usize(
-            limit,
-            "minecraft profile cursor limit",
-        )?);
-    }
-
-    Ok(CursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "minecraft profile cursor page size",
+        "minecraft profile cursor limit",
+    )
 }
 
 fn apply_filters(

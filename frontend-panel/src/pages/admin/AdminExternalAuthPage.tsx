@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -33,7 +40,6 @@ import { Icon } from "@/components/ui/icon";
 import { handleApiError } from "@/hooks/useApiError";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
-	parseOffsetSearchParam,
 	parsePageSizeOption,
 	parsePageSizeSearchParam,
 } from "@/lib/pagination";
@@ -41,9 +47,12 @@ import { cn } from "@/lib/utils";
 import { adminExternalAuthService } from "@/services/adminService";
 import type {
 	AdminExternalAuthProviderInfo,
+	AdminExternalAuthProviderPage,
 	ExternalAuthKind,
 	ExternalAuthProviderKindInfo,
 } from "@/types/api";
+
+type ProviderCursor = NonNullable<AdminExternalAuthProviderPage["next_cursor"]>;
 
 type UiState = {
 	createStep: number;
@@ -224,21 +233,25 @@ export default function AdminExternalAuthPage() {
 
 	usePageTitle(t("admin.externalAuth.title"));
 
-	const offset = parseOffsetSearchParam(searchParams.get("offset"));
 	const pageSize = parsePageSizeSearchParam(
 		searchParams.get("pageSize"),
 		EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
 		DEFAULT_EXTERNAL_AUTH_PAGE_SIZE,
 	);
 	const [state, dispatch] = useReducer(reducer, undefined, initialState);
+	const [cursorStack, setCursorStack] = useState<Array<ProviderCursor | null>>([
+		null,
+	]);
+	const [pageIndex, setPageIndex] = useState(0);
+	const [nextCursor, setNextCursor] = useState<ProviderCursor | null>(null);
 	const previousCreateStepRef = useRef(0);
 	const stepAnimationRef = useRef<"idle" | "forward" | "backward">("idle");
 	const selectedKind =
 		state.providerKinds.find((kind) => kind.kind === state.form.providerKind) ??
 		state.providerKinds[0] ??
 		null;
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const totalPages = Math.max(1, Math.ceil(state.total / pageSize));
+	const currentPage = pageIndex + 1;
+	const totalPages = Math.max(currentPage, Math.ceil(state.total / pageSize));
 	const pageSizeOptions = EXTERNAL_AUTH_PAGE_SIZE_OPTIONS.map((size) => ({
 		label: t("admin.pagination.pageSizeOption", { count: size }),
 		value: String(size),
@@ -269,15 +282,11 @@ export default function AdminExternalAuthPage() {
 
 	const updatePagination = useCallback(
 		({
-			offset: nextOffset = offset,
 			pageSize: nextPageSize = pageSize,
 		}: {
-			offset?: number;
 			pageSize?: (typeof EXTERNAL_AUTH_PAGE_SIZE_OPTIONS)[number];
 		}) => {
 			const next = new URLSearchParams(searchParams);
-			if (nextOffset > 0) next.set("offset", String(nextOffset));
-			else next.delete("offset");
 			if (nextPageSize !== DEFAULT_EXTERNAL_AUTH_PAGE_SIZE) {
 				next.set("pageSize", String(nextPageSize));
 			} else {
@@ -286,26 +295,31 @@ export default function AdminExternalAuthPage() {
 			if (next.toString() !== searchParams.toString()) {
 				setSearchParams(next, { replace: true });
 			}
+			setCursorStack([null]);
+			setPageIndex(0);
+			setNextCursor(null);
 		},
-		[offset, pageSize, searchParams, setSearchParams],
+		[pageSize, searchParams, setSearchParams],
 	);
 
 	const loadProviders = useCallback(async () => {
 		try {
 			dispatch({ type: "set_loading", value: true });
+			const cursor = cursorStack[pageIndex] ?? null;
 			const [providerKinds, page] = await Promise.all([
 				adminExternalAuthService.kinds(),
-				adminExternalAuthService.list({ limit: pageSize, offset }),
+				adminExternalAuthService.list({
+					limit: pageSize,
+					after_display_name: cursor?.value,
+					after_id: cursor?.id,
+				}),
 			]);
-			if (page.items.length === 0 && page.total > 0 && offset > 0) {
-				updatePagination({
-					offset: Math.max(
-						0,
-						Math.floor((page.total - 1) / pageSize) * pageSize,
-					),
-				});
+			if (page.items.length === 0 && page.total > 0 && pageIndex > 0) {
+				setCursorStack((current) => current.slice(0, -1));
+				setPageIndex((current) => Math.max(0, current - 1));
 				return;
 			}
+			setNextCursor(page.next_cursor ?? null);
 			dispatch({
 				type: "loaded",
 				providerKinds,
@@ -317,7 +331,18 @@ export default function AdminExternalAuthPage() {
 		} finally {
 			dispatch({ type: "set_loading", value: false });
 		}
-	}, [offset, pageSize, updatePagination]);
+	}, [cursorStack, pageIndex, pageSize]);
+
+	const goPreviousPage = useCallback(() => {
+		setCursorStack((current) => current.slice(0, -1));
+		setPageIndex((current) => Math.max(0, current - 1));
+	}, []);
+
+	const goNextPage = useCallback(() => {
+		if (!nextCursor) return;
+		setCursorStack((current) => [...current, nextCursor]);
+		setPageIndex((current) => current + 1);
+	}, [nextCursor]);
 
 	useEffect(() => {
 		void loadProviders();
@@ -464,7 +489,7 @@ export default function AdminExternalAuthPage() {
 
 			<ExternalAuthProviderList
 				currentPage={currentPage}
-				offset={offset}
+				hasNextPage={nextCursor !== null}
 				pageSize={pageSize}
 				pageSizeOptions={pageSizeOptions}
 				state={state}
@@ -476,6 +501,8 @@ export default function AdminExternalAuthPage() {
 					dispatch({ type: "set_deleting_provider", value: provider })
 				}
 				onTestProvider={(provider) => void testProvider(provider)}
+				onNextPage={goNextPage}
+				onPreviousPage={goPreviousPage}
 				onUpdatePagination={updatePagination}
 			/>
 
@@ -544,10 +571,12 @@ function ExternalAuthPageActions({
 
 function ExternalAuthProviderList({
 	currentPage,
-	offset,
+	hasNextPage,
 	onCopyCallbackUrl,
 	onCreate,
 	onEdit,
+	onNextPage,
+	onPreviousPage,
 	onRequestDelete,
 	onTestProvider,
 	onUpdatePagination,
@@ -557,14 +586,15 @@ function ExternalAuthProviderList({
 	totalPages,
 }: {
 	currentPage: number;
-	offset: number;
+	hasNextPage: boolean;
 	onCopyCallbackUrl: (value: string) => void;
 	onCreate: () => void;
 	onEdit: (provider: AdminExternalAuthProviderInfo) => void;
+	onNextPage: () => void;
+	onPreviousPage: () => void;
 	onRequestDelete: (provider: AdminExternalAuthProviderInfo) => void;
 	onTestProvider: (provider: AdminExternalAuthProviderInfo) => void;
 	onUpdatePagination: (value: {
-		offset?: number;
 		pageSize?: (typeof EXTERNAL_AUTH_PAGE_SIZE_OPTIONS)[number];
 	}) => void;
 	pageSize: (typeof EXTERNAL_AUTH_PAGE_SIZE_OPTIONS)[number];
@@ -592,25 +622,25 @@ function ExternalAuthProviderList({
 				totalPages={totalPages}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={offset === 0}
-				nextDisabled={offset + pageSize >= state.total}
-				onPrevious={() =>
-					onUpdatePagination({ offset: Math.max(0, offset - pageSize) })
-				}
-				onNext={() => onUpdatePagination({ offset: offset + pageSize })}
+				prevDisabled={currentPage <= 1}
+				nextDisabled={!hasNextPage}
+				onPrevious={onPreviousPage}
+				onNext={onNextPage}
 				onPageSizeChange={(value) => {
 					const next = parsePageSizeOption(
 						value,
 						EXTERNAL_AUTH_PAGE_SIZE_OPTIONS,
 					);
 					if (next == null) return;
-					onUpdatePagination({ offset: 0, pageSize: next });
+					onUpdatePagination({ pageSize: next });
 				}}
 			/>
 		),
 		[
 			currentPage,
-			offset,
+			hasNextPage,
+			onNextPage,
+			onPreviousPage,
 			onUpdatePagination,
 			pageSize,
 			pageSizeOptions,

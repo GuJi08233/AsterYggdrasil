@@ -10,7 +10,9 @@ use validator::Validate;
 use crate::api::dto::textures::{ReplaceWardrobeTextureTagsReq, UpdateWardrobeTextureReq};
 use crate::api::dto::validate_request;
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::{LimitOffsetQuery, LimitQuery, parse_datetime_id_cursor};
+use crate::api::pagination::{
+    LimitQuery, parse_datetime_id_cursor, parse_sort_order_name_id_cursor,
+};
 use crate::api::response::ApiResponse;
 use crate::db::repository::minecraft_texture_repo::WardrobeTextureListFilter;
 use crate::errors::{AsterError, Result};
@@ -22,7 +24,7 @@ use crate::types::{
 };
 
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::{CursorPage, DateTimeIdCursor, OffsetPage};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, SortOrderNameIdCursor};
 
 const TEXTURE_TAG_FILTER_LIMIT: usize = 16;
 const DEFAULT_TEXTURE_TAG_PAGE_SIZE: u64 = 30;
@@ -53,6 +55,9 @@ pub struct WardrobeTextureListQuery {
 pub struct TextureLibraryTagListQuery {
     #[validate(length(max = 96, message = "keyword must not exceed 96 characters"))]
     pub keyword: Option<String>,
+    pub after_sort_order: Option<i32>,
+    pub after_name: Option<String>,
+    pub after_id: Option<i64>,
 }
 
 fn deserialize_tag_id_sequence<'de, D>(deserializer: D) -> std::result::Result<Vec<i64>, D::Error>
@@ -199,9 +204,9 @@ fn normalize_tag_filter_ids(tag_ids: &[i64]) -> Result<Vec<i64>> {
     path = "/api/v1/wardrobe/tags",
     tag = "profiles",
     operation_id = "list_current_user_texture_library_tags",
-    params(LimitOffsetQuery, TextureLibraryTagListQuery),
+    params(LimitQuery, TextureLibraryTagListQuery),
     responses(
-        (status = 200, description = "Administrator-managed texture library tags", body = inline(ApiResponse<OffsetPage<texture_service::MinecraftTextureTagInfo>>)),
+        (status = 200, description = "Administrator-managed texture library tags", body = inline(ApiResponse<CursorPage<texture_service::MinecraftTextureTagInfo, SortOrderNameIdCursor>>)),
         (status = 401, description = "Unauthorized"),
     ),
     security(("bearer" = [])),
@@ -209,30 +214,35 @@ fn normalize_tag_filter_ids(tag_ids: &[i64]) -> Result<Vec<i64>> {
 pub async fn list_texture_library_tags(
     state: web::Data<AppState>,
     req: HttpRequest,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
     query: web::Query<TextureLibraryTagListQuery>,
 ) -> Result<HttpResponse> {
     validate_request(&*query)?;
     let user = auth_service::current_user(state.get_ref(), &req).await?;
     let limit = page.limit_or(DEFAULT_TEXTURE_TAG_PAGE_SIZE, 100);
-    let offset = page.offset();
+    let after = parse_sort_order_name_id_cursor(
+        query.after_sort_order,
+        query.after_name.clone(),
+        query.after_id,
+        "texture tag",
+    )?;
     let keyword = query
         .keyword
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned);
-    tracing::debug!(    
+    tracing::debug!(
         user_id = user.id,
         limit,
-        offset,
+        has_cursor = after.is_some(),
         has_keyword = keyword.is_some(),
         "listing administrator-managed texture library tags"
     );
     let page = texture_service::list_texture_library_tags_paginated(
         state.get_ref(),
         limit,
-        offset,
+        after,
         keyword,
     )
     .await?;

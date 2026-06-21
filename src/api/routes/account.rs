@@ -156,12 +156,8 @@ pub async fn list_user_bans(
         .into_iter()
         .map(AccountUserBanInfo::from)
         .collect::<Vec<_>>();
-    let page = crate::api::pagination::CursorPage::new(
-        items,
-        page.total,
-        page.limit,
-        page.next_cursor,
-    );
+    let page =
+        crate::api::pagination::CursorPage::new(items, page.total, page.limit, page.next_cursor);
     tracing::debug!(
         user_id = user.id,
         count = page.items.len(),

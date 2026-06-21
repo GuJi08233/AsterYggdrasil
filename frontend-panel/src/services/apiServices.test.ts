@@ -99,20 +99,20 @@ function passkey(overrides: Partial<import("./authService").PasskeyInfo> = {}) {
 	} satisfies import("./authService").PasskeyInfo;
 }
 
-type OffsetPageFixture<T> = {
+type CursorPageFixture<T> = {
 	items: T[];
 	limit: number;
-	offset: number;
+	next_cursor?: unknown;
 	total: number;
 };
 
-function offsetPage<T>(
+function cursorPage<T>(
 	items: T[],
 	limit = 50,
-	offset = 0,
+	_legacyPosition = 0,
 	total = items.length,
-): OffsetPageFixture<T> {
-	return { items, limit, offset, total };
+): CursorPageFixture<T> {
+	return { items, limit, next_cursor: null, total };
 }
 
 function externalAuthProvider(
@@ -216,7 +216,7 @@ describe("authService", () => {
 	});
 
 	it("uses the passkey management endpoints with explicit request bodies", async () => {
-		apiMock.get.mockResolvedValue(offsetPage([], 20));
+		apiMock.get.mockResolvedValue(cursorPage([], 20));
 		apiMock.post.mockResolvedValue({
 			flow_id: "flow-1",
 			public_key: { challenge: "challenge-1" },
@@ -305,7 +305,7 @@ describe("authService", () => {
 
 	it("deduplicates pending session requests and invalidates them after revocation", async () => {
 		let resolveSessions:
-			| ((sessions: OffsetPageFixture<ReturnType<typeof authSession>>) => void)
+			| ((sessions: CursorPageFixture<ReturnType<typeof authSession>>) => void)
 			| undefined;
 		apiMock.get.mockReturnValueOnce(
 			new Promise((resolve) => {
@@ -316,7 +316,7 @@ describe("authService", () => {
 
 		const first = authService.sessions();
 		const second = authService.sessions();
-		resolveSessions?.(offsetPage([authSession()]));
+		resolveSessions?.(cursorPage([authSession()]));
 
 		await expect(first).resolves.toHaveLength(1);
 		await expect(second).resolves.toHaveLength(1);
@@ -324,7 +324,7 @@ describe("authService", () => {
 
 		apiMock.deleteRequest.mockResolvedValueOnce(undefined);
 		apiMock.get.mockResolvedValueOnce(
-			offsetPage([authSession({ id: "session-2" })]),
+			cursorPage([authSession({ id: "session-2" })]),
 		);
 		await authService.revokeSession("session-1");
 
@@ -336,9 +336,9 @@ describe("authService", () => {
 
 	it("caches passkeys, supports forced refresh, and syncs mutations", async () => {
 		apiMock.get
-			.mockResolvedValueOnce(offsetPage([passkey()], 20))
+			.mockResolvedValueOnce(cursorPage([passkey()], 20))
 			.mockResolvedValueOnce(
-				offsetPage([passkey({ id: 8, name: "Phone" })], 20),
+				cursorPage([passkey({ id: 8, name: "Phone" })], 20),
 			);
 		const { authService } = await import("./authService");
 
@@ -431,15 +431,15 @@ describe("admin services", () => {
 		apiMock.get.mockResolvedValue({
 			items: [],
 			limit: 25,
-			offset: 50,
+			next_cursor: null,
 			total: 0,
 		});
 		const { adminConfigService } = await import("./adminService");
 
-		await adminConfigService.list({ limit: 25, offset: 50 });
+		await adminConfigService.list({ limit: 25, after_id: 50 });
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/admin/config?limit=25&offset=50",
+			"/admin/config?limit=25&after_id=50",
 		);
 	});
 
@@ -458,7 +458,7 @@ describe("admin services", () => {
 			status: "pending" as const,
 			updated_at: "2026-06-18T00:00:00Z",
 		} satisfies import("@/types/api").AdminUserInvitationInfo;
-		apiMock.get.mockResolvedValueOnce(offsetPage([invitation], 10, 0, 1));
+		apiMock.get.mockResolvedValueOnce(cursorPage([invitation], 10, 0, 1));
 		apiMock.post
 			.mockResolvedValueOnce(invitation)
 			.mockResolvedValueOnce({ ...invitation, status: "revoked" });
@@ -511,7 +511,7 @@ describe("admin services", () => {
 			updated_at: "2026-06-18T00:00:00Z",
 			username: "alex",
 		} satisfies import("@/types/api").AdminUserInfo;
-		apiMock.get.mockResolvedValueOnce(offsetPage([user], 0, 20, 1));
+		apiMock.get.mockResolvedValueOnce(cursorPage([user], 0, 20, 1));
 		apiMock.get.mockResolvedValueOnce(user);
 		apiMock.post.mockResolvedValueOnce({
 			user,
@@ -787,7 +787,12 @@ describe("admin services", () => {
 	});
 
 	it("manages texture library tags through administrator APIs", async () => {
-		apiMock.get.mockResolvedValue(offsetPage([], 20, 40, 60));
+		apiMock.get.mockResolvedValue({
+			items: [],
+			limit: 20,
+			next_cursor: null,
+			total: 60,
+		});
 		apiMock.post.mockResolvedValue({
 			color: "#228855",
 			created_at: "2026-06-15T00:00:00Z",
@@ -806,7 +811,12 @@ describe("admin services", () => {
 		});
 		const { adminTextureLibraryService } = await import("./adminService");
 
-		await adminTextureLibraryService.listTags({ limit: 20, offset: 40 });
+		await adminTextureLibraryService.listTags({
+			limit: 20,
+			after_sort_order: 10,
+			after_name: "Classic",
+			after_id: 3,
+		});
 		await adminTextureLibraryService.createTag({
 			color: "#228855",
 			name: "Featured",
@@ -820,7 +830,7 @@ describe("admin services", () => {
 		await adminTextureLibraryService.deleteTag(3);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/admin/texture-library/tags?limit=20&offset=40",
+			"/admin/texture-library/tags?limit=20&after_sort_order=10&after_name=Classic&after_id=3",
 		);
 		expect(apiMock.post).toHaveBeenCalledWith("/admin/texture-library/tags", {
 			color: "#228855",
@@ -841,7 +851,12 @@ describe("admin services", () => {
 	});
 
 	it("manages Yggdrasil session forwarding servers through administrator APIs", async () => {
-		apiMock.get.mockResolvedValueOnce(offsetPage([], 20, 40, 0));
+		apiMock.get.mockResolvedValueOnce({
+			items: [],
+			limit: 20,
+			next_cursor: null,
+			total: 0,
+		});
 		apiMock.get.mockResolvedValueOnce({
 			base_url: "https://remote.example.test/yggdrasil",
 			created_at: "2026-06-20T00:00:00Z",
@@ -867,7 +882,10 @@ describe("admin services", () => {
 
 		await adminYggdrasilSessionForwardService.list({
 			limit: 20,
-			offset: 40,
+			sort_by: "call_order",
+			after_enabled: true,
+			after_priority: 50,
+			after_id: 7,
 		});
 		await adminYggdrasilSessionForwardService.get(7);
 		await adminYggdrasilSessionForwardService.create({
@@ -886,7 +904,7 @@ describe("admin services", () => {
 		await adminYggdrasilSessionForwardService.delete(7);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/admin/yggdrasil/session-forward-servers?limit=20&offset=40",
+			"/admin/yggdrasil/session-forward-servers?limit=20&sort_by=call_order&after_id=7&after_enabled=true&after_priority=50",
 		);
 		expect(apiMock.get).toHaveBeenCalledWith(
 			"/admin/yggdrasil/session-forward-servers/7",
@@ -916,7 +934,7 @@ describe("admin services", () => {
 	});
 
 	it("manages texture library moderation textures through administrator APIs", async () => {
-		apiMock.get.mockResolvedValueOnce(offsetPage([], 20, 0, 0));
+		apiMock.get.mockResolvedValueOnce(cursorPage([], 20, 0, 0));
 		apiMock.get.mockResolvedValueOnce({
 			created_at: "2026-06-15T00:00:00Z",
 			display_name: "Review Skin",
@@ -1094,9 +1112,9 @@ describe("systemService", () => {
 describe("externalAuthService", () => {
 	it("caches public providers, clones results, and supports forced refresh", async () => {
 		apiMock.get
-			.mockResolvedValueOnce(offsetPage([externalAuthProvider()], 20))
+			.mockResolvedValueOnce(cursorPage([externalAuthProvider()], 20))
 			.mockResolvedValueOnce(
-				offsetPage(
+				cursorPage(
 					[
 						externalAuthProvider({
 							display_name: "Microsoft",
@@ -1122,14 +1140,14 @@ describe("externalAuthService", () => {
 		expect(apiMock.get).toHaveBeenCalledTimes(2);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			1,
-			"/auth/external-auth/providers?limit=20&offset=0",
+			"/auth/external-auth/providers?limit=20",
 			{
 				signal: undefined,
 			},
 		);
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			2,
-			"/auth/external-auth/providers?limit=20&offset=0",
+			"/auth/external-auth/providers?limit=20",
 			{
 				signal: undefined,
 			},
@@ -1139,7 +1157,7 @@ describe("externalAuthService", () => {
 	it("deduplicates public provider requests without sharing abortable calls", async () => {
 		let resolveProviders:
 			| ((
-					providers: OffsetPageFixture<ReturnType<typeof externalAuthProvider>>,
+					providers: CursorPageFixture<ReturnType<typeof externalAuthProvider>>,
 			  ) => void)
 			| undefined;
 		apiMock.get.mockReturnValueOnce(
@@ -1151,7 +1169,7 @@ describe("externalAuthService", () => {
 
 		const first = externalAuthService.listPublic();
 		const second = externalAuthService.listAuthAliases();
-		resolveProviders?.(offsetPage([externalAuthProvider()], 20));
+		resolveProviders?.(cursorPage([externalAuthProvider()], 20));
 
 		await expect(first).resolves.toHaveLength(1);
 		await expect(second).resolves.toHaveLength(1);
@@ -1159,20 +1177,20 @@ describe("externalAuthService", () => {
 
 		const signal = new AbortController().signal;
 		apiMock.get.mockResolvedValueOnce(
-			offsetPage([externalAuthProvider({ key: "oidc" })], 20),
+			cursorPage([externalAuthProvider({ key: "oidc" })], 20),
 		);
 		await externalAuthService.listPublic(signal);
 
 		expect(apiMock.get).toHaveBeenCalledTimes(2);
 		expect(apiMock.get).toHaveBeenLastCalledWith(
-			"/auth/external-auth/providers?limit=20&offset=0",
+			"/auth/external-auth/providers?limit=20",
 			{ signal },
 		);
 	});
 
 	it("loads public providers by kind through paginated endpoints", async () => {
 		apiMock.get.mockResolvedValueOnce(
-			offsetPage([externalAuthProvider({ kind: "oidc", key: "oidc" })], 20),
+			cursorPage([externalAuthProvider({ kind: "oidc", key: "oidc" })], 20),
 		);
 		const { externalAuthService } = await import("./externalAuthService");
 
@@ -1181,16 +1199,16 @@ describe("externalAuthService", () => {
 		).resolves.toEqual([externalAuthProvider({ kind: "oidc", key: "oidc" })]);
 
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/auth/external-auth/oidc/providers?limit=20&offset=0",
+			"/auth/external-auth/oidc/providers?limit=20",
 			{ signal: undefined },
 		);
 	});
 
 	it("caches external auth links and syncs deletes", async () => {
 		apiMock.get
-			.mockResolvedValueOnce(offsetPage([externalAuthLink()], 20))
+			.mockResolvedValueOnce(cursorPage([externalAuthLink()], 20))
 			.mockResolvedValueOnce(
-				offsetPage([externalAuthLink({ id: 12, subject: "subject-2" })], 20),
+				cursorPage([externalAuthLink({ id: 12, subject: "subject-2" })], 20),
 			);
 		const { externalAuthService } = await import("./externalAuthService");
 
@@ -1542,7 +1560,7 @@ describe("yggdrasilService", () => {
 	});
 
 	it("loads and copies public texture library items through project APIs", async () => {
-		apiMock.get.mockResolvedValue(offsetPage([], 12, 24, 36));
+		apiMock.get.mockResolvedValue(cursorPage([], 12, 24, 36));
 		apiMock.post.mockResolvedValue({
 			created_at: "2026-06-15T00:00:00Z",
 			display_name: "Shared Skin",
@@ -1573,7 +1591,6 @@ describe("yggdrasilService", () => {
 			texture_type: "skin",
 		});
 		await yggdrasilService.listPublicTextureLibraryTags({
-			offset: 0,
 			keyword: "Featured",
 		});
 		await yggdrasilService.getPublicTextureLibraryTexture(12);
@@ -1591,7 +1608,7 @@ describe("yggdrasilService", () => {
 			"/texture-library/textures?limit=12&after_updated_at=2026-06-15T00%3A00%3A00Z&after_id=31&keyword=Shared&texture_type=skin&tag_ids=3&tag_search_method=all",
 		);
 		expect(apiMock.get).toHaveBeenCalledWith(
-			"/texture-library/tags?limit=30&offset=0&keyword=Featured",
+			"/texture-library/tags?limit=30&keyword=Featured",
 		);
 		expect(apiMock.get).toHaveBeenCalledWith("/texture-library/textures/12");
 		expect(apiMock.post).toHaveBeenCalledWith(
@@ -1611,23 +1628,21 @@ describe("yggdrasilService", () => {
 	});
 
 	it("lists current user texture tags and replaces wardrobe texture tags", async () => {
-		apiMock.get.mockResolvedValueOnce(
-			offsetPage(
-				[
-					{
-						color: "#228855",
-						created_at: "2026-06-15T00:00:00Z",
-						id: 3,
-						name: "Featured",
-						sort_order: 10,
-						updated_at: "2026-06-15T00:00:00Z",
-					},
-				],
-				50,
-				0,
-				1,
-			),
-		);
+		apiMock.get.mockResolvedValueOnce({
+			items: [
+				{
+					color: "#228855",
+					created_at: "2026-06-15T00:00:00Z",
+					id: 3,
+					name: "Featured",
+					sort_order: 10,
+					updated_at: "2026-06-15T00:00:00Z",
+				},
+			],
+			limit: 50,
+			next_cursor: null,
+			total: 1,
+		});
 		apiMock.put.mockResolvedValue({
 			created_at: "2026-06-15T00:00:00Z",
 			display_name: "Tagged Skin",
@@ -1664,9 +1679,7 @@ describe("yggdrasilService", () => {
 		});
 
 		expect(apiMock.get).toHaveBeenCalledTimes(1);
-		expect(apiMock.get).toHaveBeenCalledWith(
-			"/wardrobe/tags?limit=30&offset=0",
-		);
+		expect(apiMock.get).toHaveBeenCalledWith("/wardrobe/tags?limit=30");
 		expect(apiMock.put).toHaveBeenCalledWith("/wardrobe/textures/12/tags", {
 			tag_ids: [3, 4],
 		});
@@ -1674,48 +1687,45 @@ describe("yggdrasilService", () => {
 
 	it("loads current user texture tags page by page when cache is refreshed", async () => {
 		apiMock.get
-			.mockResolvedValueOnce(
-				offsetPage(
-					Array.from({ length: 30 }, (_, index) => ({
-						color: "#228855",
-						created_at: "2026-06-15T00:00:00Z",
-						id: index + 1,
-						name: `Tag ${index + 1}`,
-						sort_order: index,
-						updated_at: "2026-06-15T00:00:00Z",
-					})),
-					30,
-					0,
-					51,
-				),
-			)
-			.mockResolvedValueOnce(
-				offsetPage(
-					Array.from({ length: 21 }, (_, index) => ({
-						color: "#334455",
-						created_at: "2026-06-15T00:00:00Z",
-						id: index + 31,
-						name: `Tag ${index + 31}`,
-						sort_order: index + 31,
-						updated_at: "2026-06-15T00:00:00Z",
-					})),
-					30,
-					30,
-					51,
-				),
-			);
+			.mockResolvedValueOnce({
+				items: Array.from({ length: 30 }, (_, index) => ({
+					color: "#228855",
+					created_at: "2026-06-15T00:00:00Z",
+					id: index + 1,
+					name: `Tag ${index + 1}`,
+					sort_order: index,
+					updated_at: "2026-06-15T00:00:00Z",
+				})),
+				limit: 30,
+				next_cursor: {
+					id: 30,
+					name: "Tag 30",
+					sort_order: 29,
+				},
+				total: 51,
+			})
+			.mockResolvedValueOnce({
+				items: Array.from({ length: 21 }, (_, index) => ({
+					color: "#334455",
+					created_at: "2026-06-15T00:00:00Z",
+					id: index + 31,
+					name: `Tag ${index + 31}`,
+					sort_order: index + 31,
+					updated_at: "2026-06-15T00:00:00Z",
+				})),
+				limit: 30,
+				next_cursor: null,
+				total: 51,
+			});
 		const { yggdrasilService } = await import("./yggdrasilService");
 
 		const tags = await yggdrasilService.listTextureLibraryTags({ force: true });
 
 		expect(tags).toHaveLength(51);
-		expect(apiMock.get).toHaveBeenNthCalledWith(
-			1,
-			"/wardrobe/tags?limit=30&offset=0",
-		);
+		expect(apiMock.get).toHaveBeenNthCalledWith(1, "/wardrobe/tags?limit=30");
 		expect(apiMock.get).toHaveBeenNthCalledWith(
 			2,
-			"/wardrobe/tags?limit=30&offset=30",
+			"/wardrobe/tags?limit=30&after_sort_order=29&after_name=Tag+30&after_id=30",
 		);
 	});
 

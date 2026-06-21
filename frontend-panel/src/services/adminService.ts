@@ -108,7 +108,7 @@ export const adminConfigService = {
 		api.get<SystemConfigPage>(
 			withQuery("/admin/config", {
 				limit: params.limit,
-				offset: params.offset,
+				after_id: params.after_id,
 			}),
 		),
 	schema: () => api.get<ConfigSchemaItem[]>("/admin/config/schema"),
@@ -256,7 +256,9 @@ export const adminTextureLibraryService = {
 		api.get<AdminTextureLibraryTagPage>(
 			withQuery("/admin/texture-library/tags", {
 				limit: params.limit,
-				offset: params.offset,
+				after_sort_order: params.after_sort_order,
+				after_name: params.after_name,
+				after_id: params.after_id,
 			}),
 		),
 	createTag: (data: CreateMinecraftTextureTagRequest) =>
@@ -404,7 +406,8 @@ export const adminExternalAuthService = {
 		api.get<AdminExternalAuthProviderPage>(
 			withQuery("/admin/external-auth/providers", {
 				limit: params.limit,
-				offset: params.offset,
+				after_display_name: params.after_display_name,
+				after_id: params.after_id,
 			}),
 		),
 	get: (id: AdminExternalAuthProviderPath["id"]) =>
@@ -442,8 +445,10 @@ export const adminYggdrasilSessionForwardService = {
 		api.get<AdminYggdrasilSessionForwardServerPage>(
 			withQuery("/admin/yggdrasil/session-forward-servers", {
 				limit: params.limit,
-				offset: params.offset,
 				sort_by: params.sort_by,
+				after_id: params.after_id,
+				after_enabled: params.after_enabled,
+				after_priority: params.after_priority,
 			}),
 		),
 	get: (id: AdminYggdrasilSessionForwardServerPath["id"]) =>

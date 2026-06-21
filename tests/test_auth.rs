@@ -1534,7 +1534,7 @@ async fn auth_passkey_register_login_and_replay_protection() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["total"], 1);
     assert_eq!(body["data"]["limit"], 20);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["items"].as_array().unwrap().len(), 1);
     assert_eq!(body["data"]["items"][0]["name"], "Laptop");
 
@@ -1704,7 +1704,7 @@ async fn auth_sessions_mark_current_and_revoke_selected_session() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 50);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     let sessions = body["data"]["items"]
         .as_array()
         .expect("sessions response should be an array");
@@ -1778,7 +1778,7 @@ async fn auth_sessions_list_clamps_limit_and_uses_cursor() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert!(body["data"]["total"].as_u64().unwrap() >= 3);
 
     let req = test::TestRequest::get()
@@ -1918,7 +1918,7 @@ async fn passkeys_list_clamps_limit_and_uses_cursor() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 3);
     let items = body["data"]["items"].as_array().unwrap();
     assert_eq!(items.len(), 3);

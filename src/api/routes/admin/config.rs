@@ -1,15 +1,25 @@
 //! Administrator config API routes.
 
 use crate::api::dto::{ExecuteConfigActionReq, ExecuteConfigActionResp, SetConfigReq};
-use crate::api::pagination::LimitOffsetQuery;
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, IdCursor};
+use crate::api::pagination::{LimitQuery, parse_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::auth_service::AuthUserInfo;
 use crate::services::{audit_service, config_service};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct ConfigCursorQuery {
+    pub after_id: Option<i64>,
+}
 
 fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     req.extensions()
@@ -23,9 +33,9 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     path = "/api/v1/admin/config",
     tag = "admin",
     operation_id = "list_config",
-    params(LimitOffsetQuery),
+    params(LimitQuery, ConfigCursorQuery),
     responses(
-        (status = 200, description = "List config entries", body = inline(ApiResponse<OffsetPage<config_service::SystemConfig>>)),
+        (status = 200, description = "List config entries", body = inline(ApiResponse<CursorPage<config_service::SystemConfig, IdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -33,12 +43,17 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
 )]
 pub async fn list_config(
     state: web::Data<AppState>,
-    query: web::Query<LimitOffsetQuery>,
+    query: web::Query<LimitQuery>,
+    cursor: web::Query<ConfigCursorQuery>,
 ) -> Result<HttpResponse> {
     let limit = query.limit_or(50, 100);
-    let offset = query.offset();
-    tracing::debug!(limit, offset, "admin listing config entries");
-    let configs = config_service::list_paginated(state.get_ref(), limit, offset).await?;
+    let after_id = parse_id_cursor(cursor.after_id, "config")?;
+    tracing::debug!(
+        limit,
+        has_cursor = after_id.is_some(),
+        "admin listing config entries"
+    );
+    let configs = config_service::list_cursor(state.get_ref(), limit, after_id).await?;
     tracing::debug!(
         count = configs.items.len(),
         total = configs.total,

@@ -283,6 +283,9 @@ describe("PublicTextureLibraryPage", () => {
 			expect(
 				yggdrasilServiceMock.listPublicTextureLibraryTags,
 			).toHaveBeenCalledWith({
+				after_id: undefined,
+				after_name: undefined,
+				after_sort_order: undefined,
 				limit: 30,
 				keyword: undefined,
 			});

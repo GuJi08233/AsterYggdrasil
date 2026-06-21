@@ -328,7 +328,7 @@ async fn account_audit_logs_clamp_limit_and_apply_offset() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 105);
     assert_eq!(
         body["data"]["items"].as_array().unwrap().len(),
@@ -350,7 +350,7 @@ async fn account_audit_logs_clamp_limit_and_apply_offset() {
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 105);
     assert_eq!(
         body["data"]["items"].as_array().unwrap().len(),
@@ -712,7 +712,7 @@ async fn admin_can_list_filter_and_page_audit_logs() {
         .expect("audit log items should be an array");
     assert!(body["data"]["total"].as_u64().unwrap() >= 3);
     assert_eq!(body["data"]["limit"], 50);
-    assert_eq!(body["data"]["offset"], 0);
+    assert!(body["data"].get("offset").is_none());
 
     let setup = find_action(items, "system_setup");
     assert_eq!(setup["entity_type"], "user");

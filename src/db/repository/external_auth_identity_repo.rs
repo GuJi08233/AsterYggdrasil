@@ -7,6 +7,7 @@ use sea_orm::{
     sea_query::Expr,
 };
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::external_auth_identity::{self, Entity as ExternalAuthIdentity};
 use crate::errors::{AsterError, Result};
 
@@ -33,19 +34,12 @@ pub async fn list_for_user(
         .map_err(AsterError::from)
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalAuthIdentityCursorSlice {
-    pub items: Vec<external_auth_identity::Model>,
-    pub total: u64,
-    pub has_more: bool,
-}
-
 pub async fn list_for_user_cursor(
     db: &DatabaseConnection,
     user_id: i64,
     limit: u64,
     after: Option<(chrono::DateTime<Utc>, i64)>,
-) -> Result<ExternalAuthIdentityCursorSlice> {
+) -> Result<CursorSlice<external_auth_identity::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query =
         ExternalAuthIdentity::find().filter(external_auth_identity::Column::UserId.eq(user_id));
@@ -61,24 +55,20 @@ pub async fn list_for_user_cursor(
                 ),
         );
     }
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(external_auth_identity::Column::CreatedAt)
         .order_by_desc(external_auth_identity::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_err(AsterError::from)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "external auth link page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(ExternalAuthIdentityCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "external auth link page size",
+        "external auth link cursor limit",
+    )
 }
 
 pub async fn find_by_provider_subject<C: ConnectionTrait>(

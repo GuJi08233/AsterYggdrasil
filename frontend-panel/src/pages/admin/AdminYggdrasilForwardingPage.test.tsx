@@ -89,7 +89,7 @@ function serverPage(items: AdminYggdrasilSessionForwardServerInfo[]) {
 	return {
 		items,
 		limit: 20,
-		offset: 0,
+		next_cursor: null,
 		total: items.length,
 	};
 }
@@ -179,8 +179,10 @@ describe("AdminYggdrasilForwardingPage", () => {
 		await renderPage();
 
 		expect(adminYggdrasilSessionForwardServiceMock.list).toHaveBeenCalledWith({
+			after_enabled: undefined,
+			after_id: undefined,
+			after_priority: undefined,
 			limit: 20,
-			offset: 0,
 			sort_by: "call_order",
 		});
 		expect(
@@ -223,8 +225,10 @@ describe("AdminYggdrasilForwardingPage", () => {
 		await renderPage("/admin/yggdrasil-forwarding?sort_by=id");
 
 		expect(adminYggdrasilSessionForwardServiceMock.list).toHaveBeenCalledWith({
+			after_enabled: undefined,
+			after_id: undefined,
+			after_priority: undefined,
 			limit: 20,
-			offset: 0,
 			sort_by: "id",
 		});
 		expect(

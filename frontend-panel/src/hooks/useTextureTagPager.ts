@@ -4,13 +4,22 @@ import type { MinecraftTextureTagInfo } from "@/types/api";
 
 type TextureTagPage = {
 	items: MinecraftTextureTagInfo[];
+	next_cursor?: TextureTagCursor | null;
 	total: number;
 };
 
+type TextureTagCursor = {
+	id: number;
+	name: string;
+	sort_order: number;
+};
+
 type TextureTagPageLoader = (params: {
+	after_id?: number;
+	after_name?: string;
+	after_sort_order?: number;
 	keyword?: string;
 	limit: number;
-	offset: number;
 }) => Promise<TextureTagPage>;
 
 export function useTextureTagPager({
@@ -23,15 +32,14 @@ export function useTextureTagPager({
 	retainedTagIds: number[];
 }) {
 	const [tags, setTags] = useState<MinecraftTextureTagInfo[]>([]);
-	const [total, setTotal] = useState(0);
-	const [offset, setOffset] = useState(0);
+	const [nextCursor, setNextCursor] = useState<TextureTagCursor | null>(null);
 	const [keyword, setKeyword] = useState("");
 	const [loading, setLoading] = useState(false);
 	const loadPageRef = useRef(loadPage);
 	const onErrorRef = useRef(onError);
 	const retainedTagIdsRef = useRef(retainedTagIds);
 	const ensuredKeywordRef = useRef<string | null>(null);
-	const hasMore = offset < total;
+	const hasMore = nextCursor !== null;
 
 	useEffect(() => {
 		loadPageRef.current = loadPage;
@@ -47,19 +55,25 @@ export function useTextureTagPager({
 
 	const load = useCallback(
 		async (
-			params: { keyword?: string; offset?: number; append?: boolean } = {},
+			params: {
+				append?: boolean;
+				cursor?: TextureTagCursor | null;
+				keyword?: string;
+			} = {},
 		) => {
 			const nextKeyword = params.keyword ?? keyword;
-			const nextOffset = params.offset ?? 0;
-			if (!params.append && nextOffset === 0) {
+			const cursor = params.cursor ?? null;
+			if (!params.append && cursor === null) {
 				ensuredKeywordRef.current = nextKeyword;
 			}
 			setLoading(true);
 			try {
 				const page = await loadPageRef.current({
 					limit: TEXTURE_TAG_PAGE_SIZE,
-					offset: nextOffset,
 					keyword: nextKeyword || undefined,
+					after_sort_order: cursor?.sort_order,
+					after_name: cursor?.name,
+					after_id: cursor?.id,
 				});
 				setTags((current) => {
 					if (params.append) {
@@ -71,8 +85,7 @@ export function useTextureTagPager({
 					);
 					return mergeTextureTags(retained, page.items);
 				});
-				setTotal(page.total);
-				setOffset(nextOffset + page.items.length);
+				setNextCursor(page.next_cursor ?? null);
 			} catch (error) {
 				onErrorRef.current(error);
 			} finally {
@@ -86,23 +99,23 @@ export function useTextureTagPager({
 		if (tags.length > 0 || loading || ensuredKeywordRef.current === keyword) {
 			return;
 		}
-		void load({ keyword, offset: 0 });
+		void load({ keyword });
 	}, [keyword, load, loading, tags.length]);
 
 	const search = useCallback(
 		(nextKeyword: string) => {
 			if (nextKeyword === keyword) return;
 			setKeyword(nextKeyword);
-			setOffset(0);
-			void load({ keyword: nextKeyword, offset: 0 });
+			setNextCursor(null);
+			void load({ keyword: nextKeyword });
 		},
 		[keyword, load],
 	);
 
 	const loadMore = useCallback(() => {
 		if (loading || !hasMore) return;
-		void load({ keyword, offset, append: true });
-	}, [hasMore, keyword, load, loading, offset]);
+		void load({ keyword, cursor: nextCursor, append: true });
+	}, [hasMore, keyword, load, loading, nextCursor]);
 
 	const addTags = useCallback((nextTags: MinecraftTextureTagInfo[]) => {
 		setTags((current) => mergeTextureTags(current, nextTags));

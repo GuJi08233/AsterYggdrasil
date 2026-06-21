@@ -1,5 +1,6 @@
 //! Repository helpers for passkey credentials.
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::passkey::{self, Entity as Passkey};
 use crate::errors::{AsterError, Result};
 use crate::types::StoredPasskeyCredential;
@@ -19,19 +20,12 @@ pub async fn list_for_user(db: &DatabaseConnection, user_id: i64) -> Result<Vec<
         .map_err(AsterError::from)
 }
 
-#[derive(Debug, Clone)]
-pub struct PasskeyCursorSlice {
-    pub items: Vec<passkey::Model>,
-    pub total: u64,
-    pub has_more: bool,
-}
-
 pub async fn list_for_user_cursor(
     db: &DatabaseConnection,
     user_id: i64,
     limit: u64,
     after: Option<(chrono::DateTime<Utc>, i64)>,
-) -> Result<PasskeyCursorSlice> {
+) -> Result<CursorSlice<passkey::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = Passkey::find().filter(passkey::Column::UserId.eq(user_id));
     let total = query.clone().count(db).await.map_err(AsterError::from)?;
@@ -46,23 +40,20 @@ pub async fn list_for_user_cursor(
                 ),
         );
     }
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(passkey::Column::CreatedAt)
         .order_by_desc(passkey::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_err(AsterError::from)?;
-    let has_more = crate::utils::numbers::usize_to_u64(items.len(), "passkey page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(PasskeyCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "passkey page size",
+        "passkey cursor limit",
+    )
 }
 
 pub async fn find_by_id_for_user(

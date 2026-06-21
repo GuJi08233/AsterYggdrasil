@@ -1,6 +1,6 @@
 //! Minecraft texture asset repository.
 
-use crate::api::pagination::{OffsetPage, load_offset_page};
+use crate::api::pagination::CursorSlice;
 use crate::entities::minecraft_texture::{self, Entity as MinecraftTexture};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{
@@ -62,13 +62,6 @@ pub struct UpdateTextureLibraryReview {
     pub library_reviewed_at: Option<Option<DateTime<Utc>>>,
     pub library_reviewer_user_id: Option<Option<i64>>,
     pub library_review_note: Option<Option<String>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CursorSlice<T> {
-    pub items: Vec<T>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -187,33 +180,6 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-pub async fn list_by_user_paginated<C: ConnectionTrait>(
-    db: &C,
-    user_id: i64,
-    limit: u64,
-    offset: u64,
-    filter: WardrobeTextureListFilter,
-) -> Result<OffsetPage<minecraft_texture::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = current_user_wardrobe_query(user_id, filter)
-            .order_by_desc(minecraft_texture::Column::UpdatedAt)
-            .order_by_desc(minecraft_texture::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
-    })
-    .await
-}
-
 pub async fn list_by_user_cursor<C: ConnectionTrait>(
     db: &C,
     user_id: i64,
@@ -225,32 +191,6 @@ pub async fn list_by_user_cursor<C: ConnectionTrait>(
     fetch_updated_at_cursor_slice(db, base, limit, after).await
 }
 
-pub async fn list_public_wardrobe_paginated<C: ConnectionTrait>(
-    db: &C,
-    limit: u64,
-    offset: u64,
-    filter: WardrobeTextureListFilter,
-) -> Result<OffsetPage<minecraft_texture::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = public_wardrobe_query(filter)
-            .order_by_desc(minecraft_texture::Column::UpdatedAt)
-            .order_by_desc(minecraft_texture::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
-    })
-    .await
-}
-
 pub async fn list_public_wardrobe_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
@@ -259,32 +199,6 @@ pub async fn list_public_wardrobe_cursor<C: ConnectionTrait>(
 ) -> Result<CursorSlice<minecraft_texture::Model>> {
     let base = public_wardrobe_query(filter);
     fetch_updated_at_cursor_slice(db, base, limit, after).await
-}
-
-pub async fn list_admin_library_textures_paginated<C: ConnectionTrait>(
-    db: &C,
-    limit: u64,
-    offset: u64,
-    filter: AdminTextureLibraryListFilter,
-) -> Result<OffsetPage<minecraft_texture::Model>> {
-    load_offset_page(limit, offset, 100, |limit, offset| async move {
-        let query = admin_library_query(filter)
-            .order_by_desc(minecraft_texture::Column::UpdatedAt)
-            .order_by_desc(minecraft_texture::Column::Id);
-        let total = query
-            .clone()
-            .count(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        let items = query
-            .limit(limit)
-            .offset(offset)
-            .all(db)
-            .await
-            .map_aster_err(AsterError::database_operation)?;
-        Ok((items, total))
-    })
-    .await
 }
 
 pub async fn list_admin_library_textures_cursor<C: ConnectionTrait>(
@@ -412,11 +326,7 @@ async fn fetch_updated_at_cursor_slice<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)?;
 
     if total == 0 || limit == 0 {
-        return Ok(CursorSlice {
-            items: Vec::new(),
-            total,
-            has_more: false,
-        });
+        return Ok(CursorSlice::empty(total));
     }
 
     let mut query = base;
@@ -432,27 +342,20 @@ async fn fetch_updated_at_cursor_slice<C: ConnectionTrait>(
         );
     }
 
-    let mut items = query
+    let items = query
         .order_by_desc(minecraft_texture::Column::UpdatedAt)
         .order_by_desc(minecraft_texture::Column::Id)
         .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "texture cursor page size")? > limit;
-    if has_more {
-        items.truncate(crate::utils::numbers::u64_to_usize(
-            limit,
-            "texture cursor limit",
-        )?);
-    }
-
-    Ok(CursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "texture cursor page size",
+        "texture cursor limit",
+    )
 }
 
 fn apply_tag_filter(

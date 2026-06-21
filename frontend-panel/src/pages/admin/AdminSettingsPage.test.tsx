@@ -259,7 +259,7 @@ function mockSettingsLoad({
 	vi.mocked(adminConfigService.list).mockResolvedValue({
 		items,
 		limit: 100,
-		offset: 0,
+		next_cursor: null,
 		total: items.length,
 	});
 	vi.mocked(adminConfigService.schema).mockResolvedValue(nextSchema);
@@ -540,7 +540,7 @@ describe("AdminSettingsPage", () => {
 			.mockResolvedValueOnce({
 				items: [config],
 				limit: 100,
-				offset: 0,
+				next_cursor: { id: config.id },
 				total: 3,
 			})
 			.mockResolvedValueOnce({
@@ -549,7 +549,7 @@ describe("AdminSettingsPage", () => {
 					textureLibraryReviewRequiredConfig,
 				],
 				limit: 100,
-				offset: 1,
+				next_cursor: null,
 				total: 3,
 			});
 		vi.mocked(adminConfigService.schema).mockResolvedValue([
@@ -567,12 +567,12 @@ describe("AdminSettingsPage", () => {
 		fireEvent.click(textureCategory);
 
 		expect(adminConfigService.list).toHaveBeenNthCalledWith(1, {
+			after_id: undefined,
 			limit: 100,
-			offset: 0,
 		});
 		expect(adminConfigService.list).toHaveBeenNthCalledWith(2, {
+			after_id: config.id,
 			limit: 100,
-			offset: 1,
 		});
 		expect(
 			await screen.findByRole("heading", { name: "Texture Library" }),
@@ -842,13 +842,13 @@ describe("AdminSettingsPage", () => {
 			.mockResolvedValueOnce({
 				items: [yggdrasilConfig],
 				limit: 100,
-				offset: 0,
+				next_cursor: null,
 				total: 1,
 			})
 			.mockResolvedValueOnce({
 				items: [yggdrasilConfig],
 				limit: 100,
-				offset: 0,
+				next_cursor: null,
 				total: 1,
 			});
 		vi.mocked(adminConfigService.schema).mockResolvedValue([]);

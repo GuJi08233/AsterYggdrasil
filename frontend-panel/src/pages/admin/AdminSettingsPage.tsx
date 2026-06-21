@@ -144,17 +144,17 @@ function draftsFromConfigs(configs: SystemConfig[]) {
 
 async function loadAllConfigs() {
 	const items: SystemConfig[] = [];
-	let offset = 0;
+	let cursor: SystemConfigPage["next_cursor"] | undefined;
 	let latestPage: SystemConfigPage | null = null;
 
 	do {
 		latestPage = await adminConfigService.list({
 			limit: CONFIG_PAGE_SIZE,
-			offset,
+			after_id: cursor?.id,
 		});
 		items.push(...latestPage.items);
-		offset += latestPage.items.length;
-	} while (latestPage.items.length > 0 && offset < latestPage.total);
+		cursor = latestPage.next_cursor;
+	} while (cursor);
 
 	return items;
 }

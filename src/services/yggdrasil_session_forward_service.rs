@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, EnabledPriorityIdCursor, IdCursor};
 use crate::db::repository::yggdrasil_session_forward_server_repo;
 use crate::entities::yggdrasil_session_forward_server;
 use crate::errors::{AsterError, Result};
@@ -100,26 +100,65 @@ pub async fn ensure_builtin_servers(db: &sea_orm::DatabaseConnection) -> Result<
 pub async fn list_servers<S>(
     state: &S,
     limit: u64,
-    offset: u64,
+    after_id: Option<i64>,
+    after_call_order: Option<(bool, i32, i64)>,
     sort_by: YggdrasilSessionForwardServerSortBy,
-) -> Result<OffsetPage<AdminYggdrasilSessionForwardServerInfo>>
+) -> Result<CursorPage<AdminYggdrasilSessionForwardServerInfo, SessionForwardServerCursor>>
 where
     S: DatabaseRuntimeState,
 {
     let limit = limit.clamp(1, 100);
-    let (servers, total) = yggdrasil_session_forward_server_repo::find_paginated(
+    let repo_cursor = match sort_by {
+        YggdrasilSessionForwardServerSortBy::CallOrder => {
+            after_call_order.map(|(enabled, priority, id)| {
+                yggdrasil_session_forward_server_repo::SessionForwardServerCursor::CallOrder {
+                    enabled,
+                    priority,
+                    id,
+                }
+            })
+        }
+        YggdrasilSessionForwardServerSortBy::Id => {
+            after_id.map(yggdrasil_session_forward_server_repo::SessionForwardServerCursor::Id)
+        }
+    };
+    let page = yggdrasil_session_forward_server_repo::find_cursor(
         state.reader_db(),
         limit,
-        offset,
+        repo_cursor,
         sort_by,
     )
     .await?;
-    Ok(OffsetPage::new(
-        servers.into_iter().map(server_to_admin).collect(),
-        total,
+    let next_cursor = if page.has_more {
+        page.items.last().map(|server| match sort_by {
+            YggdrasilSessionForwardServerSortBy::CallOrder => {
+                SessionForwardServerCursor::CallOrder(EnabledPriorityIdCursor {
+                    enabled: server.enabled,
+                    priority: server.priority,
+                    id: server.id,
+                })
+            }
+            YggdrasilSessionForwardServerSortBy::Id => {
+                SessionForwardServerCursor::Id(IdCursor { id: server.id })
+            }
+        })
+    } else {
+        None
+    };
+    Ok(CursorPage::new(
+        page.items.into_iter().map(server_to_admin).collect(),
+        page.total,
         limit,
-        offset,
+        next_cursor,
     ))
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum SessionForwardServerCursor {
+    CallOrder(EnabledPriorityIdCursor),
+    Id(IdCursor),
 }
 
 pub async fn get_server<S>(state: &S, id: i64) -> Result<AdminYggdrasilSessionForwardServerInfo>

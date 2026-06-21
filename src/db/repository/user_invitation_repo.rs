@@ -1,5 +1,6 @@
 //! User invitation repository.
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::user_invitation::{self, Entity as UserInvitation};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::UserInvitationStatus;
@@ -51,17 +52,10 @@ pub async fn find_pending_by_email<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-#[derive(Debug, Clone)]
-pub struct UserInvitationCursorSlice {
-    pub items: Vec<user_invitation::Model>,
-    pub total: u64,
-    pub has_more: bool,
-}
-
 pub async fn list_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-) -> Result<UserInvitationCursorSlice> {
+) -> Result<CursorSlice<user_invitation::Model>> {
     list_cursor_after(db, limit, None).await
 }
 
@@ -69,7 +63,7 @@ pub async fn list_cursor_after<C: ConnectionTrait>(
     db: &C,
     limit: u64,
     after: Option<(chrono::DateTime<chrono::Utc>, i64)>,
-) -> Result<UserInvitationCursorSlice> {
+) -> Result<CursorSlice<user_invitation::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = UserInvitation::find();
     let total = query
@@ -88,24 +82,20 @@ pub async fn list_cursor_after<C: ConnectionTrait>(
                 ),
         );
     }
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(user_invitation::Column::CreatedAt)
         .order_by_desc(user_invitation::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "user invitation page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(UserInvitationCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "user invitation page size",
+        "user invitation cursor limit",
+    )
 }
 
 pub async fn mark_revoked_if_pending<C: ConnectionTrait>(db: &C, id: i64) -> Result<bool> {

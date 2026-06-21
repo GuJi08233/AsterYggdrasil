@@ -2672,6 +2672,49 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        CursorPage_AdminExternalAuthProviderInfo_StringIdCursor: {
+            items: {
+                allowed_domains: string[];
+                authorization_url?: string | null;
+                auto_link_verified_email_enabled: boolean;
+                auto_provision_enabled: boolean;
+                avatar_url_claim?: string | null;
+                client_id: string;
+                client_secret?: string | null;
+                client_secret_configured: boolean;
+                created_at: string;
+                display_name: string;
+                display_name_claim?: string | null;
+                email_claim?: string | null;
+                email_verified_claim?: string | null;
+                enabled: boolean;
+                groups_claim?: string | null;
+                icon_url?: string | null;
+                /** Format: int64 */
+                id: number;
+                issuer_url?: string | null;
+                key: string;
+                options: components["schemas"]["ExternalAuthProviderOptions"];
+                protocol: components["schemas"]["ExternalAuthProtocol"];
+                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
+                require_email_verified: boolean;
+                scopes: string;
+                subject_claim?: string | null;
+                token_url?: string | null;
+                updated_at: string;
+                userinfo_url?: string | null;
+                username_claim?: string | null;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            total: number;
+        };
         CursorPage_AdminUserInfo_DateTimeIdCursor: {
             items: {
                 /** Format: int64 */
@@ -2732,6 +2775,47 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        CursorPage_AdminYggdrasilSessionForwardServerInfo_SessionForwardServerCursor: {
+            items: {
+                base_url?: string | null;
+                builtin: boolean;
+                /** Format: date-time */
+                created_at: string;
+                deletable: boolean;
+                display_name: string;
+                enabled: boolean;
+                endpoint_kind: components["schemas"]["YggdrasilSessionForwardEndpointKind"];
+                /** Format: int64 */
+                id: number;
+                /** Format: date-time */
+                last_checked_at?: string | null;
+                /** Format: date-time */
+                last_failure_at?: string | null;
+                last_failure_message?: string | null;
+                /** Format: date-time */
+                last_success_at?: string | null;
+                local: boolean;
+                /** Format: int32 */
+                priority: number;
+                provider_kind: components["schemas"]["YggdrasilSessionForwardProviderKind"];
+                texture_forward_enabled: boolean;
+                /** Format: int32 */
+                timeout_ms: number;
+                /** Format: date-time */
+                updated_at: string;
+                /** Format: int32 */
+                weight: number;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                call_order: components["schemas"]["EnabledPriorityIdCursor"];
+            } | {
+                id: components["schemas"]["IdCursor"];
+            };
+            /** Format: int64 */
+            total: number;
+        };
         CursorPage_AuthSessionInfo_DateTimeStringCursor: {
             items: {
                 created_at: string;
@@ -2780,6 +2864,23 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        CursorPage_ExternalAuthPublicProvider_StringIdCursor: {
+            items: {
+                display_name: string;
+                icon_url?: string | null;
+                key: string;
+                kind: components["schemas"]["ExternalAuthProviderKind"];
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                value: string;
+            };
+            /** Format: int64 */
+            total: number;
+        };
         CursorPage_MinecraftProfileInfo_IdCursor: {
             items: {
                 created_at: string;
@@ -2798,6 +2899,29 @@ export interface components {
             next_cursor?: {
                 /** Format: int64 */
                 id: number;
+            };
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_MinecraftTextureTagInfo_SortOrderNameIdCursor: {
+            items: {
+                color: string;
+                created_at: string;
+                /** Format: int64 */
+                id: number;
+                name: string;
+                /** Format: int32 */
+                sort_order: number;
+                updated_at: string;
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
+                name: string;
+                /** Format: int32 */
+                sort_order: number;
             };
             /** Format: int64 */
             total: number;
@@ -2897,6 +3021,33 @@ export interface components {
                 /** Format: int64 */
                 id: number;
                 value: string;
+            };
+            /** Format: int64 */
+            total: number;
+        };
+        CursorPage_SystemConfig_IdCursor: {
+            items: {
+                category: string;
+                description: string;
+                /** Format: int64 */
+                id: number;
+                is_sensitive: boolean;
+                key: string;
+                namespace: string;
+                requires_restart: boolean;
+                source: components["schemas"]["SystemConfigSource"];
+                updated_at: string;
+                /** Format: int64 */
+                updated_by?: number | null;
+                value: components["schemas"]["SystemConfigValue"];
+                value_type: components["schemas"]["SystemConfigValueType"];
+                visibility: components["schemas"]["SystemConfigVisibility"];
+            }[];
+            /** Format: int64 */
+            limit: number;
+            next_cursor?: {
+                /** Format: int64 */
+                id: number;
             };
             /** Format: int64 */
             total: number;
@@ -3040,6 +3191,13 @@ export interface components {
             revoked_yggdrasil_token_count: number;
             user: components["schemas"]["AdminUserInfo"];
         };
+        EnabledPriorityIdCursor: {
+            enabled: boolean;
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            priority: number;
+        };
         ExecuteConfigActionReq: {
             action: components["schemas"]["ConfigActionType"];
             values?: {
@@ -3139,12 +3297,6 @@ export interface components {
         IdCursor: {
             /** Format: int64 */
             id: number;
-        };
-        LimitOffsetQuery: {
-            /** Format: int64 */
-            limit?: number | null;
-            /** Format: int64 */
-            offset?: number | null;
         };
         LimitQuery: {
             /** Format: int64 */
@@ -3437,224 +3589,6 @@ export interface components {
             to_name?: string | null;
             updated_at: string;
         };
-        OffsetPage_AdminExternalAuthProviderInfo: {
-            items: {
-                allowed_domains: string[];
-                authorization_url?: string | null;
-                auto_link_verified_email_enabled: boolean;
-                auto_provision_enabled: boolean;
-                avatar_url_claim?: string | null;
-                client_id: string;
-                client_secret?: string | null;
-                client_secret_configured: boolean;
-                created_at: string;
-                display_name: string;
-                display_name_claim?: string | null;
-                email_claim?: string | null;
-                email_verified_claim?: string | null;
-                enabled: boolean;
-                groups_claim?: string | null;
-                icon_url?: string | null;
-                /** Format: int64 */
-                id: number;
-                issuer_url?: string | null;
-                key: string;
-                options: components["schemas"]["ExternalAuthProviderOptions"];
-                protocol: components["schemas"]["ExternalAuthProtocol"];
-                provider_kind: components["schemas"]["ExternalAuthProviderKind"];
-                require_email_verified: boolean;
-                scopes: string;
-                subject_claim?: string | null;
-                token_url?: string | null;
-                updated_at: string;
-                userinfo_url?: string | null;
-                username_claim?: string | null;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_AdminUserInfo: {
-            items: {
-                /** Format: int64 */
-                active_session_count: number;
-                created_at: string;
-                email: string;
-                email_verified_at?: string | null;
-                /** Format: int64 */
-                id: number;
-                must_change_password: boolean;
-                operator_scopes: components["schemas"]["OperatorScope"][];
-                pending_email?: string | null;
-                profile: components["schemas"]["UserProfileInfo"];
-                /** Format: int64 */
-                profile_count: number;
-                role: components["schemas"]["UserRole"];
-                /** Format: int64 */
-                session_version: number;
-                status: components["schemas"]["UserStatus"];
-                updated_at: string;
-                username: string;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_AdminYggdrasilSessionForwardServerInfo: {
-            items: {
-                base_url?: string | null;
-                builtin: boolean;
-                /** Format: date-time */
-                created_at: string;
-                deletable: boolean;
-                display_name: string;
-                enabled: boolean;
-                endpoint_kind: components["schemas"]["YggdrasilSessionForwardEndpointKind"];
-                /** Format: int64 */
-                id: number;
-                /** Format: date-time */
-                last_checked_at?: string | null;
-                /** Format: date-time */
-                last_failure_at?: string | null;
-                last_failure_message?: string | null;
-                /** Format: date-time */
-                last_success_at?: string | null;
-                local: boolean;
-                /** Format: int32 */
-                priority: number;
-                provider_kind: components["schemas"]["YggdrasilSessionForwardProviderKind"];
-                texture_forward_enabled: boolean;
-                /** Format: int32 */
-                timeout_ms: number;
-                /** Format: date-time */
-                updated_at: string;
-                /** Format: int32 */
-                weight: number;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_AuditLogEntry: {
-            items: {
-                action: components["schemas"]["AuditAction"];
-                created_at: string;
-                details?: string | null;
-                /** Format: int64 */
-                entity_id?: number | null;
-                entity_name?: string | null;
-                entity_type: components["schemas"]["AuditEntityType"];
-                /** Format: int64 */
-                id: number;
-                ip_address?: string | null;
-                presentation?: null | components["schemas"]["AuditPresentation"];
-                user?: null | components["schemas"]["AuditUserSummary"];
-                user_agent?: string | null;
-                /** Format: int64 */
-                user_id: number;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_ExternalAuthPublicProvider: {
-            items: {
-                display_name: string;
-                icon_url?: string | null;
-                key: string;
-                kind: components["schemas"]["ExternalAuthProviderKind"];
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_MinecraftWardrobeTextureMetadata: {
-            items: {
-                created_at: string;
-                display_name?: string | null;
-                /** Format: int64 */
-                file_size: number;
-                hash: string;
-                /** Format: int32 */
-                height: number;
-                /** Format: int64 */
-                id: number;
-                library_review_note?: string | null;
-                library_reviewed_at: string;
-                library_status: components["schemas"]["MinecraftTextureLibraryStatus"];
-                library_submitted_at: string;
-                mime_type: string;
-                name: string;
-                preview_url?: string | null;
-                tags: components["schemas"]["MinecraftTextureTagInfo"][];
-                texture_model: components["schemas"]["MinecraftTextureModel"];
-                texture_type: components["schemas"]["MinecraftTextureType"];
-                updated_at: string;
-                url: string;
-                visibility: components["schemas"]["MinecraftTextureVisibility"];
-                /** Format: int32 */
-                width: number;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_SystemConfig: {
-            items: {
-                category: string;
-                description: string;
-                /** Format: int64 */
-                id: number;
-                is_sensitive: boolean;
-                key: string;
-                namespace: string;
-                requires_restart: boolean;
-                source: components["schemas"]["SystemConfigSource"];
-                updated_at: string;
-                /** Format: int64 */
-                updated_by?: number | null;
-                value: components["schemas"]["SystemConfigValue"];
-                value_type: components["schemas"]["SystemConfigValueType"];
-                visibility: components["schemas"]["SystemConfigVisibility"];
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
-        OffsetPage_YggdrasilProfile: {
-            items: {
-                id: string;
-                name: string;
-                properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-            }[];
-            /** Format: int64 */
-            limit: number;
-            /** Format: int64 */
-            offset: number;
-            /** Format: int64 */
-            total: number;
-        };
         /** @enum {string} */
         OperatorScope: "overview" | "users" | "profiles" | "texture_library" | "audit" | "tasks" | "settings" | "external_auth";
         PasskeyInfo: {
@@ -3865,9 +3799,21 @@ export interface components {
         };
         /** @enum {string} */
         SortOrder: "asc" | "desc";
+        SortOrderNameIdCursor: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int32 */
+            sort_order: number;
+        };
         StartExternalAuthReq: {
             redirect_uri?: string | null;
             return_path?: string | null;
+        };
+        StringIdCursor: {
+            /** Format: int64 */
+            id: number;
+            value: string;
         };
         SystemConfig: {
             category: string;
@@ -4580,7 +4526,7 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -4616,8 +4562,10 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -5025,7 +4973,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_display_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -5076,8 +5025,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -6550,7 +6502,9 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_sort_order?: number | null;
+                after_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -6579,8 +6533,13 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                name: string;
+                                /** Format: int32 */
+                                sort_order: number;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -8371,8 +8330,12 @@ export interface operations {
             query?: {
                 /** @description Maximum number of forwarding servers to return */
                 limit?: number;
-                /** @description Offset of the first forwarding server */
-                offset?: number;
+                /** @description Cursor server ID */
+                after_id?: number;
+                /** @description Call-order cursor enabled value */
+                after_enabled?: boolean;
+                /** @description Call-order cursor priority value */
+                after_priority?: number;
                 /** @description Forwarding server list sort mode */
                 sort_by?: components["schemas"]["YggdrasilSessionForwardServerSortBy"];
             };
@@ -8423,8 +8386,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                call_order: components["schemas"]["EnabledPriorityIdCursor"];
+                            } | {
+                                id: components["schemas"]["IdCursor"];
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -9172,7 +9138,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_display_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -9197,8 +9164,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -9213,7 +9183,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
+                after_display_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path: {
@@ -9241,8 +9212,11 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                value: string;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -10944,8 +10918,10 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
+                after_sort_order?: number | null;
+                after_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -10974,8 +10950,13 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                name: string;
+                                /** Format: int32 */
+                                sort_order: number;
+                            };
                             /** Format: int64 */
                             total: number;
                         };
@@ -11306,8 +11287,10 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number | null;
-                offset?: number | null;
                 keyword?: string | null;
+                after_sort_order?: number | null;
+                after_name?: string | null;
+                after_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -11336,8 +11319,13 @@ export interface operations {
                             }[];
                             /** Format: int64 */
                             limit: number;
-                            /** Format: int64 */
-                            offset: number;
+                            next_cursor?: {
+                                /** Format: int64 */
+                                id: number;
+                                name: string;
+                                /** Format: int32 */
+                                sort_order: number;
+                            };
                             /** Format: int64 */
                             total: number;
                         };

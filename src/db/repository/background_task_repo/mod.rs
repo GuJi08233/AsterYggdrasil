@@ -17,7 +17,7 @@ pub use mutation::{
     release_processing, reset_for_manual_retry, set_display_name, set_runtime_json,
 };
 pub use query::{
-    TaskCursorSlice, count_active_processing_by_kinds, count_pending_or_retry, count_processing,
-    find_by_id, find_cursor_filtered, find_latest_by_kind_and_display_name,
+    count_active_processing_by_kinds, count_pending_or_retry, count_processing, find_by_id,
+    find_cursor_filtered, find_latest_by_kind_and_display_name,
     find_latest_system_runtime_by_payload, list_recent,
 };

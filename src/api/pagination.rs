@@ -3,7 +3,6 @@
 use crate::errors::{AsterError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::future::Future;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::{IntoParams, ToSchema};
 
@@ -51,32 +50,6 @@ pub struct UpdatedAtCursorQuery {
     pub after_id: Option<i64>,
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize)]
-#[cfg_attr(
-    all(debug_assertions, feature = "openapi"),
-    derive(IntoParams, ToSchema)
-)]
-pub struct LimitOffsetQuery {
-    pub limit: Option<u64>,
-    pub offset: Option<u64>,
-}
-
-impl LimitOffsetQuery {
-    pub fn limit_or(&self, default: u64, max: u64) -> u64 {
-        self.limit
-            .map(|value| value.clamp(1, max))
-            .unwrap_or(default)
-    }
-
-    pub fn limit(&self) -> u64 {
-        self.limit_or(DEFAULT_PAGE_LIMIT, MAX_PAGE_SIZE)
-    }
-
-    pub fn offset(&self) -> u64 {
-        self.offset.unwrap_or(0)
-    }
-}
-
 #[cfg(all(debug_assertions, feature = "openapi"))]
 #[doc(hidden)]
 pub trait ApiSchema: ToSchema {}
@@ -90,26 +63,6 @@ pub trait ApiSchema {}
 
 #[cfg(not(all(debug_assertions, feature = "openapi")))]
 impl<T> ApiSchema for T {}
-
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
-pub struct OffsetPage<T: Serialize + ApiSchema> {
-    pub items: Vec<T>,
-    pub total: u64,
-    pub limit: u64,
-    pub offset: u64,
-}
-
-impl<T: Serialize + ApiSchema> OffsetPage<T> {
-    pub fn new(items: Vec<T>, total: u64, limit: u64, offset: u64) -> Self {
-        Self {
-            items,
-            total,
-            limit,
-            offset,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -134,6 +87,29 @@ impl<T: Serialize + ApiSchema, C: Serialize + ApiSchema> CursorPage<T, C> {
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct IdCursor {
+    pub id: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct StringIdCursor {
+    pub value: String,
+    pub id: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct SortOrderNameIdCursor {
+    pub sort_order: i32,
+    pub name: String,
+    pub id: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct EnabledPriorityIdCursor {
+    pub enabled: bool,
+    pub priority: i32,
     pub id: i64,
 }
 
@@ -197,20 +173,100 @@ pub fn parse_id_cursor(id: Option<i64>, value_name: &str) -> Result<Option<i64>>
     }
 }
 
-pub async fn load_offset_page<T, F, Fut>(
-    limit: u64,
-    offset: u64,
-    max_limit: u64,
-    fetch: F,
-) -> Result<OffsetPage<T>>
-where
-    T: Serialize + ApiSchema,
-    F: FnOnce(u64, u64) -> Fut,
-    Fut: Future<Output = Result<(Vec<T>, u64)>>,
-{
-    let limit = limit.clamp(1, max_limit);
-    let (items, total) = fetch(limit, offset).await?;
-    Ok(OffsetPage::new(items, total, limit, offset))
+pub fn parse_string_id_cursor(
+    value: Option<String>,
+    id: Option<i64>,
+    value_name: &str,
+) -> Result<Option<(String, i64)>> {
+    match (value, id) {
+        (None, None) => Ok(None),
+        (Some(value), Some(id)) if !value.trim().is_empty() && id > 0 => Ok(Some((value, id))),
+        (Some(_), Some(id)) if id <= 0 => Err(AsterError::validation_error(format!(
+            "{value_name} cursor id must be positive",
+        ))),
+        (Some(_), Some(_)) => Err(AsterError::validation_error(format!(
+            "{value_name} cursor value must not be empty",
+        ))),
+        _ => Err(AsterError::validation_error(format!(
+            "{value_name} cursor requires both value and id",
+        ))),
+    }
+}
+
+pub fn parse_sort_order_name_id_cursor(
+    sort_order: Option<i32>,
+    name: Option<String>,
+    id: Option<i64>,
+    value_name: &str,
+) -> Result<Option<(i32, String, i64)>> {
+    match (sort_order, name, id) {
+        (None, None, None) => Ok(None),
+        (Some(sort_order), Some(name), Some(id)) if !name.trim().is_empty() && id > 0 => {
+            Ok(Some((sort_order, name, id)))
+        }
+        (Some(_), Some(_), Some(id)) if id <= 0 => Err(AsterError::validation_error(format!(
+            "{value_name} cursor id must be positive",
+        ))),
+        (Some(_), Some(_), Some(_)) => Err(AsterError::validation_error(format!(
+            "{value_name} cursor name must not be empty",
+        ))),
+        _ => Err(AsterError::validation_error(format!(
+            "{value_name} cursor requires sort_order, name, and id",
+        ))),
+    }
+}
+
+pub fn parse_enabled_priority_id_cursor(
+    enabled: Option<bool>,
+    priority: Option<i32>,
+    id: Option<i64>,
+    value_name: &str,
+) -> Result<Option<(bool, i32, i64)>> {
+    match (enabled, priority, id) {
+        (None, None, None) => Ok(None),
+        (Some(enabled), Some(priority), Some(id)) if id > 0 => Ok(Some((enabled, priority, id))),
+        (Some(_), Some(_), Some(_)) => Err(AsterError::validation_error(format!(
+            "{value_name} cursor id must be positive",
+        ))),
+        _ => Err(AsterError::validation_error(format!(
+            "{value_name} cursor requires enabled, priority, and id",
+        ))),
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CursorSlice<T> {
+    pub items: Vec<T>,
+    pub total: u64,
+    pub has_more: bool,
+}
+
+impl<T> CursorSlice<T> {
+    pub fn empty(total: u64) -> Self {
+        Self {
+            items: Vec::new(),
+            total,
+            has_more: false,
+        }
+    }
+
+    pub fn from_overfetch(
+        mut items: Vec<T>,
+        total: u64,
+        limit: u64,
+        size_name: &'static str,
+        limit_name: &'static str,
+    ) -> Result<Self> {
+        let has_more = crate::utils::numbers::usize_to_u64(items.len(), size_name)? > limit;
+        if has_more {
+            items.truncate(crate::utils::numbers::u64_to_usize(limit, limit_name)?);
+        }
+        Ok(Self {
+            items,
+            total,
+            has_more,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

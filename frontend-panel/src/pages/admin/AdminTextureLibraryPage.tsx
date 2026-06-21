@@ -36,10 +36,13 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { cn } from "@/lib/utils";
 import { adminTextureLibraryService } from "@/services/adminService";
 import type {
+	AdminTextureLibraryTagPage,
 	CreateMinecraftTextureTagRequest,
 	MinecraftTextureTagInfo,
 	UpdateMinecraftTextureTagRequest,
 } from "@/types/api";
+
+type TagCursor = NonNullable<AdminTextureLibraryTagPage["next_cursor"]>;
 
 const TAG_PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const DEFAULT_TAG_PAGE_SIZE = 20;
@@ -77,8 +80,12 @@ export default function AdminTextureLibraryPage() {
 	const { t } = useTranslation();
 	const [items, setItems] = useState<MinecraftTextureTagInfo[]>([]);
 	const [total, setTotal] = useState(0);
-	const [offset, setOffset] = useState(0);
 	const [pageSize, setPageSize] = useState(DEFAULT_TAG_PAGE_SIZE);
+	const [cursorStack, setCursorStack] = useState<Array<TagCursor | null>>([
+		null,
+	]);
+	const [pageIndex, setPageIndex] = useState(0);
+	const [nextCursor, setNextCursor] = useState<TagCursor | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
 	const [form, setForm] = useState<TagFormState>(emptyTagForm);
@@ -95,18 +102,27 @@ export default function AdminTextureLibraryPage() {
 	const loadTags = useCallback(async () => {
 		setLoading(true);
 		try {
+			const cursor = cursorStack[pageIndex] ?? null;
 			const page = await adminTextureLibraryService.listTags({
 				limit: pageSize,
-				offset,
+				after_sort_order: cursor?.sort_order,
+				after_name: cursor?.name,
+				after_id: cursor?.id,
 			});
+			if (page.items.length === 0 && page.total > 0 && pageIndex > 0) {
+				setCursorStack((current) => current.slice(0, -1));
+				setPageIndex((current) => Math.max(0, current - 1));
+				return;
+			}
 			setItems(page.items);
 			setTotal(page.total);
+			setNextCursor(page.next_cursor ?? null);
 		} catch (error) {
 			handleApiError(error);
 		} finally {
 			setLoading(false);
 		}
-	}, [offset, pageSize]);
+	}, [cursorStack, pageIndex, pageSize]);
 
 	useEffect(() => {
 		void loadTags();
@@ -122,7 +138,9 @@ export default function AdminTextureLibraryPage() {
 		try {
 			await adminTextureLibraryService.createTag(tagPayload(form));
 			setForm(emptyTagForm());
-			setOffset(0);
+			setCursorStack([null]);
+			setPageIndex(0);
+			setNextCursor(null);
 			toast.success(t("admin.textureLibraryPage.createSuccess"));
 			await loadTags();
 		} catch (error) {
@@ -178,8 +196,8 @@ export default function AdminTextureLibraryPage() {
 		}
 	}
 
-	const currentPage = Math.floor(offset / pageSize) + 1;
-	const totalPages = Math.max(1, Math.ceil(total / pageSize));
+	const currentPage = pageIndex + 1;
+	const totalPages = Math.max(currentPage, Math.ceil(total / pageSize));
 	const pageSizeOptions = TAG_PAGE_SIZE_OPTIONS.map((size) => ({
 		label: t("admin.pagination.pageSizeOption", { count: size }),
 		value: String(size),
@@ -360,21 +378,28 @@ export default function AdminTextureLibraryPage() {
 
 			<AdminOffsetPagination
 				currentPage={currentPage}
-				nextDisabled={offset + pageSize >= total}
-				onNext={() => setOffset((current) => current + pageSize)}
+				nextDisabled={nextCursor === null}
+				onNext={() => {
+					if (!nextCursor) return;
+					setCursorStack((current) => [...current, nextCursor]);
+					setPageIndex((current) => current + 1);
+				}}
 				onPageSizeChange={(value) => {
 					const parsed = Number.parseInt(value ?? "", 10);
 					if (TAG_PAGE_SIZE_OPTIONS.includes(parsed as never)) {
 						setPageSize(parsed);
-						setOffset(0);
+						setCursorStack([null]);
+						setPageIndex(0);
+						setNextCursor(null);
 					}
 				}}
-				onPrevious={() =>
-					setOffset((current) => Math.max(0, current - pageSize))
-				}
+				onPrevious={() => {
+					setCursorStack((current) => current.slice(0, -1));
+					setPageIndex((current) => Math.max(0, current - 1));
+				}}
 				pageSize={String(pageSize)}
 				pageSizeOptions={pageSizeOptions}
-				prevDisabled={offset === 0}
+				prevDisabled={currentPage <= 1}
 				total={total}
 				totalPages={totalPages}
 			/>

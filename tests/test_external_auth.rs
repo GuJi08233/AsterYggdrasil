@@ -109,26 +109,43 @@ async fn external_auth_provider_lists_are_paginated() {
     let app = create_test_app!(state);
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/auth/external-auth/providers?limit=500&offset=1")
+        .uri("/api/v1/auth/external-auth/providers?limit=500")
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["data"]["limit"], 100);
-    assert_eq!(body["data"]["offset"], 1);
+    assert!(body["data"].get("offset").is_none());
     assert_eq!(body["data"]["total"], 3);
-    assert_eq!(body["data"]["items"][0]["key"], "bravo");
+    assert_eq!(body["data"]["items"][0]["key"], "alpha");
+    assert!(body["data"]["next_cursor"].is_null());
 
     let req = test::TestRequest::get()
-        .uri("/api/v1/auth/external-auth/oidc/providers?limit=1&offset=1")
+        .uri("/api/v1/auth/external-auth/oidc/providers?limit=1")
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["limit"], 1);
-    assert_eq!(body["data"]["offset"], 1);
-    assert_eq!(body["data"]["total"], 2);
-    assert_eq!(body["data"]["items"][0]["key"], "charlie");
+    let first_page_body: Value = test::read_body_json(resp).await;
+    assert_eq!(first_page_body["data"]["limit"], 1);
+    assert!(first_page_body["data"].get("offset").is_none());
+    assert_eq!(first_page_body["data"]["total"], 2);
+    assert_eq!(first_page_body["data"]["items"][0]["key"], "alpha");
+    let next_cursor = &first_page_body["data"]["next_cursor"];
+    assert_eq!(next_cursor["value"], "Alpha");
+
+    let req = test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/auth/external-auth/oidc/providers?limit=1&after_display_name={}&after_id={}",
+            next_cursor["value"].as_str().unwrap(),
+            next_cursor["id"].as_i64().unwrap()
+        ))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let second_page_body: Value = test::read_body_json(resp).await;
+    assert_eq!(second_page_body["data"]["limit"], 1);
+    assert_eq!(second_page_body["data"]["total"], 2);
+    assert_eq!(second_page_body["data"]["items"][0]["key"], "charlie");
 }
 
 #[actix_web::test]

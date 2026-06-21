@@ -2,11 +2,11 @@
 
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
-use crate::db::repository::pagination_repo::fetch_offset_page;
+use crate::api::pagination::CursorSlice;
 use crate::entities::external_auth_provider::{self, Entity as ExternalAuthProvider};
 use crate::errors::{AsterError, Result};
 use crate::types::ExternalAuthProviderKind;
@@ -37,22 +37,56 @@ pub async fn find_by_ids(
         .map_err(AsterError::from)
 }
 
-pub async fn find_paginated(
+pub async fn find_cursor(
     db: &DatabaseConnection,
     limit: u64,
-    offset: u64,
+    after: Option<(String, i64)>,
     supported_kinds: impl IntoIterator<Item = ExternalAuthProviderKind>,
-) -> Result<(Vec<external_auth_provider::Model>, u64)> {
-    fetch_offset_page(
-        db,
-        ExternalAuthProvider::find()
-            .filter(external_auth_provider::Column::ProviderKind.is_in(supported_kinds))
-            .order_by_asc(external_auth_provider::Column::DisplayName)
-            .order_by_asc(external_auth_provider::Column::Id),
+) -> Result<CursorSlice<external_auth_provider::Model>> {
+    let base = ExternalAuthProvider::find()
+        .filter(external_auth_provider::Column::ProviderKind.is_in(supported_kinds));
+    fetch_display_name_cursor(db, base, limit, after).await
+}
+
+async fn fetch_display_name_cursor(
+    db: &DatabaseConnection,
+    base: sea_orm::Select<ExternalAuthProvider>,
+    limit: u64,
+    after: Option<(String, i64)>,
+) -> Result<CursorSlice<external_auth_provider::Model>> {
+    let limit = limit.clamp(1, 100);
+    let total = base.clone().count(db).await.map_err(AsterError::from)?;
+    if total == 0 {
+        return Ok(CursorSlice::empty(total));
+    }
+
+    let mut query = base;
+    if let Some((display_name, id)) = after {
+        query = query.filter(
+            Condition::any()
+                .add(external_auth_provider::Column::DisplayName.gt(display_name.clone()))
+                .add(
+                    Condition::all()
+                        .add(external_auth_provider::Column::DisplayName.eq(display_name))
+                        .add(external_auth_provider::Column::Id.gt(id)),
+                ),
+        );
+    }
+
+    let items = query
+        .order_by_asc(external_auth_provider::Column::DisplayName)
+        .order_by_asc(external_auth_provider::Column::Id)
+        .limit(limit.saturating_add(1))
+        .all(db)
+        .await
+        .map_err(AsterError::from)?;
+    CursorSlice::from_overfetch(
+        items,
+        total,
         limit,
-        offset,
+        "external auth provider page size",
+        "external auth provider cursor limit",
     )
-    .await
 }
 
 pub async fn find_all_by_kind(
@@ -78,23 +112,16 @@ pub async fn find_enabled(db: &DatabaseConnection) -> Result<Vec<external_auth_p
         .map_err(AsterError::from)
 }
 
-pub async fn find_enabled_paginated(
+pub async fn find_enabled_cursor(
     db: &DatabaseConnection,
     limit: u64,
-    offset: u64,
+    after: Option<(String, i64)>,
     supported_kinds: impl IntoIterator<Item = ExternalAuthProviderKind>,
-) -> Result<(Vec<external_auth_provider::Model>, u64)> {
-    fetch_offset_page(
-        db,
-        ExternalAuthProvider::find()
-            .filter(external_auth_provider::Column::Enabled.eq(true))
-            .filter(external_auth_provider::Column::ProviderKind.is_in(supported_kinds))
-            .order_by_asc(external_auth_provider::Column::DisplayName)
-            .order_by_asc(external_auth_provider::Column::Id),
-        limit,
-        offset,
-    )
-    .await
+) -> Result<CursorSlice<external_auth_provider::Model>> {
+    let base = ExternalAuthProvider::find()
+        .filter(external_auth_provider::Column::Enabled.eq(true))
+        .filter(external_auth_provider::Column::ProviderKind.is_in(supported_kinds));
+    fetch_display_name_cursor(db, base, limit, after).await
 }
 
 pub async fn find_enabled_by_kind(
@@ -111,23 +138,16 @@ pub async fn find_enabled_by_kind(
         .map_err(AsterError::from)
 }
 
-pub async fn find_enabled_by_kind_paginated(
+pub async fn find_enabled_by_kind_cursor(
     db: &DatabaseConnection,
     kind: ExternalAuthProviderKind,
     limit: u64,
-    offset: u64,
-) -> Result<(Vec<external_auth_provider::Model>, u64)> {
-    fetch_offset_page(
-        db,
-        ExternalAuthProvider::find()
-            .filter(external_auth_provider::Column::Enabled.eq(true))
-            .filter(external_auth_provider::Column::ProviderKind.eq(kind))
-            .order_by_asc(external_auth_provider::Column::DisplayName)
-            .order_by_asc(external_auth_provider::Column::Id),
-        limit,
-        offset,
-    )
-    .await
+    after: Option<(String, i64)>,
+) -> Result<CursorSlice<external_auth_provider::Model>> {
+    let base = ExternalAuthProvider::find()
+        .filter(external_auth_provider::Column::Enabled.eq(true))
+        .filter(external_auth_provider::Column::ProviderKind.eq(kind));
+    fetch_display_name_cursor(db, base, limit, after).await
 }
 
 pub async fn find_by_id(db: &DatabaseConnection, id: i64) -> Result<external_auth_provider::Model> {

@@ -1,5 +1,6 @@
 //! User repository.
 
+use crate::api::pagination::CursorSlice;
 use crate::db::repository::search_query;
 use crate::entities::{
     auth_session, minecraft_profile,
@@ -18,13 +19,6 @@ pub struct AdminUserFilters {
     pub keyword: Option<String>,
     pub role: Option<UserRole>,
     pub status: Option<UserStatus>,
-}
-
-#[derive(Debug, Clone)]
-pub struct UserCursorSlice {
-    pub items: Vec<user::Model>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
@@ -129,7 +123,7 @@ pub async fn list_admin_cursor<C: ConnectionTrait>(
     filters: AdminUserFilters,
     limit: u64,
     after: Option<(DateTime<Utc>, i64)>,
-) -> Result<UserCursorSlice> {
+) -> Result<CursorSlice<user::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = apply_admin_filters(User::find(), &filters);
     let total = query
@@ -150,24 +144,20 @@ pub async fn list_admin_cursor<C: ConnectionTrait>(
         );
     }
 
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(user::Column::CreatedAt)
         .order_by_desc(user::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "admin user page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(UserCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "admin user page size",
+        "admin user cursor limit",
+    )
 }
 
 fn apply_admin_filters(

@@ -5,6 +5,7 @@ use sea_orm::{
 };
 
 use super::common::{AdminTaskFilters, active_processing_by_kinds_condition, apply_admin_filters};
+use crate::api::pagination::CursorSlice;
 use crate::entities::background_task::{self, Entity as BackgroundTask};
 use crate::errors::{AsterError, Result};
 use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
@@ -17,19 +18,12 @@ pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<backgroun
         .ok_or_else(|| AsterError::record_not_found(format!("task #{id}")))
 }
 
-#[derive(Debug, Clone)]
-pub struct TaskCursorSlice {
-    pub items: Vec<background_task::Model>,
-    pub total: u64,
-    pub has_more: bool,
-}
-
 pub async fn find_cursor_filtered<C: ConnectionTrait>(
     db: &C,
     limit: u64,
     filters: &AdminTaskFilters,
     after: Option<(DateTime<Utc>, i64)>,
-) -> Result<TaskCursorSlice> {
+) -> Result<CursorSlice<background_task::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = apply_admin_filters(BackgroundTask::find(), filters);
     let total = query.clone().count(db).await.map_err(AsterError::from)?;
@@ -44,24 +38,20 @@ pub async fn find_cursor_filtered<C: ConnectionTrait>(
                 ),
         );
     }
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(background_task::Column::UpdatedAt)
         .order_by_desc(background_task::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_err(AsterError::from)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "background task page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(TaskCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "background task page size",
+        "background task cursor limit",
+    )
 }
 
 pub async fn list_recent<C: ConnectionTrait>(

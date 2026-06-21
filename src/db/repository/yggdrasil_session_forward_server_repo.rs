@@ -2,11 +2,11 @@
 
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    sea_query::Expr,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
-use crate::db::repository::pagination_repo::fetch_offset_page;
+use crate::api::pagination::CursorSlice;
 use crate::entities::yggdrasil_session_forward_server::{
     self, Entity as YggdrasilSessionForwardServer,
 };
@@ -26,21 +26,83 @@ pub async fn list_enabled_ordered(
         .map_err(AsterError::from)
 }
 
-pub async fn find_paginated(
+#[derive(Debug, Clone)]
+pub enum SessionForwardServerCursor {
+    CallOrder {
+        enabled: bool,
+        priority: i32,
+        id: i64,
+    },
+    Id(i64),
+}
+
+pub async fn find_cursor(
     db: &DatabaseConnection,
     limit: u64,
-    offset: u64,
+    after: Option<SessionForwardServerCursor>,
     sort_by: YggdrasilSessionForwardServerSortBy,
-) -> Result<(Vec<yggdrasil_session_forward_server::Model>, u64)> {
-    let select = match sort_by {
-        YggdrasilSessionForwardServerSortBy::CallOrder => YggdrasilSessionForwardServer::find()
+) -> Result<CursorSlice<yggdrasil_session_forward_server::Model>> {
+    let limit = limit.clamp(1, 100);
+    let base = YggdrasilSessionForwardServer::find();
+    let total = base.clone().count(db).await.map_err(AsterError::from)?;
+    if total == 0 {
+        return Ok(CursorSlice::empty(total));
+    }
+
+    let mut query = base;
+    match (sort_by, after) {
+        (
+            YggdrasilSessionForwardServerSortBy::CallOrder,
+            Some(SessionForwardServerCursor::CallOrder {
+                enabled,
+                priority,
+                id,
+            }),
+        ) => {
+            query = query.filter(
+                Condition::any()
+                    .add(yggdrasil_session_forward_server::Column::Enabled.lt(enabled))
+                    .add(
+                        Condition::all()
+                            .add(yggdrasil_session_forward_server::Column::Enabled.eq(enabled))
+                            .add(yggdrasil_session_forward_server::Column::Priority.gt(priority)),
+                    )
+                    .add(
+                        Condition::all()
+                            .add(yggdrasil_session_forward_server::Column::Enabled.eq(enabled))
+                            .add(yggdrasil_session_forward_server::Column::Priority.eq(priority))
+                            .add(yggdrasil_session_forward_server::Column::Id.gt(id)),
+                    ),
+            );
+        }
+        (YggdrasilSessionForwardServerSortBy::Id, Some(SessionForwardServerCursor::Id(id))) => {
+            query = query.filter(yggdrasil_session_forward_server::Column::Id.gt(id));
+        }
+        _ => {}
+    }
+
+    query = match sort_by {
+        YggdrasilSessionForwardServerSortBy::CallOrder => query
             .order_by_desc(yggdrasil_session_forward_server::Column::Enabled)
             .order_by_asc(yggdrasil_session_forward_server::Column::Priority)
             .order_by_asc(yggdrasil_session_forward_server::Column::Id),
-        YggdrasilSessionForwardServerSortBy::Id => YggdrasilSessionForwardServer::find()
-            .order_by_asc(yggdrasil_session_forward_server::Column::Id),
+        YggdrasilSessionForwardServerSortBy::Id => {
+            query.order_by_asc(yggdrasil_session_forward_server::Column::Id)
+        }
     };
-    fetch_offset_page(db, select, limit, offset).await
+
+    let items = query
+        .limit(limit.saturating_add(1))
+        .all(db)
+        .await
+        .map_err(AsterError::from)?;
+    CursorSlice::from_overfetch(
+        items,
+        total,
+        limit,
+        "Yggdrasil session forward server page size",
+        "Yggdrasil session forward server cursor limit",
+    )
 }
 
 pub async fn find_by_id(

@@ -100,7 +100,7 @@ function listPublic(options?: AbortSignal | CachedRequestOptions) {
 	const requestSerial = ++publicProvidersCacheSerial;
 	const request = api
 		.get<ExternalAuthPublicProviderPage>(
-			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			withQuery("/auth/external-auth/providers", { limit: 20 }),
 			{ signal },
 		)
 		.then((page) => {
@@ -203,7 +203,7 @@ export const externalAuthService = {
 		kind: AuthExternalAuthKindPath["kind"],
 		signal?: AbortSignal,
 	) =>
-		listPublicByKindPage(kind, { limit: 20, offset: 0 }, signal).then(
+		listPublicByKindPage(kind, { limit: 20 }, signal).then(
 			(page) => page.items,
 		),
 	listAuthAliasesByKindPage: listPublicByKindPage,

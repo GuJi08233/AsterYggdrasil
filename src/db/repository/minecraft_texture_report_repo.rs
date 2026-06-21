@@ -1,5 +1,6 @@
 //! Repository helpers for public texture library reports.
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::minecraft_texture_report::{self, Entity as MinecraftTextureReport};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{MinecraftTextureReportReason, MinecraftTextureReportStatus};
@@ -30,13 +31,6 @@ pub struct HandleTextureReport {
     pub admin_note: Option<String>,
     pub handled_by_user_id: i64,
     pub handled_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TextureReportCursorSlice {
-    pub items: Vec<minecraft_texture_report::Model>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -88,7 +82,7 @@ pub async fn list_cursor<C: ConnectionTrait>(
     limit: u64,
     filter: AdminTextureReportListFilter,
     after: Option<(DateTime<Utc>, i64)>,
-) -> Result<TextureReportCursorSlice> {
+) -> Result<CursorSlice<minecraft_texture_report::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = filtered_query(filter);
     let total = query
@@ -109,24 +103,20 @@ pub async fn list_cursor<C: ConnectionTrait>(
         );
     }
 
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(minecraft_texture_report::Column::CreatedAt)
         .order_by_desc(minecraft_texture_report::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "texture report page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(TextureReportCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "texture report page size",
+        "texture report cursor limit",
+    )
 }
 
 pub async fn handle<C: ConnectionTrait>(

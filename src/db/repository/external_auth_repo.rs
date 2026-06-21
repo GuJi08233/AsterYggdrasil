@@ -5,10 +5,7 @@ use crate::entities::{
     external_auth_provider::{self, Entity as ExternalAuthProvider},
 };
 use crate::errors::{AsterError, MapAsterErr, Result};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 
 pub async fn list_enabled_providers<C: ConnectionTrait>(
     db: &C,
@@ -32,28 +29,6 @@ pub async fn list_enabled_providers_by_kind<C: ConnectionTrait>(
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)
-}
-
-pub async fn list_providers_paginated<C: ConnectionTrait>(
-    db: &C,
-    limit: u64,
-    offset: u64,
-) -> Result<(Vec<external_auth_provider::Model>, u64)> {
-    let query = ExternalAuthProvider::find()
-        .order_by_asc(external_auth_provider::Column::DisplayName)
-        .order_by_asc(external_auth_provider::Column::Id);
-    let total = query
-        .clone()
-        .count(db)
-        .await
-        .map_aster_err(AsterError::database_operation)?;
-    let items = query
-        .limit(limit)
-        .offset(offset)
-        .all(db)
-        .await
-        .map_aster_err(AsterError::database_operation)?;
-    Ok((items, total))
 }
 
 pub async fn find_provider_by_id<C: ConnectionTrait>(
@@ -200,7 +175,6 @@ mod tests {
         cleanup_expired_login_flows, consume_login_flow, create_login_flow, delete_provider,
         find_enabled_provider_by_slug, find_provider_by_id, find_provider_by_slug, insert_provider,
         link_identity, list_enabled_providers, list_enabled_providers_by_kind,
-        list_providers_paginated,
     };
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
@@ -277,7 +251,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn provider_queries_filter_enabled_kind_and_paginate_by_display_name() {
+    async fn provider_queries_filter_enabled_kind_and_find_by_id_or_slug() {
         let db = build_test_db().await;
         let beta = insert_test_provider(&db, "beta", "Beta", ExternalAuthKind::Oidc, true).await;
         let alpha =
@@ -300,15 +274,6 @@ mod tests {
         assert_eq!(
             oidc.iter().map(|provider| provider.id).collect::<Vec<_>>(),
             vec![beta.id]
-        );
-
-        let (page, total) = list_providers_paginated(&db, 2, 1).await.unwrap();
-        assert_eq!(total, 3);
-        assert_eq!(
-            page.iter()
-                .map(|provider| provider.slug.as_str())
-                .collect::<Vec<_>>(),
-            vec!["beta", "disabled"]
         );
 
         assert_eq!(

@@ -20,12 +20,12 @@ export const systemService = {
 		api.get<CheckResp>("/auth/check", { signal }),
 	publicExternalAuthProviders: (signal?: AbortSignal) =>
 		api.get<ExternalAuthPublicProviderPage>(
-			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			withQuery("/auth/external-auth/providers", { limit: 20 }),
 			{ signal },
 		),
 	authExternalAuthProviders: (signal?: AbortSignal) =>
 		api.get<ExternalAuthPublicProviderPage>(
-			withQuery("/auth/external-auth/providers", { limit: 20, offset: 0 }),
+			withQuery("/auth/external-auth/providers", { limit: 20 }),
 			{ signal },
 		),
 };

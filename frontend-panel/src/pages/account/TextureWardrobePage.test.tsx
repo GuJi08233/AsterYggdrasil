@@ -147,14 +147,14 @@ function rareTextureTag() {
 }
 
 function profilePage(items: YggdrasilProfile[]): YggdrasilProfilePage {
-	return { items, limit: 10, offset: 0, total: items.length };
+	return { items, limit: 10, next_cursor: null, total: items.length };
 }
 
 function wardrobePage(
 	items: MinecraftWardrobeTextureMetadata[],
 	total = items.length,
 ): MinecraftWardrobeTexturePage {
-	return { items, limit: 10, offset: 0, total };
+	return { items, limit: 10, next_cursor: null, total };
 }
 
 function wardrobeQuery(overrides = {}) {
@@ -171,7 +171,7 @@ function wardrobeQuery(overrides = {}) {
 }
 
 function tagPage(items = textureTags(), total = items.length) {
-	return { items, limit: 30, offset: 0, total };
+	return { items, limit: 30, next_cursor: null, total };
 }
 
 function pngFile(width = 64, height = 64, name = "skin.png") {
@@ -434,8 +434,10 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listTextureLibraryTagsPage,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_name: undefined,
+				after_sort_order: undefined,
 				limit: 30,
-				offset: 0,
 				keyword: "rare",
 			});
 		});
@@ -475,8 +477,10 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listTextureLibraryTagsPage,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_name: undefined,
+				after_sort_order: undefined,
 				limit: 30,
-				offset: 0,
 				keyword: undefined,
 			});
 		});
@@ -517,8 +521,10 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listTextureLibraryTagsPage,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_name: undefined,
+				after_sort_order: undefined,
 				limit: 30,
-				offset: 0,
 				keyword: "rare",
 			});
 		});
@@ -535,8 +541,10 @@ describe("TextureWardrobePage", () => {
 			expect(
 				yggdrasilServiceMock.listTextureLibraryTagsPage,
 			).toHaveBeenLastCalledWith({
+				after_id: undefined,
+				after_name: undefined,
+				after_sort_order: undefined,
 				limit: 30,
-				offset: 0,
 				keyword: "missing",
 			});
 		});

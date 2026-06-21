@@ -4,9 +4,9 @@ use crate::api::dto::{
     CreateExternalAuthProviderReq, ExternalAuthProviderTestParamsReq,
     UpdateExternalAuthProviderReq, validate_request,
 };
-use crate::api::pagination::LimitOffsetQuery;
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::{CursorPage, StringIdCursor};
+use crate::api::pagination::{LimitQuery, parse_string_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
@@ -16,6 +16,17 @@ use crate::services::external_auth_service::{
     self as external_auth_service, AdminExternalAuthProviderInfo, ExternalAuthProviderAuditDetails,
 };
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, web};
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct AdminExternalAuthProviderCursorQuery {
+    pub after_display_name: Option<String>,
+    pub after_id: Option<i64>,
+}
 
 fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     req.extensions()
@@ -44,9 +55,9 @@ fn external_auth_provider_audit_details(
     path = "/api/v1/admin/external-auth/providers",
     tag = "admin",
     operation_id = "admin_list_external_auth_providers",
-    params(LimitOffsetQuery),
+    params(LimitQuery, AdminExternalAuthProviderCursorQuery),
     responses(
-        (status = 200, description = "External auth providers", body = inline(ApiResponse<OffsetPage<external_auth_service::AdminExternalAuthProviderInfo>>)),
+        (status = 200, description = "External auth providers", body = inline(ApiResponse<CursorPage<external_auth_service::AdminExternalAuthProviderInfo, StringIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -54,14 +65,17 @@ fn external_auth_provider_audit_details(
 )]
 pub async fn list_external_auth_providers(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    cursor: web::Query<AdminExternalAuthProviderCursorQuery>,
 ) -> Result<HttpResponse> {
-    let providers = external_auth_service::list_admin_providers(
-        state.get_ref(),
-        page.limit_or(50, 100),
-        page.offset(),
-    )
-    .await?;
+    let after = parse_string_id_cursor(
+        cursor.after_display_name.clone(),
+        cursor.after_id,
+        "external auth provider",
+    )?;
+    let providers =
+        external_auth_service::list_admin_providers(state.get_ref(), page.limit_or(50, 100), after)
+            .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))
 }
 

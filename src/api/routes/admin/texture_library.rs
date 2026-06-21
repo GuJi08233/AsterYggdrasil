@@ -11,7 +11,9 @@ use crate::api::dto::textures::{
 };
 use crate::api::dto::validation::validate_request;
 use crate::api::error_code::AsterErrorCode;
-use crate::api::pagination::{LimitOffsetQuery, LimitQuery, OffsetPage, parse_datetime_id_cursor};
+use crate::api::pagination::{
+    LimitQuery, parse_datetime_id_cursor, parse_sort_order_name_id_cursor,
+};
 use crate::api::response::ApiResponse;
 use crate::db::repository::{
     minecraft_texture_repo::AdminTextureLibraryListFilter,
@@ -26,7 +28,7 @@ use crate::types::{
 };
 
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::{CursorPage, DateTimeIdCursor};
+use crate::api::pagination::{CursorPage, DateTimeIdCursor, SortOrderNameIdCursor};
 
 #[derive(Debug, Clone, Default, Deserialize, Validate)]
 #[cfg_attr(
@@ -60,6 +62,17 @@ pub struct AdminTextureReportQuery {
     #[validate(range(min = 1, message = "texture_id must be positive"))]
     pub texture_id: Option<i64>,
     pub after_created_at: Option<DateTime<Utc>>,
+    pub after_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Validate)]
+#[cfg_attr(
+    all(debug_assertions, feature = "openapi"),
+    derive(utoipa::IntoParams, utoipa::ToSchema)
+)]
+pub struct AdminTextureLibraryTagQuery {
+    pub after_sort_order: Option<i32>,
+    pub after_name: Option<String>,
     pub after_id: Option<i64>,
 }
 
@@ -567,9 +580,9 @@ async fn log_texture_report_audit(
     path = "/api/v1/admin/texture-library/tags",
     tag = "admin",
     operation_id = "admin_list_texture_library_tags",
-    params(LimitOffsetQuery),
+    params(LimitQuery, AdminTextureLibraryTagQuery),
     responses(
-        (status = 200, description = "Texture library tags", body = inline(ApiResponse<OffsetPage<texture_service::MinecraftTextureTagInfo>>)),
+        (status = 200, description = "Texture library tags", body = inline(ApiResponse<CursorPage<texture_service::MinecraftTextureTagInfo, SortOrderNameIdCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -577,22 +590,20 @@ async fn log_texture_report_audit(
 )]
 pub async fn list_texture_library_tags(
     state: web::Data<AppState>,
-    page: web::Query<LimitOffsetQuery>,
+    page: web::Query<LimitQuery>,
+    query: web::Query<AdminTextureLibraryTagQuery>,
 ) -> Result<HttpResponse> {
     let limit = page.limit_or(50, 100);
-    let offset = page.offset();
-    let tags = texture_service::list_texture_library_tags(state.get_ref()).await?;
-    let total = crate::utils::numbers::usize_to_u64(tags.len(), "texture library tag count")?;
-    let start = usize::try_from(offset).unwrap_or(usize::MAX);
-    let limit_usize = usize::try_from(limit).unwrap_or(usize::MAX);
-    let items = tags
-        .into_iter()
-        .skip(start)
-        .take(limit_usize)
-        .collect::<Vec<_>>();
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(OffsetPage::new(
-        items, total, limit, offset,
-    ))))
+    let after = parse_sort_order_name_id_cursor(
+        query.after_sort_order,
+        query.after_name.clone(),
+        query.after_id,
+        "texture tag",
+    )?;
+    let tags =
+        texture_service::list_texture_library_tags_paginated(state.get_ref(), limit, after, None)
+            .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(tags)))
 }
 
 #[api_docs_macros::path(

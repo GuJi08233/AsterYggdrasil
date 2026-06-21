@@ -396,8 +396,10 @@ impl From<ExternalAuthProviderTestParamsReq> for ExternalAuthProviderTestParamsI
 )]
 pub struct AdminYggdrasilSessionForwardServerListQuery {
     pub limit: Option<u64>,
-    pub offset: Option<u64>,
     pub sort_by: Option<YggdrasilSessionForwardServerSortBy>,
+    pub after_id: Option<i64>,
+    pub after_enabled: Option<bool>,
+    pub after_priority: Option<i32>,
 }
 
 impl AdminYggdrasilSessionForwardServerListQuery {
@@ -405,10 +407,6 @@ impl AdminYggdrasilSessionForwardServerListQuery {
         self.limit
             .map(|value| value.clamp(1, max))
             .unwrap_or(default)
-    }
-
-    pub fn offset(&self) -> u64 {
-        self.offset.unwrap_or(0)
     }
 
     pub fn sort_by(&self) -> YggdrasilSessionForwardServerSortBy {

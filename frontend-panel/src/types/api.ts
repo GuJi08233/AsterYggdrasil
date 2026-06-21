@@ -163,7 +163,7 @@ export type UpdateAdminUserRequest =
 export type AdminExternalAuthProviderInfo =
 	components["schemas"]["AdminExternalAuthProviderInfo"];
 export type AdminExternalAuthProviderPage =
-	components["schemas"]["OffsetPage_AdminExternalAuthProviderInfo"];
+	OperationData<"admin_list_external_auth_providers">;
 export type AdminExternalAuthProviderListQuery =
 	OperationQuery<"admin_list_external_auth_providers">;
 export type AdminYggdrasilSessionForwardServerInfo =
@@ -333,7 +333,7 @@ export type ExecuteConfigActionResponse =
 export type SetupRequest = components["schemas"]["SetupReq"];
 export type SortOrder = components["schemas"]["SortOrder"];
 export type SystemConfig = components["schemas"]["SystemConfig"];
-export type SystemConfigPage = components["schemas"]["OffsetPage_SystemConfig"];
+export type SystemConfigPage = OperationData<"list_config">;
 export type SystemConfigValue = components["schemas"]["SystemConfigValue"];
 export type SystemConfigVisibility =
 	components["schemas"]["SystemConfigVisibility"];

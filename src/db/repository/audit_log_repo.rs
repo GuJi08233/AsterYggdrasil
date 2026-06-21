@@ -6,6 +6,7 @@ use sea_orm::{
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
 };
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::audit_log::{self, Entity as AuditLog};
 use crate::errors::{AsterError, Result};
 use crate::types::AuditAction;
@@ -19,13 +20,6 @@ pub struct AuditLogQuery<'a> {
     pub before: Option<DateTime<Utc>>,
     pub limit: u64,
     pub cursor: Option<(DateTime<Utc>, i64)>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AuditLogCursorSlice {
-    pub items: Vec<audit_log::Model>,
-    pub total: u64,
-    pub has_more: bool,
 }
 
 pub async fn create<C: ConnectionTrait>(
@@ -52,7 +46,7 @@ pub async fn create_many<C: ConnectionTrait>(
 pub async fn find_with_filters_cursor<C: ConnectionTrait>(
     db: &C,
     query: AuditLogQuery<'_>,
-) -> Result<AuditLogCursorSlice> {
+) -> Result<CursorSlice<audit_log::Model>> {
     let mut q = AuditLog::find();
     let limit = query.limit.clamp(1, 200);
 
@@ -88,42 +82,20 @@ pub async fn find_with_filters_cursor<C: ConnectionTrait>(
         );
     }
 
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = q
+    let items = q
         .order_by_desc(audit_log::Column::CreatedAt)
         .order_by_desc(audit_log::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_err(AsterError::from)?;
-    let has_more = crate::utils::numbers::usize_to_u64(items.len(), "audit log page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-
-    Ok(AuditLogCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
-}
-
-pub async fn list_recent<C: ConnectionTrait>(
-    db: &C,
-    limit: u64,
-    offset: u64,
-) -> Result<(Vec<audit_log::Model>, u64)> {
-    let query = AuditLog::find()
-        .order_by_desc(audit_log::Column::CreatedAt)
-        .order_by_desc(audit_log::Column::Id);
-    let total = query.clone().count(db).await.map_err(AsterError::from)?;
-    let items = query
-        .limit(limit)
-        .offset(offset)
-        .all(db)
-        .await
-        .map_err(AsterError::from)?;
-    Ok((items, total))
+        limit,
+        "audit log page size",
+        "audit log cursor limit",
+    )
 }
 
 pub async fn count_created_between<C: ConnectionTrait>(
@@ -200,7 +172,7 @@ pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) ->
 mod tests {
     use super::{
         AuditLogQuery, count_distinct_users_created_between_with_actions, create, create_many,
-        delete_before, find_with_filters_cursor, list_recent,
+        delete_before, find_with_filters_cursor,
     };
     use crate::config::DatabaseConfig;
     use crate::entities::audit_log;
@@ -560,7 +532,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_recent_pages_by_created_at_and_delete_before_keeps_cutoff() {
+    async fn delete_before_keeps_cutoff_and_cursor_list_orders_recent_entries() {
         let db = build_test_db().await;
         let cutoff = Utc::now();
         let old = create(
@@ -606,10 +578,28 @@ mod tests {
         .await
         .unwrap();
 
-        let (items, total) = list_recent(&db, 2, 0).await.unwrap();
-        assert_eq!(total, 3);
+        let page = find_with_filters_cursor(
+            &db,
+            AuditLogQuery {
+                user_id: None,
+                action: None,
+                entity_type: None,
+                entity_id: None,
+                after: None,
+                before: None,
+                limit: 2,
+                cursor: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(page.total, 3);
+        assert!(page.has_more);
         assert_eq!(
-            items.into_iter().map(|item| item.id).collect::<Vec<_>>(),
+            page.items
+                .into_iter()
+                .map(|item| item.id)
+                .collect::<Vec<_>>(),
             vec![recent.id, at_cutoff.id]
         );
 
@@ -622,10 +612,25 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-        let (remaining, total) = list_recent(&db, 10, 0).await.unwrap();
-        assert_eq!(total, 2);
+        let remaining = find_with_filters_cursor(
+            &db,
+            AuditLogQuery {
+                user_id: None,
+                action: None,
+                entity_type: None,
+                entity_id: None,
+                after: None,
+                before: None,
+                limit: 10,
+                cursor: None,
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(remaining.total, 2);
         assert_eq!(
             remaining
+                .items
                 .into_iter()
                 .map(|item| item.id)
                 .collect::<Vec<_>>(),

@@ -149,7 +149,7 @@ function pngFile(width = 64, height = 64, name = "skin.png") {
 	return new File([bytes], name, { type: "image/png" });
 }
 
-function offsetPage(
+function cursorPage(
 	items: YggdrasilProfile[],
 	limit = 5,
 	total = items.length,
@@ -158,7 +158,7 @@ function offsetPage(
 		items.length > 0 && total > items.length
 			? { id: Number(items.at(-1)?.id.replace(/\D/g, "")) || items.length }
 			: null;
-	return { items, limit, next_cursor,total };
+	return { items, limit, next_cursor, total };
 }
 
 const baseProfiles = [
@@ -245,7 +245,7 @@ describe("MinecraftProfilesPage", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		yggdrasilServiceMock.listProfiles.mockResolvedValue(
-			offsetPage(baseProfiles),
+			cursorPage(baseProfiles),
 		);
 		yggdrasilServiceMock.listProfileSkinTextureUrls.mockResolvedValue({
 			"profile-one": "/textures/profile-one-skin.png",
@@ -372,7 +372,7 @@ describe("MinecraftProfilesPage", () => {
 	it("searches profiles on the server after debounce and shows the empty state", async () => {
 		await renderPage();
 		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
-			offsetPage([baseProfiles[1]], 5, 1),
+			cursorPage([baseProfiles[1]], 5, 1),
 		);
 
 		fireEvent.change(
@@ -399,7 +399,7 @@ describe("MinecraftProfilesPage", () => {
 		);
 
 		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
-			offsetPage([], 5, 0),
+			cursorPage([], 5, 0),
 		);
 		fireEvent.change(
 			screen.getByPlaceholderText("profiles.searchPlaceholder"),
@@ -421,7 +421,7 @@ describe("MinecraftProfilesPage", () => {
 	});
 
 	it("shows the empty profile state without pagination when the account has no profiles", async () => {
-		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(offsetPage([]));
+		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(cursorPage([]));
 
 		render(<MinecraftProfilesPage />);
 
@@ -441,7 +441,7 @@ describe("MinecraftProfilesPage", () => {
 	it("creates a profile, reloads the first page, and selects the created profile", async () => {
 		await renderPage();
 		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
-			offsetPage(
+			cursorPage(
 				[profile("created-profile", "CreatedName"), ...baseProfiles],
 				5,
 				3,
@@ -844,7 +844,7 @@ describe("MinecraftProfilesPage", () => {
 	it("renames a profile from the row action, trims whitespace, and reloads the list", async () => {
 		await renderPage();
 		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
-			offsetPage([
+			cursorPage([
 				profile("profile-one", "NewName"),
 				profile("profile-two", "SecondName"),
 			]),
@@ -902,7 +902,7 @@ describe("MinecraftProfilesPage", () => {
 	it("deletes the selected profile from a row action and reloads from the first page", async () => {
 		await renderPage();
 		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
-			offsetPage([profile("profile-two", "SecondName")], 5, 1),
+			cursorPage([profile("profile-two", "SecondName")], 5, 1),
 		);
 		const dialog = openDeleteProfileDialog("profile-one");
 

@@ -1,5 +1,6 @@
 //! Auth session repository.
 
+use crate::api::pagination::CursorSlice;
 use crate::entities::auth_session::{self, Entity as AuthSession};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use chrono::Utc;
@@ -52,19 +53,12 @@ pub async fn list_by_user<C: ConnectionTrait>(
         .map_aster_err(AsterError::database_operation)
 }
 
-#[derive(Debug, Clone)]
-pub struct AuthSessionCursorSlice {
-    pub items: Vec<auth_session::Model>,
-    pub total: u64,
-    pub has_more: bool,
-}
-
 pub async fn list_by_user_cursor<C: ConnectionTrait>(
     db: &C,
     user_id: i64,
     limit: u64,
     after: Option<(chrono::DateTime<Utc>, String)>,
-) -> Result<AuthSessionCursorSlice> {
+) -> Result<CursorSlice<auth_session::Model>> {
     let limit = limit.clamp(1, 100);
     let mut query = AuthSession::find().filter(auth_session::Column::UserId.eq(user_id));
     let total = query
@@ -83,24 +77,20 @@ pub async fn list_by_user_cursor<C: ConnectionTrait>(
                 ),
         );
     }
-    let fetch_limit = limit.saturating_add(1);
-    let mut items = query
+    let items = query
         .order_by_desc(auth_session::Column::LastSeenAt)
         .order_by_desc(auth_session::Column::Id)
-        .limit(fetch_limit)
+        .limit(limit.saturating_add(1))
         .all(db)
         .await
         .map_aster_err(AsterError::database_operation)?;
-    let has_more =
-        crate::utils::numbers::usize_to_u64(items.len(), "auth session page size")? > limit;
-    if has_more {
-        items.truncate(usize::try_from(limit).unwrap_or(usize::MAX));
-    }
-    Ok(AuthSessionCursorSlice {
+    CursorSlice::from_overfetch(
         items,
         total,
-        has_more,
-    })
+        limit,
+        "auth session page size",
+        "auth session cursor limit",
+    )
 }
 
 pub async fn list_active_for_user<C: ConnectionTrait>(

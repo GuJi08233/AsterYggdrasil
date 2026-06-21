@@ -7,13 +7,15 @@ use crate::api::dto::{
     UpdateYggdrasilSessionForwardServerReq, validate_request,
 };
 #[cfg(all(debug_assertions, feature = "openapi"))]
-use crate::api::pagination::OffsetPage;
+use crate::api::pagination::CursorPage;
+use crate::api::pagination::{parse_enabled_priority_id_cursor, parse_id_cursor};
 use crate::api::response::ApiResponse;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::{
     audit_service, auth_service::AuthUserInfo, yggdrasil_session_forward_service,
 };
+use crate::types::YggdrasilSessionForwardServerSortBy;
 
 fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     req.extensions()
@@ -29,11 +31,13 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
     operation_id = "admin_list_yggdrasil_session_forward_servers",
     params(
         ("limit" = Option<u64>, Query, description = "Maximum number of forwarding servers to return"),
-        ("offset" = Option<u64>, Query, description = "Offset of the first forwarding server"),
+        ("after_id" = Option<i64>, Query, description = "Cursor server ID"),
+        ("after_enabled" = Option<bool>, Query, description = "Call-order cursor enabled value"),
+        ("after_priority" = Option<i32>, Query, description = "Call-order cursor priority value"),
         ("sort_by" = Option<crate::types::YggdrasilSessionForwardServerSortBy>, Query, description = "Forwarding server list sort mode"),
     ),
     responses(
-        (status = 200, description = "Yggdrasil session forwarding servers", body = inline(ApiResponse<OffsetPage<yggdrasil_session_forward_service::AdminYggdrasilSessionForwardServerInfo>>)),
+        (status = 200, description = "Yggdrasil session forwarding servers", body = inline(ApiResponse<CursorPage<yggdrasil_session_forward_service::AdminYggdrasilSessionForwardServerInfo, yggdrasil_session_forward_service::SessionForwardServerCursor>>)),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Forbidden"),
     ),
@@ -43,11 +47,28 @@ pub async fn list_session_forward_servers(
     state: web::Data<AppState>,
     page: web::Query<AdminYggdrasilSessionForwardServerListQuery>,
 ) -> Result<HttpResponse> {
+    let sort_by = page.sort_by();
+    let after_id = match sort_by {
+        YggdrasilSessionForwardServerSortBy::Id => {
+            parse_id_cursor(page.after_id, "Yggdrasil session forwarding server")?
+        }
+        YggdrasilSessionForwardServerSortBy::CallOrder => None,
+    };
+    let after_call_order = match sort_by {
+        YggdrasilSessionForwardServerSortBy::CallOrder => parse_enabled_priority_id_cursor(
+            page.after_enabled,
+            page.after_priority,
+            page.after_id,
+            "Yggdrasil session forwarding server",
+        )?,
+        YggdrasilSessionForwardServerSortBy::Id => None,
+    };
     let servers = yggdrasil_session_forward_service::list_servers(
         state.get_ref(),
         page.limit_or(50, 100),
-        page.offset(),
-        page.sort_by(),
+        after_id,
+        after_call_order,
+        sort_by,
     )
     .await?;
     Ok(HttpResponse::Ok().json(ApiResponse::ok(servers)))

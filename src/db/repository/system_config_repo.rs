@@ -1,14 +1,14 @@
 //! System config repository.
 
+use crate::api::pagination::CursorSlice;
 use crate::config::definitions::{ALL_CONFIGS, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
-use crate::db::repository::pagination_repo::fetch_offset_page;
 use crate::entities::system_config::{self, Entity as SystemConfig};
 use crate::errors::{AsterError, Result};
 use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect, Set, TryInsertResult,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set, TryInsertResult,
 };
 
 fn find_definition(key: &str) -> Option<&'static ConfigDef> {
@@ -70,18 +70,36 @@ pub async fn find_all<C: ConnectionTrait>(db: &C) -> Result<Vec<system_config::M
         .map_err(AsterError::from)
 }
 
-pub async fn find_paginated<C: ConnectionTrait>(
+pub async fn find_cursor<C: ConnectionTrait>(
     db: &C,
     limit: u64,
-    offset: u64,
-) -> Result<(Vec<system_config::Model>, u64)> {
-    fetch_offset_page(
-        db,
-        SystemConfig::find().order_by_asc(system_config::Column::Id),
+    after_id: Option<i64>,
+) -> Result<CursorSlice<system_config::Model>> {
+    let limit = limit.clamp(1, 100);
+    let base = SystemConfig::find();
+    let total = base.clone().count(db).await.map_err(AsterError::from)?;
+    if total == 0 {
+        return Ok(CursorSlice::empty(total));
+    }
+
+    let mut query = base;
+    if let Some(after_id) = after_id {
+        query = query.filter(system_config::Column::Id.gt(after_id));
+    }
+
+    let items = query
+        .order_by_asc(system_config::Column::Id)
+        .limit(limit.saturating_add(1))
+        .all(db)
+        .await
+        .map_err(AsterError::from)?;
+    CursorSlice::from_overfetch(
+        items,
+        total,
         limit,
-        offset,
+        "system config page size",
+        "system config cursor limit",
     )
-    .await
 }
 
 pub async fn find_by_key<C: ConnectionTrait>(
@@ -327,7 +345,7 @@ pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
 mod tests {
     use super::{
         delete_by_key, delete_deprecated_keys, ensure_defaults, ensure_system_value_if_missing,
-        find_all, find_by_key, find_paginated, find_visible_custom, lock_by_key, upsert,
+        find_all, find_by_key, find_cursor, find_visible_custom, lock_by_key, upsert,
         upsert_with_actor, upsert_with_options,
     };
     use crate::config::{
@@ -561,18 +579,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn find_paginated_and_lock_by_key_follow_repository_contract() {
+    async fn find_cursor_and_lock_by_key_follow_repository_contract() {
         let db = build_test_db().await;
         ensure_defaults(&db).await.unwrap();
 
         let all = find_all(&db).await.unwrap();
         assert_eq!(all.len(), ALL_CONFIGS.len());
 
-        let (page, total) = find_paginated(&db, 2, 1).await.unwrap();
-        assert_eq!(total, ALL_CONFIGS.len() as u64);
-        assert_eq!(page.len(), 2);
-        assert_eq!(page[0].id, all[1].id);
-        assert_eq!(page[1].id, all[2].id);
+        let page = find_cursor(&db, 2, Some(all[0].id)).await.unwrap();
+        assert_eq!(page.total, ALL_CONFIGS.len() as u64);
+        assert!(page.has_more);
+        assert_eq!(page.items.len(), 2);
+        assert_eq!(page.items[0].id, all[1].id);
+        assert_eq!(page.items[1].id, all[2].id);
 
         lock_by_key(&db, BRANDING_TITLE_KEY).await.unwrap();
         let missing = lock_by_key(&db, "missing_lock_key").await.unwrap_err();

@@ -66,7 +66,7 @@ macro_rules! accept_invitation_with_status {
 macro_rules! list_invitations {
     ($app:expr, $admin_token:expr) => {{
         let req = test::TestRequest::get()
-            .uri("/api/v1/admin/users/invitations?limit=20&offset=0")
+            .uri("/api/v1/admin/users/invitations?limit=20")
             .insert_header(("Cookie", common::access_cookie_header(&$admin_token)))
             .insert_header(common::csrf_header_for(&$admin_token))
             .to_request();

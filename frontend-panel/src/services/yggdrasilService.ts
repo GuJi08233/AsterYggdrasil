@@ -114,13 +114,17 @@ export function yggdrasilPrefetchedMetadata(metadata: YggdrasilMetadata) {
 
 function tagPageCacheKey(params: {
 	limit?: number;
-	offset?: number;
 	keyword?: string;
+	after_sort_order?: number;
+	after_name?: string;
+	after_id?: number;
 }) {
 	return JSON.stringify({
 		keyword: params.keyword?.trim() || "",
 		limit: params.limit ?? TEXTURE_TAG_PAGE_SIZE,
-		offset: params.offset ?? 0,
+		after_sort_order: params.after_sort_order ?? null,
+		after_name: params.after_name ?? null,
+		after_id: params.after_id ?? null,
 	});
 }
 
@@ -163,19 +167,18 @@ function cacheTextureTagPage<Page extends MinecraftTextureTagPage>(
 
 async function fetchAllTextureLibraryTags(): Promise<MinecraftTextureTagList> {
 	const items: MinecraftTextureTagList = [];
-	let offset = 0;
-	let total = Number.POSITIVE_INFINITY;
+	let cursor: NonNullable<MinecraftTextureTagPage["next_cursor"]> | undefined;
 
-	while (offset < total) {
+	do {
 		const page = await yggdrasilService.listTextureLibraryTagsPage({
 			limit: TEXTURE_TAG_PAGE_SIZE,
-			offset,
+			after_sort_order: cursor?.sort_order,
+			after_name: cursor?.name,
+			after_id: cursor?.id,
 		});
 		items.push(...page.items);
-		total = page.total;
-		if (page.items.length === 0) break;
-		offset += page.items.length;
-	}
+		cursor = page.next_cursor;
+	} while (cursor);
 
 	return items;
 }
@@ -285,8 +288,10 @@ export const yggdrasilService = {
 		const keyword = normalizeTagKeyword(params.keyword);
 		const nextParams = {
 			limit: params.limit ?? TEXTURE_TAG_PAGE_SIZE,
-			offset: params.offset ?? 0,
-			keyword,
+			keyword: keyword ?? undefined,
+			after_sort_order: params.after_sort_order ?? undefined,
+			after_name: params.after_name ?? undefined,
+			after_id: params.after_id ?? undefined,
 		};
 		const key = tagPageCacheKey(nextParams);
 		return cacheTextureTagPage(
@@ -309,8 +314,10 @@ export const yggdrasilService = {
 		const keyword = normalizeTagKeyword(params.keyword);
 		const nextParams = {
 			limit: params.limit ?? TEXTURE_TAG_PAGE_SIZE,
-			offset: params.offset ?? 0,
-			keyword,
+			keyword: keyword ?? undefined,
+			after_sort_order: params.after_sort_order ?? undefined,
+			after_name: params.after_name ?? undefined,
+			after_id: params.after_id ?? undefined,
 		};
 		const key = tagPageCacheKey(nextParams);
 		return cacheTextureTagPage(
