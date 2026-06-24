@@ -2,8 +2,9 @@
 
 use super::{ObjectBlobMetadata, ObjectStorage};
 use crate::errors::{AsterError, MapAsterErr, Result};
+use aster_forge_storage_core::normalize_relative_key;
 use async_trait::async_trait;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncRead;
 
 const DEFAULT_CONTENT_TYPE: &str = "image/png";
@@ -19,7 +20,7 @@ impl LocalObjectStorage {
     }
 
     fn full_path(&self, storage_key: &str) -> Result<PathBuf> {
-        let relative = sanitize_storage_key(storage_key)?;
+        let relative = normalize_storage_object_key(storage_key)?;
         Ok(self.base_path.join(relative))
     }
 }
@@ -31,7 +32,8 @@ impl ObjectStorage for LocalObjectStorage {
     }
 
     async fn put_file(&self, storage_key: &str, local_path: &Path) -> Result<String> {
-        let target = self.full_path(storage_key)?;
+        let key = normalize_storage_object_key(storage_key)?;
+        let target = self.base_path.join(&key);
         if let Some(parent) = target.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
@@ -41,12 +43,12 @@ impl ObjectStorage for LocalObjectStorage {
             .await
             .map_aster_err_ctx("check existing object", AsterError::internal_error)?
         {
-            return Ok(storage_key.to_string());
+            return Ok(key);
         }
         tokio::fs::copy(local_path, &target)
             .await
             .map_aster_err_ctx("store object", AsterError::internal_error)?;
-        Ok(storage_key.to_string())
+        Ok(key)
     }
 
     async fn get_stream(&self, storage_key: &str) -> Result<Box<dyn AsyncRead + Unpin + Send>> {
@@ -84,10 +86,9 @@ impl ObjectStorage for LocalObjectStorage {
     }
 
     async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let relative_prefix = if prefix.trim().is_empty() {
-            PathBuf::new()
-        } else {
-            sanitize_storage_key(prefix)?
+        let relative_prefix = match normalize_storage_prefix(prefix)?.as_str() {
+            "" => PathBuf::new(),
+            prefix => PathBuf::from(prefix),
         };
         let root = self.base_path.join(&relative_prefix);
         if !tokio::fs::try_exists(&root)
@@ -133,49 +134,48 @@ impl ObjectStorage for LocalObjectStorage {
     }
 }
 
-fn sanitize_storage_key(storage_key: &str) -> Result<PathBuf> {
-    if storage_key.trim().is_empty() {
-        return Err(AsterError::validation_error("object storage key is empty"));
-    }
-
-    let path = Path::new(storage_key);
-    if path.is_absolute() {
+fn normalize_storage_object_key(storage_key: &str) -> Result<String> {
+    let key = normalize_relative_key(storage_key.trim()).map_err(map_storage_core_error)?;
+    if key == "." {
         return Err(AsterError::validation_error(
-            "object storage key must be relative",
+            "object key cannot target the storage namespace root",
         ));
     }
+    Ok(key)
+}
 
-    let mut sanitized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::Normal(value) => sanitized.push(value),
-            Component::CurDir => {}
-            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                return Err(AsterError::validation_error(
-                    "object storage key contains invalid path component",
-                ));
-            }
-        }
-    }
-
-    if sanitized.as_os_str().is_empty() {
-        Err(AsterError::validation_error("object storage key is empty"))
+fn normalize_storage_prefix(prefix: &str) -> Result<String> {
+    let prefix = normalize_relative_key(prefix.trim()).map_err(map_storage_core_error)?;
+    if prefix == "." {
+        Ok(String::new())
     } else {
-        Ok(sanitized)
+        Ok(prefix)
     }
+}
+
+fn map_storage_core_error(error: aster_forge_storage_core::StorageCoreError) -> AsterError {
+    AsterError::validation_error(error.to_string())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{LocalObjectStorage, sanitize_storage_key};
+    use super::{LocalObjectStorage, normalize_storage_object_key};
     use crate::object_storage::ObjectStorage;
 
     #[test]
-    fn storage_key_rejects_absolute_or_parent_paths() {
-        assert!(sanitize_storage_key("/textures/a.png").is_err());
-        assert!(sanitize_storage_key("../a.png").is_err());
-        assert!(sanitize_storage_key("textures/../../a.png").is_err());
-        assert!(sanitize_storage_key("textures/a.png").is_ok());
+    fn storage_key_normalizes_like_aster_drive() {
+        assert_eq!(
+            normalize_storage_object_key("/textures/a.png").unwrap(),
+            "textures/a.png"
+        );
+        assert_eq!(
+            normalize_storage_object_key("textures\\a.png").unwrap(),
+            "textures/a.png"
+        );
+        assert!(normalize_storage_object_key("").is_err());
+        assert!(normalize_storage_object_key("/").is_err());
+        assert!(normalize_storage_object_key("../a.png").is_err());
+        assert!(normalize_storage_object_key("textures/../../a.png").is_err());
     }
 
     #[tokio::test]

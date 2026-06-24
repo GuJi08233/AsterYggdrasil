@@ -3,6 +3,7 @@
 use super::{ObjectBlobMetadata, ObjectStorage};
 use crate::config::S3ObjectStorageConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
+use aster_forge_storage_core::{join_key_prefix, normalize_relative_key, strip_key_prefix};
 use async_trait::async_trait;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::config::{BehaviorVersion, Region, timeout::TimeoutConfig};
@@ -65,19 +66,19 @@ impl S3ObjectStorage {
         Ok(Self {
             client: aws_sdk_s3::Client::from_conf(builder.build()),
             bucket: config.bucket.trim().to_string(),
-            base_path: sanitize_base_path(&config.base_path)?,
+            base_path: normalize_storage_prefix(&config.base_path)?,
             endpoint,
             force_path_style: config.force_path_style,
         })
     }
 
     fn full_key(&self, storage_key: &str) -> Result<String> {
-        let key = sanitize_storage_key(storage_key)?;
+        let key = normalize_storage_object_key(storage_key)?;
         Ok(join_key_prefix(&self.base_path, &key))
     }
 
     fn full_prefix(&self, prefix: &str) -> Result<String> {
-        let prefix = sanitize_storage_prefix(prefix)?;
+        let prefix = normalize_storage_prefix(prefix)?;
         if self.base_path.is_empty() {
             return Ok(prefix);
         }
@@ -88,10 +89,7 @@ impl S3ObjectStorage {
     }
 
     fn strip_base_path<'a>(&self, key: &'a str) -> Option<&'a str> {
-        if self.base_path.is_empty() {
-            return Some(key);
-        }
-        key.strip_prefix(&format!("{}/", self.base_path))
+        strip_key_prefix(&self.base_path, key)
     }
 }
 
@@ -102,7 +100,7 @@ impl ObjectStorage for S3ObjectStorage {
     }
 
     async fn put_file(&self, storage_key: &str, local_path: &Path) -> Result<String> {
-        let key = sanitize_storage_key(storage_key)?;
+        let key = normalize_storage_object_key(storage_key)?;
         let full_key = self.full_key(&key)?;
         let body = ByteStream::from_path(local_path)
             .await
@@ -334,82 +332,27 @@ fn normalize_endpoint(endpoint: &str) -> Result<Option<String>> {
     )
 }
 
-fn sanitize_base_path(base_path: &str) -> Result<String> {
-    Ok(sanitize_storage_prefix(base_path)?
-        .trim_end_matches('/')
-        .to_string())
-}
-
-fn sanitize_storage_key(storage_key: &str) -> Result<String> {
-    if storage_key.ends_with('/') {
+fn normalize_storage_object_key(storage_key: &str) -> Result<String> {
+    let key = normalize_relative_key(storage_key.trim()).map_err(map_storage_core_error)?;
+    if key == "." {
         return Err(AsterError::validation_error(
-            "object storage key must not end with slash",
+            "object key cannot target the storage namespace root",
         ));
     }
-    let key = sanitize_key_components(storage_key, false)?;
     Ok(key)
 }
 
-fn sanitize_storage_prefix(prefix: &str) -> Result<String> {
-    if prefix.trim().is_empty() {
-        return Ok(String::new());
-    }
-    let mut sanitized = sanitize_key_components(prefix, true)?;
-    if prefix.ends_with('/') && !sanitized.ends_with('/') {
-        sanitized.push('/');
-    }
-    Ok(sanitized)
-}
-
-fn sanitize_key_components(value: &str, allow_empty: bool) -> Result<String> {
-    if value.trim().is_empty() {
-        return if allow_empty {
-            Ok(String::new())
-        } else {
-            Err(AsterError::validation_error("object storage key is empty"))
-        };
-    }
-    if value.starts_with('/') {
-        return Err(AsterError::validation_error(
-            "object storage key must be relative",
-        ));
-    }
-    if value.contains('\\') {
-        return Err(AsterError::validation_error(
-            "object storage key contains invalid path separator",
-        ));
-    }
-
-    let mut parts = Vec::new();
-    for part in value.split('/') {
-        match part {
-            "" | "." => {}
-            ".." => {
-                return Err(AsterError::validation_error(
-                    "object storage key contains invalid path component",
-                ));
-            }
-            part => parts.push(part),
-        }
-    }
-
-    if parts.is_empty() {
-        return if allow_empty {
-            Ok(String::new())
-        } else {
-            Err(AsterError::validation_error("object storage key is empty"))
-        };
-    }
-
-    Ok(parts.join("/"))
-}
-
-fn join_key_prefix(prefix: &str, key: &str) -> String {
-    if prefix.is_empty() {
-        key.to_string()
+fn normalize_storage_prefix(prefix: &str) -> Result<String> {
+    let prefix = normalize_relative_key(prefix.trim()).map_err(map_storage_core_error)?;
+    if prefix == "." {
+        Ok(String::new())
     } else {
-        format!("{prefix}/{key}")
+        Ok(prefix)
     }
+}
+
+fn map_storage_core_error(error: aster_forge_storage_core::StorageCoreError) -> AsterError {
+    AsterError::validation_error(error.to_string())
 }
 
 fn is_not_found<E>(error: &SdkError<E>) -> bool
@@ -459,8 +402,8 @@ fn format_error_source_chain(error: &dyn StdError) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        S3ObjectStorage, format_sdk_error, normalize_endpoint, sanitize_base_path,
-        sanitize_storage_key, sanitize_storage_prefix,
+        S3ObjectStorage, format_sdk_error, normalize_endpoint, normalize_storage_object_key,
+        normalize_storage_prefix,
     };
     use crate::config::{ObjectStorageConfig, S3ObjectStorageConfig};
     use crate::object_storage::{ObjectStorage, create_object_storage};
@@ -559,44 +502,56 @@ mod tests {
     }
 
     #[test]
-    fn storage_key_rejects_absolute_parent_or_backslash_paths() {
-        assert!(sanitize_storage_key("").is_err());
-        assert!(sanitize_storage_key("  ").is_err());
-        assert!(sanitize_storage_key("/textures/a.png").is_err());
-        assert!(sanitize_storage_key("../a.png").is_err());
-        assert!(sanitize_storage_key("textures/../../a.png").is_err());
-        assert!(sanitize_storage_key("textures\\a.png").is_err());
-        assert!(sanitize_storage_key("textures/").is_err());
-        assert!(sanitize_storage_key("textures/a.png").is_ok());
+    fn storage_key_normalizes_like_aster_drive() {
+        assert_eq!(
+            normalize_storage_object_key("/textures/a.png").unwrap(),
+            "textures/a.png"
+        );
+        assert_eq!(
+            normalize_storage_object_key("textures\\a.png").unwrap(),
+            "textures/a.png"
+        );
+        assert_eq!(
+            normalize_storage_object_key("textures/").unwrap(),
+            "textures"
+        );
+        assert!(normalize_storage_object_key("").is_err());
+        assert!(normalize_storage_object_key("  ").is_err());
+        assert!(normalize_storage_object_key("../a.png").is_err());
+        assert!(normalize_storage_object_key("textures/../../a.png").is_err());
     }
 
     #[test]
-    fn storage_prefix_preserves_trailing_slash() {
+    fn storage_prefix_normalizes_root_and_separators() {
         assert_eq!(
-            sanitize_storage_prefix("textures/ab/").unwrap(),
-            "textures/ab/"
+            normalize_storage_prefix("/textures/ab/").unwrap(),
+            "textures/ab"
         );
-        assert_eq!(sanitize_storage_prefix("").unwrap(), "");
+        assert_eq!(
+            normalize_storage_prefix("textures\\ab").unwrap(),
+            "textures/ab"
+        );
+        assert_eq!(normalize_storage_prefix("").unwrap(), "");
+        assert_eq!(normalize_storage_prefix("/").unwrap(), "");
     }
 
     #[test]
     fn storage_prefix_rejects_dangerous_paths() {
-        assert!(sanitize_storage_prefix("/textures").is_err());
-        assert!(sanitize_storage_prefix("textures/../other").is_err());
-        assert!(sanitize_storage_prefix("textures\\ab").is_err());
+        assert!(normalize_storage_prefix("textures/../other").is_err());
+        assert!(normalize_storage_prefix("textures\\..\\other").is_err());
     }
 
     #[test]
     fn base_path_is_normalized_and_validated() {
-        assert_eq!(sanitize_base_path("").unwrap(), "");
-        assert_eq!(sanitize_base_path("textures").unwrap(), "textures");
-        assert_eq!(sanitize_base_path("textures/").unwrap(), "textures");
+        assert_eq!(normalize_storage_prefix("").unwrap(), "");
+        assert_eq!(normalize_storage_prefix("textures").unwrap(), "textures");
+        assert_eq!(normalize_storage_prefix("textures/").unwrap(), "textures");
         assert_eq!(
-            sanitize_base_path("env/production/textures/").unwrap(),
+            normalize_storage_prefix("env/production/textures/").unwrap(),
             "env/production/textures"
         );
-        assert!(sanitize_base_path("/textures").is_err());
-        assert!(sanitize_base_path("textures/../other").is_err());
+        assert_eq!(normalize_storage_prefix("/textures").unwrap(), "textures");
+        assert!(normalize_storage_prefix("textures/../other").is_err());
     }
 
     #[test]
@@ -613,7 +568,7 @@ mod tests {
             "env/textures/aa/bb.png"
         );
         assert_eq!(storage.full_prefix("").unwrap(), "env/textures/");
-        assert_eq!(storage.full_prefix("aa/").unwrap(), "env/textures/aa/");
+        assert_eq!(storage.full_prefix("aa/").unwrap(), "env/textures/aa");
         assert_eq!(
             storage.strip_base_path("env/textures/aa/bb.png"),
             Some("aa/bb.png")
