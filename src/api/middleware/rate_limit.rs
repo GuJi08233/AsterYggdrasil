@@ -1,4 +1,8 @@
-//! API 中间件：`rate_limit`。
+//! Product boundary for API rate limiting.
+//!
+//! Forge owns the trusted-proxy-aware IP extraction mechanics. This module
+//! keeps Yggdrasil's API response envelope for `429 Too Many Requests` and maps
+//! deployment config into the Actix governor middleware.
 
 use actix_governor::{
     GovernorConfig, GovernorConfigBuilder, KeyExtractor, SimpleKeyExtractionError,
@@ -6,39 +10,31 @@ use actix_governor::{
 use actix_web::dev::ServiceRequest;
 use actix_web::{HttpResponse, HttpResponseBuilder};
 use governor::NotUntil;
-use governor::clock::{Clock, DefaultClock, QuantaInstant};
+use governor::clock::QuantaInstant;
 use governor::middleware::NoOpMiddleware;
-use ipnet::IpNet;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
 use crate::api::error_code::AsterErrorCode;
 use crate::api::response::ApiResponse;
 use crate::config::RateLimitTier;
-use crate::utils::net;
 
-/// IP-based key extractor，429 响应返回 ApiResponse JSON 格式。
-///
-/// `trusted_proxies` 非空时，若 `peer_addr` 在可信 CIDR 内，则取
-/// `X-Forwarded-For` 最左段（真实客户端）作为限流键；否则退回 `peer_addr`，
-/// 防止伪造 XFF 绕过限流。
 #[derive(Debug, Clone)]
 pub struct AsterIpKeyExtractor {
-    trusted: Vec<IpNet>,
+    inner: aster_forge_actix_middleware::rate_limit::TrustedProxyIpKeyExtractor,
 }
 
 impl AsterIpKeyExtractor {
     pub fn new(trusted_proxies: &[String]) -> Self {
-        let trusted = aster_forge_utils::net::parse_trusted_proxies(trusted_proxies);
-        Self { trusted }
+        Self {
+            inner: aster_forge_actix_middleware::rate_limit::TrustedProxyIpKeyExtractor::new(
+                trusted_proxies,
+            ),
+        }
     }
 
     #[cfg(test)]
     fn is_trusted(&self, ip: IpAddr) -> bool {
-        aster_forge_utils::net::is_trusted_proxy(ip, &self.trusted)
-    }
-
-    fn real_ip(&self, req: &ServiceRequest, peer: IpAddr) -> IpAddr {
-        net::real_ip_from_trusted(req.headers(), peer, &self.trusted)
+        self.inner.is_trusted(ip)
     }
 }
 
@@ -47,11 +43,7 @@ impl KeyExtractor for AsterIpKeyExtractor {
     type KeyExtractionError = SimpleKeyExtractionError<&'static str>;
 
     fn extract(&self, req: &ServiceRequest) -> Result<Self::Key, Self::KeyExtractionError> {
-        let peer = req
-            .peer_addr()
-            .map(|s| s.ip())
-            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
-        Ok(self.real_ip(req, peer))
+        self.inner.extract(req)
     }
 
     fn exceed_rate_limit_response(
@@ -59,9 +51,7 @@ impl KeyExtractor for AsterIpKeyExtractor {
         negative: &NotUntil<QuantaInstant>,
         _response: HttpResponseBuilder,
     ) -> HttpResponse {
-        let wait_time = negative
-            .wait_time_from(DefaultClock::default().now())
-            .as_secs();
+        let wait_time = aster_forge_actix_middleware::rate_limit::retry_after_seconds(negative);
         let msg = format!("Too Many Requests, retry after {wait_time}s");
         HttpResponse::TooManyRequests()
             .insert_header(("Retry-After", wait_time.to_string()))
@@ -73,7 +63,7 @@ impl KeyExtractor for AsterIpKeyExtractor {
     }
 }
 
-/// 根据 tier 配置创建 Governor 实例
+/// Builds an Actix governor config from Yggdrasil's rate-limit tier.
 #[expect(
     clippy::expect_used,
     reason = "actix-governor exposes fallible finish() for zero values; RateLimitTier stores both inputs as NonZero"

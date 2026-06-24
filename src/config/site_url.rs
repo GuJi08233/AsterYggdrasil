@@ -1,66 +1,24 @@
-//! 配置子模块：`site_url`。
+//! Public site URL runtime configuration helpers.
+//!
+//! Yggdrasil owns the runtime config key and logging context for public site
+//! origins. The parsing, normalization, request-origin preference, and URL
+//! joining mechanics are shared through `aster_forge_utils`.
 
 use crate::config::RuntimeConfig;
-use crate::config::cors;
-use crate::errors::{AsterError, MapAsterErr, Result};
+use crate::errors::{AsterError, Result};
 
 pub use crate::config::definitions::PUBLIC_SITE_URL_KEY;
 
+fn map_url_error(error: aster_forge_utils::UtilsError) -> AsterError {
+    AsterError::validation_error(error.to_string())
+}
+
 pub fn normalize_public_site_url_config_value(value: &str) -> Result<String> {
-    let origins = parse_public_site_url_value(value)?;
-    serde_json::to_string(&origins).map_aster_err_ctx(
-        "failed to serialize public_site_url origins",
-        AsterError::internal_error,
-    )
-}
-
-fn parse_public_site_url_entries(value: &str) -> Result<Vec<String>> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(AsterError::validation_error(
-            "public_site_url must be a JSON array of origins",
-        ));
-    }
-
-    let entries = serde_json::from_str::<Vec<String>>(trimmed).map_err(|err| {
-        AsterError::validation_error(format!(
-            "public_site_url must be a JSON array of origins: {err}"
-        ))
-    })?;
-
-    Ok(entries
-        .into_iter()
-        .map(|origin| origin.trim().to_string())
-        .filter(|origin| !origin.is_empty())
-        .collect())
-}
-
-fn parse_public_site_url_origin(origin: &str) -> Result<String> {
-    if origin == "*" {
-        return Err(AsterError::validation_error(
-            "public_site_url does not support wildcard origins",
-        ));
-    }
-
-    cors::normalize_origin(origin, false).map_err(|err| {
-        AsterError::validation_error(format!(
-            "invalid public_site_url origin '{origin}': {}",
-            err.message()
-        ))
-    })
+    aster_forge_utils::url::normalize_public_site_origins_config_value(value).map_err(map_url_error)
 }
 
 pub fn parse_public_site_url_value(value: &str) -> Result<Vec<String>> {
-    let trimmed = value.trim();
-    let mut origins = Vec::new();
-    for origin in parse_public_site_url_entries(trimmed)? {
-        let normalized = parse_public_site_url_origin(&origin)?;
-        if !origins.contains(&normalized) {
-            origins.push(normalized);
-        }
-    }
-
-    Ok(origins)
+    aster_forge_utils::url::parse_public_site_origins(value).map_err(map_url_error)
 }
 
 pub fn public_site_url_config_value(runtime_config: &RuntimeConfig) -> Option<String> {
@@ -71,42 +29,26 @@ pub fn public_site_url_config_value(runtime_config: &RuntimeConfig) -> Option<St
 }
 
 pub fn public_site_urls(runtime_config: &RuntimeConfig) -> Vec<String> {
-    let Some(value) = public_site_url_config_value(runtime_config) else {
-        return Vec::new();
-    };
-
-    let entries = match parse_public_site_url_entries(&value) {
-        Ok(entries) => entries,
-        Err(err) => {
-            tracing::warn!(
-                error = %err,
-                key = PUBLIC_SITE_URL_KEY,
-                "invalid runtime public_site_url config; ignoring configured public origins"
-            );
-            return Vec::new();
-        }
-    };
-
-    let mut origins = Vec::new();
-    for origin in entries {
-        match parse_public_site_url_origin(&origin) {
-            Ok(normalized) => {
-                if !origins.contains(&normalized) {
-                    origins.push(normalized);
-                }
-            }
-            Err(err) => {
+    aster_forge_utils::url::runtime_public_site_origins_with(
+        public_site_url_config_value(runtime_config).as_deref(),
+        |entry, err| match entry {
+            Some(entry) => {
                 tracing::warn!(
                     error = %err,
                     key = PUBLIC_SITE_URL_KEY,
-                    entry = %origin,
+                    entry = %entry,
                     "invalid runtime public_site_url origin; ignoring entry"
                 );
             }
-        }
-    }
-
-    origins
+            None => {
+                tracing::warn!(
+                    error = %err,
+                    key = PUBLIC_SITE_URL_KEY,
+                    "invalid runtime public_site_url config; ignoring configured public origins"
+                );
+            }
+        },
+    )
 }
 
 pub fn public_site_url(runtime_config: &RuntimeConfig) -> Option<String> {
@@ -118,19 +60,11 @@ pub fn public_site_url_for_request(
     scheme: &str,
     host: &str,
 ) -> Option<String> {
-    let origins = public_site_urls(runtime_config);
-    if origins.is_empty() {
-        return None;
-    }
-
-    let request_origin = cors::normalize_origin(&format!("{scheme}://{host}"), false).ok();
-    if let Some(request_origin) = request_origin
-        && origins.iter().any(|origin| origin == &request_origin)
-    {
-        return Some(request_origin);
-    }
-
-    origins.into_iter().next()
+    aster_forge_utils::url::public_site_origin_for_request(
+        &public_site_urls(runtime_config),
+        scheme,
+        host,
+    )
 }
 
 pub fn public_app_url(runtime_config: &RuntimeConfig, path: &str) -> Option<String> {
@@ -163,13 +97,7 @@ pub fn public_app_url_or_path_for_request(
 }
 
 pub fn join_origin_and_path(base: &str, path: &str) -> String {
-    let normalized_path = if path.starts_with('/') {
-        path.to_string()
-    } else {
-        format!("/{path}")
-    };
-
-    format!("{base}{normalized_path}")
+    aster_forge_utils::url::join_origin_and_path(base, path)
 }
 
 #[cfg(test)]

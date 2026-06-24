@@ -2,29 +2,20 @@
 
 use crate::api::dto::yggdrasil::YggdrasilErrorBody;
 use crate::config::{RateLimitConfig, RateLimitTier};
-use governor::clock::{Clock, DefaultClock, QuantaInstant};
-use governor::middleware::NoOpMiddleware;
-use governor::state::keyed::DefaultKeyedStateStore;
-use governor::{NotUntil, Quota, RateLimiter};
+use aster_forge_actix_middleware::rate_limit::{NormalizedStringRateLimiter, RateLimitRejection};
 use std::sync::Arc;
-use std::time::Duration;
-
-type KeyedLimiter =
-    RateLimiter<String, DefaultKeyedStateStore<String>, DefaultClock, NoOpMiddleware>;
 
 #[derive(Clone)]
 pub struct YggdrasilRateLimiter {
-    enabled: bool,
-    authenticate: Arc<KeyedLimiter>,
-    signout: Arc<KeyedLimiter>,
+    authenticate: Arc<NormalizedStringRateLimiter>,
+    signout: Arc<NormalizedStringRateLimiter>,
 }
 
 impl YggdrasilRateLimiter {
     pub fn from_config(config: &RateLimitConfig) -> Self {
         Self {
-            enabled: config.enabled,
-            authenticate: Arc::new(build_keyed_limiter(&config.auth)),
-            signout: Arc::new(build_keyed_limiter(&config.auth)),
+            authenticate: Arc::new(build_keyed_limiter(config.enabled, &config.auth)),
+            signout: Arc::new(build_keyed_limiter(config.enabled, &config.auth)),
         }
     }
 
@@ -37,43 +28,30 @@ impl YggdrasilRateLimiter {
     }
 
     fn check(&self, limiter: &KeyedLimiter, username: &str) -> Option<YggdrasilRateLimitRejection> {
-        if !self.enabled {
-            return None;
-        }
-        let key = username.trim().to_ascii_lowercase();
         limiter
-            .check_key(&key)
-            .err()
-            .map(YggdrasilRateLimitRejection::from_not_until)
+            .check(username)
+            .map(|inner| YggdrasilRateLimitRejection { inner })
     }
 }
 
+type KeyedLimiter = NormalizedStringRateLimiter;
+
 pub struct YggdrasilRateLimitRejection {
-    retry_after_seconds: u64,
+    inner: RateLimitRejection,
 }
 
 impl YggdrasilRateLimitRejection {
-    fn from_not_until(not_until: NotUntil<QuantaInstant>) -> Self {
-        let retry_after_seconds = not_until
-            .wait_time_from(DefaultClock::default().now())
-            .as_secs()
-            .max(1);
-        Self {
-            retry_after_seconds,
-        }
-    }
-
     pub const fn retry_after_seconds(&self) -> u64 {
-        self.retry_after_seconds
+        self.inner.retry_after_seconds()
     }
 
     pub fn into_response(self) -> actix_web::HttpResponse {
         let message = format!(
             "Too many requests. Retry after {} seconds.",
-            self.retry_after_seconds
+            self.retry_after_seconds()
         );
         actix_web::HttpResponse::TooManyRequests()
-            .insert_header(("Retry-After", self.retry_after_seconds.to_string()))
+            .insert_header(("Retry-After", self.retry_after_seconds().to_string()))
             .json(YggdrasilErrorBody {
                 error: "TooManyRequestsException",
                 error_message: message,
@@ -82,15 +60,8 @@ impl YggdrasilRateLimitRejection {
     }
 }
 
-#[expect(
-    clippy::expect_used,
-    reason = "governor exposes with_period() as fallible for zero durations; RateLimitTier seconds_per_request is NonZero"
-)]
-fn build_keyed_limiter(tier: &RateLimitTier) -> KeyedLimiter {
-    let quota = Quota::with_period(Duration::from_secs(tier.seconds_per_request.get()))
-        .expect("non-zero rate limit tier should always build")
-        .allow_burst(tier.burst_size);
-    RateLimiter::keyed(quota)
+fn build_keyed_limiter(enabled: bool, tier: &RateLimitTier) -> KeyedLimiter {
+    NormalizedStringRateLimiter::new(enabled, tier.seconds_per_request, tier.burst_size)
 }
 
 #[cfg(test)]

@@ -6,8 +6,6 @@ mod common;
 use actix_web::{http::header, test};
 use serde_json::Value;
 
-const EXPECTED_ALLOW_HEADERS: &str =
-    "authorization, accept, content-type, range, timeout, x-aster-yggdrasil-csrf, x-request-id";
 const EXPECTED_EXPOSE_HEADERS: &str = "content-length, etag, x-request-id";
 
 macro_rules! set_config {
@@ -44,6 +42,13 @@ fn header_contains<B>(
         actual.contains(&value.to_ascii_lowercase()),
         "expected header to contain '{value}', got '{actual}'"
     );
+}
+
+fn expected_allow_headers() -> String {
+    format!(
+        "authorization, accept, content-type, range, timeout, {}, x-request-id",
+        aster_yggdrasil::api::middleware::csrf::token_names().header_name_str()
+    )
 }
 
 #[actix_web::test]
@@ -338,6 +343,42 @@ async fn runtime_cors_preflight_lists_expected_methods_and_headers() {
             .unwrap()
             .to_str()
             .unwrap(),
-        EXPECTED_ALLOW_HEADERS
+        expected_allow_headers()
+    );
+}
+
+#[actix_web::test]
+async fn runtime_cors_preflight_accepts_current_csrf_header_name() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let token = setup_admin!(app);
+    enable_cors!(app, token);
+
+    let resp = set_config!(
+        app,
+        token,
+        "cors_allowed_origins",
+        "https://panel.example.com",
+    );
+    assert_eq!(resp.status(), 200);
+
+    let csrf_header = aster_yggdrasil::api::middleware::csrf::token_names().header_name_str();
+    let req = test::TestRequest::default()
+        .method(actix_web::http::Method::OPTIONS)
+        .uri("/api/v1/auth/profile")
+        .insert_header((header::ORIGIN, "https://panel.example.com"))
+        .insert_header((header::ACCESS_CONTROL_REQUEST_METHOD, "PATCH"))
+        .insert_header((header::ACCESS_CONTROL_REQUEST_HEADERS, csrf_header))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+
+    assert_eq!(resp.status(), 204);
+    assert_eq!(
+        resp.headers()
+            .get(header::ACCESS_CONTROL_ALLOW_HEADERS)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        expected_allow_headers()
     );
 }
