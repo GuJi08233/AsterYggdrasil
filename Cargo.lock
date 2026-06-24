@@ -725,7 +725,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_api"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "chrono",
  "serde",
@@ -736,7 +736,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_api_docs_macros"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -746,7 +746,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_cache"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -762,7 +762,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_crypto"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "argon2",
  "rand_core 0.6.4",
@@ -773,7 +773,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_db"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "rand 0.10.1",
  "sea-orm",
@@ -783,9 +783,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "aster_forge_logging"
+version = "0.1.0"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
+dependencies = [
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "aster_forge_metrics"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "aster_forge_db",
  "sea-orm",
@@ -796,7 +805,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_storage_core"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "http 1.4.2",
  "thiserror 2.0.18",
@@ -805,7 +814,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_utils"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "http 1.4.2",
  "ipnet",
@@ -818,7 +827,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_validation"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#1e39312980ba3ff1d6fe2a9c785afc23d47df602"
+source = "git+https://github.com/AsterCommunity/AsterForge#5bb59b23ac3e7c7044c34a6d2a1b79402ca89a8d"
 dependencies = [
  "thiserror 2.0.18",
  "unicode-normalization",
@@ -839,6 +848,7 @@ dependencies = [
  "aster_forge_cache",
  "aster_forge_crypto",
  "aster_forge_db",
+ "aster_forge_logging",
  "aster_forge_metrics",
  "aster_forge_storage_core",
  "aster_forge_utils",
@@ -888,8 +898,6 @@ dependencies = [
  "toml",
  "toml_edit",
  "tracing",
- "tracing-appender",
- "tracing-subscriber",
  "url",
  "urlencoding",
  "utoipa",
@@ -7439,6 +7447,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-log"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
+dependencies = [
+ "log",
+ "once_cell",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-serde"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7461,9 +7480,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sharded-slab",
+ "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
+ "tracing-log",
  "tracing-serde",
 ]
 

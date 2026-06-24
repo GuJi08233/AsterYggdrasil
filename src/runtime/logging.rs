@@ -1,31 +1,22 @@
-//! Tracing subscriber setup.
+//! Runtime logging initialization.
+//!
+//! Yggdrasil owns the deserialized application configuration schema, while
+//! `aster_forge_logging` owns the shared tracing subscriber behavior used across
+//! Aster services. This module is intentionally limited to mapping the local
+//! [`LoggingConfig`] into the Forge runtime logging configuration.
 
 use crate::config::LoggingConfig;
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-pub struct LoggingInitResult {
-    pub guard: Option<WorkerGuard>,
-    pub warning: Option<String>,
+pub fn init_logging(config: &LoggingConfig) -> aster_forge_logging::LoggingInitResult {
+    aster_forge_logging::init_logging(&forge_logging_config(config))
 }
 
-pub fn init_logging(config: &LoggingConfig) -> LoggingInitResult {
-    let filter = EnvFilter::try_new(&config.level).unwrap_or_else(|error| {
-        eprintln!(
-            "invalid log level '{}': {error}; falling back to info",
-            config.level
-        );
-        EnvFilter::new("info")
-    });
-
-    let registry = tracing_subscriber::registry().with(filter);
-    match config.format.as_str() {
-        "json" => registry.with(fmt::layer().json()).init(),
-        _ => registry.with(fmt::layer().compact()).init(),
-    }
-
-    LoggingInitResult {
-        guard: None,
-        warning: None,
+fn forge_logging_config(config: &LoggingConfig) -> aster_forge_logging::LoggingConfig {
+    aster_forge_logging::LoggingConfig {
+        level: config.level.clone(),
+        format: config.format.clone(),
+        file: config.file.clone(),
+        enable_rotation: config.enable_rotation,
+        max_backups: config.max_backups,
     }
 }

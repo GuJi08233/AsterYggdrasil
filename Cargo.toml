@@ -80,6 +80,7 @@ aster_forge_api_docs_macros = { git = "https://github.com/AsterCommunity/AsterFo
 aster_forge_cache = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_cache", features = ["memory", "redis"] }
 aster_forge_crypto = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_crypto" }
 aster_forge_db = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_db" }
+aster_forge_logging = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_logging" }
 aster_forge_metrics = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_metrics" }
 aster_forge_storage_core = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_storage_core" }
 aster_forge_utils = { git = "https://github.com/AsterCommunity/AsterForge", package = "aster_forge_utils" }
@@ -125,8 +126,6 @@ tokio-util = { version = "0.7", features = ["io", "io-util"] }
 toml = "1.1"
 toml_edit = "0.25"
 tracing = { version = "0.1.44", default-features = false }
-tracing-appender = "0.2.5"
-tracing-subscriber = { version = "0.3.23", default-features = false, features = ["ansi", "env-filter", "fmt", "json"] }
 utoipa = { version = "5.5.0", features = ["chrono", "actix_extras", "repr"], optional = true }
 utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"], optional = true }
 url = "2"
