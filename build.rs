@@ -30,7 +30,14 @@ fn create_fallback_files(dist_path: &Path) -> io::Result<()> {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AsterYggdrasil</title>
+    <link rel="icon" type="image/svg+xml" href="%ASTERYGGDRASIL_FAVICON_URL%" />
+    <link rel="apple-touch-icon" href="%ASTERYGGDRASIL_FAVICON_URL%" />
+    <meta name="description" content="%ASTERYGGDRASIL_DESCRIPTION%" />
+    <meta http-equiv="Content-Security-Policy" content="%ASTERYGGDRASIL_CSP%" />
+    <meta name="asteryggdrasil-version" content="%ASTERYGGDRASIL_VERSION%" />
+    <meta name="asteryggdrasil-wordmark-dark" content="%ASTERYGGDRASIL_WORDMARK_DARK_URL%" />
+    <meta name="asteryggdrasil-wordmark-light" content="%ASTERYGGDRASIL_WORDMARK_LIGHT_URL%" />
+    <title>%ASTERYGGDRASIL_TITLE% - Frontend Not Built</title>
     <style>
         :root { color-scheme: dark; }
         body {
@@ -61,7 +68,7 @@ fn create_fallback_files(dist_path: &Path) -> io::Result<()> {
 </head>
 <body>
     <main>
-        <h1>AsterYggdrasil</h1>
+        <h1>%ASTERYGGDRASIL_TITLE%</h1>
         <p>The embedded frontend has not been built yet.</p>
         <p>Run <code>cd frontend-panel && bun install && bun run build</code>, then restart the server.</p>
         <p>API health remains available at <code>/health</code> and <code>/health/ready</code>.</p>
