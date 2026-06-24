@@ -12,7 +12,6 @@
     )
 )]
 
-pub mod alloc;
 pub mod api;
 pub mod cache;
 pub mod config;

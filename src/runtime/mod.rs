@@ -1,7 +1,6 @@
 //! Runtime state and lifecycle modules.
 
 pub mod logging;
-pub mod panic;
 pub mod shutdown;
 pub mod startup;
 pub mod tasks;

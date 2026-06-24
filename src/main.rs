@@ -64,11 +64,15 @@ pub static malloc_conf: Option<&'static std::ffi::c_char> = Some(unsafe {
 
 #[cfg(all(debug_assertions, not(feature = "jemalloc")))]
 #[global_allocator]
-static GLOBAL: aster_yggdrasil::alloc::TrackingAlloc = aster_yggdrasil::alloc::TrackingAlloc;
+static GLOBAL: aster_forge_alloc::TrackingAlloc = aster_forge_alloc::TrackingAlloc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    aster_yggdrasil::runtime::panic::install_panic_hook();
+    aster_forge_panic::install_panic_hook(aster_forge_panic::PanicHookConfig::new(
+        "AsterYggdrasil",
+        env!("CARGO_PKG_VERSION"),
+        env!("CARGO_PKG_REPOSITORY"),
+    ));
     dotenvy::dotenv().ok();
 
     let config = aster_yggdrasil::config::init_config()
