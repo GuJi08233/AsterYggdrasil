@@ -1,9 +1,9 @@
 //! Graceful shutdown helpers.
 
-use crate::db::DbHandles;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::runtime::tasks::BackgroundTasks;
+use aster_forge_db::DbHandles;
 
 pub async fn wait_for_signal() -> Result<()> {
     wait_for_termination_signal().await

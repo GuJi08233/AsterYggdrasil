@@ -46,7 +46,7 @@ pub(super) async fn create_pending_email_verification_flow(
     claims: &ExternalAuthUserClaims,
     return_path: Option<String>,
 ) -> Result<PendingExternalAuthEmailVerification> {
-    let flow_token = format!("oev_{}", crate::utils::id::new_short_token());
+    let flow_token = format!("oev_{}", aster_forge_utils::id::new_short_token());
     let now = Utc::now();
     let ttl = u64_to_i64(
         EMAIL_VERIFICATION_FLOW_TTL_SECS,

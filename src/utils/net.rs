@@ -1,7 +1,5 @@
 //! Network address helpers.
 
-pub use aster_forge_utils::net::is_loopback_host;
-
 use actix_web::http::header::HeaderMap;
 use ipnet::IpNet;
 use std::net::IpAddr;

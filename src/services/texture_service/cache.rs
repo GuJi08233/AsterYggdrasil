@@ -1,5 +1,5 @@
-use crate::cache::CacheExt;
 use crate::runtime::CacheRuntimeState;
+use aster_forge_cache::CacheExt;
 
 use super::{TextureBlob, is_valid_texture_hash};
 

@@ -10,9 +10,9 @@ use aster_forge_metrics::SharedMetricsRecorder;
 
 pub(super) struct CommonRuntimeParts {
     pub config: Arc<Config>,
-    pub db_handles: db::DbHandles,
+    pub db_handles: aster_forge_db::DbHandles,
     pub runtime_config: Arc<RuntimeConfig>,
-    pub cache: Arc<dyn cache::CacheBackend>,
+    pub cache: Arc<dyn aster_forge_cache::CacheBackend>,
     pub object_storage: Arc<dyn object_storage::ObjectStorage>,
     pub metrics: SharedMetricsRecorder,
 }

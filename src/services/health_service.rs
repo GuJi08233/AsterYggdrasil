@@ -1,9 +1,9 @@
 //! Generic health and readiness checks.
 
-use crate::cache::CacheBackend;
 use crate::config::CacheConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
+use aster_forge_cache::CacheBackend;
 use sea_orm::DatabaseConnection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -199,8 +199,8 @@ mod tests {
         HealthComponentReport, HealthStatus, SystemHealthReport, check_cache_component,
         check_database_component,
     };
-    use crate::cache::CacheBackend;
     use crate::config::{CacheConfig, DatabaseConfig};
+    use aster_forge_cache::CacheBackend;
     use async_trait::async_trait;
 
     struct FakeCache {

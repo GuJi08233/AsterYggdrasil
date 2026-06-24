@@ -18,7 +18,7 @@ use crate::external_auth::driver::{
 use crate::external_auth::url::{has_http_scheme, parse_url};
 use crate::services::auth_service;
 use crate::types::{ExternalAuthProtocol, ExternalAuthProviderKind};
-use crate::utils::{OUTBOUND_HTTP_USER_AGENT, id};
+use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 
 const OAUTH2_DEFAULT_SCOPES: &str = "openid email profile";
 const OAUTH2_NAMESPACE_MAX_LEN: usize = 512;
@@ -115,7 +115,7 @@ impl ExternalAuthProviderDriver for OAuth2ProviderDriver {
             "authorization_url",
             AsterError::config_error,
         )?;
-        let state = format!("oauth2_{}", id::new_short_token());
+        let state = format!("oauth2_{}", aster_forge_utils::id::new_short_token());
         let pkce_verifier = build_pkce_verifier();
         let pkce_challenge = build_pkce_challenge(&pkce_verifier);
 

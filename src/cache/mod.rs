@@ -3,8 +3,7 @@
 use std::sync::Arc;
 
 use crate::config::CacheConfig;
-
-pub use aster_forge_cache::{CacheBackend, CacheExt};
+use aster_forge_cache::CacheBackend;
 
 /// Creates a cache backend from application config.
 pub async fn create_cache(config: &CacheConfig) -> Arc<dyn CacheBackend> {

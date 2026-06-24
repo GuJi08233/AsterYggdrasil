@@ -442,11 +442,12 @@ mod tests {
         ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY,
     };
     use crate::config::{CacheConfig, Config, DatabaseConfig, RuntimeConfig};
+    use crate::db;
     use crate::db::repository::system_config_repo;
-    use crate::db::{self, DbHandles};
     use crate::runtime::AppState;
     use crate::services::audit_service::{AuditContext, flush_global_audit_log_manager};
     use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
+    use aster_forge_db::DbHandles;
     use std::sync::Arc;
 
     async fn build_test_state() -> AppState {

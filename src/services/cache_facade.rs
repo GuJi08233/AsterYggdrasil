@@ -1,5 +1,5 @@
-use crate::cache::CacheExt;
 use crate::runtime::CacheRuntimeState;
+use aster_forge_cache::CacheExt;
 use serde::{Serialize, de::DeserializeOwned};
 
 pub(crate) async fn get<S, T>(state: &S, key: &str) -> Option<T>
@@ -36,8 +36,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::{CacheBackend, create_cache};
+    use crate::cache::create_cache;
     use crate::config::CacheConfig;
+    use aster_forge_cache::CacheBackend;
     use std::sync::Arc;
 
     struct CacheState {

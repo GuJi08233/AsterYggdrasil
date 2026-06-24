@@ -1,8 +1,8 @@
 use crate::api::dto::yggdrasil::{YggdrasilProfile, YggdrasilProfileProperty};
-use crate::cache::CacheExt;
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::entities::{minecraft_profile, yggdrasil_session_forward_server, yggdrasil_token};
 use crate::runtime::{CacheRuntimeState, RuntimeConfigRuntimeState};
+use aster_forge_cache::CacheExt;
 use serde::{Deserialize, Serialize};
 
 const JOIN_SESSION_TTL_SECS: u64 = 30;
@@ -259,8 +259,9 @@ fn join_session_key(server_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cache::{CacheBackend, create_cache};
+    use crate::cache::create_cache;
     use crate::config::CacheConfig;
+    use aster_forge_cache::CacheBackend;
     use std::sync::Arc;
 
     struct CacheState {

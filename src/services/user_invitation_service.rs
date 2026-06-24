@@ -18,7 +18,7 @@ use crate::services::{
     mail_template::MailTemplatePayload,
 };
 use crate::types::{UserInvitationStatus, UserRole, UserStatus};
-use crate::utils::{hash, id, numbers::u64_to_i64};
+use crate::utils::{hash, numbers::u64_to_i64};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 
 #[derive(Debug, Clone, Serialize)]
@@ -63,7 +63,7 @@ where
     let email = crate::utils::email::normalize_email(email)?;
     LocalEmailPolicy::from_runtime_config(state.runtime_config()).check(&email)?;
 
-    let token = id::new_short_token();
+    let token = aster_forge_utils::id::new_short_token();
     let token_hash = hash::sha256_hex(token.as_bytes());
     let now = Utc::now();
     let ttl_secs = u64_to_i64(

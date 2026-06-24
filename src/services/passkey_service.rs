@@ -21,10 +21,10 @@ use crate::services::auth_service::{self, is_email_verified};
 use crate::types::StoredPasskeyCredential;
 use crate::utils::{
     id,
-    net::is_loopback_host,
     numbers::{u32_to_i64, u64_to_i64},
 };
 use actix_web::HttpRequest;
+use aster_forge_utils::net::is_loopback_host;
 
 const PASSKEY_CHALLENGE_TTL_SECS: u64 = 300;
 const PASSKEY_NAME_MAX_LEN: usize = 128;

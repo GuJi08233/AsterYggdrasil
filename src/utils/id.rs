@@ -3,11 +3,8 @@
 use std::future::Future;
 
 use crate::errors::{AsterError, Result};
+use aster_forge_utils::id::{UNIQUE_UUID_MAX_ATTEMPTS, UniqueUuidAttempt};
 use uuid::Uuid;
-
-pub use aster_forge_utils::id::{
-    UNIQUE_UUID_MAX_ATTEMPTS, UniqueUuidAttempt, new_short_token, new_uuid,
-};
 
 pub async fn with_unique_uuid<F, Fut, T>(value_name: &str, mut try_candidate: F) -> Result<T>
 where
@@ -53,7 +50,7 @@ where
 }
 
 pub fn new_unsigned_uuid() -> String {
-    new_short_token()
+    aster_forge_utils::id::new_short_token()
 }
 
 pub fn new_base62_token(len: usize) -> String {

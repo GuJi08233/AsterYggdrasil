@@ -191,7 +191,7 @@ mod tests {
         let yggdrasil_rate_limiter = crate::runtime::AppState::new_yggdrasil_rate_limiter(&config);
 
         crate::runtime::AppState {
-            db_handles: crate::db::DbHandles::single(db),
+            db_handles: aster_forge_db::DbHandles::single(db),
             config,
             runtime_config,
             cache,

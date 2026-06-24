@@ -584,7 +584,7 @@ mod tests {
             .expect("admin user test object storage should initialize");
         let yggdrasil_rate_limiter = AppState::new_yggdrasil_rate_limiter(&config);
         let state = AppState {
-            db_handles: crate::db::DbHandles::single(db),
+            db_handles: aster_forge_db::DbHandles::single(db),
             config,
             runtime_config,
             cache,

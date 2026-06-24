@@ -555,7 +555,7 @@ mod tests {
             .expect("admin overview test object storage should initialize");
 
         AppState {
-            db_handles: crate::db::DbHandles::single(db),
+            db_handles: aster_forge_db::DbHandles::single(db),
             config: config.clone(),
             runtime_config,
             cache,

@@ -77,7 +77,7 @@ mod tests {
         crate::services::audit_service::init_global_audit_log_manager(db.clone());
 
         let state = AppState {
-            db_handles: crate::db::DbHandles::single(db.clone()),
+            db_handles: aster_forge_db::DbHandles::single(db.clone()),
             config: Arc::new(crate::config::Config::default()),
             runtime_config,
             cache,

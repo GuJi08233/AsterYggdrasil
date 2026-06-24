@@ -7,8 +7,6 @@ use crate::errors::{AsterError, Result};
 use aster_forge_metrics::SharedMetricsRecorder;
 use sea_orm::DatabaseConnection;
 
-pub use aster_forge_db::DbHandles;
-
 fn forge_database_config(cfg: &DatabaseConfig) -> aster_forge_db::DatabaseConfig {
     aster_forge_db::DatabaseConfig {
         url: cfg.url.clone(),
@@ -49,7 +47,7 @@ pub async fn connect_reader_for_writer_with_metrics(
     cfg: &DatabaseConfig,
     writer: DatabaseConnection,
     metrics: SharedMetricsRecorder,
-) -> Result<DbHandles> {
+) -> Result<aster_forge_db::DbHandles> {
     aster_forge_db::connect_reader_for_writer_with_metrics(
         &forge_database_config(cfg),
         writer,

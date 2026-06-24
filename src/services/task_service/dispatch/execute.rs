@@ -442,7 +442,7 @@ mod tests {
         let config = Arc::new(crate::config::Config::default());
 
         AppState {
-            db_handles: crate::db::DbHandles::single(db),
+            db_handles: aster_forge_db::DbHandles::single(db),
             config: config.clone(),
             runtime_config,
             cache,

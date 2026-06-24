@@ -7,12 +7,12 @@ pub mod startup;
 pub mod tasks;
 
 use crate::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
-use crate::cache::CacheBackend;
 use crate::config::{Config, RuntimeConfig};
-use crate::db::DbHandles;
 use crate::errors::{AsterError, Result};
 use crate::object_storage::ObjectStorage;
 use crate::services::mail_service::MailSender;
+use aster_forge_cache::CacheBackend;
+use aster_forge_db::DbHandles;
 use aster_forge_metrics::SharedMetricsRecorder;
 use sea_orm::DatabaseConnection;
 use std::sync::Arc;

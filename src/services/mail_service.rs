@@ -16,7 +16,6 @@ use crate::config::{mail, site_url};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::MailRuntimeState;
 use crate::services::mail_template::RenderedMail;
-use crate::utils::id;
 
 const SMTP_SEND_TIMEOUT_SECS: u64 = 15;
 
@@ -253,7 +252,7 @@ pub async fn send_test_email(
 }
 
 pub fn build_verification_token() -> String {
-    format!("cv_{}", id::new_short_token())
+    format!("cv_{}", aster_forge_utils::id::new_short_token())
 }
 
 fn build_transport(

@@ -5,7 +5,7 @@ use crate::config::auth_runtime::RuntimeCaptchaPolicy;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{CacheRuntimeState, RuntimeConfigRuntimeState};
 use crate::utils::{
-    hash, id,
+    hash,
     numbers::{i64_to_u64, u32_to_usize, u64_to_usize},
 };
 use captcha_rs::CaptchaBuilder;
@@ -75,7 +75,7 @@ where
 {
     let policy = policy(state);
     let captcha = render_challenge(&policy)?;
-    let challenge_id = id::new_short_token();
+    let challenge_id = aster_forge_utils::id::new_short_token();
     let state_value = CaptchaChallengeState {
         answer_hash: answer_hash(&captcha.answer),
         attempts: 0,
