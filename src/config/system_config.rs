@@ -1,256 +1,33 @@
 //! Runtime system configuration helpers.
 
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
-
 use crate::config::RuntimeConfig;
-use crate::config::audit;
-use crate::config::auth_runtime;
-use crate::config::avatar;
-use crate::config::branding;
-use crate::config::cors;
-use crate::config::definitions::{ALL_CONFIGS, ConfigDef};
-use crate::config::local_email_policy;
-use crate::config::mail;
-use crate::config::operations;
-use crate::config::site_url;
-use crate::config::texture_preview;
-use crate::config::yggdrasil;
+use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef};
 use crate::entities::system_config;
-use crate::errors::{AsterError, Result};
+use crate::errors::Result;
 use crate::types::{SystemConfigSource, SystemConfigValueType};
-use aster_forge_utils::bool_like::parse_bool_like;
+use aster_forge_config::{ConfigValueLookup, StoredConfig};
 
-pub trait SystemConfigValueLookup {
-    fn get_config_value(&self, key: &str) -> Option<String>;
-}
-
-impl SystemConfigValueLookup for RuntimeConfig {
+impl ConfigValueLookup for RuntimeConfig {
     fn get_config_value(&self, key: &str) -> Option<String> {
         self.get(key)
     }
 }
 
-impl<T> SystemConfigValueLookup for Arc<T>
-where
-    T: SystemConfigValueLookup + ?Sized,
-{
-    fn get_config_value(&self, key: &str) -> Option<String> {
-        self.as_ref().get_config_value(key)
-    }
-}
-
-impl SystemConfigValueLookup for HashMap<String, String> {
-    fn get_config_value(&self, key: &str) -> Option<String> {
-        self.get(key).cloned()
-    }
-}
-
-impl SystemConfigValueLookup for BTreeMap<String, String> {
-    fn get_config_value(&self, key: &str) -> Option<String> {
-        self.get(key).cloned()
-    }
-}
-
 pub fn get_definition(key: &str) -> Option<&'static ConfigDef> {
-    ALL_CONFIGS.iter().find(|def| def.key == key)
+    CONFIG_REGISTRY.get(key)
 }
 
 pub fn validate_value_type(value_type: SystemConfigValueType, value: &str) -> Result<()> {
-    let trimmed = value.trim();
-    match value_type {
-        SystemConfigValueType::Boolean => {
-            if trimmed != "true" && trimmed != "false" {
-                return Err(AsterError::validation_error(
-                    "boolean config must be 'true' or 'false'",
-                ));
-            }
-        }
-        SystemConfigValueType::Number => {
-            if trimmed.parse::<f64>().is_err() {
-                return Err(AsterError::validation_error(
-                    "number config must be a valid number",
-                ));
-            }
-        }
-        SystemConfigValueType::StringArray | SystemConfigValueType::StringEnumSet => {
-            serde_json::from_str::<Vec<String>>(trimmed).map_err(|error| {
-                AsterError::validation_error(format!(
-                    "{} config must be a JSON array of strings: {error}",
-                    value_type.as_str()
-                ))
-            })?;
-        }
-        SystemConfigValueType::String
-        | SystemConfigValueType::StringEnum
-        | SystemConfigValueType::Multiline => {}
-    }
-    Ok(())
+    aster_forge_config::validate_storage_value(value_type.into(), value).map_err(Into::into)
 }
 
 pub fn normalize_system_value<L>(lookup: &L, key: &str, value: &str) -> Result<String>
 where
-    L: SystemConfigValueLookup + ?Sized,
+    L: ConfigValueLookup,
 {
-    match key {
-        audit::AUDIT_LOG_RECORDED_ACTIONS_KEY => {
-            audit::normalize_recorded_actions_config_value(value)
-        }
-        auth_runtime::AUTH_COOKIE_SECURE_KEY => {
-            auth_runtime::normalize_cookie_secure_config_value(value)
-        }
-        auth_runtime::AUTH_ALLOW_USER_REGISTRATION_KEY => {
-            auth_runtime::normalize_allow_user_registration_config_value(value)
-        }
-        auth_runtime::AUTH_REGISTER_ACTIVATION_ENABLED_KEY => {
-            auth_runtime::normalize_register_activation_enabled_config_value(value)
-        }
-        auth_runtime::AUTH_CAPTCHA_ENABLED_KEY
-        | auth_runtime::AUTH_CAPTCHA_LOGIN_REQUIRED_KEY
-        | auth_runtime::AUTH_CAPTCHA_REGISTER_REQUIRED_KEY
-        | auth_runtime::AUTH_CAPTCHA_INVITATION_ACCEPT_REQUIRED_KEY
-        | auth_runtime::AUTH_CAPTCHA_REGISTER_ACTIVATION_RESEND_REQUIRED_KEY => {
-            auth_runtime::normalize_auth_bool_config_value(key, value)
-        }
-        auth_runtime::AUTH_EMAIL_CODE_LOGIN_ENABLED_KEY
-        | auth_runtime::AUTH_EMAIL_CODE_LOGIN_ALLOW_TOTP_FALLBACK_KEY
-        | auth_runtime::AUTH_PASSKEY_LOGIN_ENABLED_KEY => {
-            auth_runtime::normalize_email_code_login_bool_config_value(key, value)
-        }
-        auth_runtime::AUTH_ACCESS_TOKEN_TTL_SECS_KEY
-        | auth_runtime::AUTH_REFRESH_TOKEN_TTL_SECS_KEY
-        | auth_runtime::AUTH_REGISTER_ACTIVATION_TTL_SECS_KEY
-        | auth_runtime::AUTH_USER_INVITATION_TTL_SECS_KEY
-        | auth_runtime::AUTH_CONTACT_CHANGE_TTL_SECS_KEY
-        | auth_runtime::AUTH_PASSWORD_RESET_TTL_SECS_KEY
-        | auth_runtime::AUTH_EMAIL_CODE_LOGIN_TTL_SECS_KEY
-        | auth_runtime::AUTH_EMAIL_CODE_LOGIN_RESEND_COOLDOWN_SECS_KEY
-        | auth_runtime::AUTH_CAPTCHA_TTL_SECS_KEY
-        | auth_runtime::AUTH_PASSWORD_RESET_REQUEST_COOLDOWN_SECS_KEY
-        | auth_runtime::AUTH_CONTACT_VERIFICATION_RESEND_COOLDOWN_SECS_KEY => {
-            auth_runtime::normalize_token_ttl_config_value(key, value)
-        }
-        auth_runtime::AUTH_CAPTCHA_LENGTH_KEY => {
-            auth_runtime::normalize_captcha_length_config_value(value)
-        }
-        auth_runtime::AUTH_CAPTCHA_PRESET_KEY => {
-            auth_runtime::normalize_captcha_preset_config_value(value)
-        }
-        auth_runtime::AUTH_CAPTCHA_MAX_ATTEMPTS_KEY => {
-            auth_runtime::normalize_captcha_max_attempts_config_value(value)
-        }
-        local_email_policy::AUTH_LOCAL_EMAIL_ALLOWLIST_KEY
-        | local_email_policy::AUTH_LOCAL_EMAIL_BLOCKLIST_KEY => {
-            local_email_policy::normalize_local_email_policy_config_value(key, value)
-        }
-        avatar::GRAVATAR_BASE_URL_KEY => avatar::normalize_gravatar_base_url_config_value(value),
-        mail::MAIL_SMTP_HOST_KEY => mail::normalize_smtp_host_config_value(value),
-        mail::MAIL_SMTP_PORT_KEY => mail::normalize_smtp_port_config_value(value),
-        mail::MAIL_FROM_ADDRESS_KEY => mail::normalize_mail_address_config_value(value),
-        mail::MAIL_FROM_NAME_KEY => mail::normalize_mail_name_config_value(value),
-        mail::MAIL_SECURITY_KEY => mail::normalize_mail_security_config_value(value),
-        mail::MAIL_TEMPLATE_REGISTER_ACTIVATION_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_CONTACT_CHANGE_CONFIRMATION_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_PASSWORD_RESET_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_PASSWORD_RESET_NOTICE_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_CONTACT_CHANGE_NOTICE_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_EXTERNAL_AUTH_EMAIL_VERIFICATION_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_LOGIN_EMAIL_CODE_SUBJECT_KEY
-        | mail::MAIL_TEMPLATE_USER_INVITATION_SUBJECT_KEY => {
-            mail::normalize_mail_template_subject_config_value(key, value)
-        }
-        mail::MAIL_TEMPLATE_REGISTER_ACTIVATION_HTML_KEY
-        | mail::MAIL_TEMPLATE_CONTACT_CHANGE_CONFIRMATION_HTML_KEY
-        | mail::MAIL_TEMPLATE_PASSWORD_RESET_HTML_KEY
-        | mail::MAIL_TEMPLATE_PASSWORD_RESET_NOTICE_HTML_KEY
-        | mail::MAIL_TEMPLATE_CONTACT_CHANGE_NOTICE_HTML_KEY
-        | mail::MAIL_TEMPLATE_EXTERNAL_AUTH_EMAIL_VERIFICATION_HTML_KEY
-        | mail::MAIL_TEMPLATE_LOGIN_EMAIL_CODE_HTML_KEY
-        | mail::MAIL_TEMPLATE_USER_INVITATION_HTML_KEY => {
-            mail::normalize_mail_template_body_config_value(key, value)
-        }
-        operations::BACKGROUND_TASK_DISPATCH_INTERVAL_SECS_KEY
-        | operations::BACKGROUND_TASK_DISPATCH_IDLE_MAX_INTERVAL_SECS_KEY
-        | operations::BACKGROUND_TASK_MAX_CONCURRENCY_KEY
-        | operations::BACKGROUND_TASK_MAX_ATTEMPTS_KEY
-        | operations::TASK_RETENTION_HOURS_KEY
-        | operations::TASK_LIST_MAX_LIMIT_KEY
-        | operations::MAINTENANCE_CLEANUP_INTERVAL_SECS_KEY
-        | operations::MAIL_OUTBOX_DISPATCH_INTERVAL_SECS_KEY => {
-            operations::normalize_interval_config_value(key, value)
-        }
-        cors::CORS_ENABLED_KEY => cors::normalize_enabled_config_value(value),
-        cors::CORS_ALLOWED_ORIGINS_KEY => {
-            let normalized = cors::normalize_allowed_origins_config_value(value)?;
-            let parsed = cors::parse_allowed_origins_value(&normalized)?;
-            let allow_credentials = lookup
-                .get_config_value(cors::CORS_ALLOW_CREDENTIALS_KEY)
-                .and_then(|raw| parse_bool_like(&raw))
-                .unwrap_or(cors::DEFAULT_CORS_ALLOW_CREDENTIALS);
-            cors::validate_runtime_cors_combination(&parsed, allow_credentials)?;
-            Ok(normalized)
-        }
-        cors::CORS_ALLOW_CREDENTIALS_KEY => {
-            let normalized = cors::normalize_allow_credentials_config_value(value)?;
-            let allow_credentials = normalized == "true";
-            let current_origins = lookup
-                .get_config_value(cors::CORS_ALLOWED_ORIGINS_KEY)
-                .unwrap_or_default();
-            let parsed = cors::parse_allowed_origins_value(&current_origins)?;
-            cors::validate_runtime_cors_combination(&parsed, allow_credentials)?;
-            Ok(normalized)
-        }
-        cors::CORS_MAX_AGE_SECS_KEY => cors::normalize_max_age_config_value(value),
-        site_url::PUBLIC_SITE_URL_KEY => site_url::normalize_public_site_url_config_value(value),
-        yggdrasil::YGGDRASIL_PUBLIC_BASE_URL_KEY
-        | yggdrasil::YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY
-        | yggdrasil::YGGDRASIL_SKIN_DOMAINS_KEY
-        | yggdrasil::YGGDRASIL_TOKEN_TTL_DAYS_KEY
-        | yggdrasil::YGGDRASIL_MAX_ACTIVE_TOKENS_KEY
-        | yggdrasil::YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY
-        | yggdrasil::YGGDRASIL_MAX_TEXTURE_PIXELS_KEY
-        | yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY
-        | yggdrasil::YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY => {
-            yggdrasil::normalize_yggdrasil_config_value(key, value)
-        }
-        texture_preview::TEXTURE_PREVIEW_ENGINE_KEY
-        | texture_preview::TEXTURE_PREVIEW_PROFILE_KEY
-        | texture_preview::TEXTURE_PREVIEW_WIDTH_KEY
-        | texture_preview::TEXTURE_PREVIEW_HEIGHT_KEY
-        | texture_preview::TEXTURE_PREVIEW_BACKGROUND_KEY
-        | texture_preview::TEXTURE_PREVIEW_SHOW_OUTER_LAYER_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_SCALE_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_PITCH_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_FRONT_YAW_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_BACK_YAW_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_SPACING_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_X_OFFSET_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_Y_OFFSET_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_CENTER_Y_KEY
-        | texture_preview::TEXTURE_PREVIEW_3D_SUPERSAMPLING_KEY
-        | texture_preview::TEXTURE_PREVIEW_2D_PADDING_KEY
-        | texture_preview::TEXTURE_PREVIEW_2D_SPACING_KEY => {
-            texture_preview::normalize_texture_preview_config_value(key, value)
-        }
-        crate::config::definitions::TEXTURE_LIBRARY_ENABLED_KEY
-        | crate::config::definitions::TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY => parse_bool_like(value)
-            .map(|value| value.to_string())
-            .ok_or_else(|| {
-                crate::errors::AsterError::validation_error(format!(
-                    "{key} must be a boolean value"
-                ))
-            }),
-        branding::BRANDING_TITLE_KEY => branding::normalize_title_config_value(value),
-        branding::BRANDING_DESCRIPTION_KEY => branding::normalize_description_config_value(value),
-        branding::BRANDING_FAVICON_URL_KEY => branding::normalize_favicon_url_config_value(value),
-        branding::BRANDING_WORDMARK_DARK_URL_KEY => {
-            branding::normalize_wordmark_dark_url_config_value(value)
-        }
-        branding::BRANDING_WORDMARK_LIGHT_URL_KEY => {
-            branding::normalize_wordmark_light_url_config_value(value)
-        }
-        _ => Ok(value.to_string()),
-    }
+    CONFIG_REGISTRY
+        .normalize_value(lookup, key, value)
+        .map_err(Into::into)
 }
 
 pub fn apply_definition(mut config: system_config::Model) -> system_config::Model {
@@ -258,16 +35,29 @@ pub fn apply_definition(mut config: system_config::Model) -> system_config::Mode
         return config;
     }
 
-    let Some(def) = get_definition(&config.key) else {
-        return config;
-    };
-
-    config.value_type = def.value_type;
-    config.requires_restart = def.requires_restart;
-    config.is_sensitive = def.is_sensitive;
-    config.category = def.category.to_string();
-    config.description = def.description.to_string();
+    let stored = CONFIG_REGISTRY.apply_definition(model_to_stored_config(&config));
+    config.value_type = stored.value_type.into();
+    config.requires_restart = stored.requires_restart;
+    config.is_sensitive = stored.is_sensitive;
+    config.visibility = stored.visibility.into();
+    config.category = stored.category;
+    config.description = stored.description;
     config
+}
+
+fn model_to_stored_config(config: &system_config::Model) -> StoredConfig {
+    StoredConfig {
+        id: config.id,
+        key: config.key.clone(),
+        value: config.value.clone(),
+        value_type: config.value_type.into(),
+        requires_restart: config.requires_restart,
+        is_sensitive: config.is_sensitive,
+        source: config.source.into(),
+        visibility: config.visibility.into(),
+        category: config.category.clone(),
+        description: config.description.clone(),
+    }
 }
 
 #[cfg(test)]

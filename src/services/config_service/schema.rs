@@ -39,7 +39,7 @@ pub fn get_schema() -> Vec<ConfigSchemaItem> {
             key: def.key.to_string(),
             label_i18n_key: def.label_i18n_key.to_string(),
             description_i18n_key: def.description_i18n_key.to_string(),
-            value_type: def.value_type,
+            value_type: def.value_type.into(),
             category: def.category.to_string(),
             description: def.description.to_string(),
             requires_restart: def.requires_restart,

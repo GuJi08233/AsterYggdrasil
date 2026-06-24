@@ -74,6 +74,34 @@ impl fmt::Display for SystemConfigValueType {
     }
 }
 
+impl From<aster_forge_config::ConfigValueType> for SystemConfigValueType {
+    fn from(value: aster_forge_config::ConfigValueType) -> Self {
+        match value {
+            aster_forge_config::ConfigValueType::String => Self::String,
+            aster_forge_config::ConfigValueType::Multiline => Self::Multiline,
+            aster_forge_config::ConfigValueType::StringArray => Self::StringArray,
+            aster_forge_config::ConfigValueType::StringEnum => Self::StringEnum,
+            aster_forge_config::ConfigValueType::StringEnumSet => Self::StringEnumSet,
+            aster_forge_config::ConfigValueType::Number => Self::Number,
+            aster_forge_config::ConfigValueType::Boolean => Self::Boolean,
+        }
+    }
+}
+
+impl From<SystemConfigValueType> for aster_forge_config::ConfigValueType {
+    fn from(value: SystemConfigValueType) -> Self {
+        match value {
+            SystemConfigValueType::String => Self::String,
+            SystemConfigValueType::Multiline => Self::Multiline,
+            SystemConfigValueType::StringArray => Self::StringArray,
+            SystemConfigValueType::StringEnum => Self::StringEnum,
+            SystemConfigValueType::StringEnumSet => Self::StringEnumSet,
+            SystemConfigValueType::Number => Self::Number,
+            SystemConfigValueType::Boolean => Self::Boolean,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(16))")]
@@ -99,6 +127,24 @@ impl SystemConfigSource {
 impl fmt::Display for SystemConfigSource {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+
+impl From<aster_forge_config::ConfigSource> for SystemConfigSource {
+    fn from(value: aster_forge_config::ConfigSource) -> Self {
+        match value {
+            aster_forge_config::ConfigSource::System => Self::System,
+            aster_forge_config::ConfigSource::Custom => Self::Custom,
+        }
+    }
+}
+
+impl From<SystemConfigSource> for aster_forge_config::ConfigSource {
+    fn from(value: SystemConfigSource) -> Self {
+        match value {
+            SystemConfigSource::System => Self::System,
+            SystemConfigSource::Custom => Self::Custom,
+        }
     }
 }
 
@@ -130,5 +176,25 @@ impl SystemConfigVisibility {
 impl fmt::Display for SystemConfigVisibility {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
+    }
+}
+
+impl From<aster_forge_config::ConfigVisibility> for SystemConfigVisibility {
+    fn from(value: aster_forge_config::ConfigVisibility) -> Self {
+        match value {
+            aster_forge_config::ConfigVisibility::Private => Self::Private,
+            aster_forge_config::ConfigVisibility::Public => Self::Public,
+            aster_forge_config::ConfigVisibility::Authenticated => Self::Authenticated,
+        }
+    }
+}
+
+impl From<SystemConfigVisibility> for aster_forge_config::ConfigVisibility {
+    fn from(value: SystemConfigVisibility) -> Self {
+        match value {
+            SystemConfigVisibility::Private => Self::Private,
+            SystemConfigVisibility::Public => Self::Public,
+            SystemConfigVisibility::Authenticated => Self::Authenticated,
+        }
     }
 }

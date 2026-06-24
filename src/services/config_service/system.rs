@@ -1,4 +1,4 @@
-use crate::config::definitions::{ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY};
+use crate::config::definitions::{AUTH_COOKIE_SECURE_KEY, CONFIG_REGISTRY};
 use crate::config::system_config as shared_system_config;
 use crate::config::yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY;
 use crate::db::repository::system_config_repo;
@@ -8,6 +8,7 @@ use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::audit_service::{self, AuditContext};
 use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
 use aster_forge_api::{CursorPage, IdCursor};
+use aster_forge_config::ConfigValue;
 use sea_orm::ConnectionTrait;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -23,53 +24,41 @@ pub enum SystemConfigValue {
 
 impl SystemConfigValue {
     fn from_storage(value_type: SystemConfigValueType, value: String) -> Self {
-        if !value_type.is_string_list() {
-            return Self::String(value);
-        }
-
-        match serde_json::from_str::<Vec<String>>(&value) {
-            Ok(items) => Self::StringArray(items),
+        match ConfigValue::from_storage(value_type.into(), value) {
+            Ok(ConfigValue::String(value)) => Self::String(value),
+            Ok(ConfigValue::StringArray(items)) => Self::StringArray(items),
             Err(error) => {
                 tracing::warn!(
                     error = %error,
                     value_type = %value_type,
-                    "invalid stored string list config value; returning an empty array"
+                    "invalid stored config value; returning an empty array for list values"
                 );
-                Self::StringArray(Vec::new())
+                if value_type.is_string_list() {
+                    Self::StringArray(Vec::new())
+                } else {
+                    Self::String(String::new())
+                }
             }
         }
     }
 
     pub fn to_storage_for_type(&self, value_type: SystemConfigValueType) -> Result<String> {
-        match (value_type, self) {
-            (
-                SystemConfigValueType::StringArray | SystemConfigValueType::StringEnumSet,
-                Self::StringArray(values),
-            ) => serde_json::to_string(values).map_err(|error| {
-                AsterError::internal_error(format!(
-                    "failed to serialize {} config value: {error}",
-                    value_type.as_str()
-                ))
-            }),
-            (
-                SystemConfigValueType::StringArray | SystemConfigValueType::StringEnumSet,
-                Self::String(_),
-            ) => Err(AsterError::validation_error(format!(
-                "{} config value must be a JSON array",
-                value_type.as_str()
-            ))),
-            (_, Self::String(value)) => Ok(value.clone()),
-            (_, Self::StringArray(_)) => Err(AsterError::validation_error(
-                "string array values are only supported for string_array and string_enum_set config keys",
-            )),
-        }
+        let value = ConfigValue::from(self);
+        value
+            .to_storage_for_type(value_type.into())
+            .map_err(Into::into)
     }
 
     pub fn to_audit_string(&self) -> String {
-        match self {
-            Self::String(value) => value.clone(),
-            Self::StringArray(values) => serde_json::to_string(values)
-                .unwrap_or_else(|_| "<invalid string list value>".to_string()),
+        ConfigValue::from(self).to_audit_string()
+    }
+}
+
+impl From<&SystemConfigValue> for ConfigValue {
+    fn from(value: &SystemConfigValue) -> Self {
+        match value {
+            SystemConfigValue::String(value) => Self::String(value.clone()),
+            SystemConfigValue::StringArray(values) => Self::StringArray(values.clone()),
         }
     }
 }
@@ -343,17 +332,15 @@ async fn save_config(
 ) -> Result<system_config::Model> {
     validate_direct_config_update_target(key)?;
     validate_visibility_target(key, visibility)?;
-    let value_type = ALL_CONFIGS
-        .iter()
-        .find(|def| def.key == key)
-        .map(|def| def.value_type)
+    let value_type = CONFIG_REGISTRY
+        .get(key)
+        .map(|def| SystemConfigValueType::from(def.value_type))
         .unwrap_or(SystemConfigValueType::String);
     let mut normalized_value = value.to_storage_for_type(value_type)?;
 
-    if let Some(def) = ALL_CONFIGS.iter().find(|def| def.key == key) {
-        shared_system_config::validate_value_type(def.value_type, &normalized_value)?;
-        normalized_value = shared_system_config::normalize_system_value(
-            state.runtime_config(),
+    if CONFIG_REGISTRY.contains_key(key) {
+        normalized_value = CONFIG_REGISTRY.normalize_value(
+            state.runtime_config().as_ref(),
             key,
             &normalized_value,
         )?;
@@ -403,7 +390,7 @@ async fn audit_config_update(
 }
 
 fn validate_visibility_target(key: &str, visibility: Option<SystemConfigVisibility>) -> Result<()> {
-    if visibility.is_some() && ALL_CONFIGS.iter().any(|def| def.key == key) {
+    if visibility.is_some() && CONFIG_REGISTRY.contains_key(key) {
         return Err(AsterError::validation_error(
             "visibility can only be changed for custom configuration",
         ));

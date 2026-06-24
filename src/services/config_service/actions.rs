@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::config::definitions::CONFIG_REGISTRY;
 use crate::config::yggdrasil::{
     YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY,
 };
@@ -321,10 +322,10 @@ fn normalize_captcha_action_values(
                 "unknown captcha config key: {key}"
             )));
         };
-        let storage_value = value.to_storage_for_type(definition.value_type)?;
-        runtime_system_config::validate_value_type(definition.value_type, &storage_value)?;
-        let normalized_value = runtime_system_config::normalize_system_value(
-            state.runtime_config(),
+        let value_type = definition.value_type.into();
+        let storage_value = value.to_storage_for_type(value_type)?;
+        let normalized_value = CONFIG_REGISTRY.normalize_value(
+            state.runtime_config().as_ref(),
             key,
             &storage_value,
         )?;

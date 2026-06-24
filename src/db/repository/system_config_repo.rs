@@ -1,10 +1,11 @@
 //! System config repository.
 
-use crate::config::definitions::{ALL_CONFIGS, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
+use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
 use crate::entities::system_config::{self, Entity as SystemConfig};
 use crate::errors::{AsterError, Result};
 use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
 use aster_forge_api::CursorSlice;
+use aster_forge_config::ConfigSeedRecord;
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
@@ -12,7 +13,7 @@ use sea_orm::{
 };
 
 fn find_definition(key: &str) -> Option<&'static ConfigDef> {
-    ALL_CONFIGS.iter().find(|def| def.key == key)
+    CONFIG_REGISTRY.get(key)
 }
 
 fn build_system_active_model(
@@ -24,14 +25,36 @@ fn build_system_active_model(
     system_config::ActiveModel {
         key: Set(def.key.to_string()),
         value: Set(value),
-        value_type: Set(def.value_type),
+        value_type: Set(def.value_type.into()),
         requires_restart: Set(def.requires_restart),
         is_sensitive: Set(def.is_sensitive),
         source: Set(SystemConfigSource::System),
-        visibility: Set(SystemConfigVisibility::Private),
+        visibility: Set(def.visibility.into()),
         namespace: Set(String::new()),
         category: Set(def.category.to_string()),
         description: Set(def.description.to_string()),
+        updated_at: Set(now),
+        updated_by: Set(updated_by),
+        ..Default::default()
+    }
+}
+
+fn build_system_active_model_from_seed(
+    seed: ConfigSeedRecord,
+    now: chrono::DateTime<Utc>,
+    updated_by: Option<i64>,
+) -> system_config::ActiveModel {
+    system_config::ActiveModel {
+        key: Set(seed.key),
+        value: Set(seed.value),
+        value_type: Set(seed.value_type.into()),
+        requires_restart: Set(seed.requires_restart),
+        is_sensitive: Set(seed.is_sensitive),
+        source: Set(seed.source.into()),
+        visibility: Set(seed.visibility.into()),
+        namespace: Set(String::new()),
+        category: Set(seed.category),
+        description: Set(seed.description),
         updated_at: Set(now),
         updated_by: Set(updated_by),
         ..Default::default()
@@ -288,41 +311,40 @@ pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
 
     delete_deprecated_keys(db).await?;
 
-    for def in ALL_CONFIGS {
+    for seed in CONFIG_REGISTRY.default_seed_records()? {
         let now = Utc::now();
-        let inserted = match SystemConfig::insert(build_system_active_model(
-            def,
-            (def.default_fn)(),
-            now,
-            None,
-        ))
-        .on_conflict_do_nothing_on([system_config::Column::Key])
-        .exec(db)
-        .await
-        .map_err(AsterError::from)?
-        {
-            TryInsertResult::Inserted(_) => true,
-            TryInsertResult::Conflicted => false,
-            TryInsertResult::Empty => {
-                return Err(AsterError::internal_error(
-                    "ensure_defaults produced empty insert result",
-                ));
-            }
-        };
+        let key = seed.key.clone();
+        let inserted =
+            match SystemConfig::insert(build_system_active_model_from_seed(seed, now, None))
+                .on_conflict_do_nothing_on([system_config::Column::Key])
+                .exec(db)
+                .await
+                .map_err(AsterError::from)?
+            {
+                TryInsertResult::Inserted(_) => true,
+                TryInsertResult::Conflicted => false,
+                TryInsertResult::Empty => {
+                    return Err(AsterError::internal_error(
+                        "ensure_defaults produced empty insert result",
+                    ));
+                }
+            };
 
         if inserted {
             count += 1;
             continue;
         }
 
+        let def = CONFIG_REGISTRY.require(&key).map_err(AsterError::from)?;
         let existing = find_by_key(db, def.key)
             .await?
             .ok_or_else(|| AsterError::record_not_found(format!("config key '{}'", def.key)))?;
         let mut active: system_config::ActiveModel = existing.into();
         active.source = Set(SystemConfigSource::System);
-        active.value_type = Set(def.value_type);
+        active.value_type = Set(def.value_type.into());
         active.requires_restart = Set(def.requires_restart);
         active.is_sensitive = Set(def.is_sensitive);
+        active.visibility = Set(def.visibility.into());
         active.category = Set(def.category.to_string());
         active.description = Set(def.description.to_string());
         active.update(db).await.map_err(AsterError::from)?;
