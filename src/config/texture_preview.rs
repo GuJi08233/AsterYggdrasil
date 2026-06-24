@@ -293,13 +293,15 @@ pub fn normalize_texture_preview_config_value(key: &str, value: &str) -> Result<
         TEXTURE_PREVIEW_ENGINE_KEY => Ok(parse_engine(value)?.as_str().to_string()),
         TEXTURE_PREVIEW_PROFILE_KEY => Ok(parse_profile(value)?.as_str().to_string()),
         TEXTURE_PREVIEW_BACKGROUND_KEY => Ok(parse_background(value)?.wire_value()),
-        TEXTURE_PREVIEW_SHOW_OUTER_LAYER_KEY => crate::config::bool_like::parse_bool_like(value)
-            .map(|value| value.to_string())
-            .ok_or_else(|| {
-                AsterError::validation_error(
-                    "texture preview outer layer setting must be true or false",
-                )
-            }),
+        TEXTURE_PREVIEW_SHOW_OUTER_LAYER_KEY => {
+            aster_forge_utils::bool_like::parse_bool_like(value)
+                .map(|value| value.to_string())
+                .ok_or_else(|| {
+                    AsterError::validation_error(
+                        "texture preview outer layer setting must be true or false",
+                    )
+                })
+        }
         TEXTURE_PREVIEW_WIDTH_KEY
         | TEXTURE_PREVIEW_HEIGHT_KEY
         | TEXTURE_PREVIEW_2D_PADDING_KEY

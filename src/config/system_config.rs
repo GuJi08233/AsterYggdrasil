@@ -7,7 +7,6 @@ use crate::config::RuntimeConfig;
 use crate::config::audit;
 use crate::config::auth_runtime;
 use crate::config::avatar;
-use crate::config::bool_like::parse_bool_like;
 use crate::config::branding;
 use crate::config::cors;
 use crate::config::definitions::{ALL_CONFIGS, ConfigDef};
@@ -20,6 +19,7 @@ use crate::config::yggdrasil;
 use crate::entities::system_config;
 use crate::errors::{AsterError, Result};
 use crate::types::{SystemConfigSource, SystemConfigValueType};
+use aster_forge_utils::bool_like::parse_bool_like;
 
 pub trait SystemConfigValueLookup {
     fn get_config_value(&self, key: &str) -> Option<String>;

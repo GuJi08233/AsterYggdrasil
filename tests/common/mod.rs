@@ -1178,9 +1178,9 @@ macro_rules! create_test_app {
 
         test::init_service(
             App::new()
-                .wrap(aster_yggdrasil::api::middleware::request_id::RequestIdMiddleware)
+                .wrap(aster_forge_actix_middleware::request_id::RequestIdMiddleware)
                 .wrap(aster_yggdrasil::api::middleware::cors::RuntimeCors)
-                .wrap(aster_yggdrasil::api::middleware::security_headers::default_headers())
+                .wrap(aster_forge_actix_middleware::security_headers::default_headers())
                 .wrap(aster_yggdrasil::api::middleware::metrics::MetricsMiddleware)
                 .app_data(web::PayloadConfig::new(10 * 1024 * 1024))
                 .app_data(web::JsonConfig::default().limit(1024 * 1024))
