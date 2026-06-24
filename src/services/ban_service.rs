@@ -189,7 +189,7 @@ where
         .filter(|ban| scope_filter.is_none_or(|scope| ban.scopes.contains(&scope)))
         .collect::<Vec<_>>();
     let total = if scope_filter.is_some() {
-        crate::utils::numbers::usize_to_u64(items.len(), "filtered user ban total")?
+        aster_forge_utils::numbers::usize_to_u64(items.len(), "filtered user ban total")?
     } else {
         page.total
     };

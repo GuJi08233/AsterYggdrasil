@@ -10,7 +10,7 @@ use crate::entities::{external_auth_email_verification_flow, external_auth_provi
 use crate::errors::{AsterError, Result, auth_forbidden_with_code};
 use crate::runtime::SharedRuntimeState;
 use crate::services::{mail_outbox_service, mail_service, mail_template::MailTemplatePayload};
-use crate::utils::numbers::u64_to_i64;
+use aster_forge_utils::numbers::u64_to_i64;
 
 use super::normalize::{
     email_domain_allowed, normalize_email_for_external_auth, normalize_flow_token, token_hash,

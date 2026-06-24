@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::errors::{AsterError, Result};
-use crate::utils::numbers::u128_to_u64;
+use aster_forge_utils::numbers::u128_to_u64;
 
 #[derive(Clone, Debug)]
 pub struct RetryConfig {

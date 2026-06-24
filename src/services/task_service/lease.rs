@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::errors::{AsterError, Result};
-use crate::utils::numbers::i64_to_u64;
+use aster_forge_utils::numbers::i64_to_u64;
 
 use super::{TASK_HEARTBEAT_INTERVAL_SECS, TASK_PROCESSING_STALE_SECS};
 

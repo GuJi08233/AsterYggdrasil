@@ -1,11 +1,6 @@
 //! General-purpose utilities.
 
-pub mod crypto;
-pub mod email;
-pub mod hash;
-pub mod id;
 pub mod net;
-pub mod numbers;
 pub mod paths;
 pub mod url;
 

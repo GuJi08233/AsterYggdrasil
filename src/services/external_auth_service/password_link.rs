@@ -6,7 +6,7 @@ use crate::db::repository::{
 use crate::errors::{AsterError, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
-use crate::utils::hash;
+use aster_forge_crypto as hash;
 
 use super::normalize::{normalize_flow_token, token_hash};
 use super::resolution::{

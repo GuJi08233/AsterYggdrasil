@@ -13,7 +13,6 @@ use crate::types::{
     ExternalAuthProviderKind, ExternalAuthProviderOptions, MicrosoftExternalAuthProviderOptions,
     NullablePatch, serialize_external_auth_provider_options,
 };
-use crate::utils::id;
 use aster_forge_api::{CursorPage, StringIdCursor};
 
 use super::REDACTED_SECRET;
@@ -513,18 +512,19 @@ pub async fn create_provider(
             descriptor.kind.as_str()
         )));
     }
-    let key = id::new_best_effort_uuid("external auth provider key", |candidate| {
-        let db = state.writer_db();
-        let provider_kind = input.provider_kind;
-        async move {
-            let candidate_key = candidate.to_string();
-            external_auth_provider_repo::find_by_kind_key(db, provider_kind, &candidate_key)
-                .await
-                .map(|provider| provider.is_some())
-        }
-    })
-    .await?
-    .to_string();
+    let key =
+        aster_forge_utils::id::new_best_effort_uuid("external auth provider key", |candidate| {
+            let db = state.writer_db();
+            let provider_kind = input.provider_kind;
+            async move {
+                let candidate_key = candidate.to_string();
+                external_auth_provider_repo::find_by_kind_key(db, provider_kind, &candidate_key)
+                    .await
+                    .map(|provider| provider.is_some())
+            }
+        })
+        .await?
+        .to_string();
     let provider_kind = input.provider_kind;
     let legacy_issuer_url = input.issuer_url.clone();
     let display_name = normalize_required(&input.display_name, "display_name", 128)?;

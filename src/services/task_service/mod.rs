@@ -273,8 +273,11 @@ pub(in crate::services::task_service) async fn prepare_task_temp_dir_in_root(
         "preparing background task temp dir"
     );
     cleanup_task_temp_dir_for_lease_in_root(temp_root, lease).await?;
-    let task_temp_dir =
-        crate::utils::paths::task_token_temp_dir(temp_root, lease.task_id, lease.processing_token);
+    let task_temp_dir = aster_forge_utils::paths::task_token_temp_dir(
+        temp_root,
+        lease.task_id,
+        lease.processing_token,
+    );
     tokio::fs::create_dir_all(&task_temp_dir)
         .await
         .map_err(|error| AsterError::internal_error(format!("create task temp dir: {error}")))?;
@@ -295,7 +298,7 @@ pub(in crate::services::task_service) async fn cleanup_task_temp_dir_for_lease_i
         processing_token = lease.processing_token,
         "cleaning background task temp dir for lease"
     );
-    crate::utils::cleanup_temp_dir(&crate::utils::paths::task_token_temp_dir(
+    crate::utils::cleanup_temp_dir(&aster_forge_utils::paths::task_token_temp_dir(
         temp_root,
         lease.task_id,
         lease.processing_token,
@@ -317,7 +320,8 @@ pub(super) async fn cleanup_task_temp_dir_for_task_in_root(
     task_id: i64,
 ) -> Result<()> {
     tracing::debug!(task_id, "cleaning background task temp dir in root");
-    crate::utils::cleanup_temp_dir(&crate::utils::paths::task_temp_dir(temp_root, task_id)).await;
+    crate::utils::cleanup_temp_dir(&aster_forge_utils::paths::task_temp_dir(temp_root, task_id))
+        .await;
     Ok(())
 }
 

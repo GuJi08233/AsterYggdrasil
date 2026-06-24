@@ -20,10 +20,10 @@ use crate::types::{
     AvatarSource, OperatorScope, TokenType, UserRole, UserStatus, VerificationChannel,
     VerificationPurpose,
 };
-use crate::utils::email::normalize_email;
-use crate::utils::hash::{self, hash_password, verify_password};
-use crate::utils::numbers::{i64_to_u64, u64_to_i64, u64_to_usize};
 use actix_web::HttpRequest;
+use aster_forge_crypto::{hash_password, sha256_hex, verify_password};
+use aster_forge_utils::numbers::{i64_to_u64, u64_to_i64, u64_to_usize};
+use aster_forge_validation::email::normalize_email;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, ConnectionTrait, IntoActiveModel};
@@ -975,7 +975,7 @@ pub fn validate_username(username: &str) -> Result<()> {
 }
 
 pub fn validate_email(email: &str) -> Result<()> {
-    crate::utils::email::normalize_email(email).map(|_| ())
+    Ok(aster_forge_validation::email::normalize_email(email).map(|_| ())?)
 }
 
 pub fn validate_password(password: &str) -> Result<()> {
@@ -1251,7 +1251,7 @@ where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     validate_password(new_password)?;
-    let token_hash = hash::sha256_hex(token.as_bytes());
+    let token_hash = sha256_hex(token.as_bytes());
     let record =
         contact_verification_token_repo::find_by_token_hash(state.writer_db(), &token_hash)
             .await?
@@ -1381,7 +1381,7 @@ pub async fn confirm_contact_verification<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
-    let token_hash = hash::sha256_hex(token.as_bytes());
+    let token_hash = sha256_hex(token.as_bytes());
     let record =
         contact_verification_token_repo::find_by_token_hash(state.writer_db(), &token_hash)
             .await?
@@ -1529,7 +1529,7 @@ async fn issue_contact_verification_token<C: ConnectionTrait>(
 ) -> Result<String> {
     let now = Utc::now();
     let token = mail_service::build_verification_token();
-    let token_hash = hash::sha256_hex(token.as_bytes());
+    let token_hash = sha256_hex(token.as_bytes());
     contact_verification_token_repo::delete_active_for_user(
         db,
         user_id,
@@ -1568,8 +1568,8 @@ pub mod shared {
     use crate::errors::{AsterError, Result};
     use crate::runtime::RuntimeConfigRuntimeState;
     use crate::types::{UserRole, UserStatus};
-    use crate::utils::email::normalize_email;
-    use crate::utils::hash::hash_password;
+    use aster_forge_crypto::hash_password;
+    use aster_forge_validation::email::normalize_email;
 
     pub struct CreateUserWithRoleInput<'a> {
         pub username: &'a str,

@@ -978,7 +978,7 @@ async fn contact_verification_confirm_rejects_invalid_expired_and_replayed_token
     )
     .expect("activation mail should contain token");
 
-    let token_hash = aster_yggdrasil::utils::hash::sha256_hex(token.as_bytes());
+    let token_hash = aster_forge_crypto::sha256_hex(token.as_bytes());
     let record = contact_verification_token::Entity::find()
         .filter(contact_verification_token::Column::TokenHash.eq(token_hash))
         .one(state.writer_db())
@@ -3357,7 +3357,7 @@ async fn password_reset_rejects_reused_expired_and_wrong_endpoint_tokens() {
             .last_message()
             .expect("password reset email should be sent"),
     );
-    let token_hash = aster_yggdrasil::utils::hash::sha256_hex(expired_token.as_bytes());
+    let token_hash = aster_forge_crypto::sha256_hex(expired_token.as_bytes());
     let record = contact_verification_token::Entity::find()
         .filter(contact_verification_token::Column::TokenHash.eq(token_hash))
         .one(&db)

@@ -90,7 +90,7 @@ where
     let profile = minecraft_profile_repo::create(
         state.writer_db(),
         user_id,
-        &crate::utils::id::new_unsigned_uuid(),
+        &aster_forge_utils::id::new_short_token(),
         name,
         crate::types::MinecraftTextureModel::Default,
         &policy.uploadable_textures_value(),

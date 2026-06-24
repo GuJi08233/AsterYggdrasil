@@ -6,10 +6,11 @@ use crate::api::dto::yggdrasil::{
 };
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_repo, user_repo};
+use crate::errors::AsterError;
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::{audit_service, ban_service};
 use crate::types::UserBanScope;
-use crate::utils::hash::verify_password;
+use aster_forge_crypto::verify_password;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
 use super::login::{resolve_login_target, user_info};
@@ -70,6 +71,7 @@ where
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }
     if !verify_password(&body.password, &login_target.user.password_hash)
+        .map_err(AsterError::from)
         .map_err(YggdrasilError::from)?
     {
         tracing::debug!(
@@ -114,7 +116,7 @@ where
     let client_token = body
         .client_token
         .filter(|token| !token.trim().is_empty())
-        .unwrap_or_else(crate::utils::id::new_unsigned_uuid);
+        .unwrap_or_else(aster_forge_utils::id::new_short_token);
     let issued = issue_token(
         state,
         login_target.user.id,
@@ -390,7 +392,10 @@ where
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }
-    if !verify_password(password, &login_target.user.password_hash).map_err(YggdrasilError::from)? {
+    if !verify_password(password, &login_target.user.password_hash)
+        .map_err(AsterError::from)
+        .map_err(YggdrasilError::from)?
+    {
         tracing::debug!(
             user_id = login_target.user.id,
             "yggdrasil signout rejected password mismatch"

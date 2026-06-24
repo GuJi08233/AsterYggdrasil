@@ -128,7 +128,7 @@ pub async fn authenticate(
         .check_authenticate(&body.username)
     {
         tracing::warn!(
-            username_hash = %crate::utils::hash::sha256_hex(body.username.trim().to_ascii_lowercase().as_bytes()),
+            username_hash = %aster_forge_crypto::sha256_hex(body.username.trim().to_ascii_lowercase().as_bytes()),
             retry_after_seconds = rejection.retry_after_seconds(),
             "yggdrasil authenticate request rate limited"
         );
@@ -317,7 +317,7 @@ pub async fn signout(
     );
     if let Some(rejection) = state.yggdrasil_rate_limiter().check_signout(&body.username) {
         tracing::warn!(
-            username_hash = %crate::utils::hash::sha256_hex(body.username.trim().to_ascii_lowercase().as_bytes()),
+            username_hash = %aster_forge_crypto::sha256_hex(body.username.trim().to_ascii_lowercase().as_bytes()),
             retry_after_seconds = rejection.retry_after_seconds(),
             "yggdrasil signout request rate limited"
         );
@@ -401,7 +401,7 @@ pub async fn join(
     let body = body.into_inner();
     tracing::debug!(
         selected_profile_uuid = %body.selected_profile,
-        server_id_hash = %crate::utils::hash::sha256_hex(body.server_id.as_bytes()),
+        server_id_hash = %aster_forge_crypto::sha256_hex(body.server_id.as_bytes()),
         "received yggdrasil join request"
     );
     if let Err(error) = validate_request(&body) {
@@ -447,7 +447,7 @@ pub async fn has_joined(
     let query = query.into_inner();
     tracing::debug!(
         username = %query.username,
-        server_id_hash = %crate::utils::hash::sha256_hex(query.server_id.as_bytes()),
+        server_id_hash = %aster_forge_crypto::sha256_hex(query.server_id.as_bytes()),
         has_ip = query.ip.is_some(),
         "received yggdrasil hasJoined request"
     );

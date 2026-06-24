@@ -211,7 +211,7 @@ where
         profile_properties_prefix(profile.id),
         profile.updated_at.timestamp_millis(),
         signed,
-        crate::utils::hash::sha256_hex(profile.uploadable_textures.as_bytes()),
+        aster_forge_crypto::sha256_hex(profile.uploadable_textures.as_bytes()),
         yggdrasil_policy_fingerprint(&policy)
     )
 }
@@ -228,10 +228,10 @@ fn yggdrasil_policy_fingerprint(policy: &RuntimeYggdrasilPolicy) -> String {
     let payload = serde_json::to_vec(&Fingerprint {
         public_base_urls: &policy.public_base_urls,
         texture_public_base_url: &policy.texture_public_base_url,
-        signature_public_key_hash: crate::utils::hash::sha256_hex(
+        signature_public_key_hash: aster_forge_crypto::sha256_hex(
             policy.signature_public_key.as_bytes(),
         ),
-        signature_private_key_hash: crate::utils::hash::sha256_hex(
+        signature_private_key_hash: aster_forge_crypto::sha256_hex(
             policy.signature_private_key.as_bytes(),
         ),
     })
@@ -242,7 +242,7 @@ fn yggdrasil_policy_fingerprint(policy: &RuntimeYggdrasilPolicy) -> String {
         );
         Vec::new()
     });
-    crate::utils::hash::sha256_hex(&payload)
+    aster_forge_crypto::sha256_hex(&payload)
 }
 
 fn token_key(access_token_hash: &str) -> String {
@@ -252,7 +252,7 @@ fn token_key(access_token_hash: &str) -> String {
 fn join_session_key(server_id: &str) -> String {
     format!(
         "{JOIN_SESSION_PREFIX}{}",
-        crate::utils::hash::sha256_hex(server_id.as_bytes())
+        aster_forge_crypto::sha256_hex(server_id.as_bytes())
     )
 }
 

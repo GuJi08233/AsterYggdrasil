@@ -342,8 +342,9 @@ async fn temp_dir_helpers_prepare_and_cleanup_token_and_task_directories() {
         .unwrap();
     assert!(!tokio::fs::try_exists(&token_dir).await.unwrap());
 
-    let task_dir = crate::utils::paths::task_temp_dir(&temp_root, lease.task_id);
-    let other_token_dir = crate::utils::paths::task_token_temp_dir(&temp_root, lease.task_id, 999);
+    let task_dir = aster_forge_utils::paths::task_temp_dir(&temp_root, lease.task_id);
+    let other_token_dir =
+        aster_forge_utils::paths::task_token_temp_dir(&temp_root, lease.task_id, 999);
     tokio::fs::create_dir_all(&other_token_dir).await.unwrap();
     assert!(tokio::fs::try_exists(&task_dir).await.unwrap());
 

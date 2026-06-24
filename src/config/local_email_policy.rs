@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::api::error_code::AsterErrorCode;
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
-use crate::utils::email::{email_domain, normalize_email};
+use aster_forge_validation::email::{email_domain, normalize_email};
 
 pub use crate::config::definitions::{
     AUTH_LOCAL_EMAIL_ALLOWLIST_KEY, AUTH_LOCAL_EMAIL_BLOCKLIST_KEY,

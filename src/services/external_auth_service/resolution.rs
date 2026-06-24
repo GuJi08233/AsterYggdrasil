@@ -12,7 +12,7 @@ use crate::external_auth::ExternalAuthProfile;
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
 use crate::types::{UserRole, UserStatus};
-use crate::utils::hash;
+use aster_forge_crypto as hash;
 
 use super::normalize::email_domain_allowed;
 use super::{EXTERNAL_AUTH_USER_PASSWORD_BYTES, USERNAME_MAX_LEN, USERNAME_MIN_LEN};

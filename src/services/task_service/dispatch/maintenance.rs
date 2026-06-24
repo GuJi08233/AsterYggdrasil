@@ -51,7 +51,7 @@ async fn cleanup_expired_in_root(
     temp_root: &str,
 ) -> Result<u64> {
     let now = Utc::now();
-    let tasks_root = crate::utils::paths::temp_file_path(temp_root, "tasks");
+    let tasks_root = aster_forge_utils::paths::temp_file_path(temp_root, "tasks");
     tracing::debug!("cleaning expired background task temp dirs");
     let mut entries = match tokio::fs::read_dir(&tasks_root).await {
         Ok(entries) => entries,
@@ -281,11 +281,11 @@ mod tests {
             active_expired,
             orphan_id,
         ] {
-            tokio::fs::create_dir_all(crate::utils::paths::task_temp_dir(&temp_root, task_id))
+            tokio::fs::create_dir_all(aster_forge_utils::paths::task_temp_dir(&temp_root, task_id))
                 .await
                 .unwrap();
         }
-        let tasks_root = crate::utils::paths::temp_file_path(&temp_root, "tasks");
+        let tasks_root = aster_forge_utils::paths::temp_file_path(&temp_root, "tasks");
         tokio::fs::write(format!("{tasks_root}/not-a-dir"), b"ignored")
             .await
             .unwrap();
@@ -296,7 +296,7 @@ mod tests {
         let cleaned = cleanup_expired_in_root(&state, &temp_root).await.unwrap();
         assert_eq!(cleaned, 2);
         assert!(
-            !tokio::fs::try_exists(crate::utils::paths::task_temp_dir(
+            !tokio::fs::try_exists(aster_forge_utils::paths::task_temp_dir(
                 &temp_root,
                 expired_terminal
             ))
@@ -304,7 +304,7 @@ mod tests {
             .unwrap()
         );
         assert!(
-            tokio::fs::try_exists(crate::utils::paths::task_temp_dir(
+            tokio::fs::try_exists(aster_forge_utils::paths::task_temp_dir(
                 &temp_root,
                 unexpired_terminal
             ))
@@ -312,7 +312,7 @@ mod tests {
             .unwrap()
         );
         assert!(
-            tokio::fs::try_exists(crate::utils::paths::task_temp_dir(
+            tokio::fs::try_exists(aster_forge_utils::paths::task_temp_dir(
                 &temp_root,
                 active_expired
             ))
@@ -320,9 +320,11 @@ mod tests {
             .unwrap()
         );
         assert!(
-            !tokio::fs::try_exists(crate::utils::paths::task_temp_dir(&temp_root, orphan_id))
-                .await
-                .unwrap()
+            !tokio::fs::try_exists(aster_forge_utils::paths::task_temp_dir(
+                &temp_root, orphan_id
+            ))
+            .await
+            .unwrap()
         );
     }
 

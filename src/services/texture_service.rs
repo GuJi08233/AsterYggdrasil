@@ -681,10 +681,11 @@ where
     );
     Ok(DeletedTextureLibraryTexture {
         texture: metadata,
-        deleted_profile_binding_count: crate::utils::numbers::usize_to_u64(
+        deleted_profile_binding_count: aster_forge_utils::numbers::usize_to_u64(
             deleted_bindings.len(),
             "deleted profile texture binding count",
         )
+        .map_err(AsterError::from)
         .map_err(TextureError::from)?,
     })
 }
@@ -1261,8 +1262,10 @@ pub async fn write_multipart_texture_field_to_file(
                 format!("Invalid multipart file field: {error}"),
             )
         })?;
-        let chunk_len = crate::utils::numbers::usize_to_u64(chunk.len(), "texture upload chunk")
-            .map_err(TextureError::from)?;
+        let chunk_len =
+            aster_forge_utils::numbers::usize_to_u64(chunk.len(), "texture upload chunk")
+                .map_err(AsterError::from)
+                .map_err(TextureError::from)?;
         written = written.checked_add(chunk_len).ok_or_else(|| {
             TextureError::with_detail(
                 TextureErrorKind::InvalidDimensions,
@@ -1482,7 +1485,8 @@ where
         .await
         .map_err(TextureError::from)?;
     let scanned_bindings =
-        crate::utils::numbers::usize_to_u64(bindings.len(), "wardrobe registration scan")
+        aster_forge_utils::numbers::usize_to_u64(bindings.len(), "wardrobe registration scan")
+            .map_err(AsterError::from)
             .map_err(TextureError::from)?;
     let mut result = WardrobeRegistrationResult {
         scanned_bindings,
@@ -1642,11 +1646,15 @@ where
     tracing::debug!(user_id, hash = %processing.hash, "stored texture blob");
     cleanup_temp_file(&processed_path).await;
 
-    let file_size = crate::utils::numbers::u64_to_i64(processing.file_size, "texture file size")
+    let file_size =
+        aster_forge_utils::numbers::u64_to_i64(processing.file_size, "texture file size")
+            .map_err(AsterError::from)
+            .map_err(TextureError::from)?;
+    let width = aster_forge_utils::numbers::u32_to_i32(processing.width, "texture width")
+        .map_err(AsterError::from)
         .map_err(TextureError::from)?;
-    let width = crate::utils::numbers::u32_to_i32(processing.width, "texture width")
-        .map_err(TextureError::from)?;
-    let height = crate::utils::numbers::u32_to_i32(processing.height, "texture height")
+    let height = aster_forge_utils::numbers::u32_to_i32(processing.height, "texture height")
+        .map_err(AsterError::from)
         .map_err(TextureError::from)?;
     let texture = minecraft_texture_repo::create(
         state.writer_db(),

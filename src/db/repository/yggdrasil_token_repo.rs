@@ -237,7 +237,8 @@ pub async fn prune_oldest_for_user<C: ConnectionTrait>(
     user_id: i64,
     keep_count: u64,
 ) -> Result<Vec<String>> {
-    let keep_count = crate::utils::numbers::u64_to_usize(keep_count, "yggdrasil token keep count")?;
+    let keep_count =
+        aster_forge_utils::numbers::u64_to_usize(keep_count, "yggdrasil token keep count")?;
     let tokens = YggdrasilToken::find()
         .filter(yggdrasil_token::Column::UserId.eq(user_id))
         .filter(yggdrasil_token::Column::RevokedAt.is_null())

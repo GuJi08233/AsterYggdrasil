@@ -10,7 +10,7 @@ use crate::entities::user;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::{audit_service, auth_service};
-use crate::utils::hash::verify_password;
+use aster_forge_crypto::verify_password;
 
 async fn verify_change_password_input<C: ConnectionTrait>(
     db: &C,

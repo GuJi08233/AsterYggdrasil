@@ -18,8 +18,9 @@ use crate::services::{
     mail_template::MailTemplatePayload,
 };
 use crate::types::{UserInvitationStatus, UserRole, UserStatus};
-use crate::utils::{hash, numbers::u64_to_i64};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
+use aster_forge_crypto as hash;
+use aster_forge_utils::numbers::u64_to_i64;
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -60,7 +61,7 @@ pub async fn create_invitation<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
-    let email = crate::utils::email::normalize_email(email)?;
+    let email = aster_forge_validation::email::normalize_email(email)?;
     LocalEmailPolicy::from_runtime_config(state.runtime_config()).check(&email)?;
 
     let token = aster_forge_utils::id::new_short_token();

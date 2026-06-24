@@ -4,6 +4,7 @@
 mod common;
 
 use actix_web::{App, HttpResponse, HttpServer, Responder, http::header, test, web};
+use aster_forge_crypto::sha256_hex;
 use aster_yggdrasil::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
 use aster_yggdrasil::config::auth_runtime::AUTH_ALLOW_USER_REGISTRATION_KEY;
 use aster_yggdrasil::config::definitions::PUBLIC_SITE_URL_KEY;
@@ -29,7 +30,6 @@ use aster_yggdrasil::services::{audit_service, profile_service};
 use aster_yggdrasil::types::{
     AvatarSource, MinecraftTextureModel, YggdrasilSessionForwardProviderKind,
 };
-use aster_yggdrasil::utils::hash::sha256_hex;
 use base64::Engine;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
@@ -3065,7 +3065,7 @@ async fn yggdrasil_texture_upload_rejects_streams_over_runtime_size_limit() {
     let login = ygg_login!(&app, "admin@example.com", "large-texture-client");
     let png = png_texture(64, 64);
     let max_upload_bytes =
-        aster_yggdrasil::utils::numbers::usize_to_u64(png.len(), "test png size").unwrap() - 1;
+        aster_forge_utils::numbers::usize_to_u64(png.len(), "test png size").unwrap() - 1;
     let saved = system_config_repo::upsert_with_options(
         state.writer_db(),
         YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
@@ -7274,7 +7274,7 @@ async fn wardrobe_upload_rejects_streams_over_runtime_size_limit() {
     let access = setup_admin!(app);
     let png = png_texture(64, 64);
     let max_upload_bytes =
-        aster_yggdrasil::utils::numbers::usize_to_u64(png.len(), "test png size").unwrap() - 1;
+        aster_forge_utils::numbers::usize_to_u64(png.len(), "test png size").unwrap() - 1;
     let saved = system_config_repo::upsert_with_options(
         state.writer_db(),
         YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,

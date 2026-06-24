@@ -150,7 +150,10 @@ pub async fn count_distinct_users_created_between_with_actions<C: ConnectionTrai
         .map_err(AsterError::from)?
         .unwrap_or(0);
 
-    crate::utils::numbers::i64_to_u64(count, "distinct audit log user count")
+    Ok(aster_forge_utils::numbers::i64_to_u64(
+        count,
+        "distinct audit log user count",
+    )?)
 }
 
 pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) -> Result<u64> {

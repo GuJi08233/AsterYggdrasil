@@ -19,12 +19,9 @@ use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service::{self, is_email_verified};
 use crate::types::StoredPasskeyCredential;
-use crate::utils::{
-    id,
-    numbers::{u32_to_i64, u64_to_i64},
-};
 use actix_web::HttpRequest;
 use aster_forge_utils::net::is_loopback_host;
+use aster_forge_utils::numbers::{u32_to_i64, u64_to_i64};
 
 const PASSKEY_CHALLENGE_TTL_SECS: u64 = 300;
 const PASSKEY_NAME_MAX_LEN: usize = 128;
@@ -115,7 +112,7 @@ async fn user_handle_for_registration(
     match existing.first() {
         Some(passkey) => user_handle_from_storage(&passkey.user_handle),
         None => {
-            id::new_best_effort_uuid("passkey user handle", |candidate| {
+            aster_forge_utils::id::new_best_effort_uuid("passkey user handle", |candidate| {
                 let storage = user_handle_to_storage(candidate);
                 async move { passkey_repo::user_handle_exists(db, &storage).await }
             })
@@ -836,7 +833,7 @@ pub async fn finish_login(
             credential,
             result.backup_eligible(),
             result.backup_state(),
-            u32_to_i64(result.counter(), "passkey sign count")?,
+            u32_to_i64(result.counter()),
             now,
         )
         .await?

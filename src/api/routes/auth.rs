@@ -23,13 +23,13 @@ use crate::services::{
     user_invitation_service,
 };
 use crate::types::VerificationPurpose;
-use crate::utils::numbers::u64_to_i64;
 use actix_multipart::Multipart;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use aster_forge_api::{CursorPage, DateTimeIdCursor, DateTimeStringCursor};
 use aster_forge_api::{LimitQuery, parse_datetime_id_cursor, parse_datetime_string_cursor};
+use aster_forge_utils::numbers::u64_to_i64;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde::Serialize;

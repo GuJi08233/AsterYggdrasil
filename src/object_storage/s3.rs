@@ -206,7 +206,7 @@ impl ObjectStorage for S3ObjectStorage {
             })?;
         let size = response
             .content_length
-            .map(|value| crate::utils::numbers::i64_to_u64(value, "S3 object content_length"))
+            .map(|value| aster_forge_utils::numbers::i64_to_u64(value, "S3 object content_length"))
             .transpose()?
             .unwrap_or(0);
 

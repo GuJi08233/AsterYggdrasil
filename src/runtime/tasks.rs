@@ -803,7 +803,7 @@ fn periodic_sleep_duration(base_interval: Duration, jitter_cap: Option<Duration>
     }
 
     let max_jitter_ms =
-        crate::utils::numbers::u128_to_u64(max_jitter_ms.min(u128::from(u64::MAX)), "jitter")
+        aster_forge_utils::numbers::u128_to_u64(max_jitter_ms.min(u128::from(u64::MAX)), "jitter")
             .unwrap_or(u64::MAX);
     let mut rng = rand::rng();
     let jitter_ms = rng.random_range(0..=max_jitter_ms);
@@ -811,7 +811,7 @@ fn periodic_sleep_duration(base_interval: Duration, jitter_cap: Option<Duration>
 }
 
 fn effective_jitter_cap(base_interval: Duration, jitter_cap: Duration) -> Duration {
-    let bounded_ms = crate::utils::numbers::u128_to_u64(
+    let bounded_ms = aster_forge_utils::numbers::u128_to_u64(
         base_interval.as_millis().min(u128::from(u64::MAX)),
         "base interval millis",
     )

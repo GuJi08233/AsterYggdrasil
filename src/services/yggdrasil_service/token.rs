@@ -8,7 +8,7 @@ use crate::errors::Result;
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState};
 use crate::services::ban_service;
 use crate::types::UserBanScope;
-use crate::utils::hash::sha256_hex;
+use aster_forge_crypto::sha256_hex;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
 
@@ -28,8 +28,8 @@ async fn issue_token_in_connection<C: sea_orm::ConnectionTrait>(
 ) -> Result<(IssuedToken, Vec<String>)> {
     let now = Utc::now();
     let token_ttl_days =
-        crate::utils::numbers::u64_to_i64(policy.token_ttl_days, "yggdrasil token ttl days")?;
-    let access_token = crate::utils::id::new_unsigned_uuid();
+        aster_forge_utils::numbers::u64_to_i64(policy.token_ttl_days, "yggdrasil token ttl days")?;
+    let access_token = aster_forge_utils::id::new_short_token();
     tracing::debug!(
         user_id,
         selected_profile_id,

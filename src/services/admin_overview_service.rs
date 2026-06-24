@@ -616,7 +616,7 @@ mod tests {
         minecraft_profile_repo::create(
             state.writer_db(),
             user_id,
-            &crate::utils::id::new_unsigned_uuid(),
+            &aster_forge_utils::id::new_short_token(),
             name,
             MinecraftTextureModel::Default,
             "skin,cape",
@@ -633,7 +633,7 @@ mod tests {
     ) -> crate::entities::minecraft_profile::Model {
         minecraft_profile::ActiveModel {
             user_id: Set(user_id),
-            uuid: Set(crate::utils::id::new_unsigned_uuid()),
+            uuid: Set(aster_forge_utils::id::new_short_token()),
             name: Set(name.to_string()),
             texture_model: Set(MinecraftTextureModel::Default),
             uploadable_textures: Set("skin,cape".to_string()),
@@ -1471,7 +1471,7 @@ mod tests {
 
         assert_eq!(
             response.recent_activity.len(),
-            crate::utils::numbers::u64_to_usize(
+            aster_forge_utils::numbers::u64_to_usize(
                 RECENT_ACTIVITY_LIMIT,
                 "recent activity test limit"
             )

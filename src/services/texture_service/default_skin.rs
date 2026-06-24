@@ -82,8 +82,8 @@ mod tests {
 
     #[test]
     fn default_skin_hashes_match_embedded_bytes() {
-        assert_eq!(crate::utils::hash::sha256_hex(STEVE_BYTES), STEVE_HASH);
-        assert_eq!(crate::utils::hash::sha256_hex(ALEX_BYTES), ALEX_HASH);
+        assert_eq!(aster_forge_crypto::sha256_hex(STEVE_BYTES), STEVE_HASH);
+        assert_eq!(aster_forge_crypto::sha256_hex(ALEX_BYTES), ALEX_HASH);
     }
 
     #[test]

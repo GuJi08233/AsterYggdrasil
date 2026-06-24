@@ -11,10 +11,10 @@ use crate::runtime::{
 use crate::services::profile_service::{self, AvatarAudience, AvatarInfo, UserProfileInfo};
 use crate::services::{auth_service, texture_service, yggdrasil_service};
 use crate::types::{OperatorScope, UserRole, UserStatus};
-use crate::utils::email::normalize_email;
-use crate::utils::hash::hash_password;
-use crate::utils::numbers::u64_to_usize;
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
+use aster_forge_crypto::hash_password;
+use aster_forge_utils::numbers::u64_to_usize;
+use aster_forge_validation::email::normalize_email;
 use rand::RngExt;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -368,7 +368,7 @@ where
     let password_hash = password
         .map(|password| {
             auth_service::validate_password(&password)?;
-            hash_password(&password)
+            Ok::<_, AsterError>(hash_password(&password)?)
         })
         .transpose()?;
     let bump_session_version = password_hash.is_some()
@@ -624,7 +624,7 @@ mod tests {
         minecraft_profile_repo::create(
             state.writer_db(),
             user_id,
-            &crate::utils::id::new_unsigned_uuid(),
+            &aster_forge_utils::id::new_short_token(),
             name,
             MinecraftTextureModel::Default,
             "skin,cape",

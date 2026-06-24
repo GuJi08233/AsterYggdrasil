@@ -42,7 +42,7 @@ where
         .filter(|storage_key| is_texture_blob_storage_key(storage_key))
         .collect::<Vec<_>>();
     let mut result = OrphanTextureCleanupResult {
-        scanned: crate::utils::numbers::usize_to_u64(
+        scanned: aster_forge_utils::numbers::usize_to_u64(
             texture_storage_keys.len(),
             "orphan texture cleanup scanned count",
         )?,
@@ -74,7 +74,7 @@ where
     let storage_keys = state.object_storage().list_keys("").await?;
     let storage_key_set = storage_keys.into_iter().collect::<HashSet<_>>();
     let mut report = ObjectStorageConsistencyReport {
-        checked: crate::utils::numbers::usize_to_u64(
+        checked: aster_forge_utils::numbers::usize_to_u64(
             textures.len(),
             "object storage consistency checked count",
         )?,

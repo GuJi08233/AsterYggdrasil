@@ -19,7 +19,7 @@ use crate::runtime::{
 use crate::services::{audit_service, ban_service, yggdrasil_signature};
 use crate::types::UserBanScope;
 use crate::types::{YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardProviderKind};
-use crate::utils::hash::sha256_hex;
+use aster_forge_crypto::sha256_hex;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
 use super::properties;

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
 
-use crate::utils::numbers::{non_zero_u32, non_zero_u64};
+use aster_forge_utils::numbers::{non_zero_u32, non_zero_u64};
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Config {

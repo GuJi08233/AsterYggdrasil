@@ -200,7 +200,9 @@ pub async fn count_profiles_by_user_ids<C: ConnectionTrait>(
 
     rows.into_iter()
         .map(|(user_id, count)| {
-            crate::utils::numbers::i64_to_u64(count, "profile count").map(|count| (user_id, count))
+            aster_forge_utils::numbers::i64_to_u64(count, "profile count")
+                .map_err(AsterError::from)
+                .map(|count| (user_id, count))
         })
         .collect()
 }
@@ -229,7 +231,8 @@ pub async fn count_active_sessions_by_user_ids<C: ConnectionTrait>(
 
     rows.into_iter()
         .map(|(user_id, count)| {
-            crate::utils::numbers::i64_to_u64(count, "active session count")
+            aster_forge_utils::numbers::i64_to_u64(count, "active session count")
+                .map_err(AsterError::from)
                 .map(|count| (user_id, count))
         })
         .collect()
@@ -297,7 +300,7 @@ pub async fn create_with_options<C: ConnectionTrait>(
 }
 
 pub async fn unique_public_uuid<C: ConnectionTrait>(db: &C) -> Result<String> {
-    crate::utils::id::new_best_effort_uuid("user public UUID", |candidate| {
+    aster_forge_utils::id::new_best_effort_uuid("user public UUID", |candidate| {
         let public_uuid = candidate.simple().to_string();
         async move {
             find_by_public_uuid(db, &public_uuid)

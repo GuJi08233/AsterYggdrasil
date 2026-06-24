@@ -4,10 +4,8 @@ use crate::api::error_code::AsterErrorCode;
 use crate::config::auth_runtime::RuntimeCaptchaPolicy;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{CacheRuntimeState, RuntimeConfigRuntimeState};
-use crate::utils::{
-    hash,
-    numbers::{i64_to_u64, u32_to_usize, u64_to_usize},
-};
+use aster_forge_crypto as hash;
+use aster_forge_utils::numbers::{i64_to_u64, u32_to_usize, u64_to_usize};
 use captcha_rs::CaptchaBuilder;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -189,10 +187,10 @@ where
 }
 
 fn remaining_ttl_secs(challenge: &CaptchaChallengeState) -> Result<u64> {
-    i64_to_u64(
+    Ok(i64_to_u64(
         (challenge.expires_at - Utc::now()).num_seconds().max(1),
         "captcha remaining ttl seconds",
-    )
+    )?)
 }
 
 fn cache_key(challenge_id: &str) -> String {

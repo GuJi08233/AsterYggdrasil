@@ -1,6 +1,6 @@
 use actix_web::{HttpRequest, HttpResponse, http::header};
 
-use crate::utils::hash;
+use aster_forge_crypto as hash;
 
 pub(crate) fn weak_etag_for_bytes(bytes: &[u8]) -> String {
     format!("W/\"sha256-{}\"", hash::sha256_hex(bytes))
