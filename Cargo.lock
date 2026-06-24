@@ -725,7 +725,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_actix_middleware"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "actix-web",
  "aster_forge_metrics",
@@ -741,7 +741,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_alloc"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "tracing",
 ]
@@ -749,7 +749,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_api"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "chrono",
  "serde",
@@ -760,7 +760,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_api_docs_macros"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -770,7 +770,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_cache"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -786,7 +786,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_config"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "async-trait",
  "futures",
@@ -800,7 +800,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_crypto"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "argon2",
  "rand_core 0.6.4",
@@ -811,7 +811,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_db"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "rand 0.10.1",
  "sea-orm",
@@ -823,7 +823,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_external_auth"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "aster_forge_utils",
  "aster_forge_validation",
@@ -843,7 +843,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_logging"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "tracing-appender",
  "tracing-subscriber",
@@ -852,7 +852,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_metrics"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "aster_forge_db",
  "sea-orm",
@@ -863,7 +863,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_panic"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "chrono",
 ]
@@ -871,7 +871,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_storage_core"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "http 1.4.2",
  "thiserror 2.0.18",
@@ -880,7 +880,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_tasks"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "aster_forge_utils",
  "async-trait",
@@ -899,7 +899,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_utils"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "http 1.4.2",
  "ipnet",
@@ -912,7 +912,7 @@ dependencies = [
 [[package]]
 name = "aster_forge_validation"
 version = "0.1.0"
-source = "git+https://github.com/AsterCommunity/AsterForge#02d1a230f6d12a901cf5b6f391215e706c6b11b3"
+source = "git+https://github.com/AsterCommunity/AsterForge#92975cedc84b05b22f0b820b74d975df2d5b2953"
 dependencies = [
  "thiserror 2.0.18",
  "unicode-normalization",

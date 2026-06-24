@@ -15,8 +15,6 @@ pub mod minecraft_texture_repo;
 pub mod minecraft_texture_report_repo;
 pub mod minecraft_texture_tag_repo;
 pub mod passkey_repo;
-pub mod search_query;
-pub mod sort;
 pub mod system_config_repo;
 pub mod user_ban_repo;
 pub mod user_invitation_repo;

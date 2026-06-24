@@ -184,6 +184,7 @@ POST /api/v1/admin/texture-library/reports/{report_id}/reject
 - `GET /api/v1/admin/audit-logs` 查询审计日志。
 - `GET /api/v1/admin/tasks`、`POST /api/v1/admin/tasks/{id}/retry`、`POST /api/v1/admin/tasks/cleanup` 管理后台任务。
 - runtime task 覆盖 token 清理、材质对象清理、存储一致性检查、审计清理和 task artifact 清理。
+- 数据库搜索 helper 和事务机械行为接入 AsterForge，Yggdrasil 保留产品侧错误映射和 repository 业务语义。
 
 ## 快速开始
 
@@ -281,7 +282,7 @@ src/                         Rust 后端
 src/api/                     路由、DTO、OpenAPI 注册、中间件、响应封装
 src/cache/                   cache trait 以及 memory/noop/Redis 实现
 src/config/                  静态配置、运行时配置定义、配置规范化
-src/db/                      数据库连接、重试、事务、repository
+src/db/                      数据库连接适配、事务边界、repository
 src/entities/                SeaORM entity
 src/runtime/                 AppState、启动、关闭、日志、后台任务循环
 src/services/                auth、external auth、config、mail、audit、task、health、Yggdrasil、texture

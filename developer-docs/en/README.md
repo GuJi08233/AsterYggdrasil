@@ -88,6 +88,19 @@ Shutdown is coordinated from `src/main.rs` and `src/runtime/shutdown.rs`:
 
 When adding long-running workers, they must observe the shutdown token and leave persisted state resumable.
 
+## Database Helpers And Transactions
+
+Database code stays under `src/db/`, but shared mechanics should come from AsterForge instead of local copies.
+
+- Repository search helpers use `aster_forge_db::search_query`.
+- Transaction begin, commit, rollback, tracing, and rollback guard behavior come from `aster_forge_db::transaction`.
+- `src/db/transaction.rs` exists only as a product-local path that maps transaction boundary errors into `AsterError` by default.
+- Service callbacks passed to `with_transaction` should return `AsterError` or a subsystem error type, not `DbError`.
+- `From<aster_forge_db::DbError> for AsterError` is the product boundary for Forge-created database failures.
+- Use the explicit subsystem-error transaction entry only when a protocol or subsystem needs to preserve its own error type across the callback.
+
+Do not wrap validation, authorization, protocol, or business-state failures as database errors just because they happen inside a transaction. `with_transaction` preserves callback errors and only maps begin/commit/rollback failures through the product error type.
+
 ## Background Tasks
 
 The task system lives in `src/services/task_service/` and `src/runtime/tasks.rs`.

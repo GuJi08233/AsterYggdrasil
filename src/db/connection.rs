@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use crate::config::DatabaseConfig;
-use crate::errors::{AsterError, Result};
+use crate::errors::Result;
 use aster_forge_metrics::SharedMetricsRecorder;
 use sea_orm::DatabaseConnection;
 
@@ -19,19 +19,6 @@ fn forge_metrics(metrics: SharedMetricsRecorder) -> aster_forge_db::SharedDbMetr
     metrics as Arc<dyn aster_forge_db::DbMetricsRecorder>
 }
 
-fn map_db_error(error: aster_forge_db::DbError) -> AsterError {
-    match error {
-        aster_forge_db::DbError::DatabaseConnection(message) => {
-            AsterError::database_connection(message)
-        }
-        aster_forge_db::DbError::DatabaseOperation(message)
-        | aster_forge_db::DbError::NonRetryable(message) => AsterError::database_operation(message),
-        aster_forge_db::DbError::RetryExhausted => {
-            AsterError::database_operation("retry exhausted")
-        }
-    }
-}
-
 /// Connects to the configured database and installs a metrics callback.
 pub async fn connect_with_metrics(
     cfg: &DatabaseConfig,
@@ -39,7 +26,7 @@ pub async fn connect_with_metrics(
 ) -> Result<DatabaseConnection> {
     aster_forge_db::connect_with_metrics(&forge_database_config(cfg), forge_metrics(metrics))
         .await
-        .map_err(map_db_error)
+        .map_err(Into::into)
 }
 
 /// Creates reader/writer handles for an existing writer connection and metrics recorder.
@@ -54,5 +41,5 @@ pub async fn connect_reader_for_writer_with_metrics(
         forge_metrics(metrics),
     )
     .await
-    .map_err(map_db_error)
+    .map_err(Into::into)
 }

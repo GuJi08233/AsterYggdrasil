@@ -88,6 +88,19 @@ frontend-panel/src/pages/      需要时增加页面
 
 新增长跑 worker 时，必须监听 shutdown token，并保证持久化状态可恢复。
 
+## 数据库 helper 与事务
+
+数据库代码仍然放在 `src/db/`，但共享机械逻辑应该接 AsterForge，不要在产品仓库继续维护本地重复实现。
+
+- Repository 搜索 helper 使用 `aster_forge_db::search_query`。
+- 事务 begin、commit、rollback、tracing 和 rollback guard 行为由 `aster_forge_db::transaction` 提供。
+- `src/db/transaction.rs` 只保留产品本地路径，默认把事务边界错误映射成 `AsterError`。
+- 传给 `with_transaction` 的 service 回调应该返回 `AsterError` 或子系统错误类型，不要返回 `DbError`。
+- `From<aster_forge_db::DbError> for AsterError` 是 Forge 数据库基础设施失败进入产品错误系统的边界。
+- 只有协议或子系统需要跨回调保留自己的错误类型时，才使用显式的子系统错误事务入口。
+
+不要因为校验、权限、协议或业务状态失败发生在事务里，就把它们包装成数据库错误。`with_transaction` 会保留回调错误，只把 begin/commit/rollback 失败映射进产品错误类型。
+
 ## 后台任务
 
 任务系统在 `src/services/task_service/` 和 `src/runtime/tasks.rs`。

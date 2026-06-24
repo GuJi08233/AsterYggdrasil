@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
+use aster_forge_utils::bool_like::parse_bool_like;
 
 pub use crate::config::definitions::{
     AUTH_ACCESS_TOKEN_TTL_SECS_KEY, AUTH_ALLOW_USER_REGISTRATION_KEY, AUTH_CAPTCHA_ENABLED_KEY,
@@ -392,7 +393,7 @@ impl RuntimeCaptchaPolicy {
 }
 
 pub fn normalize_cookie_secure_config_value(value: &str) -> Result<String> {
-    match parse_bool_str(value) {
+    match parse_bool_like(value) {
         Some(value) => Ok(if value { "true" } else { "false" }.to_string()),
         None => Err(AsterError::validation_error(
             "auth_cookie_secure must be 'true' or 'false'",
@@ -401,7 +402,7 @@ pub fn normalize_cookie_secure_config_value(value: &str) -> Result<String> {
 }
 
 pub fn normalize_allow_user_registration_config_value(value: &str) -> Result<String> {
-    match parse_bool_str(value) {
+    match parse_bool_like(value) {
         Some(value) => Ok(if value { "true" } else { "false" }.to_string()),
         None => Err(AsterError::validation_error(
             "auth_allow_user_registration must be 'true' or 'false'",
@@ -410,7 +411,7 @@ pub fn normalize_allow_user_registration_config_value(value: &str) -> Result<Str
 }
 
 pub fn normalize_register_activation_enabled_config_value(value: &str) -> Result<String> {
-    match parse_bool_str(value) {
+    match parse_bool_like(value) {
         Some(value) => Ok(if value { "true" } else { "false" }.to_string()),
         None => Err(AsterError::validation_error(
             "auth_register_activation_enabled must be 'true' or 'false'",
@@ -419,7 +420,7 @@ pub fn normalize_register_activation_enabled_config_value(value: &str) -> Result
 }
 
 pub fn normalize_email_code_login_bool_config_value(key: &str, value: &str) -> Result<String> {
-    match parse_bool_str(value) {
+    match parse_bool_like(value) {
         Some(value) => Ok(if value { "true" } else { "false" }.to_string()),
         None => Err(AsterError::validation_error(format!(
             "{key} must be 'true' or 'false'",
@@ -428,7 +429,7 @@ pub fn normalize_email_code_login_bool_config_value(key: &str, value: &str) -> R
 }
 
 pub fn normalize_auth_bool_config_value(key: &str, value: &str) -> Result<String> {
-    match parse_bool_str(value) {
+    match parse_bool_like(value) {
         Some(value) => Ok(if value { "true" } else { "false" }.to_string()),
         None => Err(AsterError::validation_error(format!(
             "{key} must be 'true' or 'false'",
@@ -484,14 +485,6 @@ pub fn user_invitation_ttl_secs(runtime_config: &RuntimeConfig) -> u64 {
         AUTH_USER_INVITATION_TTL_SECS_KEY,
         DEFAULT_AUTH_USER_INVITATION_TTL_SECS,
     )
-}
-
-fn parse_bool_str(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "true" | "1" | "yes" | "on" => Some(true),
-        "false" | "0" | "no" | "off" => Some(false),
-        _ => None,
-    }
 }
 
 fn parse_positive_u64(value: &str) -> Option<u64> {
@@ -575,7 +568,7 @@ where
     F: Fn(&str) -> Option<String>,
 {
     match get(key) {
-        Some(raw) => match parse_bool_str(&raw) {
+        Some(raw) => match parse_bool_like(&raw) {
             Some(value) => value,
             None => {
                 tracing::warn!(key, value = %raw, "invalid runtime auth bool config; using default");

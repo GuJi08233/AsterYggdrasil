@@ -1,6 +1,5 @@
 //! User repository.
 
-use crate::db::repository::search_query;
 use crate::entities::{
     auth_session, minecraft_profile,
     user::{self, Entity as User},
@@ -8,6 +7,7 @@ use crate::entities::{
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{UserRole, UserStatus};
 use aster_forge_api::CursorSlice;
+use aster_forge_db::search_query;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,

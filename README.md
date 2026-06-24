@@ -184,6 +184,7 @@ POST /api/v1/admin/texture-library/reports/{report_id}/reject
 - `GET /api/v1/admin/audit-logs` lists audit logs.
 - `GET /api/v1/admin/tasks`, `POST /api/v1/admin/tasks/{id}/retry`, and `POST /api/v1/admin/tasks/cleanup` manage background tasks.
 - Runtime tasks cover token cleanup, texture object cleanup, storage consistency checks, audit cleanup, and task artifact cleanup.
+- Database search helpers and transaction mechanics come from AsterForge, while Yggdrasil keeps product error mapping and repository business semantics.
 
 ## Quick Start
 
@@ -281,7 +282,7 @@ src/                         Rust backend
 src/api/                     Routes, DTOs, OpenAPI registration, middleware, response helpers
 src/cache/                   Cache trait plus memory/noop/Redis implementations
 src/config/                  Static config, runtime config definitions, config normalization
-src/db/                      Database connections, retry helpers, transactions, repositories
+src/db/                      Database connection adapters, transaction boundary, repositories
 src/entities/                SeaORM entities
 src/runtime/                 AppState, startup, shutdown, logging, background task loops
 src/services/                auth, external auth, config, mail, audit, task, health, Yggdrasil, texture
