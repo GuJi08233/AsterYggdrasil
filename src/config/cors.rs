@@ -2,8 +2,6 @@
 
 use std::collections::BTreeSet;
 
-use http::Uri;
-
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
 
@@ -214,59 +212,8 @@ pub fn parse_allowed_origins_value(value: &str) -> Result<CorsAllowedOrigins> {
 }
 
 pub fn normalize_origin(origin: &str, allow_wildcard: bool) -> Result<String> {
-    let trimmed = origin.trim();
-    if trimmed.is_empty() {
-        return Err(AsterError::validation_error("origin cannot be empty"));
-    }
-
-    if allow_wildcard && trimmed == "*" {
-        return Ok("*".to_string());
-    }
-
-    let uri: Uri = trimmed.parse().map_aster_err_with(|| {
-        AsterError::validation_error(format!("invalid CORS origin '{trimmed}'"))
-    })?;
-
-    let scheme = uri.scheme_str().ok_or_else(|| {
-        AsterError::validation_error(format!(
-            "CORS origin must include http:// or https://: '{trimmed}'"
-        ))
-    })?;
-
-    if scheme != "http" && scheme != "https" {
-        return Err(AsterError::validation_error(format!(
-            "CORS origin must use http or https: '{trimmed}'"
-        )));
-    }
-
-    let authority = uri.authority().ok_or_else(|| {
-        AsterError::validation_error(format!("CORS origin must include a host: '{trimmed}'"))
-    })?;
-
-    if authority.as_str().contains('@') {
-        return Err(AsterError::validation_error(format!(
-            "CORS origin must not include userinfo: '{trimmed}'"
-        )));
-    }
-
-    if uri.path_and_query().and_then(|pq| pq.query()).is_some() {
-        return Err(AsterError::validation_error(format!(
-            "CORS origin must not include query parameters: '{trimmed}'"
-        )));
-    }
-
-    let path = uri.path();
-    if !path.is_empty() && path != "/" {
-        return Err(AsterError::validation_error(format!(
-            "CORS origin must not include a path: '{trimmed}'"
-        )));
-    }
-
-    Ok(format!(
-        "{}://{}",
-        scheme.to_ascii_lowercase(),
-        authority.as_str().to_ascii_lowercase()
-    ))
+    aster_forge_utils::url::normalize_origin(origin, allow_wildcard)
+        .map_err(|error| AsterError::validation_error(error.to_string()))
 }
 
 pub fn validate_runtime_cors_combination(

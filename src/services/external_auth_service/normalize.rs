@@ -2,7 +2,7 @@ use crate::api::api_error_code::ApiErrorCode;
 use crate::config::site_url;
 use crate::entities::external_auth_provider;
 use crate::errors::{AsterError, MapAsterErr, Result, validation_error_with_code};
-use crate::external_auth::url::{is_https_or_loopback_http, parse_url};
+use crate::external_auth::url::parse_url;
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
 use crate::types::{ExternalAuthProtocol, ExternalAuthProviderKind, NullablePatch};
@@ -159,7 +159,7 @@ fn normalize_optional_url(
     }
     let parse_context = format!("invalid external auth {field}");
     let parsed = parse_url(trimmed, &parse_context, AsterError::validation_error)?;
-    if !is_https_or_loopback_http(&parsed) {
+    if !aster_forge_utils::url::is_https_or_loopback_http(&parsed) {
         return Err(AsterError::validation_error(format!(
             "external auth {field} must use HTTPS, except localhost"
         )));
@@ -198,7 +198,7 @@ pub(super) fn normalize_icon_url_input(value: Option<String>) -> Result<Option<S
         "invalid external auth icon_url",
         AsterError::validation_error,
     )?;
-    if !is_https_or_loopback_http(&parsed) {
+    if !aster_forge_utils::url::is_https_or_loopback_http(&parsed) {
         return Err(AsterError::validation_error(
             "external auth icon_url must be a root-relative path or HTTPS URL, except localhost",
         ));

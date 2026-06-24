@@ -4,49 +4,27 @@ use actix_web::http::header::HeaderMap;
 use ipnet::IpNet;
 use std::net::IpAddr;
 
-pub fn parse_trusted_proxies(trusted_proxies: &[String]) -> Vec<IpNet> {
-    trusted_proxies
-        .iter()
-        .filter_map(|s| {
-            s.parse::<IpNet>()
-                .or_else(|_| s.parse::<IpAddr>().map(IpNet::from))
-                .map_err(|e| tracing::warn!("invalid trusted_proxy entry '{s}': {e}"))
-                .ok()
-        })
-        .collect()
-}
-
-pub fn is_trusted_proxy(ip: IpAddr, trusted: &[IpNet]) -> bool {
-    trusted.iter().any(|net| net.contains(&ip))
-}
-
 pub fn real_ip_from_headers(
     headers: &HeaderMap,
     peer: IpAddr,
     trusted_proxies: &[String],
 ) -> IpAddr {
-    let trusted = parse_trusted_proxies(trusted_proxies);
+    let trusted = aster_forge_utils::net::parse_trusted_proxies(trusted_proxies);
     real_ip_from_trusted(headers, peer, &trusted)
 }
 
 pub fn real_ip_from_trusted(headers: &HeaderMap, peer: IpAddr, trusted: &[IpNet]) -> IpAddr {
-    if !trusted.is_empty() && is_trusted_proxy(peer, trusted) {
-        let ip = headers
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.split(',').next())
-            .and_then(|p| p.trim().parse::<IpAddr>().ok());
-        if let Some(ip) = ip {
-            return ip;
-        }
-    }
-    peer
+    let x_forwarded_for = headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok());
+    aster_forge_utils::net::real_ip_from_forwarded_for(x_forwarded_for, peer, trusted)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{is_trusted_proxy, parse_trusted_proxies, real_ip_from_trusted};
+    use super::real_ip_from_trusted;
     use actix_web::test as actix_test;
+    use aster_forge_utils::net::{is_trusted_proxy, parse_trusted_proxies};
     use std::net::IpAddr;
 
     #[test]

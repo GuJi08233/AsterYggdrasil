@@ -323,13 +323,12 @@ fn validate_config(config: &S3ObjectStorageConfig) -> Result<()> {
 }
 
 fn normalize_endpoint(endpoint: &str) -> Result<Option<String>> {
-    crate::utils::url::normalize_http_base_url(
+    aster_forge_utils::url::normalize_http_base_url(
         endpoint,
         "object_storage.s3.endpoint",
-        true,
-        true,
-        AsterError::config_error,
+        aster_forge_utils::url::HttpBaseUrlOptions::optional_without_query_fragment(),
     )
+    .map_err(|error| AsterError::config_error(error.to_string()))
 }
 
 fn normalize_storage_object_key(storage_key: &str) -> Result<String> {

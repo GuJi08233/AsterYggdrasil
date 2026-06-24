@@ -411,13 +411,12 @@ fn normalize_display_name(value: String) -> Result<String> {
 }
 
 fn normalize_base_url(value: String) -> Result<String> {
-    crate::utils::url::normalize_http_base_url(
+    aster_forge_utils::url::normalize_http_base_url(
         &value,
         "base_url",
-        false,
-        true,
-        AsterError::validation_error,
-    )?
+        aster_forge_utils::url::HttpBaseUrlOptions::required_without_query_fragment(),
+    )
+    .map_err(|error| AsterError::validation_error(error.to_string()))?
     .ok_or_else(|| AsterError::validation_error("base_url cannot be empty"))
 }
 

@@ -15,7 +15,7 @@ use crate::external_auth::driver::{
     ExternalAuthProviderConfig, ExternalAuthProviderDescriptor, ExternalAuthProviderDriver,
     ExternalAuthProviderTestCheck, ExternalAuthProviderTestResult,
 };
-use crate::external_auth::url::{has_http_scheme, parse_url};
+use crate::external_auth::url::parse_url;
 use crate::services::auth_service;
 use crate::types::{ExternalAuthProtocol, ExternalAuthProviderKind};
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
@@ -249,7 +249,7 @@ pub(super) fn validate_url(
     error_fn: fn(String) -> AsterError,
 ) -> Result<Url> {
     let parsed = parse_url(value, &format!("invalid OAuth2 {field}"), error_fn)?;
-    if !has_http_scheme(&parsed) {
+    if !aster_forge_utils::url::has_http_scheme(&parsed) {
         return Err(error_fn(format!(
             "unsupported URL scheme for OAuth2 {field}, only http/https allowed"
         )));

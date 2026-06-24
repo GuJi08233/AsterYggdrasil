@@ -2,6 +2,7 @@
 
 use crate::config::{RuntimeConfig, site_url};
 use crate::errors::{AsterError, Result};
+use aster_forge_utils::url::HttpBaseUrlOptions;
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::{RsaPrivateKey, RsaPublicKey};
@@ -155,13 +156,12 @@ pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String
 }
 
 pub fn normalize_texture_public_base_url_config_value(value: &str) -> Result<String> {
-    crate::utils::url::normalize_http_base_url(
+    aster_forge_utils::url::normalize_http_base_url(
         value,
         "yggdrasil texture public base URL",
-        true,
-        true,
-        AsterError::validation_error,
+        HttpBaseUrlOptions::optional_without_query_fragment(),
     )
+    .map_err(|error| AsterError::validation_error(error.to_string()))
     .map(|normalized| normalized.unwrap_or_default())
 }
 
@@ -375,12 +375,10 @@ fn read_effective_skin_domains(
 }
 
 fn normalize_public_base_url(value: &str) -> Option<String> {
-    match crate::utils::url::normalize_http_base_url(
+    match aster_forge_utils::url::normalize_http_base_url(
         value,
         "yggdrasil public base URL",
-        true,
-        true,
-        AsterError::validation_error,
+        HttpBaseUrlOptions::optional_without_query_fragment(),
     ) {
         Ok(normalized) => normalized,
         Err(error) => {
@@ -411,13 +409,12 @@ fn parse_string_array_config(value: &str, key: &str) -> Result<Vec<String>> {
 }
 
 fn normalize_required_public_base_url(value: &str) -> Result<String> {
-    crate::utils::url::normalize_http_base_url(
+    aster_forge_utils::url::normalize_http_base_url(
         value,
         "yggdrasil public base URL",
-        false,
-        true,
-        AsterError::validation_error,
+        HttpBaseUrlOptions::required_without_query_fragment(),
     )
+    .map_err(|error| AsterError::validation_error(error.to_string()))
     .and_then(|normalized| {
         normalized.ok_or_else(|| {
             AsterError::validation_error("yggdrasil public base URL cannot be empty")

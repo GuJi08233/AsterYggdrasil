@@ -2,19 +2,19 @@
 
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
+use aster_forge_utils::url::HttpBaseUrlOptions;
 
 pub use crate::config::definitions::GRAVATAR_BASE_URL_KEY;
 
 const DEFAULT_GRAVATAR_BASE_URL: &str = "https://www.gravatar.com/avatar";
 
 pub fn normalize_gravatar_base_url_config_value(value: &str) -> Result<String> {
-    crate::utils::url::normalize_http_base_url(
+    aster_forge_utils::url::normalize_http_base_url(
         value,
         "gravatar_base_url",
-        true,
-        true,
-        AsterError::validation_error,
+        HttpBaseUrlOptions::optional_without_query_fragment(),
     )
+    .map_err(|error| AsterError::validation_error(error.to_string()))
     .map(|normalized| normalized.unwrap_or_else(|| DEFAULT_GRAVATAR_BASE_URL.to_string()))
 }
 

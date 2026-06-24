@@ -28,13 +28,13 @@ pub struct AsterIpKeyExtractor {
 
 impl AsterIpKeyExtractor {
     pub fn new(trusted_proxies: &[String]) -> Self {
-        let trusted = net::parse_trusted_proxies(trusted_proxies);
+        let trusted = aster_forge_utils::net::parse_trusted_proxies(trusted_proxies);
         Self { trusted }
     }
 
     #[cfg(test)]
     fn is_trusted(&self, ip: IpAddr) -> bool {
-        net::is_trusted_proxy(ip, &self.trusted)
+        aster_forge_utils::net::is_trusted_proxy(ip, &self.trusted)
     }
 
     fn real_ip(&self, req: &ServiceRequest, peer: IpAddr) -> IpAddr {
