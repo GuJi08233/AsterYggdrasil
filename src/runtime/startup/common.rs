@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::cache;
 use crate::config::{Config, RuntimeConfig};
 use crate::db;
 use crate::errors::{AsterError, MapAsterErr, Result};
@@ -43,7 +42,7 @@ pub(super) async fn prepare_common(config: Arc<Config>) -> Result<CommonRuntimeP
     crate::services::yggdrasil_signature::ensure_signature_key(db_handles.writer()).await?;
     let runtime_config = Arc::new(RuntimeConfig::new());
     runtime_config.reload(db_handles.reader()).await?;
-    let cache = cache::create_cache(&config.cache).await;
+    let cache = aster_forge_cache::create_cache(&config.cache).await;
     let object_storage = object_storage::create_object_storage(&config.object_storage)?;
 
     crate::services::audit_service::init_global_audit_log_manager(db_handles.writer().clone());
@@ -61,13 +60,13 @@ pub(super) async fn prepare_common(config: Arc<Config>) -> Result<CommonRuntimeP
 fn create_metrics_recorder() -> SharedMetricsRecorder {
     #[cfg(feature = "metrics")]
     {
-        return aster_forge_metrics::init_metrics_or_noop(crate::metrics::init_metrics, || {
+        aster_forge_metrics::init_metrics_or_noop(crate::metrics::init_metrics, || {
             crate::metrics::PrometheusMetricsRecorder
-        });
+        })
     }
 
     #[cfg(not(feature = "metrics"))]
     {
-        return aster_forge_metrics::NoopMetrics::arc();
+        aster_forge_metrics::NoopMetrics::arc()
     }
 }

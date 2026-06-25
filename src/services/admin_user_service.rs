@@ -579,7 +579,7 @@ mod tests {
             },
             ..Default::default()
         });
-        let cache = crate::cache::create_cache(&config.cache).await;
+        let cache = aster_forge_cache::create_cache(&config.cache).await;
         let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
             .expect("admin user test object storage should initialize");
         let yggdrasil_rate_limiter = AppState::new_yggdrasil_rate_limiter(&config);

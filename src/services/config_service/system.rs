@@ -424,7 +424,6 @@ mod tests {
         SystemConfigValue, bootstrap_insecure_cookies, delete, delete_with_audit, ensure_defaults,
         get_by_key, list_cursor, set, set_with_audit, set_with_visibility,
     };
-    use crate::cache;
     use crate::config::definitions::{
         ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY,
     };
@@ -466,7 +465,7 @@ mod tests {
             },
             ..Default::default()
         });
-        let cache = cache::create_cache(&config.cache).await;
+        let cache = aster_forge_cache::create_cache(&config.cache).await;
         let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
             .expect("object storage should initialize");
         let yggdrasil_rate_limiter = AppState::new_yggdrasil_rate_limiter(&config);

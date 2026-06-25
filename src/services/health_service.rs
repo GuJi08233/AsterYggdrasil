@@ -22,10 +22,10 @@ pub async fn ping_database(db: &DatabaseConnection) -> Result<()> {
 
 pub async fn check_ready<S: DatabaseRuntimeState>(state: &S) -> Result<()> {
     tracing::debug!("running readiness check");
-    let mut registry = HealthCheckRegistry::new();
-    register_database_health_check(&mut registry, state);
-
-    let report = registry.run_scope(HealthCheckScope::Readiness).await;
+    let report = run_health_scope(state, HealthCheckScope::Readiness, |registry, state| {
+        register_database_health_check(registry, state);
+    })
+    .await;
     record_health_metrics(HealthCheckScope::Readiness, &report);
     if report.has_issues() {
         return Err(AsterError::runtime_unavailable_retryable(
@@ -41,11 +41,10 @@ where
     S: DatabaseRuntimeState + AppConfigRuntimeState + CacheRuntimeState,
 {
     tracing::debug!("running system health checks");
-    let mut registry = HealthCheckRegistry::new();
-
-    register_core_health_checks(&mut registry, state);
-
-    let report = registry.run_scope(HealthCheckScope::Diagnostics).await;
+    let report = run_health_scope(state, HealthCheckScope::Diagnostics, |registry, state| {
+        register_core_health_checks(registry, state);
+    })
+    .await;
     record_health_metrics(HealthCheckScope::Diagnostics, &report);
     tracing::debug!(
         component_count = report.components.len(),
@@ -72,20 +71,27 @@ where
     register_cache_health_check(registry, state);
 }
 
+async fn run_health_scope<S, F>(
+    state: &S,
+    scope: HealthCheckScope,
+    configure: F,
+) -> SystemHealthReport
+where
+    F: FnOnce(&mut HealthCheckRegistry, &S),
+{
+    let registry = HealthCheckRegistry::configured(|registry| configure(registry, state));
+    registry.run_scope(scope).await
+}
+
 pub fn register_database_health_check<S>(registry: &mut HealthCheckRegistry, state: &S)
 where
     S: DatabaseRuntimeState,
 {
     let reader_db = state.reader_db().clone();
-    registry.register_with_options(
-        "database",
-        HealthCheckOptions::required(Some(HEALTH_CHECK_TIMEOUT))
-            .with_scopes(HealthCheckScopes::readiness_and_diagnostics()),
-        move || {
-            let reader_db = reader_db.clone();
-            async move { check_database_component(&reader_db).await }
-        },
-    );
+    registry.register_with_options("database", database_health_options(), move || {
+        let reader_db = reader_db.clone();
+        async move { check_database_component(&reader_db).await }
+    });
 }
 
 pub fn register_cache_health_check<S>(registry: &mut HealthCheckRegistry, state: &S)
@@ -94,16 +100,21 @@ where
 {
     let cache_config = state.config().cache.clone();
     let cache = state.cache().clone();
-    registry.register_with_options(
-        "cache",
-        HealthCheckOptions::optional(Some(HEALTH_CHECK_TIMEOUT))
-            .with_scopes(HealthCheckScopes::diagnostics()),
-        move || {
-            let cache_config = cache_config.clone();
-            let cache = cache.clone();
-            async move { check_cache_component(&cache_config, cache.as_ref()).await }
-        },
-    );
+    registry.register_with_options("cache", cache_health_options(), move || {
+        let cache_config = cache_config.clone();
+        let cache = cache.clone();
+        async move { check_cache_component(&cache_config, cache.as_ref()).await }
+    });
+}
+
+fn database_health_options() -> HealthCheckOptions {
+    HealthCheckOptions::required(Some(HEALTH_CHECK_TIMEOUT))
+        .with_scopes(HealthCheckScopes::readiness_and_diagnostics())
+}
+
+fn cache_health_options() -> HealthCheckOptions {
+    HealthCheckOptions::optional(Some(HEALTH_CHECK_TIMEOUT))
+        .with_scopes(HealthCheckScopes::diagnostics())
 }
 
 fn record_health_metrics(scope: HealthCheckScope, report: &SystemHealthReport) {

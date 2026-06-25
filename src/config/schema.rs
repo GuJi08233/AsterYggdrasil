@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
 
+pub use aster_forge_cache::CacheConfig;
+pub use aster_forge_logging::LoggingConfig;
 use aster_forge_utils::numbers::{non_zero_u32, non_zero_u64};
 
 pub const DEFAULT_AUTH_CSRF_COOKIE_NAME: &str = "aster_yggdrasil_csrf";
@@ -182,35 +184,6 @@ impl AuthConfig {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CacheConfig {
-    #[serde(default = "CacheConfig::default_backend")]
-    pub backend: String, // "memory" | "redis"
-    #[serde(default)]
-    pub redis_url: String,
-    #[serde(default = "CacheConfig::default_ttl")]
-    pub default_ttl: u64,
-}
-
-impl Default for CacheConfig {
-    fn default() -> Self {
-        Self {
-            backend: Self::default_backend(),
-            redis_url: String::new(),
-            default_ttl: Self::default_ttl(),
-        }
-    }
-}
-
-impl CacheConfig {
-    fn default_backend() -> String {
-        "memory".to_string()
-    }
-    fn default_ttl() -> u64 {
-        3600
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ObjectStorageConfig {
     #[serde(default = "ObjectStorageConfig::default_backend")]
     pub backend: String,
@@ -258,49 +231,6 @@ pub struct S3ObjectStorageConfig {
     pub secret_access_key: String,
     #[serde(default)]
     pub force_path_style: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct LoggingConfig {
-    #[serde(default = "LoggingConfig::default_level")]
-    pub level: String,
-    #[serde(default = "LoggingConfig::default_format")]
-    pub format: String, // "text" | "json"
-    #[serde(default)]
-    pub file: String, // Empty means stdout only.
-    /// Enables daily log rotation when file logging is configured.
-    #[serde(default = "LoggingConfig::default_enable_rotation")]
-    pub enable_rotation: bool,
-    /// Number of historical log files to retain.
-    #[serde(default = "LoggingConfig::default_max_backups")]
-    pub max_backups: u32,
-}
-
-impl Default for LoggingConfig {
-    fn default() -> Self {
-        Self {
-            level: Self::default_level(),
-            format: Self::default_format(),
-            file: String::new(),
-            enable_rotation: Self::default_enable_rotation(),
-            max_backups: Self::default_max_backups(),
-        }
-    }
-}
-
-impl LoggingConfig {
-    fn default_level() -> String {
-        "info".to_string()
-    }
-    fn default_format() -> String {
-        "text".to_string()
-    }
-    fn default_enable_rotation() -> bool {
-        true
-    }
-    fn default_max_backups() -> u32 {
-        5
-    }
 }
 
 /// Network trust configuration from `config.toml`.

@@ -1,7 +1,7 @@
 //! Integration tests for cache backend contracts.
 
 use aster_forge_cache::CacheExt;
-use aster_yggdrasil::cache::create_cache;
+use aster_forge_cache::create_cache;
 use aster_yggdrasil::config::CacheConfig;
 use testcontainers::{
     GenericImage,

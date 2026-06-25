@@ -771,7 +771,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         default_ttl: 60,
         ..Default::default()
     };
-    let cache = aster_yggdrasil::cache::create_cache(&cache_config).await;
+    let cache = aster_forge_cache::create_cache(&cache_config).await;
 
     AppState {
         db_handles: base.db_handles,
@@ -969,7 +969,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         .await
         .expect("runtime config should reload");
 
-    let cache = aster_yggdrasil::cache::create_cache(&config.cache).await;
+    let cache = aster_forge_cache::create_cache(&config.cache).await;
     let object_storage =
         aster_yggdrasil::object_storage::create_object_storage(&config.object_storage)
             .expect("object storage should initialize");
