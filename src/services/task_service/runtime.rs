@@ -401,6 +401,7 @@ mod tests {
                 name: "database".to_string(),
                 status: RuntimeSystemHealthStatus::Healthy,
                 message: "ok".to_string(),
+                details: Vec::new(),
             }],
         }
     }

@@ -79,6 +79,8 @@ pub struct RuntimeSystemHealthComponent {
     pub name: String,
     pub status: RuntimeSystemHealthStatus,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub details: Vec<aster_forge_runtime::HealthComponentDetail>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,6 +173,7 @@ mod tests {
         TaskPresentationMessage, TaskResult,
     };
     use crate::services::task_service::runtime::SystemRuntimeTaskKind;
+    use aster_forge_runtime::{HealthComponentDetail, HealthComponentDetailValue};
     use chrono::{Duration, Utc};
     use std::collections::BTreeMap;
 
@@ -237,6 +240,7 @@ mod tests {
                     name: "database".to_string(),
                     status: RuntimeSystemHealthStatus::Healthy,
                     message: "ok".to_string(),
+                    details: vec![HealthComponentDetail::new("backend", "sqlite")],
                 }],
             }),
         });
@@ -244,6 +248,25 @@ mod tests {
         assert_eq!(encoded["kind"], "system_runtime");
         assert_eq!(encoded["duration_ms"], 12);
         assert_eq!(encoded["system_health"]["status"], "degraded");
+        assert_eq!(
+            encoded["system_health"]["components"][0]["details"][0]["key"],
+            "backend"
+        );
+        assert_eq!(
+            encoded["system_health"]["components"][0]["details"][0]["value"],
+            serde_json::json!({ "type": "text", "value": "sqlite" })
+        );
+        let TaskResult::SystemRuntime(runtime_result) = &result;
+        assert_eq!(
+            runtime_result
+                .system_health
+                .as_ref()
+                .expect("system health should be present")
+                .components[0]
+                .details[0]
+                .value,
+            HealthComponentDetailValue::Text("sqlite".to_string())
+        );
     }
 
     #[test]

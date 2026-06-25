@@ -116,6 +116,8 @@ pub struct AdminOverviewSystemHealthComponent {
     pub name: String,
     pub status: AdminOverviewSystemHealthStatus,
     pub message: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub details: Vec<aster_forge_runtime::HealthComponentDetail>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -344,6 +346,7 @@ async fn load_core_system_health_summary(
                 name: component.name,
                 status: component.status.into(),
                 message: component.message,
+                details: component.details,
             })
             .collect(),
         checked_at,
@@ -406,6 +409,7 @@ async fn load_yggdrasil_storage_consistency_observation(
             name: "yggdrasil_storage_consistency".to_string(),
             status,
             message,
+            details: Vec::new(),
         },
         checked_at,
         task_id: Some(task.id),
@@ -509,6 +513,7 @@ mod tests {
         MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
         MinecraftTextureVisibility, StoredTaskPayload, StoredTaskResult, UserRole, UserStatus,
     };
+    use aster_forge_runtime::{HealthComponentDetail, HealthComponentDetailValue};
     use chrono::{Duration, Utc};
     use sea_orm::{ActiveModelTrait, ActiveValue::Set};
     use std::sync::Arc;
@@ -1163,6 +1168,7 @@ mod tests {
                 name: "database".to_string(),
                 status: RuntimeSystemHealthStatus::Healthy,
                 message: "database check passed".to_string(),
+                details: Vec::new(),
             }],
         )
         .await;
@@ -1193,6 +1199,7 @@ mod tests {
                 name: "database".to_string(),
                 status: RuntimeSystemHealthStatus::Healthy,
                 message: "database check passed".to_string(),
+                details: Vec::new(),
             }],
         )
         .await;
@@ -1229,6 +1236,7 @@ mod tests {
                 name: "database".to_string(),
                 status: RuntimeSystemHealthStatus::Healthy,
                 message: "database check passed".to_string(),
+                details: Vec::new(),
             }],
         )
         .await;
@@ -1271,11 +1279,13 @@ mod tests {
                     name: "database".to_string(),
                     status: RuntimeSystemHealthStatus::Healthy,
                     message: "database check passed".to_string(),
+                    details: Vec::new(),
                 },
                 RuntimeSystemHealthComponent {
                     name: "cache".to_string(),
                     status: RuntimeSystemHealthStatus::Degraded,
                     message: "cache backend is unavailable; using fallback".to_string(),
+                    details: vec![HealthComponentDetail::new("active_backend", "memory")],
                 },
             ],
         )
@@ -1298,6 +1308,12 @@ mod tests {
             cache.message,
             "cache backend is unavailable; using fallback"
         );
+        assert_eq!(cache.details.len(), 1);
+        assert_eq!(cache.details[0].key, "active_backend");
+        assert_eq!(
+            cache.details[0].value,
+            HealthComponentDetailValue::Text("memory".to_string())
+        );
     }
 
     #[tokio::test]
@@ -1310,6 +1326,7 @@ mod tests {
                 name: "background_tasks".to_string(),
                 status: RuntimeSystemHealthStatus::Unhealthy,
                 message: "dispatcher has not reported recently".to_string(),
+                details: Vec::new(),
             }],
         )
         .await;

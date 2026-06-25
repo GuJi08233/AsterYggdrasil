@@ -1,8 +1,9 @@
 //! Prometheus registry, metric families, and recording functions.
 
 use crate::errors::display_error;
+use aster_forge_runtime::HealthStatus;
 use prometheus::{
-    Encoder, Gauge, HistogramOpts, HistogramVec, IntCounterVec, IntGauge, Opts, Registry,
+    Encoder, Gauge, GaugeVec, HistogramOpts, HistogramVec, IntCounterVec, IntGauge, Opts, Registry,
     TextEncoder,
 };
 use sea_orm::DbBackend;
@@ -25,6 +26,10 @@ pub struct Metrics {
     pub background_task_retries_total: IntCounterVec,
     pub external_operations_total: IntCounterVec,
     pub external_operation_duration_seconds: HistogramVec,
+    pub health_report_status: GaugeVec,
+    pub health_report_duration_seconds: HistogramVec,
+    pub health_component_status: GaugeVec,
+    pub health_component_duration_seconds: HistogramVec,
     pub process_memory_rss_bytes: Gauge,
     pub process_cpu_milliseconds_total: IntGauge,
     pub uptime_seconds: Gauge,
@@ -109,6 +114,40 @@ impl Metrics {
             ]),
             &["system", "operation", "status"],
         )?;
+        let health_report_status = GaugeVec::new(
+            Opts::new(
+                "health_report_status",
+                "Aggregate health status for a health check scope: healthy=0, degraded=1, unhealthy=2",
+            ),
+            &["scope"],
+        )?;
+        let health_report_duration_seconds = HistogramVec::new(
+            HistogramOpts::new(
+                "health_report_duration_seconds",
+                "Aggregate health check duration in seconds",
+            )
+            .buckets(vec![
+                0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0,
+            ]),
+            &["scope", "status"],
+        )?;
+        let health_component_status = GaugeVec::new(
+            Opts::new(
+                "health_component_status",
+                "Health component status for a health check scope: healthy=0, degraded=1, unhealthy=2",
+            ),
+            &["scope", "component"],
+        )?;
+        let health_component_duration_seconds = HistogramVec::new(
+            HistogramOpts::new(
+                "health_component_duration_seconds",
+                "Health component check duration in seconds",
+            )
+            .buckets(vec![
+                0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0,
+            ]),
+            &["scope", "component", "status"],
+        )?;
         let process_memory_rss_bytes =
             Gauge::new("process_memory_rss_bytes", "Process RSS memory in bytes")?;
         let process_cpu_milliseconds_total = IntGauge::new(
@@ -129,6 +168,10 @@ impl Metrics {
             Box::new(background_task_retries_total.clone()),
             Box::new(external_operations_total.clone()),
             Box::new(external_operation_duration_seconds.clone()),
+            Box::new(health_report_status.clone()),
+            Box::new(health_report_duration_seconds.clone()),
+            Box::new(health_component_status.clone()),
+            Box::new(health_component_duration_seconds.clone()),
             Box::new(process_memory_rss_bytes.clone()),
             Box::new(process_cpu_milliseconds_total.clone()),
             Box::new(uptime_seconds.clone()),
@@ -149,6 +192,10 @@ impl Metrics {
             background_task_retries_total,
             external_operations_total,
             external_operation_duration_seconds,
+            health_report_status,
+            health_report_duration_seconds,
+            health_component_status,
+            health_component_duration_seconds,
             process_memory_rss_bytes,
             process_cpu_milliseconds_total,
             uptime_seconds,
@@ -280,6 +327,39 @@ pub fn record_external_operation(
         .observe(duration_seconds);
 }
 
+pub fn record_health_report(scope: &'static str, status: HealthStatus, duration_seconds: f64) {
+    let Some(metrics) = get_metrics() else {
+        return;
+    };
+    metrics
+        .health_report_status
+        .with_label_values(&[scope])
+        .set(health_status_value(status));
+    metrics
+        .health_report_duration_seconds
+        .with_label_values(&[scope, status.as_str()])
+        .observe(duration_seconds);
+}
+
+pub fn record_health_component(
+    scope: &'static str,
+    component: &'static str,
+    status: HealthStatus,
+    duration_seconds: f64,
+) {
+    let Some(metrics) = get_metrics() else {
+        return;
+    };
+    metrics
+        .health_component_status
+        .with_label_values(&[scope, component])
+        .set(health_status_value(status));
+    metrics
+        .health_component_duration_seconds
+        .with_label_values(&[scope, component, status.as_str()])
+        .observe(duration_seconds);
+}
+
 fn backend_label(backend: DbBackend) -> &'static str {
     match backend {
         DbBackend::MySql => "mysql",
@@ -318,5 +398,41 @@ fn query_kind_from_sql(sql: &str) -> &'static str {
         "pragma"
     } else {
         "other"
+    }
+}
+
+const fn health_status_value(status: HealthStatus) -> f64 {
+    match status {
+        HealthStatus::Healthy => 0.0,
+        HealthStatus::Degraded => 1.0,
+        HealthStatus::Unhealthy => 2.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        HealthStatus, get_metrics, init_metrics, record_health_component, record_health_report,
+    };
+
+    #[test]
+    fn health_metrics_are_exported_with_low_cardinality_labels() {
+        init_metrics().expect("metrics registry should initialize");
+
+        record_health_report("diagnostics", HealthStatus::Degraded, 0.25);
+        record_health_component("diagnostics", "cache", HealthStatus::Degraded, 0.05);
+
+        let body = get_metrics()
+            .expect("metrics registry should be initialized")
+            .export()
+            .expect("metrics should export");
+
+        assert!(body.contains("health_report_status"));
+        assert!(body.contains("health_report_duration_seconds_count"));
+        assert!(body.contains("health_component_status"));
+        assert!(body.contains("health_component_duration_seconds_count"));
+        assert!(body.contains("scope=\"diagnostics\""));
+        assert!(body.contains("component=\"cache\""));
+        assert!(body.contains("status=\"degraded\""));
     }
 }

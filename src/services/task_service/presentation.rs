@@ -175,11 +175,13 @@ mod tests {
                         name: "database".to_string(),
                         status: RuntimeSystemHealthStatus::Healthy,
                         message: "ok".to_string(),
+                        details: Vec::new(),
                     },
                     RuntimeSystemHealthComponent {
                         name: "cache".to_string(),
                         status: RuntimeSystemHealthStatus::Unhealthy,
                         message: "down".to_string(),
+                        details: Vec::new(),
                     },
                 ],
             }),

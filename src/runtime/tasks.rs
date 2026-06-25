@@ -246,6 +246,7 @@ fn system_health_outcome(report: aster_forge_runtime::SystemHealthReport) -> Run
                     name: component.name.to_string(),
                     status: runtime_health_status(component.status),
                     message: component.message,
+                    details: component.details,
                 },
             )
             .collect(),
@@ -682,7 +683,8 @@ mod tests {
     fn system_health_outcome_fails_when_report_has_issues() {
         let outcome = system_health_outcome(SystemHealthReport::new(vec![
             HealthComponentReport::healthy("database", "database ping succeeded"),
-            HealthComponentReport::degraded("cache", "memory fallback active"),
+            HealthComponentReport::degraded("cache", "memory fallback active")
+                .with_detail("active_backend", "memory"),
         ]));
 
         match outcome {
@@ -700,6 +702,12 @@ mod tests {
                 assert_eq!(
                     system_health.components[0].status,
                     crate::services::task_service::types::RuntimeSystemHealthStatus::Healthy
+                );
+                assert_eq!(system_health.components[1].details.len(), 1);
+                assert_eq!(system_health.components[1].details[0].key, "active_backend");
+                assert_eq!(
+                    system_health.components[1].details[0].value,
+                    aster_forge_runtime::HealthComponentDetailValue::Text("memory".to_string())
                 );
             }
             other => panic!("expected unhealthy system health failure, got {other:?}"),

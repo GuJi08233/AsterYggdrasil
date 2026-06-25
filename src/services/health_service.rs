@@ -5,8 +5,8 @@ use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
 use aster_forge_cache::CacheBackend;
 use aster_forge_runtime::{
-    HealthCheckCriticality, HealthCheckRegistry, HealthComponentReport, HealthStatus,
-    SystemHealthReport,
+    HealthCheckOptions, HealthCheckRegistry, HealthCheckScope, HealthCheckScopes,
+    HealthComponentReport, HealthStatus, SystemHealthReport,
 };
 use sea_orm::DatabaseConnection;
 use std::time::Duration;
@@ -22,7 +22,18 @@ pub async fn ping_database(db: &DatabaseConnection) -> Result<()> {
 
 pub async fn check_ready<S: DatabaseRuntimeState>(state: &S) -> Result<()> {
     tracing::debug!("running readiness check");
-    ping_database(state.reader_db()).await
+    let mut registry = HealthCheckRegistry::new();
+    register_database_health_check(&mut registry, state);
+
+    let report = registry.run_scope(HealthCheckScope::Readiness).await;
+    record_health_metrics(HealthCheckScope::Readiness, &report);
+    if report.has_issues() {
+        return Err(AsterError::runtime_unavailable_retryable(
+            report.issue_details(),
+        ));
+    }
+
+    Ok(())
 }
 
 pub async fn run_system_health_checks<S>(state: &S) -> SystemHealthReport
@@ -34,7 +45,8 @@ where
 
     register_core_health_checks(&mut registry, state);
 
-    let report = registry.run().await;
+    let report = registry.run_scope(HealthCheckScope::Diagnostics).await;
+    record_health_metrics(HealthCheckScope::Diagnostics, &report);
     tracing::debug!(
         component_count = report.components.len(),
         unhealthy_count = report
@@ -56,29 +68,50 @@ pub fn register_core_health_checks<S>(registry: &mut HealthCheckRegistry, state:
 where
     S: DatabaseRuntimeState + AppConfigRuntimeState + CacheRuntimeState,
 {
+    register_database_health_check(registry, state);
+    register_cache_health_check(registry, state);
+}
+
+pub fn register_database_health_check<S>(registry: &mut HealthCheckRegistry, state: &S)
+where
+    S: DatabaseRuntimeState,
+{
     let reader_db = state.reader_db().clone();
-    registry.register(
+    registry.register_with_options(
         "database",
-        HealthCheckCriticality::Critical,
-        Some(HEALTH_CHECK_TIMEOUT),
+        HealthCheckOptions::required(Some(HEALTH_CHECK_TIMEOUT))
+            .with_scopes(HealthCheckScopes::readiness_and_diagnostics()),
         move || {
             let reader_db = reader_db.clone();
             async move { check_database_component(&reader_db).await }
         },
     );
+}
 
+pub fn register_cache_health_check<S>(registry: &mut HealthCheckRegistry, state: &S)
+where
+    S: AppConfigRuntimeState + CacheRuntimeState,
+{
     let cache_config = state.config().cache.clone();
     let cache = state.cache().clone();
-    registry.register(
+    registry.register_with_options(
         "cache",
-        HealthCheckCriticality::NonCritical,
-        Some(HEALTH_CHECK_TIMEOUT),
+        HealthCheckOptions::optional(Some(HEALTH_CHECK_TIMEOUT))
+            .with_scopes(HealthCheckScopes::diagnostics()),
         move || {
             let cache_config = cache_config.clone();
             let cache = cache.clone();
             async move { check_cache_component(&cache_config, cache.as_ref()).await }
         },
     );
+}
+
+fn record_health_metrics(scope: HealthCheckScope, report: &SystemHealthReport) {
+    #[cfg(feature = "metrics")]
+    report.record_metrics(scope.as_str(), &crate::metrics::PrometheusMetricsRecorder);
+
+    #[cfg(not(feature = "metrics"))]
+    let _ = (scope, report);
 }
 
 async fn check_database_component(db: &DatabaseConnection) -> HealthComponentReport {
@@ -111,7 +144,9 @@ async fn check_cache_component(
                 config.backend,
                 cache.backend_name()
             ),
-        );
+        )
+        .with_detail("configured_backend", config.backend.clone())
+        .with_detail("active_backend", cache.backend_name());
     }
 
     match cache.health_check().await {
@@ -121,6 +156,7 @@ async fn check_cache_component(
                 "cache health check succeeded"
             );
             HealthComponentReport::healthy("cache", "cache health check succeeded")
+                .with_detail("active_backend", cache.backend_name())
         }
         Err(error) => {
             tracing::debug!(backend = cache.backend_name(), error = %error, "cache health check failed");
@@ -131,6 +167,7 @@ async fn check_cache_component(
                     cache.backend_name()
                 ),
             )
+            .with_detail("active_backend", cache.backend_name())
         }
     }
 }
@@ -138,11 +175,13 @@ async fn check_cache_component(
 #[cfg(test)]
 mod tests {
     use super::{
-        HealthStatus, check_cache_component, check_database_component, register_core_health_checks,
+        HealthCheckScope, HealthStatus, check_cache_component, check_database_component,
+        register_core_health_checks, register_database_health_check,
     };
     use crate::config::{CacheConfig, Config, DatabaseConfig};
     use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
     use aster_forge_cache::CacheBackend;
+    use aster_forge_runtime::HealthComponentDetailValue;
     use sea_orm::DatabaseConnection;
     use std::sync::Arc;
 
@@ -254,6 +293,18 @@ mod tests {
             report.message,
             "configured cache backend 'redis' is using active backend 'memory'"
         );
+        assert_eq!(
+            report
+                .detail("configured_backend")
+                .and_then(HealthComponentDetailValue::as_text),
+            Some("redis")
+        );
+        assert_eq!(
+            report
+                .detail("active_backend")
+                .and_then(HealthComponentDetailValue::as_text),
+            Some("memory")
+        );
     }
 
     #[tokio::test]
@@ -267,6 +318,12 @@ mod tests {
         let healthy = check_cache_component(&config, &FakeCache::new("redis")).await;
         assert_eq!(healthy.status, HealthStatus::Healthy);
         assert_eq!(healthy.message, "cache health check succeeded");
+        assert_eq!(
+            healthy
+                .detail("active_backend")
+                .and_then(HealthComponentDetailValue::as_text),
+            Some("redis")
+        );
 
         let degraded = check_cache_component(&config, &FakeCache::unhealthy("redis")).await;
         assert_eq!(degraded.status, HealthStatus::Unhealthy);
@@ -274,6 +331,12 @@ mod tests {
             degraded
                 .message
                 .contains("cache backend 'redis' health check failed")
+        );
+        assert_eq!(
+            degraded
+                .detail("active_backend")
+                .and_then(HealthComponentDetailValue::as_text),
+            Some("redis")
         );
     }
 
@@ -327,6 +390,38 @@ mod tests {
             .map(|component| component.name)
             .collect::<Vec<_>>();
         assert_eq!(component_names, vec!["database", "cache"]);
+        assert_eq!(report.status(), HealthStatus::Healthy);
+    }
+
+    #[tokio::test]
+    async fn readiness_health_checks_register_only_database_component() {
+        let db = crate::db::connect_with_metrics(
+            &DatabaseConfig {
+                url: "sqlite::memory:".to_string(),
+                pool_size: 1,
+                retry_count: 0,
+            },
+            aster_forge_metrics::NoopMetrics::arc(),
+        )
+        .await
+        .unwrap();
+        let state = HealthState {
+            db,
+            config: Arc::new(Config::default()),
+            cache: Arc::new(aster_forge_cache::MemoryCache::new(60)),
+        };
+        let mut registry = aster_forge_runtime::HealthCheckRegistry::new();
+
+        register_database_health_check(&mut registry, &state);
+
+        assert_eq!(registry.len(), 1);
+        let report = registry.run_scope(HealthCheckScope::Readiness).await;
+        let component_names = report
+            .components
+            .iter()
+            .map(|component| component.name)
+            .collect::<Vec<_>>();
+        assert_eq!(component_names, vec!["database"]);
         assert_eq!(report.status(), HealthStatus::Healthy);
     }
 }

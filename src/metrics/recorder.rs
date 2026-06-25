@@ -57,3 +57,28 @@ impl aster_forge_metrics::MetricsRecorder for PrometheusMetricsRecorder {
         )))
     }
 }
+
+impl aster_forge_runtime::HealthMetricsRecorder for PrometheusMetricsRecorder {
+    fn record_health_report(
+        &self,
+        scope: &'static str,
+        status: aster_forge_runtime::HealthStatus,
+        duration_seconds: f64,
+    ) {
+        super::registry::record_health_report(scope, status, duration_seconds);
+    }
+
+    fn record_health_component(
+        &self,
+        scope: &'static str,
+        component: &aster_forge_runtime::HealthComponentReport,
+        duration_seconds: f64,
+    ) {
+        super::registry::record_health_component(
+            scope,
+            component.name,
+            component.status,
+            duration_seconds,
+        );
+    }
+}
