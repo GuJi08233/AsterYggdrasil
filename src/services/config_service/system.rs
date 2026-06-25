@@ -476,7 +476,7 @@ mod tests {
             runtime_config,
             cache,
             object_storage,
-            mail_sender: crate::services::mail_service::memory_sender(),
+            mail_sender: aster_forge_mail::memory_sender(),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
             yggdrasil_rate_limiter,

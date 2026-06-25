@@ -2,12 +2,13 @@
 
 use std::sync::{Arc, OnceLock};
 
+use aster_forge_external_auth::ExternalAuthProviderDriver;
+
 use crate::errors::Result;
 use crate::types::ExternalAuthProviderKind;
 
 use super::{
-    ExternalAuthProviderDescriptor, ExternalAuthProviderDriver, map_external_auth_error,
-    map_external_auth_provider_descriptor,
+    ExternalAuthProviderDescriptor, map_external_auth_error, map_external_auth_provider_descriptor,
 };
 
 /// Registry facade for feature-enabled external authentication provider drivers.

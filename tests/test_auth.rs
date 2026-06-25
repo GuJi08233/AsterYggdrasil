@@ -542,7 +542,7 @@ async fn register_with_activation_requires_email_confirmation_before_login() {
     assert_eq!(body["code"], AsterErrorCode::AuthPendingActivation.as_str());
 
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let message = sender
         .last_message()
@@ -604,7 +604,7 @@ async fn register_skips_activation_when_activation_is_disabled() {
     assert!(user.email_verified_at.is_some());
 
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     assert!(sender.messages().is_empty());
 }
@@ -858,7 +858,7 @@ async fn register_activation_resend_is_generic_and_respects_cooldown() {
     }
 
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     assert_eq!(
         sender.messages().len(),
@@ -917,7 +917,7 @@ async fn register_activation_resend_hides_email_policy_rejection() {
     );
 
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     assert_eq!(
         sender.messages().len(),
@@ -966,7 +966,7 @@ async fn contact_verification_confirm_rejects_invalid_expired_and_replayed_token
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let token = common::extract_token_from_mail_message(
         &sender
@@ -1149,7 +1149,7 @@ async fn admin_invitation_can_be_verified_and_accepted_once() {
     assert_eq!(body["data"]["mail_queued"], true);
 
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let message = sender
         .last_message()
@@ -3189,7 +3189,7 @@ async fn password_reset_request_is_generic_for_unknown_email() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["code"], "success");
 
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     assert!(sender.messages().is_empty());
 }
@@ -3211,7 +3211,7 @@ async fn password_reset_rotates_session_sends_notice_and_records_audit() {
     assert_eq!(resp.status(), 200);
     common::flush_mail_outbox(&state).await;
 
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let token = extract_password_reset_token(
         &sender
@@ -3296,7 +3296,7 @@ async fn password_reset_rejects_reused_expired_and_wrong_endpoint_tokens() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     common::flush_mail_outbox(&state).await;
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let token = extract_password_reset_token(
         &sender
@@ -3416,7 +3416,7 @@ async fn email_change_confirms_resends_and_sends_notice() {
     assert_eq!(resp.status(), 200);
     common::flush_mail_outbox(&state).await;
 
-    let sender = aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
+    let sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
         .expect("test state should use memory mail sender");
     let token = common::extract_token_from_mail_message(
         &sender

@@ -4,6 +4,7 @@ use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
 use crate::types::MailTemplateCode;
 use aster_forge_mail::{
+    MailRuntimeSettings,
     normalize_mail_address_config_value as forge_normalize_mail_address_config_value,
     normalize_mail_name_config_value as forge_normalize_mail_name_config_value,
     normalize_mail_security_config_value as forge_normalize_mail_security_config_value,
@@ -28,53 +29,28 @@ pub use crate::config::definitions::{
     MAIL_TEMPLATE_USER_INVITATION_HTML_KEY, MAIL_TEMPLATE_USER_INVITATION_SUBJECT_KEY,
 };
 
-pub const DEFAULT_MAIL_SMTP_PORT: u16 = 587;
-pub const DEFAULT_MAIL_SECURITY: bool = true;
+pub fn runtime_mail_settings(runtime_config: &RuntimeConfig) -> MailRuntimeSettings {
+    let smtp_port = runtime_config
+        .get(MAIL_SMTP_PORT_KEY)
+        .and_then(|raw| parse_smtp_port(&raw))
+        .unwrap_or(aster_forge_mail::DEFAULT_MAIL_SMTP_PORT);
+    let encryption_enabled =
+        runtime_config.get_bool_or(MAIL_SECURITY_KEY, aster_forge_mail::DEFAULT_MAIL_SECURITY);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeMailSettings {
-    pub smtp_host: String,
-    pub smtp_port: u16,
-    pub smtp_username: String,
-    pub smtp_password: String,
-    pub from_address: String,
-    pub from_name: String,
-    pub encryption_enabled: bool,
-}
-
-impl RuntimeMailSettings {
-    pub fn from_runtime_config(runtime_config: &RuntimeConfig) -> Self {
-        let smtp_port = runtime_config
-            .get(MAIL_SMTP_PORT_KEY)
-            .and_then(|raw| parse_smtp_port(&raw))
-            .unwrap_or(DEFAULT_MAIL_SMTP_PORT);
-        let encryption_enabled =
-            runtime_config.get_bool_or(MAIL_SECURITY_KEY, DEFAULT_MAIL_SECURITY);
-
-        Self {
-            smtp_host: runtime_config.get(MAIL_SMTP_HOST_KEY).unwrap_or_default(),
-            smtp_port,
-            smtp_username: runtime_config
-                .get(MAIL_SMTP_USERNAME_KEY)
-                .unwrap_or_default(),
-            smtp_password: runtime_config
-                .get(MAIL_SMTP_PASSWORD_KEY)
-                .unwrap_or_default(),
-            from_address: runtime_config
-                .get(MAIL_FROM_ADDRESS_KEY)
-                .unwrap_or_default(),
-            from_name: runtime_config.get(MAIL_FROM_NAME_KEY).unwrap_or_default(),
-            encryption_enabled,
-        }
-    }
-
-    pub fn is_configured(&self) -> bool {
-        !self.smtp_host.trim().is_empty() && !self.from_address.trim().is_empty()
-    }
-
-    pub fn is_ready_for_delivery(&self) -> bool {
-        self.is_configured()
-            && self.smtp_username.trim().is_empty() == self.smtp_password.trim().is_empty()
+    MailRuntimeSettings {
+        smtp_host: runtime_config.get(MAIL_SMTP_HOST_KEY).unwrap_or_default(),
+        smtp_port,
+        smtp_username: runtime_config
+            .get(MAIL_SMTP_USERNAME_KEY)
+            .unwrap_or_default(),
+        smtp_password: runtime_config
+            .get(MAIL_SMTP_PASSWORD_KEY)
+            .unwrap_or_default(),
+        from_address: runtime_config
+            .get(MAIL_FROM_ADDRESS_KEY)
+            .unwrap_or_default(),
+        from_name: runtime_config.get(MAIL_FROM_NAME_KEY).unwrap_or_default(),
+        encryption_enabled,
     }
 }
 
@@ -228,10 +204,10 @@ fn map_mail_config_error(error: aster_forge_mail::MailConfigError) -> AsterError
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_MAIL_SECURITY, DEFAULT_MAIL_SMTP_PORT, MAIL_SECURITY_KEY, MAIL_SMTP_PORT_KEY,
-        RuntimeMailSettings, default_template_subject, normalize_mail_security_config_value,
-        normalize_mail_template_body_config_value, normalize_mail_template_subject_config_value,
-        template_html, template_subject,
+        MAIL_SECURITY_KEY, MAIL_SMTP_PORT_KEY, default_template_subject,
+        normalize_mail_security_config_value, normalize_mail_template_body_config_value,
+        normalize_mail_template_subject_config_value, runtime_mail_settings, template_html,
+        template_subject,
     };
     use crate::config::RuntimeConfig;
     use crate::config::definitions::CONFIG_CATEGORY_MAIL_CONFIG;
@@ -260,10 +236,13 @@ mod tests {
     #[test]
     fn runtime_mail_settings_use_secure_defaults_when_config_missing() {
         let runtime_config = RuntimeConfig::new();
-        let settings = RuntimeMailSettings::from_runtime_config(&runtime_config);
+        let settings = runtime_mail_settings(&runtime_config);
 
-        assert_eq!(settings.smtp_port, DEFAULT_MAIL_SMTP_PORT);
-        assert_eq!(settings.encryption_enabled, DEFAULT_MAIL_SECURITY);
+        assert_eq!(settings.smtp_port, aster_forge_mail::DEFAULT_MAIL_SMTP_PORT);
+        assert_eq!(
+            settings.encryption_enabled,
+            aster_forge_mail::DEFAULT_MAIL_SECURITY
+        );
     }
 
     #[test]
@@ -272,7 +251,7 @@ mod tests {
         runtime_config.apply(config_model(MAIL_SMTP_PORT_KEY, "465"));
         runtime_config.apply(config_model(MAIL_SECURITY_KEY, "false"));
 
-        let settings = RuntimeMailSettings::from_runtime_config(&runtime_config);
+        let settings = runtime_mail_settings(&runtime_config);
 
         assert_eq!(settings.smtp_port, 465);
         assert!(!settings.encryption_enabled);

@@ -556,9 +556,8 @@ pub async fn latest_oidc_email_verification_token(
     state: &aster_yggdrasil::runtime::AppState,
 ) -> String {
     common::flush_mail_outbox(state).await;
-    let memory_sender =
-        aster_yggdrasil::services::mail_service::memory_sender_ref(&state.mail_sender)
-            .expect("memory mail sender should be available in tests");
+    let memory_sender = aster_forge_mail::memory_sender_ref(&state.mail_sender)
+        .expect("memory mail sender should be available in tests");
     let message = memory_sender
         .last_message()
         .expect("OIDC email verification email should be sent");

@@ -8,11 +8,11 @@ use crate::entities::{
     external_auth_email_verification_flow, external_auth_identity, external_auth_provider, user,
 };
 use crate::errors::{AsterError, Result, auth_forbidden_with_code};
-use crate::external_auth::ExternalAuthProfile;
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
 use crate::types::{UserRole, UserStatus};
 use aster_forge_crypto as hash;
+use aster_forge_external_auth::ExternalAuthProfile;
 
 use super::normalize::email_domain_allowed;
 use super::{EXTERNAL_AUTH_USER_PASSWORD_BYTES, USERNAME_MAX_LEN, USERNAME_MIN_LEN};

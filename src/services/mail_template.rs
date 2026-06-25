@@ -1,13 +1,16 @@
 //! Mail template payloads and product-specific render adapters.
 
+use std::sync::OnceLock;
+
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::config::{RuntimeConfig, branding, mail, site_url};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{MailTemplateCode, StoredMailPayload};
 use aster_forge_mail::{
-    MailTemplateCatalog, MailTemplateCatalogBuilder, MailTemplateDefinition, RenderedMail,
-    TemplateVariableGroup, TemplateVariableSpec, escape_html,
+    MailTemplateCatalog, MailTemplateCatalogBuilder, MailTemplateDefinition,
+    MailTemplateRegistryError, RenderedMail, TemplateVariableGroup, TemplateVariableSpec,
+    escape_html,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -410,12 +413,15 @@ pub fn register_mail_templates(builder: &mut MailTemplateCatalogBuilder) {
     builder.register_all(MAIL_TEMPLATE_DEFINITIONS);
 }
 
-fn mail_template_catalog() -> Result<MailTemplateCatalog> {
-    let mut builder = MailTemplateCatalog::builder();
-    register_mail_templates(&mut builder);
-    builder
-        .build()
-        .map_aster_err_ctx("invalid mail template registry", AsterError::internal_error)
+fn mail_template_catalog() -> Result<&'static MailTemplateCatalog> {
+    static CATALOG: OnceLock<std::result::Result<MailTemplateCatalog, MailTemplateRegistryError>> =
+        OnceLock::new();
+    CATALOG
+        .get_or_init(|| MailTemplateCatalog::from_registrars(&[register_mail_templates]))
+        .as_ref()
+        .map_err(|error| {
+            AsterError::internal_error(format!("invalid mail template registry: {error}"))
+        })
 }
 
 pub fn validate_template_registry() -> Result<()> {

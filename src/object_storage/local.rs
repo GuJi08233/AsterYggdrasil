@@ -2,7 +2,7 @@
 
 use super::{ObjectBlobMetadata, ObjectStorage};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use aster_forge_storage_core::normalize_relative_key;
+use aster_forge_storage_core::{normalize_object_key, normalize_object_prefix};
 use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncRead;
@@ -135,22 +135,11 @@ impl ObjectStorage for LocalObjectStorage {
 }
 
 fn normalize_storage_object_key(storage_key: &str) -> Result<String> {
-    let key = normalize_relative_key(storage_key.trim()).map_err(map_storage_core_error)?;
-    if key == "." {
-        return Err(AsterError::validation_error(
-            "object key cannot target the storage namespace root",
-        ));
-    }
-    Ok(key)
+    normalize_object_key(storage_key).map_err(map_storage_core_error)
 }
 
 fn normalize_storage_prefix(prefix: &str) -> Result<String> {
-    let prefix = normalize_relative_key(prefix.trim()).map_err(map_storage_core_error)?;
-    if prefix == "." {
-        Ok(String::new())
-    } else {
-        Ok(prefix)
-    }
+    normalize_object_prefix(prefix).map_err(map_storage_core_error)
 }
 
 fn map_storage_core_error(error: aster_forge_storage_core::StorageCoreError) -> AsterError {

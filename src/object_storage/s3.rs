@@ -3,7 +3,9 @@
 use super::{ObjectBlobMetadata, ObjectStorage};
 use crate::config::S3ObjectStorageConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
-use aster_forge_storage_core::{join_key_prefix, normalize_relative_key, strip_key_prefix};
+use aster_forge_storage_core::{
+    join_key_prefix, normalize_object_key, normalize_object_prefix, strip_key_prefix,
+};
 use async_trait::async_trait;
 use aws_credential_types::Credentials;
 use aws_sdk_s3::config::{BehaviorVersion, Region, timeout::TimeoutConfig};
@@ -332,22 +334,11 @@ fn normalize_endpoint(endpoint: &str) -> Result<Option<String>> {
 }
 
 fn normalize_storage_object_key(storage_key: &str) -> Result<String> {
-    let key = normalize_relative_key(storage_key.trim()).map_err(map_storage_core_error)?;
-    if key == "." {
-        return Err(AsterError::validation_error(
-            "object key cannot target the storage namespace root",
-        ));
-    }
-    Ok(key)
+    normalize_object_key(storage_key).map_err(map_storage_core_error)
 }
 
 fn normalize_storage_prefix(prefix: &str) -> Result<String> {
-    let prefix = normalize_relative_key(prefix.trim()).map_err(map_storage_core_error)?;
-    if prefix == "." {
-        Ok(String::new())
-    } else {
-        Ok(prefix)
-    }
+    normalize_object_prefix(prefix).map_err(map_storage_core_error)
 }
 
 fn map_storage_core_error(error: aster_forge_storage_core::StorageCoreError) -> AsterError {

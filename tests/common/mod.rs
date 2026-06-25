@@ -779,7 +779,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         runtime_config: base.runtime_config,
         cache,
         object_storage: base.object_storage,
-        mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
+        mail_sender: aster_forge_mail::memory_sender(),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
         started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter: aster_yggdrasil::runtime::AppState::new_yggdrasil_rate_limiter(
@@ -989,7 +989,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         runtime_config,
         cache,
         object_storage,
-        mail_sender: aster_yggdrasil::services::mail_service::memory_sender(),
+        mail_sender: aster_forge_mail::memory_sender(),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
         started_at: aster_yggdrasil::runtime::AppState::new_started_at(),
         yggdrasil_rate_limiter,
@@ -1114,7 +1114,7 @@ pub async fn flush_mail_outbox(state: &AppState) {
 pub async fn flush_mail_outbox_with(
     db: &sea_orm::DatabaseConnection,
     runtime_config: &std::sync::Arc<aster_yggdrasil::config::RuntimeConfig>,
-    mail_sender: &std::sync::Arc<dyn aster_yggdrasil::services::mail_service::MailSender>,
+    mail_sender: &std::sync::Arc<dyn aster_forge_mail::MailSender>,
 ) {
     aster_yggdrasil::services::mail_outbox_service::drain_with(db, runtime_config, mail_sender)
         .await

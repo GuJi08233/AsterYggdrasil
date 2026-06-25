@@ -4,9 +4,10 @@ use sea_orm::ActiveValue::Set;
 use crate::db::repository::{external_auth_login_flow_repo, external_auth_provider_repo};
 use crate::entities::external_auth_login_flow;
 use crate::errors::{AsterError, Result};
-use crate::external_auth::{ExternalAuthCallback, MapExternalAuthResult, registry};
+use crate::external_auth::{MapExternalAuthResult, registry};
 use crate::runtime::SharedRuntimeState;
 use crate::types::ExternalAuthProviderKind;
+use aster_forge_external_auth::ExternalAuthCallback;
 use aster_forge_utils::numbers::u64_to_i64;
 
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};

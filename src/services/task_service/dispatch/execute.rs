@@ -250,7 +250,7 @@ mod tests {
             cache,
             object_storage: crate::object_storage::create_object_storage(&config.object_storage)
                 .expect("object storage should initialize"),
-            mail_sender: crate::services::mail_service::memory_sender(),
+            mail_sender: aster_forge_mail::memory_sender(),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
             started_at: AppState::new_started_at(),
             yggdrasil_rate_limiter: AppState::new_yggdrasil_rate_limiter(&config),

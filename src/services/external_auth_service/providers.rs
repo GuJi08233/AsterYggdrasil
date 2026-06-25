@@ -5,8 +5,8 @@ use crate::db::repository::external_auth_provider_repo;
 use crate::entities::external_auth_provider;
 use crate::errors::{AsterError, Result};
 use crate::external_auth::{
-    ExternalAuthProviderConfig, MapExternalAuthResult, external_auth_provider_config_from_model,
-    map_external_auth_error, registry,
+    MapExternalAuthResult, external_auth_provider_config_from_model, map_external_auth_error,
+    registry,
 };
 use crate::runtime::SharedRuntimeState;
 use crate::types::{
@@ -15,6 +15,7 @@ use crate::types::{
 };
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 use aster_forge_api::{CursorPage, NullablePatch, StringIdCursor};
+use aster_forge_external_auth::ExternalAuthProviderConfig;
 use aster_forge_external_auth::providers::microsoft::{
     normalize_microsoft_tenant_input, normalize_microsoft_tenant_or_issuer_url,
 };
@@ -239,7 +240,7 @@ fn external_auth_provider_config_from_test_params(
 }
 
 fn map_driver_test_result(
-    result: crate::external_auth::ExternalAuthProviderTestResult,
+    result: aster_forge_external_auth::ExternalAuthProviderTestResult,
 ) -> ExternalAuthProviderTestResult {
     ExternalAuthProviderTestResult {
         provider: result.provider,
