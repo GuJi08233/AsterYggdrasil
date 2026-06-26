@@ -491,9 +491,9 @@ async fn user_ban_record_supports_multiple_scopes_and_rejects_overlap() {
     assert_eq!(
         events[0].next_scopes.as_ref().unwrap().as_vec().unwrap(),
         vec![
-            aster_yggdrasil::types::UserBanScope::YggdrasilAccess,
-            aster_yggdrasil::types::UserBanScope::MinecraftProfileManage,
-            aster_yggdrasil::types::UserBanScope::TextureUpload,
+            aster_yggdrasil::types::user::UserBanScope::YggdrasilAccess,
+            aster_yggdrasil::types::user::UserBanScope::MinecraftProfileManage,
+            aster_yggdrasil::types::user::UserBanScope::TextureUpload,
         ]
     );
 }

@@ -8,7 +8,6 @@ pub mod external_auth_email_verification_flow_repo;
 pub mod external_auth_identity_repo;
 pub mod external_auth_login_flow_repo;
 pub mod external_auth_provider_repo;
-pub mod mail_outbox_repo;
 pub mod minecraft_profile_repo;
 pub mod minecraft_profile_texture_repo;
 pub mod minecraft_texture_repo;

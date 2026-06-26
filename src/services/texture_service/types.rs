@@ -5,8 +5,9 @@ use crate::db::repository::minecraft_profile_texture_repo;
 use crate::entities::{minecraft_profile, minecraft_texture};
 use crate::services::profile_service::AvatarInfo;
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
-    MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility,
+    yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
+    yggdrasil::MinecraftTextureReportReason, yggdrasil::MinecraftTextureReportStatus,
+    yggdrasil::MinecraftTextureType, yggdrasil::MinecraftTextureVisibility,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

@@ -6,7 +6,8 @@ mod common;
 use actix_web::test;
 use aster_yggdrasil::entities::{external_auth_login_flow, external_auth_provider};
 use aster_yggdrasil::types::{
-    ExternalAuthProtocol, ExternalAuthProviderKind, StoredExternalAuthProviderOptions,
+    external_auth::ExternalAuthProtocol, external_auth::ExternalAuthProviderKind,
+    external_auth::StoredExternalAuthProviderOptions,
 };
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};

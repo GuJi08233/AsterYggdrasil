@@ -10,8 +10,9 @@ use crate::external_auth::{
 };
 use crate::runtime::SharedRuntimeState;
 use crate::types::{
-    ExternalAuthProviderKind, ExternalAuthProviderOptions, MicrosoftExternalAuthProviderOptions,
-    serialize_external_auth_provider_options,
+    external_auth::ExternalAuthProviderKind, external_auth::ExternalAuthProviderOptions,
+    external_auth::MicrosoftExternalAuthProviderOptions,
+    external_auth::serialize_external_auth_provider_options,
 };
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 use aster_forge_api::{CursorPage, NullablePatch, StringIdCursor};
@@ -130,7 +131,8 @@ fn admin_provider_options(
     raw_options: &str,
     legacy_issuer_url: Option<&str>,
 ) -> Result<ExternalAuthProviderOptions> {
-    let mut options = crate::types::parse_external_auth_provider_options(raw_options);
+    let mut options =
+        crate::types::external_auth::parse_external_auth_provider_options(raw_options);
     if provider_kind == ExternalAuthProviderKind::Microsoft && options.microsoft.is_none() {
         let Some(legacy_issuer_url) = legacy_issuer_url else {
             return normalize_provider_options(provider_kind, options);
@@ -361,7 +363,7 @@ fn microsoft_tenant_from_legacy_issuer_url(value: &str) -> Option<String> {
 
 fn serialize_options(
     options: &ExternalAuthProviderOptions,
-) -> Result<crate::types::StoredExternalAuthProviderOptions> {
+) -> Result<crate::types::external_auth::StoredExternalAuthProviderOptions> {
     serialize_external_auth_provider_options(options).map_err(|error| {
         AsterError::internal_error(format!("serialize external auth provider options: {error}"))
     })

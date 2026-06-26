@@ -20,8 +20,9 @@ use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::{audit_service, auth_service, texture_service};
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureReportReason, MinecraftTextureReportStatus,
-    MinecraftTextureType, MinecraftTextureVisibility, TextureTagSearchMethod,
+    yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureReportReason,
+    yggdrasil::MinecraftTextureReportStatus, yggdrasil::MinecraftTextureType,
+    yggdrasil::MinecraftTextureVisibility, yggdrasil::TextureTagSearchMethod,
 };
 use aster_forge_api::{LimitQuery, parse_datetime_id_cursor, parse_sort_order_name_id_cursor};
 

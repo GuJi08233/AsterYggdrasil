@@ -9,8 +9,7 @@ use std::rc::Rc;
 
 use crate::errors::AsterError;
 use crate::services::auth_service::AuthUserInfo;
-use crate::types::{OperatorScope, UserRole};
-
+use crate::types::user::{OperatorScope, UserRole};
 pub struct RequireAdmin;
 
 #[derive(Clone, Copy)]
@@ -146,9 +145,10 @@ where
 mod tests {
     use super::*;
     use crate::services::profile_service::{AvatarInfo, UserProfileInfo};
-    use crate::types::{AvatarSource, UserStatus};
-    use actix_web::{HttpResponse, dev::fn_service, test};
-
+    use crate::types::user::{AvatarSource, UserStatus};
+    use actix_web::HttpResponse;
+    use actix_web::dev::fn_service;
+    use actix_web::test;
     fn auth_user(role: UserRole, operator_scopes: Vec<OperatorScope>) -> AuthUserInfo {
         AuthUserInfo {
             id: 42,

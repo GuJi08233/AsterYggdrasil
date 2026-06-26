@@ -3,7 +3,7 @@ use crate::db::repository::{
     minecraft_profile_repo, minecraft_profile_texture_repo, minecraft_texture_repo, user_repo,
 };
 use crate::runtime::AppState;
-use crate::types::UserRole;
+use crate::types::user::UserRole;
 use sha2::Digest;
 use std::io::Cursor;
 use std::sync::Arc;
@@ -45,7 +45,7 @@ async fn test_state(texture_root: String) -> AppState {
             local_root: texture_root,
             ..Default::default()
         },
-        cache: crate::config::CacheConfig {
+        cache: aster_forge_cache::CacheConfig {
             ..Default::default()
         },
         ..Default::default()
@@ -60,6 +60,7 @@ async fn test_state(texture_root: String) -> AppState {
         cache,
         object_storage,
         mail_sender: aster_forge_mail::memory_sender(),
+        config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
     })
     .expect("texture service test AppState should build")

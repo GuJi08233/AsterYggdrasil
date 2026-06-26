@@ -7,7 +7,8 @@ use actix_web::test;
 use aster_yggdrasil::entities::background_task;
 use aster_yggdrasil::runtime::AppState;
 use aster_yggdrasil::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
+    task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    task::StoredTaskResult,
 };
 use chrono::{DateTime, Duration, Utc};
 use sea_orm::Set;

@@ -2,7 +2,7 @@
 
 use crate::entities::user_operator_scope::{self, Entity as UserOperatorScope};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::OperatorScope;
+use crate::types::user::OperatorScope;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder, Set,
 };

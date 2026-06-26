@@ -9,7 +9,7 @@ use aster_yggdrasil::db::repository::{system_config_repo, user_repo};
 use aster_yggdrasil::entities::user;
 use aster_yggdrasil::runtime::AppState;
 use aster_yggdrasil::services::profile_service::{self, AvatarAudience};
-use aster_yggdrasil::types::AvatarSource;
+use aster_yggdrasil::types::user::AvatarSource;
 use serde_json::Value;
 
 async fn load_admin_user(state: &AppState) -> user::Model {

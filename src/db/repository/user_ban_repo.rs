@@ -3,7 +3,9 @@
 use crate::entities::user_ban::{self, Entity as UserBan};
 use crate::entities::user_ban_event::{self, Entity as UserBanEvent};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{UserBanEventType, UserBanScope, UserBanScopes, UserBanStatus};
+use crate::types::{
+    user::UserBanEventType, user::UserBanScope, user::UserBanScopes, user::UserBanStatus,
+};
 use aster_forge_api::CursorSlice;
 use chrono::{DateTime, Utc};
 use sea_orm::{

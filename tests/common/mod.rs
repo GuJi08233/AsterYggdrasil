@@ -766,7 +766,7 @@ pub async fn setup() -> AppState {
 #[allow(dead_code)]
 pub async fn setup_with_memory_cache() -> AppState {
     let base = setup().await;
-    let cache_config = aster_yggdrasil::config::CacheConfig {
+    let cache_config = aster_forge_cache::CacheConfig {
         backend: "memory".to_string(),
         default_ttl: 60,
         ..Default::default()
@@ -780,6 +780,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         cache,
         object_storage: base.object_storage,
         mail_sender: aster_forge_mail::memory_sender(),
+        config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
     })
     .expect("memory-cache test AppState should build")
@@ -943,7 +944,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
             bootstrap_insecure_cookies: true,
             ..Default::default()
         },
-        cache: aster_yggdrasil::config::CacheConfig {
+        cache: aster_forge_cache::CacheConfig {
             ..Default::default()
         },
         rate_limit: aster_yggdrasil::config::RateLimitConfig {
@@ -979,6 +980,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         cache,
         object_storage,
         mail_sender: aster_forge_mail::memory_sender(),
+        config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
     })
     .expect("integration test AppState should build")
@@ -1138,11 +1140,11 @@ pub fn system_config_model(
         id: 0,
         key: key.to_string(),
         value: value.to_string(),
-        value_type: aster_yggdrasil::types::SystemConfigValueType::String,
+        value_type: aster_yggdrasil::types::config::SystemConfigValueType::String,
         requires_restart: false,
         is_sensitive: false,
-        source: aster_yggdrasil::types::SystemConfigSource::System,
-        visibility: aster_yggdrasil::types::SystemConfigVisibility::Private,
+        source: aster_yggdrasil::types::config::SystemConfigSource::System,
+        visibility: aster_yggdrasil::types::config::SystemConfigVisibility::Private,
         namespace: String::new(),
         category: aster_yggdrasil::config::definitions::CONFIG_CATEGORY_SITE_PUBLIC.to_string(),
         description: "test".to_string(),

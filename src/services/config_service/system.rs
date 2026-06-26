@@ -4,11 +4,13 @@ use crate::config::yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY;
 use crate::db::repository::system_config_repo;
 use crate::entities::system_config;
 use crate::errors::{AsterError, Result};
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
+use crate::runtime::{ConfigSyncRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::audit_service::{self, AuditContext};
-use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
+use crate::types::{
+    config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+};
 use aster_forge_api::{CursorPage, IdCursor};
-pub use aster_forge_config::ConfigValue as SystemConfigValue;
+use aster_forge_config::ConfigValue;
 use sea_orm::ConnectionTrait;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -19,7 +21,7 @@ use utoipa::ToSchema;
 pub struct SystemConfig {
     pub id: i64,
     pub key: String,
-    pub value: SystemConfigValue,
+    pub value: ConfigValue,
     pub value_type: SystemConfigValueType,
     pub requires_restart: bool,
     pub is_sensitive: bool,
@@ -49,7 +51,7 @@ pub struct SystemConfigWarning {
 
 impl From<system_config::Model> for SystemConfig {
     fn from(model: system_config::Model) -> Self {
-        let value = SystemConfigValue::for_presentation(
+        let value = ConfigValue::for_presentation(
             model.value_type,
             model.value,
             model.is_sensitive,
@@ -146,9 +148,9 @@ pub async fn get_by_key(state: &impl DatabaseRuntimeState, key: &str) -> Result<
 }
 
 pub async fn set(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: impl Into<SystemConfigValue>,
+    value: impl Into<ConfigValue>,
     updated_by: i64,
 ) -> Result<SystemConfig> {
     tracing::debug!(key, "setting system config");
@@ -156,9 +158,9 @@ pub async fn set(
 }
 
 pub async fn set_with_visibility(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: impl Into<SystemConfigValue>,
+    value: impl Into<ConfigValue>,
     visibility: Option<SystemConfigVisibility>,
     updated_by: i64,
 ) -> Result<SystemConfig> {
@@ -175,18 +177,26 @@ pub async fn set_with_visibility(
 }
 
 pub async fn delete(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
 ) -> Result<()> {
     tracing::debug!(key, "deleting system config");
     system_config_repo::delete_by_key(state.writer_db(), key).await?;
     state.runtime_config().remove(key);
+    state
+        .config_sync()
+        .publish_reload(
+            [key.to_string()],
+            aster_forge_config::ConfigNotificationSource::Api,
+        )
+        .await
+        .map_err(super::runtime::map_config_core_error)?;
     tracing::debug!(key, "deleted runtime config");
     Ok(())
 }
 
 pub async fn delete_with_audit(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
     audit_ctx: &AuditContext,
 ) -> Result<()> {
@@ -211,9 +221,9 @@ pub async fn delete_with_audit(
 }
 
 pub async fn set_with_audit(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: &SystemConfigValue,
+    value: &ConfigValue,
     updated_by: i64,
     audit_ctx: &AuditContext,
 ) -> Result<SystemConfig> {
@@ -222,9 +232,9 @@ pub async fn set_with_audit(
 }
 
 pub async fn set_with_audit_and_visibility(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: &SystemConfigValue,
+    value: &ConfigValue,
     visibility: Option<SystemConfigVisibility>,
     updated_by: i64,
     audit_ctx: &AuditContext,
@@ -238,9 +248,9 @@ pub async fn set_with_audit_and_visibility(
 }
 
 pub async fn set_with_audit_and_visibility_result(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: &SystemConfigValue,
+    value: &ConfigValue,
     visibility: Option<SystemConfigVisibility>,
     updated_by: i64,
     audit_ctx: &AuditContext,
@@ -258,9 +268,9 @@ pub async fn set_with_audit_and_visibility_result(
 }
 
 async fn save_config(
-    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState + ConfigSyncRuntimeState),
     key: &str,
-    value: &SystemConfigValue,
+    value: &ConfigValue,
     visibility: Option<SystemConfigVisibility>,
     updated_by: Option<i64>,
 ) -> Result<system_config::Model> {
@@ -279,6 +289,14 @@ async fn save_config(
     .await?;
     let saved = apply_system_config_definition(saved);
     state.runtime_config().apply(saved.clone());
+    state
+        .config_sync()
+        .publish_reload(
+            [saved.key.clone()],
+            aster_forge_config::ConfigNotificationSource::Api,
+        )
+        .await
+        .map_err(super::runtime::map_config_core_error)?;
     Ok(saved)
 }
 
@@ -297,19 +315,15 @@ async fn audit_config_update(
         Some(&config.key),
         || {
             let audit_value = if config.is_sensitive {
-                SystemConfigValue::REDACTED.to_string()
+                ConfigValue::REDACTED.to_string()
             } else {
-                SystemConfigValue::from_storage_lossy(
-                    config.value_type,
-                    config.value.clone(),
-                    |error| {
-                        tracing::warn!(
-                            error = %error,
-                            value_type = %config.value_type,
-                            "invalid stored config value; returning an empty audit value"
-                        );
-                    },
-                )
+                ConfigValue::from_storage_lossy(config.value_type, config.value.clone(), |error| {
+                    tracing::warn!(
+                        error = %error,
+                        value_type = %config.value_type,
+                        "invalid stored config value; returning an empty audit value"
+                    );
+                })
                 .to_audit_string()
             };
             audit_service::details(audit_service::ConfigUpdateDetails {
@@ -353,22 +367,25 @@ fn config_warnings_for_key(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::{
-        SystemConfigValue, bootstrap_insecure_cookies, delete, delete_with_audit, ensure_defaults,
+        ConfigValue, bootstrap_insecure_cookies, delete, delete_with_audit, ensure_defaults,
         get_by_key, list_cursor, set, set_with_audit, set_with_visibility,
     };
     use crate::config::definitions::{
         ALL_CONFIGS, AUTH_COOKIE_SECURE_KEY, BRANDING_TITLE_KEY, PUBLIC_SITE_URL_KEY,
     };
-    use crate::config::{CacheConfig, Config, DatabaseConfig, RuntimeConfig};
+    use crate::config::{Config, DatabaseConfig, RuntimeConfig};
     use crate::db;
     use crate::db::repository::system_config_repo;
     use crate::runtime::AppState;
     use crate::services::audit_service::{AuditContext, flush_global_audit_log_manager};
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
+    use aster_forge_cache::CacheConfig;
     use aster_forge_db::DbHandles;
-    use std::sync::Arc;
-
     async fn build_test_state() -> AppState {
         let db_cfg = DatabaseConfig {
             url: "sqlite::memory:".to_string(),
@@ -408,6 +425,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("config service test AppState should build")
@@ -416,35 +436,34 @@ mod tests {
     #[test]
     fn system_config_value_storage_rules_match_value_type() {
         assert_eq!(
-            SystemConfigValue::String("value".to_string())
+            ConfigValue::String("value".to_string())
                 .to_storage_for_type(SystemConfigValueType::String)
                 .unwrap(),
             "value"
         );
         assert_eq!(
-            SystemConfigValue::String("value".to_string())
+            ConfigValue::String("value".to_string())
                 .to_storage_for_type(SystemConfigValueType::StringEnum)
                 .unwrap(),
             "value"
         );
         assert_eq!(
-            SystemConfigValue::StringArray(vec!["a".to_string(), "b".to_string()])
+            ConfigValue::StringArray(vec!["a".to_string(), "b".to_string()])
                 .to_storage_for_type(SystemConfigValueType::StringArray)
                 .unwrap(),
             r#"["a","b"]"#
         );
         assert_eq!(
-            SystemConfigValue::StringArray(vec!["b".to_string(), "a".to_string()])
-                .to_audit_string(),
+            ConfigValue::StringArray(vec!["b".to_string(), "a".to_string()]).to_audit_string(),
             r#"["b","a"]"#
         );
         assert!(
-            SystemConfigValue::String("not-an-array".to_string())
+            ConfigValue::String("not-an-array".to_string())
                 .to_storage_for_type(SystemConfigValueType::StringArray)
                 .is_err()
         );
         assert!(
-            SystemConfigValue::StringArray(vec!["a".to_string()])
+            ConfigValue::StringArray(vec!["a".to_string()])
                 .to_storage_for_type(SystemConfigValueType::String)
                 .is_err()
         );
@@ -457,7 +476,7 @@ mod tests {
         let config = super::SystemConfig::from(model);
         assert_eq!(
             config.value,
-            SystemConfigValue::StringArray(vec!["a".to_string(), "b".to_string()])
+            ConfigValue::StringArray(vec!["a".to_string(), "b".to_string()])
         );
 
         let mut sensitive = system_config_model("demo.secret", "secret");
@@ -465,13 +484,13 @@ mod tests {
         let config = super::SystemConfig::from(sensitive);
         assert_eq!(
             config.value,
-            SystemConfigValue::String("***REDACTED***".to_string())
+            ConfigValue::String("***REDACTED***".to_string())
         );
 
         let mut invalid_list = system_config_model("demo.invalid", "not json");
         invalid_list.value_type = SystemConfigValueType::StringArray;
         let config = super::SystemConfig::from(invalid_list);
-        assert_eq!(config.value, SystemConfigValue::StringArray(Vec::new()));
+        assert_eq!(config.value, ConfigValue::StringArray(Vec::new()));
     }
 
     fn system_config_model(key: &str, value: &str) -> crate::entities::system_config::Model {
@@ -506,7 +525,7 @@ mod tests {
         assert_eq!(initial.key, BRANDING_TITLE_KEY);
         assert_eq!(
             initial.value,
-            SystemConfigValue::String("AsterYggdrasil".to_string())
+            ConfigValue::String("AsterYggdrasil".to_string())
         );
         assert_eq!(initial.source, SystemConfigSource::System);
 
@@ -515,7 +534,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             updated.value,
-            SystemConfigValue::String("Template Title".to_string())
+            ConfigValue::String("Template Title".to_string())
         );
         assert_eq!(updated.updated_by, Some(42));
         assert_eq!(
@@ -536,7 +555,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             origins.value,
-            SystemConfigValue::StringArray(vec![
+            ConfigValue::StringArray(vec![
                 "https://forge.example.com".to_string(),
                 "https://admin.example.com".to_string(),
             ])
@@ -589,7 +608,7 @@ mod tests {
             .unwrap();
 
         let config = get_by_key(&state, AUTH_COOKIE_SECURE_KEY).await.unwrap();
-        assert_eq!(config.value, SystemConfigValue::String("true".to_string()));
+        assert_eq!(config.value, ConfigValue::String("true".to_string()));
     }
 
     #[tokio::test]
@@ -689,7 +708,7 @@ mod tests {
         let updated = set_with_audit(
             &state,
             BRANDING_TITLE_KEY,
-            &SystemConfigValue::String("Audited Title".to_string()),
+            &ConfigValue::String("Audited Title".to_string()),
             99,
             &audit_ctx,
         )
@@ -697,7 +716,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             updated.value,
-            SystemConfigValue::String("Audited Title".to_string())
+            ConfigValue::String("Audited Title".to_string())
         );
         assert_eq!(
             state.runtime_config().get(BRANDING_TITLE_KEY).as_deref(),

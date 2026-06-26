@@ -1,12 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility};
-use crate::types::{
+use crate::types::user::{UserBanScope, UserBanStatus, UserRole, UserStatus};
+use crate::types::yggdrasil::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType,
 };
-use crate::types::{UserBanScope, UserBanStatus, UserRole, UserStatus};
+use crate::types::{
+    config::SystemConfigVisibility, task::BackgroundTaskKind, task::BackgroundTaskStatus,
+};
 
 #[derive(Serialize)]
 pub struct ConfigUpdateDetails<'a> {
@@ -248,16 +250,17 @@ pub fn details<T: Serialize>(value: T) -> Option<serde_json::Value> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::{
         AdminTaskCleanupAuditDetails, ConfigActionDetails, ConfigUpdateDetails, LoginAuditDetails,
         MailAuditDetails, TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
         details,
     };
     use crate::types::{
-        BackgroundTaskKind, BackgroundTaskStatus, SystemConfigVisibility, UserRole, UserStatus,
+        config::SystemConfigVisibility, task::BackgroundTaskKind, task::BackgroundTaskStatus,
+        user::UserRole, user::UserStatus,
     };
-    use chrono::Utc;
-
     #[test]
     fn details_serializes_config_update_and_omits_missing_prior_visibility() {
         assert_eq!(

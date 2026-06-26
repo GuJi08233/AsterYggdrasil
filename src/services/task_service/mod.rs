@@ -22,7 +22,7 @@ use crate::config::operations;
 use crate::db::repository::background_task_repo;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{AppConfigRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::StoredTaskResult;
+use crate::types::task::StoredTaskResult;
 use aster_forge_tasks::{TaskLease, TaskLeaseGuard};
 
 pub(crate) use admin::{
@@ -37,7 +37,10 @@ use lease::{
 use presentation::build_task_presentation;
 use registry::{decode_task_payload, decode_task_result};
 pub(crate) use runtime::registered_system_runtime_tasks;
-pub use runtime::{RuntimeTaskRunOutcome, SystemRuntimeTaskKind, record_runtime_task_run};
+pub use runtime::{
+    RuntimeTaskRunOutcome, SystemRuntimeTaskKind, record_runtime_task_run,
+    record_scheduled_runtime_task_run,
+};
 use spec::BackgroundTaskSpec;
 use steps::{parse_task_steps_json, serialize_task_steps};
 use types::{TaskCreatorSummary, TaskInfo, TaskResult};

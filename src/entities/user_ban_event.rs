@@ -1,6 +1,6 @@
 //! Append-only user ban event entity.
 
-use crate::types::{UserBanEventType, UserBanScopes, UserBanStatus};
+use crate::types::user::{UserBanEventType, UserBanScopes, UserBanStatus};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

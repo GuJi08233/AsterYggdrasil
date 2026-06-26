@@ -2,7 +2,7 @@
 
 use crate::api::middleware::{admin::RequireAdminOrScope, auth::JwtAuth, rate_limit};
 use crate::config::{NetworkTrustConfig, RateLimitConfig};
-use crate::types::OperatorScope;
+use crate::types::user::OperatorScope;
 use actix_governor::Governor;
 use actix_web::middleware::Condition;
 use actix_web::web;

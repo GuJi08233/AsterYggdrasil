@@ -2,7 +2,7 @@
 
 use crate::entities::user_invitation::{self, Entity as UserInvitation};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::UserInvitationStatus;
+use crate::types::user::UserInvitationStatus;
 use aster_forge_api::CursorSlice;
 use chrono::Utc;
 use sea_orm::{

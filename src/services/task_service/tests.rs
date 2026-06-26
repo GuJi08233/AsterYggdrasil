@@ -13,8 +13,8 @@ use crate::services::task_service::types::{
     RuntimeTaskName, RuntimeTaskPayload, RuntimeTaskResult,
 };
 use crate::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, SystemConfigSource,
-    SystemConfigVisibility,
+    config::SystemConfigSource, config::SystemConfigVisibility, task::BackgroundTaskKind,
+    task::BackgroundTaskStatus, task::StoredTaskPayload,
 };
 use aster_forge_tasks::{
     TaskExecutionContext, TaskLease, TaskLeaseGuard, TaskStepInfo, TaskStepStatus,
@@ -56,7 +56,7 @@ async fn test_state() -> AppState {
             ..Default::default()
         },
         database: db_cfg,
-        cache: crate::config::CacheConfig {
+        cache: aster_forge_cache::CacheConfig {
             ..Default::default()
         },
         ..Default::default()
@@ -71,6 +71,7 @@ async fn test_state() -> AppState {
         cache,
         object_storage,
         mail_sender: aster_forge_mail::memory_sender(),
+        config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
     })
     .expect("task service test AppState should build")
@@ -87,6 +88,7 @@ fn task_model(
         status,
         creator_user_id: None,
         display_name: "Task".to_string(),
+        dedupe_key: None,
         payload_json,
         result_json: None,
         runtime_json: None,
@@ -135,7 +137,7 @@ async fn typed_task_create_builds_active_model_with_truncation_and_runtime_defau
             id: 999,
             key: operations::TASK_RETENTION_HOURS_KEY.to_string(),
             value: "48".to_string(),
-            value_type: crate::types::SystemConfigValueType::Number,
+            value_type: crate::types::config::SystemConfigValueType::Number,
             requires_restart: false,
             is_sensitive: false,
             source: SystemConfigSource::System,
@@ -173,6 +175,7 @@ async fn typed_task_create_builds_active_model_with_truncation_and_runtime_defau
     assert_eq!(active.kind.unwrap(), BackgroundTaskKind::SystemRuntime);
     assert_eq!(active.status.unwrap(), BackgroundTaskStatus::Succeeded);
     assert_eq!(active.creator_user_id.unwrap(), Some(7));
+    assert!(active.dedupe_key.unwrap().is_none());
     assert_eq!(
         active.display_name.unwrap().len(),
         TASK_DISPLAY_NAME_MAX_LEN
@@ -219,6 +222,40 @@ async fn create_typed_task_record_persists_pending_task_without_creator() {
     assert_eq!(task.display_name, "Runtime task");
     assert_eq!(task.max_attempts, 1);
     assert_eq!(task.steps_json.as_ref().map(AsRef::as_ref), Some("[]"));
+}
+
+#[tokio::test]
+async fn insert_typed_task_record_returns_existing_row_for_dedupe_key() {
+    let state = test_state().await;
+    let payload = RuntimeTaskPayload {
+        task_name: RuntimeTaskName::from(SystemRuntimeTaskKind::AuditCleanup),
+    };
+    let first = insert_typed_task_record(
+        &state,
+        state.writer_db(),
+        TypedTaskCreate::<SystemRuntimeTask>::new("Runtime task", payload.clone())
+            .dedupe_key_str("schedule:aster_yggdrasil:audit-cleanup:2026-06-26T00:00:00Z")
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+
+    let second = insert_typed_task_record(
+        &state,
+        state.writer_db(),
+        TypedTaskCreate::<SystemRuntimeTask>::new("Runtime task duplicate", payload)
+            .dedupe_key_str("schedule:aster_yggdrasil:audit-cleanup:2026-06-26T00:00:00Z")
+            .unwrap(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(second.id, first.id);
+    assert_eq!(second.display_name, "Runtime task");
+    assert_eq!(
+        second.dedupe_key.as_deref(),
+        Some("schedule:aster_yggdrasil:audit-cleanup:2026-06-26T00:00:00Z")
+    );
 }
 
 #[tokio::test]

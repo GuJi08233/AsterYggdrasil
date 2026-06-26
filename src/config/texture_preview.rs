@@ -436,11 +436,13 @@ fn normalize_f32(value: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
     use chrono::Utc;
 
+    use super::*;
+    use crate::entities::system_config;
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     #[test]
     fn normalizes_background_aliases_and_hex() {
         assert_eq!(

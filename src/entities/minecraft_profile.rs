@@ -1,6 +1,6 @@
 //! Minecraft player profile entity.
 
-use crate::types::MinecraftTextureModel;
+use crate::types::yggdrasil::MinecraftTextureModel;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

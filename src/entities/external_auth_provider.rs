@@ -7,7 +7,8 @@ use std::fmt;
 use utoipa::ToSchema;
 
 use crate::types::{
-    ExternalAuthProtocol, ExternalAuthProviderKind, StoredExternalAuthProviderOptions,
+    external_auth::ExternalAuthProtocol, external_auth::ExternalAuthProviderKind,
+    external_auth::StoredExternalAuthProviderOptions,
 };
 
 #[derive(Clone, PartialEq, DeriveEntityModel, Serialize, Deserialize)]

@@ -1,6 +1,8 @@
 //! User-submitted reports for public texture library entries.
 
-use crate::types::{MinecraftTextureReportReason, MinecraftTextureReportStatus};
+use crate::types::{
+    yggdrasil::MinecraftTextureReportReason, yggdrasil::MinecraftTextureReportStatus,
+};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

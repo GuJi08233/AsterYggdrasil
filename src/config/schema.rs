@@ -8,8 +8,9 @@
 use serde::{Deserialize, Serialize};
 use std::num::{NonZeroU32, NonZeroU64};
 
-pub use aster_forge_cache::CacheConfig;
-pub use aster_forge_logging::LoggingConfig;
+use aster_forge_cache::CacheConfig;
+use aster_forge_config::ConfigSyncConfig;
+use aster_forge_logging::LoggingConfig;
 use aster_forge_utils::numbers::{non_zero_u32, non_zero_u64};
 
 pub const DEFAULT_AUTH_CSRF_COOKIE_NAME: &str = "aster_yggdrasil_csrf";
@@ -25,6 +26,8 @@ pub struct Config {
     pub auth: AuthConfig,
     #[serde(default)]
     pub cache: CacheConfig,
+    #[serde(default = "default_config_sync")]
+    pub config_sync: ConfigSyncConfig,
     #[serde(default, alias = "texture_storage")]
     pub object_storage: ObjectStorageConfig,
     #[serde(default)]
@@ -33,6 +36,13 @@ pub struct Config {
     pub network_trust: NetworkTrustConfig,
     #[serde(default)]
     pub rate_limit: RateLimitConfig,
+}
+
+fn default_config_sync() -> ConfigSyncConfig {
+    ConfigSyncConfig {
+        topic: "aster_yggdrasil.config_reload".to_string(),
+        ..ConfigSyncConfig::default()
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

@@ -5,7 +5,7 @@ use crate::errors::{Result, validation_error_with_code};
 use crate::external_auth::MapExternalAuthResult;
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
-use crate::types::{ExternalAuthProtocol, ExternalAuthProviderKind};
+use crate::types::external_auth::{ExternalAuthProtocol, ExternalAuthProviderKind};
 use aster_forge_api::NullablePatch;
 use aster_forge_external_auth::normalize as forge_normalize;
 

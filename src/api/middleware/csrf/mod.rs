@@ -133,15 +133,17 @@ pub fn ensure_service_request_source_allowed(
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use actix_web::cookie::Cookie;
 
     use crate::api::error_code::AsterErrorCode;
     use crate::config::{RuntimeConfig, site_url};
     use crate::entities::system_config;
     use crate::errors::AsterError;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use chrono::Utc;
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     use aster_forge_actix_middleware::csrf::{RequestSourceMode, build_csrf_token};
 
     use super::{ensure_double_submit_token, ensure_request_source_allowed, token_names};

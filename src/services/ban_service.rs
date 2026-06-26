@@ -9,7 +9,8 @@ use crate::entities::{user_ban, user_ban_event};
 use crate::errors::{AsterError, Result};
 use crate::runtime::DatabaseRuntimeState;
 use crate::types::{
-    UserBanEventType, UserBanScope, UserBanScopes, UserBanScopesError, UserBanStatus,
+    user::UserBanEventType, user::UserBanScope, user::UserBanScopes, user::UserBanScopesError,
+    user::UserBanStatus,
 };
 use aster_forge_api::{CursorPage, DateTimeIdCursor, NullablePatch};
 use aster_forge_utils::text::char_count;

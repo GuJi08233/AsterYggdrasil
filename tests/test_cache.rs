@@ -1,19 +1,41 @@
 //! Integration tests for cache backend contracts.
 
-use aster_forge_cache::CacheExt;
-use aster_forge_cache::create_cache;
-use aster_yggdrasil::config::CacheConfig;
+use std::sync::Arc;
+
+use aster_forge_cache::{CacheConfig, CacheExt, create_cache};
 use testcontainers::{
     GenericImage,
     core::{IntoContainerPort, WaitFor},
     runners::AsyncRunner,
 };
+use tokio::time::{Duration, Instant, sleep};
 
 fn cache_config(backend: &str, default_ttl: u64) -> CacheConfig {
     CacheConfig {
         backend: backend.to_string(),
         redis_url: String::new(),
         default_ttl,
+    }
+}
+
+async fn wait_for_redis_cache(redis_url: String) -> Arc<dyn aster_forge_cache::CacheBackend> {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let config = CacheConfig {
+        backend: "redis".to_string(),
+        redis_url,
+        default_ttl: 60,
+    };
+
+    loop {
+        let cache = create_cache(&config).await;
+        if cache.backend_name() == "redis" {
+            return cache;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Redis test container did not accept cache connections before timeout"
+        );
+        sleep(Duration::from_millis(100)).await;
     }
 }
 
@@ -162,12 +184,7 @@ async fn redis_cache_round_trips_against_real_redis_container() {
         .get_host_port_ipv4(IntoContainerPort::tcp(6379))
         .await
         .expect("resolve mapped Redis port");
-    let cache = create_cache(&CacheConfig {
-        backend: "redis".to_string(),
-        redis_url: format!("redis://127.0.0.1:{port}/0"),
-        default_ttl: 60,
-    })
-    .await;
+    let cache = wait_for_redis_cache(format!("redis://127.0.0.1:{port}/0")).await;
 
     assert_eq!(cache.backend_name(), "redis");
     cache.health_check().await.unwrap();

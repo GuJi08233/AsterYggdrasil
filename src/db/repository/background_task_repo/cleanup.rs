@@ -4,7 +4,7 @@ use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder
 use super::common::{TerminalTaskCleanupFilters, terminal_cleanup_condition};
 use crate::entities::background_task::{self, Entity as BackgroundTask};
 use crate::errors::{AsterError, Result};
-use crate::types::BackgroundTaskStatus;
+use crate::types::task::BackgroundTaskStatus;
 
 pub async fn list_expired_terminal<C: ConnectionTrait>(
     db: &C,

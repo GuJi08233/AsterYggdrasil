@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
-use super::SystemConfigValue;
+use aster_forge_config::ConfigValue;
 
 pub const MAIL_CONFIG_ACTION_KEY: &str = "mail";
 pub const AUTH_CAPTCHA_CONFIG_ACTION_KEY: &str = "auth_captcha";
@@ -60,7 +60,7 @@ pub struct ExecuteConfigActionInput<'a> {
     pub key: &'a str,
     pub action: ConfigActionType,
     pub actor_user_id: i64,
-    pub values: Option<&'a BTreeMap<String, SystemConfigValue>>,
+    pub values: Option<&'a BTreeMap<String, ConfigValue>>,
 }
 
 pub async fn execute_action_with_audit(
@@ -200,7 +200,7 @@ async fn execute_mail_action(
 }
 
 fn mail_action_target_email(
-    values: Option<&BTreeMap<String, SystemConfigValue>>,
+    values: Option<&BTreeMap<String, ConfigValue>>,
 ) -> Result<Option<String>> {
     let Some(values) = values else {
         return Ok(None);
@@ -212,7 +212,7 @@ fn mail_action_target_email(
                 "{key} is not supported by mail config actions"
             )));
         }
-        let SystemConfigValue::String(value) = value else {
+        let ConfigValue::String(value) = value else {
             return Err(AsterError::validation_error(
                 "target_email action value must be a string",
             ));
@@ -304,7 +304,7 @@ async fn execute_yggdrasil_action(
 
 fn normalize_captcha_action_values(
     state: &impl MailRuntimeState,
-    values: Option<&BTreeMap<String, SystemConfigValue>>,
+    values: Option<&BTreeMap<String, ConfigValue>>,
 ) -> Result<BTreeMap<String, String>> {
     let mut overrides = BTreeMap::new();
     let Some(values) = values else {
@@ -352,8 +352,8 @@ fn is_auth_captcha_config_key(key: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        AUTH_CAPTCHA_CONFIG_ACTION_KEY, ConfigActionType, MAIL_CONFIG_ACTION_KEY,
-        SystemConfigValue, YGGDRASIL_CONFIG_ACTION_KEY, mail_action_target_email,
+        AUTH_CAPTCHA_CONFIG_ACTION_KEY, ConfigActionType, ConfigValue, MAIL_CONFIG_ACTION_KEY,
+        YGGDRASIL_CONFIG_ACTION_KEY, mail_action_target_email,
     };
     use std::collections::BTreeMap;
 
@@ -375,7 +375,7 @@ mod tests {
         let mut values = BTreeMap::new();
         values.insert(
             "target_email".to_string(),
-            SystemConfigValue::String(" ops@example.com ".to_string()),
+            ConfigValue::String(" ops@example.com ".to_string()),
         );
 
         assert_eq!(
@@ -385,7 +385,7 @@ mod tests {
 
         values.insert(
             "target_email".to_string(),
-            SystemConfigValue::String("   ".to_string()),
+            ConfigValue::String("   ".to_string()),
         );
         assert_eq!(mail_action_target_email(Some(&values)).unwrap(), None);
     }
@@ -395,14 +395,14 @@ mod tests {
         let mut unknown = BTreeMap::new();
         unknown.insert(
             "unexpected".to_string(),
-            SystemConfigValue::String("value".to_string()),
+            ConfigValue::String("value".to_string()),
         );
         assert!(mail_action_target_email(Some(&unknown)).is_err());
 
         let mut invalid = BTreeMap::new();
         invalid.insert(
             "target_email".to_string(),
-            SystemConfigValue::StringArray(vec!["ops@example.com".to_string()]),
+            ConfigValue::StringArray(vec!["ops@example.com".to_string()]),
         );
         assert!(mail_action_target_email(Some(&invalid)).is_err());
     }

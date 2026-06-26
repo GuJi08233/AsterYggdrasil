@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::config::{Config, RuntimeConfig};
 use crate::object_storage::ObjectStorage;
 use aster_forge_cache::CacheBackend;
+use aster_forge_config::ConfigSyncRuntime;
 use aster_forge_mail::MailSender;
 use aster_forge_metrics::SharedMetricsRecorder;
 use sea_orm::DatabaseConnection;
@@ -22,6 +23,10 @@ pub trait AppConfigRuntimeState {
 
 pub trait RuntimeConfigRuntimeState {
     fn runtime_config(&self) -> &Arc<RuntimeConfig>;
+}
+
+pub trait ConfigSyncRuntimeState {
+    fn config_sync(&self) -> &ConfigSyncRuntime;
 }
 
 pub trait CacheRuntimeState {
@@ -87,6 +92,12 @@ impl AppConfigRuntimeState for AppState {
 impl RuntimeConfigRuntimeState for AppState {
     fn runtime_config(&self) -> &Arc<RuntimeConfig> {
         self.runtime_config()
+    }
+}
+
+impl ConfigSyncRuntimeState for AppState {
+    fn config_sync(&self) -> &ConfigSyncRuntime {
+        self.config_sync()
     }
 }
 

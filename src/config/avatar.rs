@@ -25,12 +25,14 @@ pub fn gravatar_base_url_or_default(runtime_config: &RuntimeConfig) -> String {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::{gravatar_base_url_or_default, normalize_gravatar_base_url_config_value};
     use crate::config::RuntimeConfig;
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use chrono::Utc;
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     #[test]
     fn gravatar_base_url_normalization_rejects_query_and_bad_scheme() {
         assert_eq!(

@@ -23,6 +23,11 @@ backend = "memory"
 redis_url = ""
 default_ttl = 3600
 
+[config_sync]
+backend = "disabled"
+endpoint = ""
+topic = "aster_yggdrasil.config_reload"
+
 [object_storage]
 backend = "local"
 local_root = "storage"

@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
-use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
+use crate::types::{
+    config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]

@@ -1,5 +1,5 @@
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::MinecraftTextureType;
+use crate::types::yggdrasil::MinecraftTextureType;
 use image::{GenericImageView, ImageDecoder, ImageEncoder};
 use sha2::Digest;
 use std::fs::File;

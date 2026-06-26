@@ -12,8 +12,8 @@ use crate::errors::{AsterError, Result};
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState};
 use crate::services::audit_service;
 use crate::types::{
-    YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardProviderKind,
-    YggdrasilSessionForwardServerSortBy,
+    yggdrasil::YggdrasilSessionForwardEndpointKind, yggdrasil::YggdrasilSessionForwardProviderKind,
+    yggdrasil::YggdrasilSessionForwardServerSortBy,
 };
 use aster_forge_api::{CursorPage, EnabledPriorityIdCursor, IdCursor};
 

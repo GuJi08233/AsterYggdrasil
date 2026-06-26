@@ -4,39 +4,20 @@ use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::DatabaseRuntimeState;
 use aster_forge_db::DbHandles;
 use aster_forge_metrics::SharedMetricsRecorder;
-use aster_forge_runtime::{
-    HealthCheckOptions, HealthCheckScopes, HealthComponentReport, RuntimeComponentBundle,
-    RuntimeComponentBundleRegistration, RuntimeComponentKind, RuntimeComponentRegistry,
-    runtime_component,
-};
-use sea_orm::DatabaseConnection;
-use std::time::Duration;
+use aster_forge_runtime::RuntimeComponentRegistry;
 
-const DATABASE_HEALTH_CHECK_TIMEOUT: Duration = Duration::from_secs(5);
-
-/// Runtime component that closes database handles during graceful shutdown.
-pub struct DatabaseRuntimeComponent {
-    db_handles: DbHandles,
-}
-
-impl DatabaseRuntimeComponent {
-    /// Creates a database runtime component from product-owned handles.
-    pub const fn new(db_handles: DbHandles) -> Self {
-        Self { db_handles }
-    }
-}
-
-impl RuntimeComponentBundle for DatabaseRuntimeComponent {
-    fn register(self, registry: &mut RuntimeComponentRegistry) {
-        register_database_shutdown(registry, self.db_handles);
-    }
-}
+const DATABASE_SHUTDOWN_DEPENDENCIES: &[&str] = &[
+    aster_forge_tasks::BACKGROUND_TASKS_COMPONENT,
+    aster_forge_mail::MAIL_OUTBOX_COMPONENT,
+    aster_forge_audit::AUDIT_MANAGER_COMPONENT,
+];
 
 /// Creates the database runtime component used by the product entrypoint.
 pub fn database_component(
     db_handles: DbHandles,
-) -> RuntimeComponentBundleRegistration<DatabaseRuntimeComponent> {
-    runtime_component(DatabaseRuntimeComponent::new(db_handles))
+) -> aster_forge_runtime::RuntimeComponentBundleRegistration<aster_forge_db::DatabaseRuntimeComponent>
+{
+    aster_forge_db::database_component_after(db_handles, DATABASE_SHUTDOWN_DEPENDENCIES)
 }
 
 /// Connects database handles and applies pending migrations.
@@ -51,74 +32,19 @@ pub async fn prepare_database_handles(
     crate::db::connect_reader_for_writer_with_metrics(config, writer, metrics).await
 }
 
-/// Registers database shutdown after task, mail outbox, and audit phases have completed.
-pub fn register_database_shutdown(registry: &mut RuntimeComponentRegistry, db_handles: DbHandles) {
-    registry
-        .component("database")
-        .kind(RuntimeComponentKind::Database)
-        .depends_on_all(&["background_tasks", "mail_outbox", "audit_manager"])
-        .shutdown_once(
-            "database_connections",
-            None,
-            db_handles,
-            |db_handles| async move {
-                db_handles
-                    .close()
-                    .await
-                    .map_err(|error| error.to_string())?;
-                Ok(())
-            },
-        );
-}
-
 /// Registers database readiness and diagnostics health checks.
 pub fn register_database_health_check<S>(registry: &mut RuntimeComponentRegistry, state: &S)
 where
     S: DatabaseRuntimeState,
 {
-    let reader_db = state.reader_db().clone();
-    registry.component_health_with_options(
-        "database",
-        RuntimeComponentKind::Database,
-        "database",
-        database_health_options(),
-        move || {
-            let reader_db = reader_db.clone();
-            async move { check_database_component(&reader_db).await }
-        },
-    );
-}
-
-fn database_health_options() -> HealthCheckOptions {
-    HealthCheckOptions::required(Some(DATABASE_HEALTH_CHECK_TIMEOUT))
-        .with_scopes(HealthCheckScopes::readiness_and_diagnostics())
-}
-
-async fn check_database_component(db: &DatabaseConnection) -> HealthComponentReport {
-    match ping_database(db).await {
-        Ok(()) => {
-            tracing::debug!("database health check succeeded");
-            HealthComponentReport::healthy("database", "database ping succeeded")
-        }
-        Err(error) => {
-            tracing::debug!(error = %error, "database health check failed");
-            HealthComponentReport::unhealthy("database", format!("database ping failed: {error}"))
-        }
-    }
-}
-
-async fn ping_database(db: &DatabaseConnection) -> Result<()> {
-    tracing::debug!("pinging database health check");
-    db.ping()
-        .await
-        .map_aster_err(AsterError::database_operation)
+    aster_forge_db::register_database_health_check(registry, state.reader_db().clone());
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        check_database_component, database_component, prepare_database_handles,
-        register_database_health_check, register_database_shutdown,
+        DATABASE_SHUTDOWN_DEPENDENCIES, database_component, prepare_database_handles,
+        register_database_health_check,
     };
     use crate::config::DatabaseConfig;
     use crate::runtime::DatabaseRuntimeState;
@@ -152,7 +78,7 @@ mod tests {
         });
 
         let descriptor = registry
-            .descriptor("database")
+            .descriptor(aster_forge_db::DATABASE_COMPONENT)
             .expect("database component should be registered");
         assert_eq!(
             descriptor.kind,
@@ -160,14 +86,18 @@ mod tests {
         );
         assert_eq!(
             descriptor.dependencies,
-            vec!["background_tasks", "mail_outbox", "audit_manager"]
+            vec![
+                aster_forge_tasks::BACKGROUND_TASKS_COMPONENT,
+                aster_forge_mail::MAIL_OUTBOX_COMPONENT,
+                aster_forge_audit::AUDIT_MANAGER_COMPONENT
+            ]
         );
         assert_eq!(
             descriptor
                 .shutdown
                 .expect("database shutdown should be registered")
                 .phase_name,
-            "database_connections"
+            aster_forge_db::DATABASE_CONNECTIONS_SHUTDOWN_PHASE
         );
     }
 
@@ -179,10 +109,18 @@ mod tests {
         let db_handles = aster_forge_db::DbHandles::single(db);
 
         let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            register_database_shutdown(registry, db_handles);
+            aster_forge_db::register_database_shutdown(
+                registry,
+                db_handles,
+                DATABASE_SHUTDOWN_DEPENDENCIES,
+            );
         });
 
-        assert!(registry.descriptor("database").is_some());
+        assert!(
+            registry
+                .descriptor(aster_forge_db::DATABASE_COMPONENT)
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -214,14 +152,14 @@ mod tests {
         .await
         .expect("database health test database should connect");
 
-        let healthy = check_database_component(&db).await;
+        let healthy = aster_forge_db::check_database_component(&db).await;
         assert_eq!(healthy.status, HealthStatus::Healthy);
         assert_eq!(healthy.message, "database ping succeeded");
 
         db.close_by_ref()
             .await
             .expect("database health test database should close");
-        let unhealthy = check_database_component(&db).await;
+        let unhealthy = aster_forge_db::check_database_component(&db).await;
         assert_eq!(unhealthy.status, HealthStatus::Unhealthy);
         assert!(unhealthy.message.contains("database ping failed"));
     }
@@ -250,7 +188,7 @@ mod tests {
             .iter()
             .map(|component| component.name)
             .collect::<Vec<_>>();
-        assert_eq!(component_names, vec!["database"]);
+        assert_eq!(component_names, vec![aster_forge_db::DATABASE_COMPONENT]);
         assert_eq!(report.status(), HealthStatus::Healthy);
     }
 }

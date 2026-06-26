@@ -2,7 +2,9 @@
 
 use crate::entities::minecraft_texture_report::{self, Entity as MinecraftTextureReport};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{MinecraftTextureReportReason, MinecraftTextureReportStatus};
+use crate::types::{
+    yggdrasil::MinecraftTextureReportReason, yggdrasil::MinecraftTextureReportStatus,
+};
 use aster_forge_api::CursorSlice;
 use chrono::{DateTime, Utc};
 use sea_orm::{

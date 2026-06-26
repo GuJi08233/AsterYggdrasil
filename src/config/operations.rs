@@ -80,6 +80,8 @@ pub fn mail_outbox_dispatch_interval_secs(runtime_config: &RuntimeConfig) -> u64
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::{
         BACKGROUND_TASK_DISPATCH_IDLE_MAX_INTERVAL_SECS_KEY,
         BACKGROUND_TASK_DISPATCH_INTERVAL_SECS_KEY, BACKGROUND_TASK_MAX_ATTEMPTS_KEY,
@@ -95,9 +97,9 @@ mod tests {
     };
     use crate::config::{RuntimeConfig, definitions::CONFIG_CATEGORY_RUNTIME_TASKS};
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use chrono::Utc;
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     fn model(key: &str, value: &str) -> system_config::Model {
         system_config::Model {
             id: 1,

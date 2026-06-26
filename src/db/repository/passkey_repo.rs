@@ -2,7 +2,7 @@
 
 use crate::entities::passkey::{self, Entity as Passkey};
 use crate::errors::{AsterError, Result};
-use crate::types::StoredPasskeyCredential;
+use crate::types::passkey::StoredPasskeyCredential;
 use aster_forge_api::CursorSlice;
 use chrono::Utc;
 use sea_orm::{

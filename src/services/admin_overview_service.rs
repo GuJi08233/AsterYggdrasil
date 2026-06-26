@@ -15,8 +15,8 @@ use crate::runtime::AppState;
 use crate::services::audit_service::{self, AuditLogEntry};
 use crate::services::task_service;
 use crate::services::task_service::types::{RuntimeSystemHealthStatus, RuntimeTaskResult};
-use crate::types::{AuditAction, BackgroundTaskStatus};
-
+use crate::types::audit::AuditAction;
+use crate::types::task::BackgroundTaskStatus;
 const RECENT_ACTIVITY_LIMIT: u64 = 6;
 const ACTIVITY_TREND_DAYS: i64 = 7;
 const USER_ACTIVITY_ACTIONS: &[AuditAction] = &[
@@ -490,16 +490,22 @@ fn unknown_system_health(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use aster_forge_runtime::health::{HealthComponentDetail, HealthComponentDetailValue};
+    use chrono::{Duration, Utc};
+    use sea_orm::{ActiveModelTrait, Set};
+
     use super::{
         AdminOverviewServiceStatusKind, AdminOverviewSystemHealthStatus, RECENT_ACTIVITY_LIMIT,
         overview,
     };
     use crate::db::repository::{
-        audit_log_repo, auth_session_repo, background_task_repo, minecraft_profile_repo,
-        minecraft_texture_repo, user_repo, yggdrasil_token_repo,
+        auth_session_repo, background_task_repo, minecraft_profile_repo, minecraft_texture_repo,
+        user_repo, yggdrasil_token_repo,
     };
     use crate::entities::{
-        audit_log, auth_session, background_task, minecraft_profile, minecraft_texture, user,
+        auth_session, background_task, minecraft_profile, minecraft_texture, user,
     };
     use crate::runtime::{AppState, AppStateParts};
     use crate::services::task_service::types::{
@@ -509,15 +515,12 @@ mod tests {
         RuntimeTaskRunOutcome, SystemRuntimeTaskKind, record_runtime_task_run,
     };
     use crate::types::{
-        AuditAction, AuditEntityType, BackgroundTaskKind, BackgroundTaskStatus,
-        MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
-        MinecraftTextureVisibility, StoredTaskPayload, StoredTaskResult, UserRole, UserStatus,
+        audit::AuditAction, audit::AuditEntityType, task::BackgroundTaskKind,
+        task::BackgroundTaskStatus, task::StoredTaskPayload, task::StoredTaskResult,
+        user::UserRole, user::UserStatus, yggdrasil::MinecraftTextureLibraryStatus,
+        yggdrasil::MinecraftTextureModel, yggdrasil::MinecraftTextureType,
+        yggdrasil::MinecraftTextureVisibility,
     };
-    use aster_forge_runtime::{HealthComponentDetail, HealthComponentDetailValue};
-    use chrono::{Duration, Utc};
-    use sea_orm::{ActiveModelTrait, ActiveValue::Set};
-    use std::sync::Arc;
-
     async fn test_state() -> AppState {
         let texture_root = std::env::temp_dir().join(format!(
             "asteryggdrasil-admin-overview-{}",
@@ -550,7 +553,7 @@ mod tests {
                 local_root: texture_root.to_string_lossy().to_string(),
                 ..Default::default()
             },
-            cache: crate::config::CacheConfig {
+            cache: aster_forge_cache::CacheConfig {
                 ..Default::default()
             },
             ..Default::default()
@@ -566,6 +569,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("admin overview test AppState should build")
@@ -888,19 +894,18 @@ mod tests {
         action: AuditAction,
         created_at: chrono::DateTime<Utc>,
     ) {
-        audit_log_repo::create(
+        aster_forge_db::create_audit_log_row(
             state.writer_db(),
-            audit_log::ActiveModel {
-                id: Default::default(),
-                user_id: Set(1),
-                action: Set(action),
-                entity_type: Set(audit_entity_type_for_action(action).as_str().to_string()),
-                entity_id: Set(Some(id)),
-                entity_name: Set(Some(format!("user-{id}"))),
-                details: Set(Some(serde_json::json!({ "id": id }).to_string())),
-                ip_address: Set(Some("127.0.0.1".to_string())),
-                user_agent: Set(Some("admin-overview-test".to_string())),
-                created_at: Set(created_at),
+            aster_forge_db::AuditLogCreate {
+                user_id: 1,
+                action: action.as_str().to_string(),
+                entity_type: audit_entity_type_for_action(action).as_str().to_string(),
+                entity_id: Some(id),
+                entity_name: Some(format!("user-{id}")),
+                details: Some(serde_json::json!({ "id": id }).to_string()),
+                ip_address: Some("127.0.0.1".to_string()),
+                user_agent: Some("admin-overview-test".to_string()),
+                created_at,
             },
         )
         .await
@@ -937,19 +942,18 @@ mod tests {
             .to_string()
         });
 
-        audit_log_repo::create(
+        aster_forge_db::create_audit_log_row(
             state.writer_db(),
-            audit_log::ActiveModel {
-                id: Default::default(),
-                user_id: Set(user_id),
-                action: Set(action),
-                entity_type: Set(audit_entity_type_for_action(action).as_str().to_string()),
-                entity_id: Set(entity_id),
-                entity_name: Set(profile.map(|profile| profile.name.clone())),
-                details: Set(details),
-                ip_address: Set(Some("127.0.0.1".to_string())),
-                user_agent: Set(Some("admin-overview-test".to_string())),
-                created_at: Set(created_at),
+            aster_forge_db::AuditLogCreate {
+                user_id,
+                action: action.as_str().to_string(),
+                entity_type: audit_entity_type_for_action(action).as_str().to_string(),
+                entity_id,
+                entity_name: profile.map(|profile| profile.name.clone()),
+                details,
+                ip_address: Some("127.0.0.1".to_string()),
+                user_agent: Some("admin-overview-test".to_string()),
+                created_at,
             },
         )
         .await

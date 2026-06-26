@@ -10,7 +10,7 @@ use crate::db::repository::{user_profile_repo, user_repo};
 use crate::entities::user_profile;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::AvatarSource;
+use crate::types::user::AvatarSource;
 
 use super::avatar_image::{process_avatar_upload, read_avatar_upload};
 use super::avatar_storage::{

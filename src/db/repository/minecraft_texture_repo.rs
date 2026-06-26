@@ -3,8 +3,9 @@
 use crate::entities::minecraft_texture::{self, Entity as MinecraftTexture};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
-    MinecraftTextureVisibility, TextureTagSearchMethod,
+    yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
+    yggdrasil::MinecraftTextureType, yggdrasil::MinecraftTextureVisibility,
+    yggdrasil::TextureTagSearchMethod,
 };
 use aster_forge_api::CursorSlice;
 use chrono::{DateTime, Utc};

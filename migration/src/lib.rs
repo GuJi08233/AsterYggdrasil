@@ -29,6 +29,10 @@ mod m20260618_000007_texture_library_reports;
 mod m20260619_000001_cursor_pagination_indexes;
 mod m20260620_000001_yggdrasil_session_forward_servers;
 mod m20260620_000002_user_bans;
+mod m20260626_000001_runtime_leases;
+mod m20260626_000002_background_task_dedupe_key;
+mod m20260626_000003_scheduled_tasks;
+mod m20260626_000004_widen_mail_outbox_template_code;
 mod time;
 
 pub struct Migrator;
@@ -61,6 +65,10 @@ impl MigratorTrait for Migrator {
             Box::new(m20260619_000001_cursor_pagination_indexes::Migration),
             Box::new(m20260620_000001_yggdrasil_session_forward_servers::Migration),
             Box::new(m20260620_000002_user_bans::Migration),
+            Box::new(m20260626_000001_runtime_leases::Migration),
+            Box::new(m20260626_000002_background_task_dedupe_key::Migration),
+            Box::new(m20260626_000003_scheduled_tasks::Migration),
+            Box::new(m20260626_000004_widen_mail_outbox_template_code::Migration),
         ]
     }
 }

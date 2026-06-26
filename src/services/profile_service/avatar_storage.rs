@@ -2,7 +2,7 @@
 
 use crate::entities::user_profile;
 use crate::runtime::ObjectStorageRuntimeState;
-use crate::types::AvatarSource;
+use crate::types::user::AvatarSource;
 
 use super::shared::{AVATAR_SIZE_LG, AVATAR_SIZE_SM, stored_avatar_prefix};
 

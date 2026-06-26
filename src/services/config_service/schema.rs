@@ -4,7 +4,8 @@ use crate::config::definitions::{
     TEXTURE_PREVIEW_ENGINE_KEY, TEXTURE_PREVIEW_PROFILE_KEY,
 };
 use crate::config::texture_preview::{TexturePreviewEngine, TexturePreviewQualityProfile};
-use crate::types::{AuditAction, SystemConfigValueType};
+use crate::types::audit::AuditAction;
+use crate::types::config::SystemConfigValueType;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;

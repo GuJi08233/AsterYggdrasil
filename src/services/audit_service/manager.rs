@@ -1,15 +1,12 @@
 use chrono::Utc;
-use sea_orm::{DatabaseConnection, Set};
+use sea_orm::DatabaseConnection;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use super::context::AuditContext;
 use crate::config::RuntimeConfig;
-use crate::db::repository::audit_log_repo;
-use crate::entities::audit_log;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::{AuditAction, AuditEntityType};
-
+use crate::types::audit::{AuditAction, AuditEntityType};
 const AUDIT_LOG_QUEUE_CAPACITY: usize = 4096;
 const AUDIT_LOG_BATCH_SIZE: usize = 100;
 const AUDIT_LOG_DELAYED_FLUSH_AFTER: Duration = Duration::from_secs(1);
@@ -17,7 +14,7 @@ const AUDIT_LOG_DELAYED_FLUSH_AFTER: Duration = Duration::from_secs(1);
 static GLOBAL_AUDIT_LOG_MANAGER: OnceLock<Arc<AuditLogManager>> = OnceLock::new();
 
 struct AuditLogManager {
-    writer: Arc<aster_forge_runtime::BufferedBatchWriter<audit_log::ActiveModel>>,
+    writer: Arc<aster_forge_runtime::BufferedBatchWriter<aster_forge_db::AuditLogCreate>>,
 }
 
 impl AuditLogManager {
@@ -41,10 +38,10 @@ impl AuditLogManager {
                     write_audit_batch(&db, &mut batch).await;
                 }
             },
-            move |model| {
+            move |request| {
                 let db = single_db.clone();
                 async move {
-                    write_audit_model(&db, model).await;
+                    write_audit_log(&db, request).await;
                 }
             },
         );
@@ -53,8 +50,8 @@ impl AuditLogManager {
         }
     }
 
-    async fn record(&self, model: audit_log::ActiveModel) {
-        self.writer.record(model).await;
+    async fn record(&self, request: aster_forge_db::AuditLogCreate) {
+        self.writer.record(request).await;
     }
 
     async fn flush(&self) {
@@ -91,13 +88,16 @@ pub async fn shutdown_global_audit_log_manager() {
     }
 }
 
-async fn write_audit_model(db: &DatabaseConnection, model: audit_log::ActiveModel) {
-    if let Err(error) = audit_log_repo::create(db, model).await {
+async fn write_audit_log(db: &DatabaseConnection, request: aster_forge_db::AuditLogCreate) {
+    if let Err(error) = aster_forge_db::create_audit_log_row(db, request).await {
         tracing::warn!("failed to write audit log: {error}");
     }
 }
 
-async fn write_audit_batch(db: &DatabaseConnection, batch: &mut Vec<audit_log::ActiveModel>) {
+async fn write_audit_batch(
+    db: &DatabaseConnection,
+    batch: &mut Vec<aster_forge_db::AuditLogCreate>,
+) {
     if batch.is_empty() {
         return;
     }
@@ -114,7 +114,7 @@ async fn write_audit_batch(db: &DatabaseConnection, batch: &mut Vec<audit_log::A
         }
 
         let count = chunk.len();
-        if let Err(error) = audit_log_repo::create_many(db, chunk).await {
+        if let Err(error) = aster_forge_db::create_audit_log_requests(db, chunk).await {
             tracing::warn!(count, total, "failed to write audit log batch: {error}");
         }
     }
@@ -137,25 +137,24 @@ pub struct AuditLogInput<'a> {
     pub entity_name: Option<&'a str>,
 }
 
-fn audit_model(
+fn audit_log_request(
     ctx: &AuditContext,
     action: AuditAction,
     entity_type: AuditEntityType,
     entity_id: Option<i64>,
     entity_name: Option<&str>,
     details: Option<serde_json::Value>,
-) -> audit_log::ActiveModel {
-    audit_log::ActiveModel {
-        id: Default::default(),
-        user_id: Set(ctx.user_id),
-        action: Set(action),
-        entity_type: Set(entity_type.as_str().to_string()),
-        entity_id: Set(entity_id),
-        entity_name: Set(entity_name.map(ToOwned::to_owned)),
-        details: Set(details.map(|value| value.to_string())),
-        ip_address: Set(ctx.ip_address.clone()),
-        user_agent: Set(ctx.user_agent.clone()),
-        created_at: Set(Utc::now()),
+) -> aster_forge_db::AuditLogCreate {
+    aster_forge_db::AuditLogCreate {
+        user_id: ctx.user_id,
+        action: action.as_str().to_string(),
+        entity_type: entity_type.as_str().to_string(),
+        entity_id,
+        entity_name: entity_name.map(ToOwned::to_owned),
+        details: details.map(|value| value.to_string()),
+        ip_address: ctx.ip_address.clone(),
+        user_agent: ctx.user_agent.clone(),
+        created_at: Utc::now(),
     }
 }
 
@@ -168,12 +167,12 @@ async fn record_prechecked<S: DatabaseRuntimeState>(
     entity_name: Option<&str>,
     details: Option<serde_json::Value>,
 ) {
-    let model = audit_model(ctx, action, entity_type, entity_id, entity_name, details);
+    let request = audit_log_request(ctx, action, entity_type, entity_id, entity_name, details);
 
     if let Some(manager) = GLOBAL_AUDIT_LOG_MANAGER.get() {
-        manager.record(model).await;
+        manager.record(request).await;
     } else {
-        write_audit_model(state.writer_db(), model).await;
+        write_audit_log(state.writer_db(), request).await;
     }
 }
 
@@ -186,8 +185,8 @@ async fn record_prechecked_with_db(
     entity_name: Option<&str>,
     details: Option<serde_json::Value>,
 ) {
-    let model = audit_model(ctx, action, entity_type, entity_id, entity_name, details);
-    write_audit_model(db, model).await;
+    let request = audit_log_request(ctx, action, entity_type, entity_id, entity_name, details);
+    write_audit_log(db, request).await;
 }
 
 pub async fn log<S>(
@@ -272,17 +271,17 @@ pub async fn log_with_details<S, F>(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    use chrono::Utc;
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
     use super::{
         AUDIT_LOG_BATCH_SIZE, AUDIT_LOG_QUEUE_CAPACITY, AuditLogManager, write_audit_batch,
     };
     use crate::config::DatabaseConfig;
-    use crate::entities::audit_log;
-    use crate::types::{AuditAction, AuditEntityType};
-    use chrono::Utc;
-    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
-    use std::sync::Arc;
-    use std::time::{Duration, Instant};
-
+    use crate::types::audit::{AuditAction, AuditEntityType};
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {
@@ -300,24 +299,23 @@ mod tests {
         db
     }
 
-    fn audit_model(index: i64) -> audit_log::ActiveModel {
-        audit_log::ActiveModel {
-            id: Default::default(),
-            user_id: Set(42),
-            action: Set(AuditAction::ConfigUpdate),
-            entity_type: Set(AuditEntityType::SystemConfig.as_str().to_string()),
-            entity_id: Set(Some(index)),
-            entity_name: Set(Some(format!("config-{index}"))),
-            details: Set(Some(serde_json::json!({ "index": index }).to_string())),
-            ip_address: Set(Some("127.0.0.1".to_string())),
-            user_agent: Set(Some("audit-manager-test".to_string())),
-            created_at: Set(Utc::now()),
+    fn audit_request(index: i64) -> aster_forge_db::AuditLogCreate {
+        aster_forge_db::AuditLogCreate {
+            user_id: 42,
+            action: AuditAction::ConfigUpdate.as_str().to_string(),
+            entity_type: AuditEntityType::SystemConfig.as_str().to_string(),
+            entity_id: Some(index),
+            entity_name: Some(format!("config-{index}")),
+            details: Some(serde_json::json!({ "index": index }).to_string()),
+            ip_address: Some("127.0.0.1".to_string()),
+            user_agent: Some("audit-manager-test".to_string()),
+            created_at: Utc::now(),
         }
     }
 
     async fn audit_log_count(db: &sea_orm::DatabaseConnection) -> u64 {
-        audit_log::Entity::find()
-            .filter(audit_log::Column::Action.eq(AuditAction::ConfigUpdate))
+        crate::entities::audit_log::Entity::find()
+            .filter(crate::entities::audit_log::Column::Action.eq(AuditAction::ConfigUpdate))
             .count(db)
             .await
             .expect("audit manager count query should succeed")
@@ -351,7 +349,7 @@ mod tests {
         ));
 
         for index in 0..AUDIT_LOG_BATCH_SIZE {
-            manager.record(audit_model(index as i64)).await;
+            manager.record(audit_request(index as i64)).await;
         }
 
         wait_for_audit_log_count(&db, AUDIT_LOG_BATCH_SIZE as u64).await;
@@ -367,7 +365,7 @@ mod tests {
             Duration::from_millis(20),
         ));
 
-        manager.record(audit_model(1)).await;
+        manager.record(audit_request(1)).await;
 
         wait_for_audit_log_count(&db, 1).await;
         manager.cancel();
@@ -382,7 +380,7 @@ mod tests {
             Duration::from_secs(5),
         ));
 
-        manager.record(audit_model(1)).await;
+        manager.record(audit_request(1)).await;
         manager.cancel();
         manager.flush().await;
 
@@ -398,11 +396,11 @@ mod tests {
             Duration::from_millis(20),
         ));
 
-        manager.record(audit_model(1)).await;
+        manager.record(audit_request(1)).await;
         manager.flush().await;
         assert_eq!(audit_log_count(&db).await, 1);
 
-        manager.record(audit_model(2)).await;
+        manager.record(audit_request(2)).await;
         wait_for_audit_log_count(&db, 2).await;
 
         manager.cancel();
@@ -417,7 +415,7 @@ mod tests {
             Duration::from_millis(20),
         ));
 
-        manager.record(audit_model(1)).await;
+        manager.record(audit_request(1)).await;
         manager.cancel();
         tokio::time::sleep(Duration::from_millis(80)).await;
         assert_eq!(audit_log_count(&db).await, 0);
@@ -437,9 +435,9 @@ mod tests {
         let flush_guard = manager.lock_flush_for_test().await;
 
         for index in 0..AUDIT_LOG_QUEUE_CAPACITY {
-            manager.record(audit_model(index as i64)).await;
+            manager.record(audit_request(index as i64)).await;
         }
-        manager.record(audit_model(10_000)).await;
+        manager.record(audit_request(10_000)).await;
 
         assert_eq!(audit_log_count(&db).await, 1);
         drop(flush_guard);
@@ -453,7 +451,7 @@ mod tests {
     async fn write_audit_batch_splits_large_batches_and_drains_input() {
         let db = build_test_db().await;
         let mut batch = (0..(AUDIT_LOG_BATCH_SIZE + 7))
-            .map(|index| audit_model(index as i64))
+            .map(|index| audit_request(index as i64))
             .collect::<Vec<_>>();
 
         write_audit_batch(&db, &mut batch).await;

@@ -8,7 +8,8 @@ use validator::Validate;
 use aster_forge_api::NullablePatch;
 
 use crate::types::{
-    MinecraftTextureModel, MinecraftTextureReportReason, MinecraftTextureVisibility,
+    yggdrasil::MinecraftTextureModel, yggdrasil::MinecraftTextureReportReason,
+    yggdrasil::MinecraftTextureVisibility,
 };
 
 #[derive(Debug, Clone, Deserialize, Validate)]

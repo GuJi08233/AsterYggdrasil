@@ -1,6 +1,6 @@
 //! User invitation entity.
 
-use crate::types::UserInvitationStatus;
+use crate::types::user::UserInvitationStatus;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

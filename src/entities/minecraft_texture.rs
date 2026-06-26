@@ -1,8 +1,8 @@
 //! User-owned Minecraft texture asset entity.
 
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureType,
-    MinecraftTextureVisibility,
+    yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
+    yggdrasil::MinecraftTextureType, yggdrasil::MinecraftTextureVisibility,
 };
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};

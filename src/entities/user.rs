@@ -1,6 +1,6 @@
 //! User entity.
 
-use crate::types::{UserRole, UserStatus};
+use crate::types::user::{UserRole, UserStatus};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

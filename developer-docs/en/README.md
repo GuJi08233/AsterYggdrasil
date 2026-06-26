@@ -68,25 +68,33 @@ Object blobs go through `src/object_storage/`; do not bring back the old file-dr
 Startup is split under `src/runtime/startup/`:
 
 - `common.rs` prepares runtime directories, metrics, database handles, migrations, runtime config, cache, and audit manager.
-- `primary.rs` builds primary runtime state.
-- `follower.rs` builds follower runtime state.
-- `mod.rs` selects by `config.server.start_mode` and records `server_start`.
+- `state.rs` builds the product runtime resources needed by `AppState`.
+- `mod.rs` runs startup phases in order and records `server_start`.
 
-`server.start_mode = "primary"` runs dispatcher and maintenance loops. `server.start_mode = "follower"` keeps common service state but skips primary-only background tasks, avoiding duplicate mail delivery or duplicate maintenance side effects across nodes.
+The process entrypoint lives in `src/runtime/entrypoint.rs`, with concrete assembly in `src/runtime/assembly.rs`:
+
+1. Bootstrap loads static config, logging, panic hooks, and startup state.
+2. Assembly creates the shutdown token and Actix HTTP service component.
+3. `src/runtime/components.rs` builds the product runtime bundle and registers background task, mail outbox, audit, and database components.
+4. `AsterRuntime::builder().component(http).component(product_components).run().await` runs the service, waits for shutdown, and closes components through the dependency graph.
+
+Yggdrasil no longer maintains primary/follower startup branches. Multi-instance deployments still need an external guarantee that the full background task set does not run more than once. Future cross-process task leases or config synchronization should be carried by Forge/shared mechanisms, not by bringing back a local start-mode branch.
 
 ## Graceful Shutdown
 
-Shutdown is coordinated from `src/main.rs` and `src/runtime/shutdown.rs`:
+Shutdown is coordinated by `aster_forge_runtime::AsterRuntime` and the Yggdrasil product component graph:
 
-1. Wait for SIGINT/SIGTERM.
-2. Cancel the shared shutdown token.
-3. Stop Actix gracefully.
-4. Record `server_shutdown`.
-5. Stop background tasks with a grace period.
-6. Flush audit logs.
-7. Close database handles.
+1. Forge waits for SIGINT/SIGTERM/Ctrl+C and invokes the HTTP service stop hook.
+2. After Actix stops, Forge runs shutdown phases through the component dependency graph.
+3. `background_tasks` cancels and joins background workers.
+4. `mail_outbox` drains deliverable mail.
+5. `audit_logs` records `server_shutdown`.
+6. `audit_manager` flushes the global audit buffer.
+7. `database` closes writer/reader handles.
 
-When adding long-running workers, they must observe the shutdown token and leave persisted state resumable.
+When adding long-running workers, they must observe the shutdown token and leave persisted state resumable. Subsystems with lifecycle side effects should expose their own component constructor and be composed from `src/runtime/components.rs` instead of spreading shutdown order through the entrypoint.
+
+The audit runtime component, shared `audit_logs` schema, base write helper, batch write helper, cursor query, counts, and retention delete helper come from AsterForge. Yggdrasil only keeps typed `AuditAction`, detail schemas, permissions, presentation, and business aggregation semantics.
 
 ## Database Helpers And Transactions
 
@@ -103,7 +111,7 @@ Do not wrap validation, authorization, protocol, or business-state failures as d
 
 ## Background Tasks
 
-The task system lives in `src/services/task_service/` and `src/runtime/tasks.rs`.
+The task system lives in `src/services/task_service/` and `src/tasks/runtime.rs`.
 
 The persisted `BackgroundTaskKind` currently remains `system_runtime`. Concrete system work is distinguished by `SystemRuntimeTaskKind`, currently:
 

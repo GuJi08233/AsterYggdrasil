@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use utoipa::ToSchema;
 
 use crate::entities::user;
-use crate::types::{AuditAction, AuditEntityType, UserRole, UserStatus};
-
+use crate::types::audit::{AuditAction, AuditEntityType};
+use crate::types::user::{UserRole, UserStatus};
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct AuditUserSummary {

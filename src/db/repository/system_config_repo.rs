@@ -3,7 +3,9 @@
 use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
 use crate::entities::system_config::{self, Entity as SystemConfig};
 use crate::errors::{AsterError, Result};
-use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
+use crate::types::{
+    config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+};
 use aster_forge_api::CursorSlice;
 use aster_forge_config::ConfigSeedRecord;
 use chrono::Utc;
@@ -359,6 +361,8 @@ pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
 
 #[cfg(test)]
 mod tests {
+    use sea_orm::{ActiveModelTrait, Set};
+
     use super::{
         delete_by_key, delete_deprecated_keys, ensure_defaults, ensure_system_value_if_missing,
         find_all, find_by_key, find_cursor, find_visible_custom, lock_by_key, upsert,
@@ -372,9 +376,9 @@ mod tests {
         },
     };
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use sea_orm::{ActiveModelTrait, Set};
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {

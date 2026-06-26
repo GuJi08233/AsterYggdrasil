@@ -14,7 +14,7 @@ use crate::services::task_service::{
     registry,
     steps::{parse_task_steps_json, serialize_task_steps},
 };
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus};
+use crate::types::task::{BackgroundTaskKind, BackgroundTaskStatus};
 use aster_forge_tasks::{DispatchStats, TaskLease, mark_active_step_failed};
 
 pub(super) async fn run_claimed_tasks(
@@ -205,6 +205,7 @@ impl aster_forge_tasks::ClaimedTaskExecutionStore<background_task::Model, Backgr
 mod tests {
     use std::sync::Arc;
 
+    use aster_forge_tasks::{ClaimedTaskExecutionStore, TaskLease};
     use chrono::{Duration, Utc};
     use migration::Migrator;
     use sea_orm::{ActiveModelTrait, EntityTrait, Set};
@@ -212,9 +213,9 @@ mod tests {
     use super::BackgroundTaskExecutionStore;
     use crate::entities::background_task;
     use crate::runtime::{AppState, AppStateParts};
-    use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
-    use aster_forge_tasks::{ClaimedTaskExecutionStore, TaskLease};
-
+    use crate::types::{
+        task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    };
     async fn test_state() -> AppState {
         let db = crate::db::connect_with_metrics(
             &crate::config::DatabaseConfig {
@@ -237,7 +238,7 @@ mod tests {
             .reload(&db)
             .await
             .expect("runtime config should load");
-        let cache = aster_forge_cache::create_cache(&crate::config::CacheConfig {
+        let cache = aster_forge_cache::create_cache(&aster_forge_cache::CacheConfig {
             ..Default::default()
         })
         .await;
@@ -252,6 +253,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("task dispatch execute test AppState should build")

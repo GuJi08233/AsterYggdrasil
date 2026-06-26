@@ -17,8 +17,8 @@ use crate::services::{
     audit_service, mail_outbox_service, mail_service, mail_template::MailTemplatePayload,
 };
 use crate::types::{
-    AvatarSource, OperatorScope, TokenType, UserRole, UserStatus, VerificationChannel,
-    VerificationPurpose,
+    auth::TokenType, auth::VerificationChannel, auth::VerificationPurpose, user::AvatarSource,
+    user::OperatorScope, user::UserRole, user::UserStatus,
 };
 use actix_web::HttpRequest;
 use aster_forge_crypto::{hash_password, sha256_hex, verify_password};
@@ -1558,6 +1558,8 @@ async fn issue_contact_verification_token<C: ConnectionTrait>(
 }
 
 pub mod shared {
+    use aster_forge_crypto::hash_password;
+    use aster_forge_validation::email::normalize_email;
     use chrono::Utc;
     use sea_orm::{ActiveModelTrait, ActiveValue::Set, ConnectionTrait};
 
@@ -1567,10 +1569,7 @@ pub mod shared {
     use crate::entities::user;
     use crate::errors::{AsterError, Result};
     use crate::runtime::RuntimeConfigRuntimeState;
-    use crate::types::{UserRole, UserStatus};
-    use aster_forge_crypto::hash_password;
-    use aster_forge_validation::email::normalize_email;
-
+    use crate::types::user::{UserRole, UserStatus};
     pub struct CreateUserWithRoleInput<'a> {
         pub username: &'a str,
         pub email: &'a str,

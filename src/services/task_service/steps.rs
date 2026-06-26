@@ -1,7 +1,7 @@
 //! Background task step helpers.
 
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::StoredTaskSteps;
+use crate::types::task::StoredTaskSteps;
 
 pub(super) fn parse_task_steps_json(
     steps_json: Option<&str>,

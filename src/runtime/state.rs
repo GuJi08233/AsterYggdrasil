@@ -5,6 +5,7 @@ use crate::config::{Config, RuntimeConfig};
 use crate::errors::{AsterError, Result};
 use crate::object_storage::ObjectStorage;
 use aster_forge_cache::CacheBackend;
+use aster_forge_config::ConfigSyncRuntime;
 use aster_forge_db::DbHandles;
 use aster_forge_mail::MailSender;
 use aster_forge_metrics::SharedMetricsRecorder;
@@ -27,6 +28,7 @@ pub struct AppState {
     pub cache: Arc<dyn CacheBackend>,
     pub object_storage: Arc<dyn ObjectStorage>,
     pub mail_sender: Arc<dyn MailSender>,
+    pub config_sync: ConfigSyncRuntime,
     pub metrics: SharedMetricsRecorder,
     pub started_at: Instant,
     pub yggdrasil_rate_limiter: YggdrasilRateLimiter,
@@ -41,6 +43,7 @@ pub struct AppStateParts {
     pub cache: Arc<dyn CacheBackend>,
     pub object_storage: Arc<dyn ObjectStorage>,
     pub mail_sender: Arc<dyn MailSender>,
+    pub config_sync: ConfigSyncRuntime,
     pub metrics: SharedMetricsRecorder,
 }
 
@@ -57,6 +60,7 @@ impl AppState {
             cache: parts.cache,
             object_storage: parts.object_storage,
             mail_sender: parts.mail_sender,
+            config_sync: parts.config_sync,
             metrics: parts.metrics,
             started_at: Self::new_started_at(),
             yggdrasil_rate_limiter,
@@ -115,6 +119,10 @@ impl AppState {
 
     pub fn mail_sender(&self) -> &Arc<dyn MailSender> {
         &self.mail_sender
+    }
+
+    pub fn config_sync(&self) -> &ConfigSyncRuntime {
+        &self.config_sync
     }
 
     pub fn metrics(&self) -> &SharedMetricsRecorder {

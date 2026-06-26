@@ -5,7 +5,7 @@ use crate::entities::{
     minecraft_texture::{self, Entity as MinecraftTexture},
 };
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::MinecraftTextureType;
+use crate::types::yggdrasil::MinecraftTextureType;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, JoinType, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, RelationTrait, Set,

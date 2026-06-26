@@ -4,10 +4,7 @@ use std::sync::Arc;
 
 use crate::config::RuntimeConfig;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use aster_forge_runtime::{
-    RuntimeComponentBundle, RuntimeComponentBundleRegistration, RuntimeComponentKind,
-    RuntimeComponentRegistry, runtime_component,
-};
+use aster_forge_runtime::{RuntimeComponentBundleRegistration, RuntimeComponentRegistry};
 use sea_orm::DatabaseConnection;
 
 /// Minimal runtime resources needed to record the process shutdown audit event.
@@ -48,30 +45,14 @@ impl RuntimeConfigRuntimeState for AuditRuntimeResources {
     }
 }
 
-/// Runtime component that records process shutdown and drains the global audit log manager.
-pub struct AuditRuntimeComponent {
-    resources: AuditRuntimeResources,
-}
-
-impl AuditRuntimeComponent {
-    /// Creates an audit runtime component from owned runtime resources.
-    pub const fn new(resources: AuditRuntimeResources) -> Self {
-        Self { resources }
-    }
-}
-
-impl RuntimeComponentBundle for AuditRuntimeComponent {
-    fn register(self, registry: &mut RuntimeComponentRegistry) {
-        register_server_shutdown_audit(registry, self.resources);
-        register_audit_shutdown(registry);
-    }
-}
-
 /// Creates the audit runtime component used by the product entrypoint.
 pub fn audit_component(
     resources: AuditRuntimeResources,
-) -> RuntimeComponentBundleRegistration<AuditRuntimeComponent> {
-    runtime_component(AuditRuntimeComponent::new(resources))
+) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle> {
+    aster_forge_audit::audit_component(resources, record_server_shutdown_on_shutdown, |()| async {
+        super::shutdown_global_audit_log_manager().await;
+        Ok(())
+    })
 }
 
 /// Initializes the global audit log manager for runtime writes.
@@ -84,31 +65,26 @@ pub fn register_server_shutdown_audit(
     registry: &mut RuntimeComponentRegistry,
     resources: AuditRuntimeResources,
 ) {
-    registry
-        .component("audit_logs")
-        .kind(RuntimeComponentKind::Product)
-        .depends_on("mail_outbox")
-        .shutdown_once(
-            "server_shutdown_audit",
-            None,
-            resources,
-            |resources| async move {
-                record_server_shutdown(&resources).await;
-                Ok(())
-            },
-        );
+    aster_forge_audit::register_server_shutdown_audit(
+        registry,
+        resources,
+        record_server_shutdown_on_shutdown,
+    );
 }
 
 /// Registers graceful shutdown for the global audit log manager.
 pub fn register_audit_shutdown(registry: &mut RuntimeComponentRegistry) {
-    registry
-        .component("audit_manager")
-        .kind(RuntimeComponentKind::Product)
-        .depends_on("audit_logs")
-        .shutdown("audit_logs", None, || async {
-            super::shutdown_global_audit_log_manager().await;
-            Ok(())
-        });
+    aster_forge_audit::register_audit_manager_shutdown(registry, |()| async {
+        super::shutdown_global_audit_log_manager().await;
+        Ok(())
+    });
+}
+
+async fn record_server_shutdown_on_shutdown(
+    resources: AuditRuntimeResources,
+) -> Result<(), String> {
+    record_server_shutdown(&resources).await;
+    Ok(())
 }
 
 /// Records the process shutdown audit event.
@@ -120,8 +96,8 @@ where
     super::log(
         state,
         &super::AuditContext::system(),
-        crate::types::AuditAction::ServerShutdown,
-        crate::types::AuditEntityType::System,
+        crate::types::audit::AuditAction::ServerShutdown,
+        crate::types::audit::AuditEntityType::System,
         None,
         Some("server"),
         None,
@@ -150,31 +126,37 @@ mod tests {
         });
 
         let descriptor = registry
-            .descriptor("audit_logs")
+            .descriptor(aster_forge_audit::AUDIT_LOGS_COMPONENT)
             .expect("audit logs component should be registered");
         assert_eq!(
             descriptor.kind,
             aster_forge_runtime::RuntimeComponentKind::Product
         );
-        assert_eq!(descriptor.dependencies, vec!["mail_outbox"]);
+        assert_eq!(
+            descriptor.dependencies,
+            vec![aster_forge_mail::MAIL_OUTBOX_COMPONENT]
+        );
         assert_eq!(
             descriptor
                 .shutdown
                 .expect("server shutdown audit should be registered")
                 .phase_name,
-            "server_shutdown_audit"
+            aster_forge_audit::SERVER_SHUTDOWN_AUDIT_PHASE
         );
 
         let descriptor = registry
-            .descriptor("audit_manager")
+            .descriptor(aster_forge_audit::AUDIT_MANAGER_COMPONENT)
             .expect("audit manager component should be registered");
-        assert_eq!(descriptor.dependencies, vec!["audit_logs"]);
+        assert_eq!(
+            descriptor.dependencies,
+            vec![aster_forge_audit::AUDIT_LOGS_COMPONENT]
+        );
         assert_eq!(
             descriptor
                 .shutdown
                 .expect("audit manager shutdown should be registered")
                 .phase_name,
-            "audit_logs"
+            aster_forge_audit::AUDIT_MANAGER_FLUSH_SHUTDOWN_PHASE
         );
     }
 
@@ -184,6 +166,10 @@ mod tests {
             register_audit_shutdown(registry);
         });
 
-        assert!(registry.descriptor("audit_manager").is_some());
+        assert!(
+            registry
+                .descriptor(aster_forge_audit::AUDIT_MANAGER_COMPONENT)
+                .is_some()
+        );
     }
 }

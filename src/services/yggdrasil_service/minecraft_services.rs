@@ -12,7 +12,7 @@ use crate::api::dto::yggdrasil::{
 use crate::errors::AsterError;
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState};
 use crate::services::ban_service;
-use crate::types::UserBanScope;
+use crate::types::user::UserBanScope;
 
 use super::{YggdrasilError, YggdrasilErrorKind, active_token_for_protocol};
 

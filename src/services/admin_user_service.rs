@@ -10,7 +10,7 @@ use crate::runtime::{
 };
 use crate::services::profile_service::{self, AvatarAudience, AvatarInfo, UserProfileInfo};
 use crate::services::{auth_service, texture_service, yggdrasil_service};
-use crate::types::{OperatorScope, UserRole, UserStatus};
+use crate::types::user::{OperatorScope, UserRole, UserStatus};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 use aster_forge_crypto::hash_password;
 use aster_forge_utils::numbers::u64_to_usize;
@@ -104,7 +104,7 @@ fn default_user_profile_info() -> UserProfileInfo {
     UserProfileInfo {
         display_name: None,
         avatar: AvatarInfo {
-            source: crate::types::AvatarSource::None,
+            source: crate::types::user::AvatarSource::None,
             url_512: None,
             url_1024: None,
             version: 0,
@@ -524,6 +524,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use chrono::{Duration, Utc};
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
+
     use super::*;
     use crate::db::repository::{
         auth_session_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
@@ -532,12 +537,9 @@ mod tests {
     use crate::entities::{auth_session, minecraft_profile, minecraft_texture, user_profile};
     use crate::runtime::{AppState, AppStateParts};
     use crate::types::{
-        AvatarSource, MinecraftTextureModel, MinecraftTextureType, MinecraftTextureVisibility,
+        user::AvatarSource, yggdrasil::MinecraftTextureModel, yggdrasil::MinecraftTextureType,
+        yggdrasil::MinecraftTextureVisibility,
     };
-    use chrono::{Duration, Utc};
-    use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
-    use std::sync::Arc;
-
     struct TestContext {
         state: AppState,
         texture_root: std::path::PathBuf,
@@ -574,7 +576,7 @@ mod tests {
                 local_root: texture_root.to_string_lossy().to_string(),
                 ..Default::default()
             },
-            cache: crate::config::CacheConfig {
+            cache: aster_forge_cache::CacheConfig {
                 ..Default::default()
             },
             ..Default::default()
@@ -589,6 +591,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("admin user test AppState should build");

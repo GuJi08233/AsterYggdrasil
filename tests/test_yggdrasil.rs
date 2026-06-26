@@ -28,7 +28,8 @@ use aster_yggdrasil::errors::{AsterError, Result};
 use aster_yggdrasil::object_storage::{ObjectBlobMetadata, ObjectStorage};
 use aster_yggdrasil::services::{audit_service, profile_service};
 use aster_yggdrasil::types::{
-    AvatarSource, MinecraftTextureModel, YggdrasilSessionForwardProviderKind,
+    user::AvatarSource, yggdrasil::MinecraftTextureModel,
+    yggdrasil::YggdrasilSessionForwardProviderKind,
 };
 use base64::Engine;
 use sea_orm::{
@@ -6624,7 +6625,7 @@ async fn yggdrasil_has_joined_uses_mojang_session_endpoint_path() {
         display_name: Set("mojang endpoint mock".to_string()),
         provider_kind: Set(YggdrasilSessionForwardProviderKind::Remote),
         endpoint_kind: Set(
-            aster_yggdrasil::types::YggdrasilSessionForwardEndpointKind::MojangSession,
+            aster_yggdrasil::types::yggdrasil::YggdrasilSessionForwardEndpointKind::MojangSession,
         ),
         base_url: Set(Some(remote_upstream.root_url.clone())),
         enabled: Set(true),

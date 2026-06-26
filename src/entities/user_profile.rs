@@ -1,6 +1,6 @@
 //! User profile entity.
 
-use crate::types::AvatarSource;
+use crate::types::user::AvatarSource;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

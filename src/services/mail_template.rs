@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::config::{RuntimeConfig, branding, mail, site_url};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{MailTemplateCode, StoredMailPayload};
 use aster_forge_mail::{
     MailTemplateCatalog, MailTemplateCatalogBuilder, MailTemplateDefinition,
     MailTemplateRegistryError, RenderedMail, TemplateVariableGroup, TemplateVariableSpec,
     escape_html,
 };
+use aster_forge_mail::{MailTemplateCode, StoredMailPayload};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegisterActivationPayload {
@@ -674,11 +674,11 @@ mod tests {
             id: 1,
             key: key.to_string(),
             value: value.to_string(),
-            value_type: crate::types::SystemConfigValueType::Multiline,
+            value_type: crate::types::config::SystemConfigValueType::Multiline,
             requires_restart: false,
             is_sensitive: false,
-            source: crate::types::SystemConfigSource::System,
-            visibility: crate::types::SystemConfigVisibility::Private,
+            source: crate::types::config::SystemConfigSource::System,
+            visibility: crate::types::config::SystemConfigVisibility::Private,
             namespace: String::new(),
             category: CONFIG_CATEGORY_MAIL_TEMPLATE.to_string(),
             description: "test".to_string(),

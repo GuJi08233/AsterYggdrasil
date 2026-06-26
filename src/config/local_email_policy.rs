@@ -96,12 +96,14 @@ fn read_policy_list(runtime_config: &RuntimeConfig, key: &str) -> EmailPolicyLis
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::*;
     use crate::config::RuntimeConfig;
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use chrono::Utc;
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     fn config_model(key: &str, value: &str) -> system_config::Model {
         system_config::Model {
             id: 1,

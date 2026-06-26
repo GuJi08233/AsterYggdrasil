@@ -18,8 +18,9 @@ use crate::entities::{passkey, user};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service::{self, is_email_verified};
-use crate::types::StoredPasskeyCredential;
+use crate::types::passkey::StoredPasskeyCredential;
 use actix_web::HttpRequest;
+use aster_forge_cache::CacheExt;
 use aster_forge_utils::net::is_loopback_host;
 use aster_forge_utils::numbers::{u32_to_i64, u64_to_i64};
 use aster_forge_utils::text::char_count;
@@ -314,13 +315,14 @@ async fn store_registration_challenge(
         ttl_secs = PASSKEY_CHALLENGE_TTL_SECS,
         "storing passkey registration challenge"
     );
-    crate::services::cache_facade::set(
-        state,
-        &registration_cache_key(flow_id),
-        challenge,
-        Some(PASSKEY_CHALLENGE_TTL_SECS),
-    )
-    .await;
+    state
+        .cache()
+        .set(
+            &registration_cache_key(flow_id),
+            challenge,
+            Some(PASSKEY_CHALLENGE_TTL_SECS),
+        )
+        .await;
 }
 
 async fn take_registration_challenge(
@@ -329,9 +331,8 @@ async fn take_registration_challenge(
 ) -> Result<PasskeyRegistrationChallenge> {
     let key = registration_cache_key(flow_id);
     tracing::debug!(flow_id, "taking passkey registration challenge");
-    let challenge: PasskeyRegistrationChallenge = crate::services::cache_facade::take(state, &key)
-        .await
-        .ok_or_else(|| {
+    let challenge: PasskeyRegistrationChallenge =
+        state.cache().take(&key).await.ok_or_else(|| {
             tracing::debug!(flow_id, "passkey registration challenge expired or missing");
             AsterError::auth_token_invalid("passkey registration challenge expired")
         })?;
@@ -354,13 +355,14 @@ async fn store_login_challenge(
         ttl_secs = PASSKEY_CHALLENGE_TTL_SECS,
         "storing passkey login challenge"
     );
-    crate::services::cache_facade::set(
-        state,
-        &login_cache_key(flow_id),
-        challenge,
-        Some(PASSKEY_CHALLENGE_TTL_SECS),
-    )
-    .await;
+    state
+        .cache()
+        .set(
+            &login_cache_key(flow_id),
+            challenge,
+            Some(PASSKEY_CHALLENGE_TTL_SECS),
+        )
+        .await;
 }
 
 async fn take_login_challenge(
@@ -370,12 +372,10 @@ async fn take_login_challenge(
     let key = login_cache_key(flow_id);
     tracing::debug!(flow_id, "taking passkey login challenge");
     let challenge: PasskeyAuthenticationChallenge =
-        crate::services::cache_facade::take(state, &key)
-            .await
-            .ok_or_else(|| {
-                tracing::debug!(flow_id, "passkey login challenge expired or missing");
-                AsterError::auth_token_invalid("passkey login challenge expired")
-            })?;
+        state.cache().take(&key).await.ok_or_else(|| {
+            tracing::debug!(flow_id, "passkey login challenge expired or missing");
+            AsterError::auth_token_invalid("passkey login challenge expired")
+        })?;
     tracing::debug!(
         flow_id,
         has_identifier = challenge.identifier.is_some(),

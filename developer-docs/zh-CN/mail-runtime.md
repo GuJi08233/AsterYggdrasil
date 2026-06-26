@@ -16,9 +16,8 @@
 | `src/db/repository/mail_outbox_repo.rs` | outbox claim、mark sent、retry、failed 查询和更新。 |
 | `src/services/mail_outbox_service.rs` | enqueue、dispatch due、重试退避、成功/失败 audit。 |
 | `src/services/mail_audit_service.rs` | 邮件审计 details 和写入入口。 |
-| `src/runtime/tasks.rs` | `mail-outbox-dispatch` 周期任务注册。 |
-| `src/runtime/startup/primary.rs` | primary runtime 使用真实 SMTP sender。 |
-| `src/runtime/startup/follower.rs` | follower 初始化 sender，但不启动 primary-only 投递 loop。 |
+| `src/tasks/runtime.rs` | `mail-outbox-dispatch` scheduled runtime task 注册。 |
+| `src/runtime/startup/` | runtime 组装 SMTP sender、mail outbox drain 和 shutdown 依赖。 |
 
 ## 运行时配置
 
@@ -40,7 +39,8 @@ SMTP username/password 的现有契约是二者必须同时为空或同时非空
 
 ## 模板和 payload
 
-邮件模板 code 定义在 `src/types/mail.rs`：
+邮件模板 code 由 Forge 的 `aster_forge_mail::MailTemplateCode` 承载，Yggdrasil 通过
+`src/types/mail.rs` 引入。当前共享 code：
 
 ```text
 register_activation
@@ -54,13 +54,16 @@ login_email_code
 
 新增模板时，需要同步：
 
-1. 在 `MailTemplateCode` 增加枚举值、SeaORM string value 和 `as_str()`。
+1. 先在 AsterForge 的 `MailTemplateCode` 增加枚举值、SeaORM string value 和 `as_str()`。
 2. 在 `src/config/mail_templates/` 增加 subject 和 HTML 模板文件。
 3. 在 `src/config/mail.rs` 的 `template_subject_key()`、`template_html_key()`、默认模板函数里注册。
 4. 在 `src/config/definitions.rs` 增加 subject/html runtime config key。
 5. 在 `src/services/mail_template.rs` 增加 payload 类型、变量列表、render 分支和单元测试。
 6. 在 `src/api/openapi.rs` 确认 `MailTemplateCode` 和相关 DTO/schema 已注册。
 7. 重新生成前端 API 类型，必要时补前端文案。
+
+`mail_outbox.template_code` 的共享 schema 上限是 64 字节。历史库通过
+`m20260626_000004_widen_mail_outbox_template_code` 放宽到 64；不要再改旧 foundation migration。
 
 模板渲染必须区分 text 值和 HTML 值。用户输入进入 HTML body 前要走 escaping，不要直接拼。
 
@@ -92,10 +95,11 @@ mail_outbox_service::enqueue(...)
 
 - `src/services/task_service/runtime.rs`
 - `src/services/task_service/types.rs`
-- `src/runtime/tasks.rs`
+- `src/tasks/runtime.rs`
 - `frontend-panel/src/lib/presentation.ts`
 
-它是 primary-only 任务。不要让 follower 启动 outbox dispatch loop。邮件投递是外部副作用，多节点重复投递会把用户体验和审计都搞乱。
+它由 Forge runtime lease 和 scheduled task catalog 协调，只有拿到 lease 的实例会执行本轮
+dispatch。邮件投递是外部副作用，不能绕过这层多实例保护。
 
 ## Admin action 和 OpenAPI
 

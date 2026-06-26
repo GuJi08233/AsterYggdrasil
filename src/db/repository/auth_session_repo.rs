@@ -231,7 +231,7 @@ mod tests {
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
     use crate::entities::auth_session;
-    use crate::types::UserRole;
+    use crate::types::user::UserRole;
     use chrono::{Duration, Utc};
     use sea_orm::{ActiveValue::Set, EntityTrait};
 

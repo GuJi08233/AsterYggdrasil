@@ -5,21 +5,17 @@ pub mod runtime;
 use std::sync::Arc;
 
 use chrono::{Duration, Utc};
-use sea_orm::{ConnectionTrait, DatabaseConnection, Set};
+use sea_orm::{ConnectionTrait, DatabaseConnection};
 
 use crate::config::RuntimeConfig;
-use crate::db::repository::mail_outbox_repo;
-use crate::entities::mail_outbox;
-use crate::errors::Result;
+use crate::errors::{AsterError, Result};
 use crate::runtime::MailRuntimeState;
 use crate::services::{
     mail_audit_service, mail_service,
     mail_template::{self, MailTemplatePayload},
 };
-use crate::types::MailOutboxStatus;
 use aster_forge_mail::{
-    DispatchStats, MailOutboxDispatchConfig, MailOutboxDispatchRow, MailOutboxRetryPolicy,
-    MailSender,
+    DispatchStats, MailOutboxDispatchConfig, MailOutboxRetryPolicy, MailSender,
 };
 
 const MAIL_OUTBOX_BATCH_SIZE: u64 = 20;
@@ -36,30 +32,12 @@ const MAIL_OUTBOX_DISPATCH_CONFIG: MailOutboxDispatchConfig = MailOutboxDispatch
     ),
 );
 
-impl MailOutboxDispatchRow for mail_outbox::Model {
-    fn id(&self) -> i64 {
-        self.id
-    }
-
-    fn attempt_count(&self) -> i32 {
-        self.attempt_count
-    }
-
-    fn template_code(&self) -> &str {
-        self.template_code.as_str()
-    }
-
-    fn to_address(&self) -> &str {
-        &self.to_address
-    }
-}
-
 pub async fn enqueue<C: ConnectionTrait>(
     db: &C,
     to_address: &str,
     to_name: Option<&str>,
     payload: MailTemplatePayload,
-) -> Result<mail_outbox::Model> {
+) -> Result<aster_forge_db::mail_outbox::Model> {
     let now = Utc::now();
     let template_code = payload.template_code();
     tracing::debug!(
@@ -68,32 +46,24 @@ pub async fn enqueue<C: ConnectionTrait>(
         has_to_name = to_name.is_some(),
         "enqueueing mail outbox row"
     );
-    mail_outbox_repo::create(
+    let row = aster_forge_db::create_mail_outbox_row(
         db,
-        mail_outbox::ActiveModel {
-            template_code: Set(template_code),
-            to_address: Set(to_address.to_string()),
-            to_name: Set(to_name.map(str::to_string)),
-            payload_json: Set(payload.to_stored()?),
-            status: Set(MailOutboxStatus::Pending),
-            attempt_count: Set(0),
-            next_attempt_at: Set(now),
-            processing_started_at: Set(None),
-            sent_at: Set(None),
-            last_error: Set(None),
-            created_at: Set(now),
-            updated_at: Set(now),
-            ..Default::default()
+        aster_forge_db::MailOutboxCreate {
+            template_code,
+            to_address: to_address.to_string(),
+            to_name: to_name.map(str::to_string),
+            payload_json: payload.to_stored()?,
+            next_attempt_at: now,
+            now,
         },
     )
-    .await
-    .inspect(|row| {
-        tracing::debug!(
-            mail_outbox_id = row.id,
-            template_code = %row.template_code.as_str(),
-            "enqueued mail outbox row"
-        );
-    })
+    .await?;
+    tracing::debug!(
+        mail_outbox_id = row.id,
+        template_code = %row.template_code.as_str(),
+        "enqueued mail outbox row"
+    );
+    Ok(row)
 }
 
 pub async fn dispatch_due(state: &impl MailRuntimeState) -> Result<DispatchStats> {
@@ -110,27 +80,74 @@ pub async fn dispatch_due_with(
     runtime_config: &Arc<RuntimeConfig>,
     mail_sender: &Arc<dyn MailSender>,
 ) -> Result<DispatchStats> {
+    let store = aster_forge_db::MailOutboxDbStore::new(db.clone());
     aster_forge_mail::dispatch_mail_outbox(
         &MAIL_OUTBOX_DISPATCH_CONFIG,
-        |batch_size, stale_secs| async move {
-            let now = Utc::now();
-            let stale_before = now - Duration::seconds(stale_secs);
-            mail_outbox_repo::list_claimable(db, now, stale_before, batch_size).await
+        {
+            let store = store.clone();
+            move |batch_size, stale_secs| {
+                let store = store.clone();
+                async move {
+                    let now = Utc::now();
+                    let stale_before = now - Duration::seconds(stale_secs);
+                    store
+                        .list_claimable(now, stale_before, batch_size)
+                        .await
+                        .map_err(AsterError::from)
+                }
+            }
         },
-        |row| async move {
-            let now = Utc::now();
-            let stale_before = now - Duration::seconds(MAIL_OUTBOX_PROCESSING_STALE_SECS);
-            mail_outbox_repo::try_claim(db, row.id, now, stale_before).await
+        {
+            let store = store.clone();
+            move |row| {
+                let store = store.clone();
+                async move {
+                    let now = Utc::now();
+                    let stale_before = now - Duration::seconds(MAIL_OUTBOX_PROCESSING_STALE_SECS);
+                    store
+                        .try_claim(row.id, now, stale_before)
+                        .await
+                        .map_err(AsterError::from)
+                }
+            }
         },
         |row| async move { deliver_one(runtime_config, mail_sender, &row).await },
-        |id, _attempt| async move { mail_outbox_repo::mark_sent(db, id, Utc::now()).await },
-        |row, attempt_count, retry_delay_secs, error_message| async move {
-            let retry_at = Utc::now() + Duration::seconds(retry_delay_secs);
-            mail_outbox_repo::mark_retry(db, row.id, attempt_count, retry_at, &error_message).await
+        {
+            let store = store.clone();
+            move |id, _attempt| {
+                let store = store.clone();
+                async move {
+                    store
+                        .mark_sent(id, Utc::now())
+                        .await
+                        .map_err(AsterError::from)
+                }
+            }
         },
-        |row, attempt_count, error_message| async move {
-            mail_outbox_repo::mark_failed(db, row.id, attempt_count, Utc::now(), &error_message)
-                .await
+        {
+            let store = store.clone();
+            move |row, attempt_count, retry_delay_secs, error_message| {
+                let store = store.clone();
+                async move {
+                    let retry_at = Utc::now() + Duration::seconds(retry_delay_secs);
+                    store
+                        .mark_retry(row.id, attempt_count, retry_at, &error_message)
+                        .await
+                        .map_err(AsterError::from)
+                }
+            }
+        },
+        {
+            let store = store.clone();
+            move |row, attempt_count, error_message| {
+                let store = store.clone();
+                async move {
+                    store
+                        .mark_failed(row.id, attempt_count, Utc::now(), &error_message)
+                        .await
+                        .map_err(AsterError::from)
+                }
+            }
         },
         |row, attempt_count, subject| async move {
             mail_audit_service::log_send_with_db(
@@ -197,7 +214,7 @@ pub async fn drain_with(
 async fn deliver_one(
     runtime_config: &RuntimeConfig,
     mail_sender: &Arc<dyn MailSender>,
-    row: &mail_outbox::Model,
+    row: &aster_forge_db::mail_outbox::Model,
 ) -> Result<String> {
     let rendered = mail_template::render(runtime_config, row.template_code, &row.payload_json)?;
     let subject = rendered.subject.clone();

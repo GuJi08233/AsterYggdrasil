@@ -16,9 +16,8 @@ Main modules:
 | `src/db/repository/mail_outbox_repo.rs` | Outbox claim, mark sent, retry, failed updates and queries. |
 | `src/services/mail_outbox_service.rs` | Enqueue, dispatch due, retry backoff, success/failure audit. |
 | `src/services/mail_audit_service.rs` | Mail audit details and write helpers. |
-| `src/runtime/tasks.rs` | `mail-outbox-dispatch` periodic task registration. |
-| `src/runtime/startup/primary.rs` | Primary runtime uses the real SMTP sender. |
-| `src/runtime/startup/follower.rs` | Follower initializes a sender but does not start primary-only dispatch loops. |
+| `src/tasks/runtime.rs` | `mail-outbox-dispatch` scheduled runtime task registration. |
+| `src/runtime/startup/` | Runtime assembly for SMTP sender, mail outbox drain, and shutdown dependencies. |
 
 ## Runtime Config
 
@@ -40,7 +39,8 @@ The existing SMTP username/password contract is strict: both must be empty or bo
 
 ## Templates And Payloads
 
-Mail template codes are defined in `src/types/mail.rs`:
+Mail template codes are owned by Forge's `aster_forge_mail::MailTemplateCode` and imported by
+Yggdrasil through `src/types/mail.rs`. Current shared codes:
 
 ```text
 register_activation
@@ -54,13 +54,16 @@ login_email_code
 
 When adding a template:
 
-1. Add the enum variant, SeaORM string value, and `as_str()` mapping in `MailTemplateCode`.
+1. Add the enum variant, SeaORM string value, and `as_str()` mapping in AsterForge's `MailTemplateCode`.
 2. Add subject and HTML template files under `src/config/mail_templates/`.
 3. Register subject/html keys and defaults in `src/config/mail.rs`.
 4. Add subject/html runtime config keys in `src/config/definitions.rs`.
 5. Add payload type, variable list, render branch, and unit tests in `src/services/mail_template.rs`.
 6. Confirm `MailTemplateCode` and related DTO/schema types are registered in `src/api/openapi.rs`.
 7. Regenerate frontend API types and add frontend labels if needed.
+
+The shared `mail_outbox.template_code` schema limit is 64 bytes. Existing databases are widened by
+`m20260626_000004_widen_mail_outbox_template_code`; do not edit the old foundation migration for this.
 
 Template rendering must keep text and HTML values separate. User-controlled values must be escaped before entering HTML body output.
 
@@ -92,10 +95,12 @@ Registration points:
 
 - `src/services/task_service/runtime.rs`
 - `src/services/task_service/types.rs`
-- `src/runtime/tasks.rs`
+- `src/tasks/runtime.rs`
 - `frontend-panel/src/lib/presentation.ts`
 
-It is a primary-only task. Do not start outbox dispatch from follower nodes. Mail delivery is an external side effect, and duplicate delivery across nodes will damage user experience and audit clarity.
+It is coordinated by the Forge runtime lease and scheduled task catalog, so only the instance holding
+the lease runs the current dispatch pass. Mail delivery is an external side effect; do not bypass that
+multi-instance guard.
 
 ## Admin Action And OpenAPI
 

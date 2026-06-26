@@ -4,15 +4,16 @@
 mod common;
 
 use actix_web::test;
-use aster_forge_mail::{MailDeliveryError, MailMessage, MailSendResult, MailSender};
+use aster_forge_mail::{
+    MailDeliveryError, MailMessage, MailSendResult, MailSender, MailTemplateCode, StoredMailPayload,
+};
 use aster_yggdrasil::config::definitions::BRANDING_TITLE_KEY;
-use aster_yggdrasil::db::repository::{audit_log_repo, mail_outbox_repo, user_repo};
-use aster_yggdrasil::entities::{audit_log, background_task, mail_outbox};
+use aster_yggdrasil::db::repository::user_repo;
+use aster_yggdrasil::entities::{audit_log, background_task};
 use aster_yggdrasil::runtime::AppState;
 use aster_yggdrasil::services::{audit_service, mail_outbox_service};
 use aster_yggdrasil::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, MailOutboxStatus, MailTemplateCode,
-    StoredMailPayload, StoredTaskPayload,
+    task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
 };
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
@@ -94,26 +95,47 @@ impl MailSender for FailingMailSender {
     }
 }
 
-fn mail_outbox_model(
+fn mail_outbox_model(payload_json: StoredMailPayload) -> aster_forge_db::MailOutboxCreate {
+    let now = Utc::now();
+    aster_forge_db::MailOutboxCreate {
+        template_code: MailTemplateCode::RegisterActivation,
+        to_address: "audit-mail@example.com".to_string(),
+        to_name: Some("Audit Mail".to_string()),
+        payload_json,
+        next_attempt_at: now,
+        now,
+    }
+}
+
+async fn create_mail_outbox_row_with_attempt_count(
+    state: &AppState,
     attempt_count: i32,
     payload_json: StoredMailPayload,
-) -> mail_outbox::ActiveModel {
-    let now = Utc::now();
-    mail_outbox::ActiveModel {
-        template_code: Set(MailTemplateCode::RegisterActivation),
-        to_address: Set("audit-mail@example.com".to_string()),
-        to_name: Set(Some("Audit Mail".to_string())),
-        payload_json: Set(payload_json),
-        status: Set(MailOutboxStatus::Pending),
-        attempt_count: Set(attempt_count),
-        next_attempt_at: Set(now),
-        processing_started_at: Set(None),
-        sent_at: Set(None),
-        last_error: Set(None),
-        created_at: Set(now),
-        updated_at: Set(now),
-        ..Default::default()
+) -> aster_forge_db::mail_outbox::Model {
+    let row =
+        aster_forge_db::create_mail_outbox_row(state.writer_db(), mail_outbox_model(payload_json))
+            .await
+            .expect("mail outbox row should insert");
+    if attempt_count == 0 {
+        return row;
     }
+
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    aster_forge_db::mail_outbox::Entity::update_many()
+        .col_expr(
+            aster_forge_db::mail_outbox::Column::AttemptCount,
+            sea_orm::sea_query::Expr::value(attempt_count),
+        )
+        .filter(aster_forge_db::mail_outbox::Column::Id.eq(row.id))
+        .exec(state.writer_db())
+        .await
+        .expect("mail outbox attempt count should update");
+
+    aster_forge_db::mail_outbox::Entity::find_by_id(row.id)
+        .one(state.writer_db())
+        .await
+        .expect("mail outbox row should reload")
+        .expect("mail outbox row should exist")
 }
 
 async fn latest_audit_entry(
@@ -146,25 +168,24 @@ async fn insert_account_audit_entry(
     entity_name: &str,
     created_at: chrono::DateTime<Utc>,
 ) -> i64 {
-    audit_log_repo::create(
+    aster_forge_db::create_audit_log_row(
         state.writer_db(),
-        audit_log::ActiveModel {
-            user_id: Set(user_id),
-            action: Set(action),
-            entity_type: Set(entity_type.as_str().to_string()),
-            entity_id: Set(Some(entity_id)),
-            entity_name: Set(Some(entity_name.to_string())),
-            details: Set(Some(
+        aster_forge_db::AuditLogCreate {
+            user_id,
+            action: action.as_str().to_string(),
+            entity_type: entity_type.as_str().to_string(),
+            entity_id: Some(entity_id),
+            entity_name: Some(entity_name.to_string()),
+            details: Some(
                 serde_json::json!({
                     "entity_name": entity_name,
                     "source": "account-audit-test",
                 })
                 .to_string(),
-            )),
-            ip_address: Set(Some("127.0.0.1".to_string())),
-            user_agent: Set(Some("account-audit-test".to_string())),
-            created_at: Set(created_at),
-            ..Default::default()
+            ),
+            ip_address: Some("127.0.0.1".to_string()),
+            user_agent: Some("account-audit-test".to_string()),
+            created_at,
         },
     )
     .await
@@ -857,9 +878,7 @@ async fn mail_outbox_dispatch_records_delivery_audit_logs() {
         )
         .to_stored()
         .expect("mail payload should serialize");
-    let sent_row = mail_outbox_repo::create(state.writer_db(), mail_outbox_model(0, payload))
-        .await
-        .expect("mail outbox row should insert");
+    let sent_row = create_mail_outbox_row_with_attempt_count(&state, 0, payload).await;
 
     let stats = mail_outbox_service::dispatch_due(&state)
         .await
@@ -887,9 +906,7 @@ async fn mail_outbox_dispatch_records_delivery_audit_logs() {
         )
         .to_stored()
         .expect("mail payload should serialize");
-    let failed_row = mail_outbox_repo::create(state.writer_db(), mail_outbox_model(5, payload))
-        .await
-        .expect("mail outbox row should insert");
+    let failed_row = create_mail_outbox_row_with_attempt_count(&state, 5, payload).await;
     let sender: Arc<dyn MailSender> = Arc::new(FailingMailSender);
 
     let stats =

@@ -6,7 +6,9 @@
 pub mod driver;
 pub mod registry;
 
-pub use crate::types::{ExternalAuthProtocol, ExternalAuthProviderKind};
+pub use crate::types::{
+    external_auth::ExternalAuthProtocol, external_auth::ExternalAuthProviderKind,
+};
 pub use driver::external_auth_provider_config_from_model;
 pub use registry::ExternalAuthProviderRegistry;
 

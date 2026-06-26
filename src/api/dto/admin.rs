@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
 
-use crate::services::config_service::{ConfigActionType, SystemConfigValue};
+use crate::services::config_service::ConfigActionType;
 use crate::services::external_auth_service::{
     CreateExternalAuthProviderInput, ExternalAuthProviderTestParamsInput,
     UpdateExternalAuthProviderInput,
@@ -17,16 +17,19 @@ use crate::services::yggdrasil_session_forward_service::{
     CreateYggdrasilSessionForwardServerInput, UpdateYggdrasilSessionForwardServerInput,
 };
 use crate::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, ExternalAuthKind, ExternalAuthProviderOptions,
-    OperatorScope, SystemConfigVisibility, UserBanScope, UserBanStatus, UserRole, UserStatus,
-    YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardServerSortBy,
+    config::SystemConfigVisibility, external_auth::ExternalAuthKind,
+    external_auth::ExternalAuthProviderOptions, task::BackgroundTaskKind,
+    task::BackgroundTaskStatus, user::OperatorScope, user::UserBanScope, user::UserBanStatus,
+    user::UserRole, user::UserStatus, yggdrasil::YggdrasilSessionForwardEndpointKind,
+    yggdrasil::YggdrasilSessionForwardServerSortBy,
 };
 use aster_forge_api::NullablePatch;
+use aster_forge_config::ConfigValue;
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct SetConfigReq {
-    pub value: SystemConfigValue,
+    pub value: ConfigValue,
     pub visibility: Option<SystemConfigVisibility>,
 }
 
@@ -34,7 +37,7 @@ pub struct SetConfigReq {
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct ExecuteConfigActionReq {
     pub action: ConfigActionType,
-    pub values: Option<BTreeMap<String, SystemConfigValue>>,
+    pub values: Option<BTreeMap<String, ConfigValue>>,
 }
 
 #[derive(Debug, Serialize)]

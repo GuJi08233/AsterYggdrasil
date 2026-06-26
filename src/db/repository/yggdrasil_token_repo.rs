@@ -269,7 +269,7 @@ mod tests {
     };
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
-    use crate::types::UserRole;
+    use crate::types::user::UserRole;
     use chrono::{Duration, Utc};
 
     async fn build_test_db() -> sea_orm::DatabaseConnection {

@@ -1,14 +1,11 @@
 //! Audit log repository.
 
 use chrono::{DateTime, Utc};
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, sea_query::Expr,
-};
+use sea_orm::ConnectionTrait;
 
-use crate::entities::audit_log::{self, Entity as AuditLog};
+use crate::entities::audit_log;
 use crate::errors::{AsterError, Result};
-use crate::types::AuditAction;
+use crate::types::audit::AuditAction;
 use aster_forge_api::CursorSlice;
 
 pub struct AuditLogQuery<'a> {
@@ -22,74 +19,35 @@ pub struct AuditLogQuery<'a> {
     pub cursor: Option<(DateTime<Utc>, i64)>,
 }
 
-pub async fn create<C: ConnectionTrait>(
-    db: &C,
-    model: audit_log::ActiveModel,
-) -> Result<audit_log::Model> {
-    model.insert(db).await.map_err(AsterError::from)
-}
-
-pub async fn create_many<C: ConnectionTrait>(
-    db: &C,
-    models: Vec<audit_log::ActiveModel>,
-) -> Result<()> {
-    if models.is_empty() {
-        return Ok(());
-    }
-    AuditLog::insert_many(models)
-        .exec(db)
-        .await
-        .map_err(AsterError::from)?;
-    Ok(())
-}
-
 pub async fn find_with_filters_cursor<C: ConnectionTrait>(
     db: &C,
     query: AuditLogQuery<'_>,
 ) -> Result<CursorSlice<audit_log::Model>> {
-    let mut q = AuditLog::find();
     let limit = query.limit.clamp(1, 200);
+    let page = aster_forge_db::find_audit_logs_with_filters_cursor(
+        db,
+        aster_forge_db::AuditLogQuery {
+            user_id: query.user_id,
+            action: query.action,
+            entity_type: query.entity_type,
+            entity_id: query.entity_id,
+            after: query.after,
+            before: query.before,
+            limit,
+            cursor: query.cursor,
+        },
+    )
+    .await?;
 
-    if let Some(user_id) = query.user_id {
-        q = q.filter(audit_log::Column::UserId.eq(user_id));
-    }
-    if let Some(action) = query.action {
-        q = q.filter(audit_log::Column::Action.eq(action));
-    }
-    if let Some(entity_type) = query.entity_type {
-        q = q.filter(audit_log::Column::EntityType.eq(entity_type));
-    }
-    if let Some(entity_id) = query.entity_id {
-        q = q.filter(audit_log::Column::EntityId.eq(entity_id));
-    }
-    if let Some(after) = query.after {
-        q = q.filter(audit_log::Column::CreatedAt.gte(after));
-    }
-    if let Some(before) = query.before {
-        q = q.filter(audit_log::Column::CreatedAt.lte(before));
-    }
-
-    let total = q.clone().count(db).await.map_err(AsterError::from)?;
-    if let Some((created_at, id)) = query.cursor {
-        q = q.filter(
-            Condition::any()
-                .add(audit_log::Column::CreatedAt.lt(created_at))
-                .add(
-                    Condition::all()
-                        .add(audit_log::Column::CreatedAt.eq(created_at))
-                        .add(audit_log::Column::Id.lt(id)),
-                ),
-        );
-    }
-
-    let items = q
-        .order_by_desc(audit_log::Column::CreatedAt)
-        .order_by_desc(audit_log::Column::Id)
-        .limit(limit.saturating_add(1))
-        .all(db)
-        .await
-        .map_err(AsterError::from)?;
-    Ok(CursorSlice::from_overfetch(items, total, limit)?)
+    Ok(CursorSlice {
+        items: page
+            .items
+            .into_iter()
+            .map(audit_log::Model::try_from)
+            .collect::<Result<Vec<_>>>()?,
+        total: page.total,
+        has_more: page.has_more,
+    })
 }
 
 pub async fn count_created_between<C: ConnectionTrait>(
@@ -97,10 +55,7 @@ pub async fn count_created_between<C: ConnectionTrait>(
     start: DateTime<Utc>,
     end: DateTime<Utc>,
 ) -> Result<u64> {
-    AuditLog::find()
-        .filter(audit_log::Column::CreatedAt.gte(start))
-        .filter(audit_log::Column::CreatedAt.lt(end))
-        .count(db)
+    aster_forge_db::count_audit_logs_created_between(db, start, end)
         .await
         .map_err(AsterError::from)
 }
@@ -115,11 +70,8 @@ pub async fn count_created_between_with_actions<C: ConnectionTrait>(
         return Ok(0);
     }
 
-    AuditLog::find()
-        .filter(audit_log::Column::CreatedAt.gte(start))
-        .filter(audit_log::Column::CreatedAt.lt(end))
-        .filter(audit_log::Column::Action.is_in(actions.iter().map(|action| action.as_str())))
-        .count(db)
+    let actions = action_wire_values(actions);
+    aster_forge_db::count_audit_logs_created_between_with_actions(db, start, end, &actions)
         .await
         .map_err(AsterError::from)
 }
@@ -134,49 +86,62 @@ pub async fn count_distinct_users_created_between_with_actions<C: ConnectionTrai
         return Ok(0);
     }
 
-    let count = AuditLog::find()
-        .select_only()
-        .column_as(
-            Expr::col(audit_log::Column::UserId).count_distinct(),
-            "distinct_user_count",
-        )
-        .filter(audit_log::Column::CreatedAt.gte(start))
-        .filter(audit_log::Column::CreatedAt.lt(end))
-        .filter(audit_log::Column::Action.is_in(actions.iter().map(|action| action.as_str())))
-        .filter(audit_log::Column::UserId.gt(0))
-        .into_tuple::<i64>()
-        .one(db)
-        .await
-        .map_err(AsterError::from)?
-        .unwrap_or(0);
-
-    Ok(aster_forge_utils::numbers::i64_to_u64(
-        count,
-        "distinct audit log user count",
-    )?)
+    let actions = action_wire_values(actions);
+    aster_forge_db::count_distinct_audit_log_users_created_between_with_actions(
+        db, start, end, &actions,
+    )
+    .await
+    .map_err(AsterError::from)
 }
 
 pub async fn delete_before<C: ConnectionTrait>(db: &C, before: DateTime<Utc>) -> Result<u64> {
-    let result = AuditLog::delete_many()
-        .filter(audit_log::Column::CreatedAt.lt(before))
-        .exec(db)
+    aster_forge_db::delete_audit_logs_before(db, before)
         .await
-        .map_err(AsterError::from)?;
-    Ok(result.rows_affected)
+        .map_err(AsterError::from)
+}
+
+fn action_wire_values(actions: &[AuditAction]) -> Vec<&str> {
+    actions.iter().map(|action| action.as_str()).collect()
+}
+
+impl TryFrom<aster_forge_db::audit_log::Model> for audit_log::Model {
+    type Error = AsterError;
+
+    fn try_from(value: aster_forge_db::audit_log::Model) -> Result<Self> {
+        let action = AuditAction::from_str_name(&value.action).ok_or_else(|| {
+            AsterError::database_operation(format!(
+                "unsupported audit action in audit log row {}: {}",
+                value.id, value.action
+            ))
+        })?;
+
+        Ok(Self {
+            id: value.id,
+            user_id: value.user_id,
+            action,
+            entity_type: value.entity_type,
+            entity_id: value.entity_id,
+            entity_name: value.entity_name,
+            details: value.details,
+            ip_address: value.ip_address,
+            user_agent: value.user_agent,
+            created_at: value.created_at,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::{Duration, Utc};
+    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
     use super::{
-        AuditLogQuery, count_distinct_users_created_between_with_actions, create, create_many,
-        delete_before, find_with_filters_cursor,
+        AuditLogQuery, count_distinct_users_created_between_with_actions, delete_before,
+        find_with_filters_cursor,
     };
     use crate::config::DatabaseConfig;
     use crate::entities::audit_log;
-    use crate::types::{AuditAction, AuditEntityType};
-    use chrono::{Duration, Utc};
-    use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
-
+    use crate::types::audit::{AuditAction, AuditEntityType};
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {
@@ -194,7 +159,7 @@ mod tests {
         db
     }
 
-    fn audit_model(
+    fn audit_request(
         user_id: i64,
         action: AuditAction,
         entity_type: AuditEntityType,
@@ -202,24 +167,23 @@ mod tests {
         entity_name: &str,
         ip_address: &str,
         created_at: chrono::DateTime<Utc>,
-    ) -> audit_log::ActiveModel {
-        audit_log::ActiveModel {
-            id: Default::default(),
-            user_id: Set(user_id),
-            action: Set(action),
-            entity_type: Set(entity_type.as_str().to_string()),
-            entity_id: Set(entity_id),
-            entity_name: Set(Some(entity_name.to_string())),
-            details: Set(Some(
+    ) -> aster_forge_db::AuditLogCreate {
+        aster_forge_db::AuditLogCreate {
+            user_id,
+            action: action.as_str().to_string(),
+            entity_type: entity_type.as_str().to_string(),
+            entity_id,
+            entity_name: Some(entity_name.to_string()),
+            details: Some(
                 serde_json::json!({
                     "entity_name": entity_name,
                     "action": action.as_str(),
                 })
                 .to_string(),
-            )),
-            ip_address: Set(Some(ip_address.to_string())),
-            user_agent: Set(Some("audit-repo-test".to_string())),
-            created_at: Set(created_at),
+            ),
+            ip_address: Some(ip_address.to_string()),
+            user_agent: Some("audit-repo-test".to_string()),
+            created_at,
         }
     }
 
@@ -231,15 +195,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_and_empty_create_many_follow_repository_contract() {
+    async fn forge_create_requests_are_visible_through_product_query_facade() {
         let db = build_test_db().await;
-        create_many(&db, Vec::new()).await.unwrap();
+        aster_forge_db::create_audit_log_requests(&db, Vec::new())
+            .await
+            .unwrap();
         assert_eq!(all_audit_count(&db).await, 0);
 
         let created_at = Utc::now();
-        let entry = create(
+        let entry = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 42,
                 AuditAction::UserLogin,
                 AuditEntityType::AuthSession,
@@ -254,7 +220,7 @@ mod tests {
 
         assert!(entry.id > 0);
         assert_eq!(entry.user_id, 42);
-        assert_eq!(entry.action, AuditAction::UserLogin);
+        assert_eq!(entry.action, AuditAction::UserLogin.as_str());
         assert_eq!(entry.entity_type, "auth_session");
         assert_eq!(entry.entity_id, Some(7));
         assert_eq!(entry.entity_name.as_deref(), Some("admin"));
@@ -269,10 +235,10 @@ mod tests {
     {
         let db = build_test_db().await;
         let base = Utc::now();
-        create_many(
+        aster_forge_db::create_audit_log_requests(
             &db,
             vec![
-                audit_model(
+                audit_request(
                     10,
                     AuditAction::UserLogin,
                     AuditEntityType::AuthSession,
@@ -281,7 +247,7 @@ mod tests {
                     "192.0.2.10",
                     base,
                 ),
-                audit_model(
+                audit_request(
                     10,
                     AuditAction::UserRefreshToken,
                     AuditEntityType::AuthSession,
@@ -290,7 +256,7 @@ mod tests {
                     "192.0.2.10",
                     base + Duration::seconds(1),
                 ),
-                audit_model(
+                audit_request(
                     20,
                     AuditAction::MinecraftTextureUpload,
                     AuditEntityType::MinecraftTexture,
@@ -299,7 +265,7 @@ mod tests {
                     "192.0.2.20",
                     base + Duration::seconds(2),
                 ),
-                audit_model(
+                audit_request(
                     0,
                     AuditAction::UserLogin,
                     AuditEntityType::AuthSession,
@@ -308,7 +274,7 @@ mod tests {
                     "192.0.2.30",
                     base + Duration::seconds(3),
                 ),
-                audit_model(
+                audit_request(
                     30,
                     AuditAction::ConfigUpdate,
                     AuditEntityType::SystemConfig,
@@ -343,9 +309,9 @@ mod tests {
     async fn find_with_filters_applies_all_supported_predicates() {
         let db = build_test_db().await;
         let base = Utc::now();
-        let ignored_by_action = create(
+        let ignored_by_action = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 10,
                 AuditAction::UserLogin,
                 AuditEntityType::AuthSession,
@@ -357,9 +323,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let expected = create(
+        let expected = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 10,
                 AuditAction::ConfigUpdate,
                 AuditEntityType::SystemConfig,
@@ -371,9 +337,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let ignored_by_user = create(
+        let ignored_by_user = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 20,
                 AuditAction::ConfigUpdate,
                 AuditEntityType::SystemConfig,
@@ -385,9 +351,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let ignored_by_time = create(
+        let ignored_by_time = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 10,
                 AuditAction::ConfigUpdate,
                 AuditEntityType::SystemConfig,
@@ -430,9 +396,9 @@ mod tests {
     async fn find_with_filters_pages_by_created_at_cursor() {
         let db = build_test_db().await;
         let base = Utc::now();
-        let first = create(
+        let first = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 20,
                 AuditAction::UserLogout,
                 AuditEntityType::User,
@@ -444,9 +410,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let second = create(
+        let second = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 10,
                 AuditAction::ConfigUpdate,
                 AuditEntityType::SystemConfig,
@@ -458,9 +424,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let third = create(
+        let third = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 30,
                 AuditAction::AdminCleanupTasks,
                 AuditEntityType::Task,
@@ -532,9 +498,9 @@ mod tests {
     async fn delete_before_keeps_cutoff_and_cursor_list_orders_recent_entries() {
         let db = build_test_db().await;
         let cutoff = Utc::now();
-        let old = create(
+        let old = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 1,
                 AuditAction::ServerStart,
                 AuditEntityType::System,
@@ -546,9 +512,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let at_cutoff = create(
+        let at_cutoff = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 1,
                 AuditAction::ServerShutdown,
                 AuditEntityType::System,
@@ -560,9 +526,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let recent = create(
+        let recent = aster_forge_db::create_audit_log_row(
             &db,
-            audit_model(
+            audit_request(
                 1,
                 AuditAction::ConfigDelete,
                 AuditEntityType::SystemConfig,

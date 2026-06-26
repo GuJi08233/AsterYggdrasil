@@ -11,6 +11,7 @@ use serde::Serialize;
 use sha2::Digest;
 use tokio::io::AsyncReadExt;
 
+use super::{default_skin, is_valid_texture_hash};
 use crate::api::error_code::AsterErrorCode;
 use crate::config::texture_preview::{RuntimeTexturePreviewPolicy, TexturePreviewSpec};
 use crate::entities::minecraft_texture;
@@ -19,9 +20,7 @@ use crate::runtime::{
     AppConfigRuntimeState, DatabaseRuntimeState, ObjectStorageRuntimeState,
     RuntimeConfigRuntimeState,
 };
-use crate::types::{MinecraftTextureModel, MinecraftTextureType};
-
-use super::{default_skin, is_valid_texture_hash};
+use crate::types::yggdrasil::{MinecraftTextureModel, MinecraftTextureType};
 
 pub const TEXTURE_PREVIEW_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 

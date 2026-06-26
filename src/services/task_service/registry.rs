@@ -4,7 +4,7 @@ use crate::config::RuntimeConfig;
 use crate::entities::background_task;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
-use crate::types::BackgroundTaskKind;
+use crate::types::task::BackgroundTaskKind;
 use aster_forge_tasks::initial_task_steps_from_specs;
 
 use super::dispatch::TaskLane;
@@ -18,16 +18,16 @@ aster_forge_tasks::task_registry! {
         config: crate::config::RuntimeConfig;
         context: aster_forge_tasks::TaskExecutionContext;
         error: crate::errors::AsterError;
-        kind: crate::types::BackgroundTaskKind;
+        kind: crate::types::task::BackgroundTaskKind;
         lane: crate::services::task_service::dispatch::TaskLane;
         payload: crate::services::task_service::types::TaskPayload;
         result: crate::services::task_service::types::TaskResult;
         specs {
-            SYSTEM_RUNTIME: super::SystemRuntimeTask => crate::types::BackgroundTaskKind::SystemRuntime,
+            SYSTEM_RUNTIME: super::SystemRuntimeTask => crate::types::task::BackgroundTaskKind::SystemRuntime,
         }
         lanes {
             crate::services::task_service::dispatch::TaskLane::Fallback => [
-                crate::types::BackgroundTaskKind::SystemRuntime,
+                crate::types::task::BackgroundTaskKind::SystemRuntime,
             ],
         }
     }

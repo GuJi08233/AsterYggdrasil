@@ -68,25 +68,33 @@ frontend-panel/src/pages/      需要时增加页面
 启动拆在 `src/runtime/startup/`：
 
 - `common.rs` 准备运行时目录、metrics、数据库句柄、migration、runtime config、cache、audit manager。
-- `primary.rs` 构建 primary runtime state。
-- `follower.rs` 构建 follower runtime state。
-- `mod.rs` 按 `config.server.start_mode` 分发，并记录 `server_start`。
+- `state.rs` 构建 `AppState` 需要的产品运行时资源。
+- `mod.rs` 串行执行 startup phase，并记录 `server_start`。
 
-`server.start_mode = "primary"` 会跑 dispatcher 和 maintenance loops。`server.start_mode = "follower"` 保留公共服务状态，但跳过 primary-only 的后台任务，避免多节点重复投递邮件或重复执行维护副作用。
+进程入口在 `src/runtime/entrypoint.rs`，实际装配在 `src/runtime/assembly.rs`：
+
+1. bootstrap 加载静态配置、日志、panic hook 和 startup state。
+2. assembly 创建 shutdown token、Actix HTTP service component。
+3. `src/runtime/components.rs` 构建产品 runtime bundle，并注册后台任务、mail outbox、audit 和 database component。
+4. `AsterRuntime::builder().component(http).component(product_components).run().await` 运行服务，等待退出信号并按 component dependency graph 关闭。
+
+当前不再维护 primary/follower 启动分支。多实例部署仍需要外层保证不会重复执行完整后台任务；后续跨进程任务租约或配置同步能力应继续由 Forge/共享机制承载，而不是在 Yggdrasil 里恢复本地 start mode 分支。
 
 ## 优雅退出
 
-关闭流程由 `src/main.rs` 和 `src/runtime/shutdown.rs` 协调：
+关闭流程由 `aster_forge_runtime::AsterRuntime` 和 Yggdrasil product component graph 协调：
 
-1. 等待 SIGINT/SIGTERM。
-2. 取消共享 shutdown token。
-3. 优雅停止 Actix。
-4. 记录 `server_shutdown`。
-5. 在宽限期内停止后台任务。
-6. flush audit logs。
-7. 关闭数据库句柄。
+1. Forge 等待 SIGINT/SIGTERM/Ctrl+C，并调用 HTTP service stop hook。
+2. Actix 停止后，Forge 按 component dependency graph 运行 shutdown phase。
+3. `background_tasks` 先取消并等待后台任务。
+4. `mail_outbox` drain 可发送的邮件。
+5. `audit_logs` 记录 `server_shutdown`。
+6. `audit_manager` flush 全局 audit buffer。
+7. `database` 关闭 writer/reader 句柄。
 
-新增长跑 worker 时，必须监听 shutdown token，并保证持久化状态可恢复。
+新增长跑 worker 时，必须监听 shutdown token，并保证持久化状态可恢复。新增有生命周期副作用的子系统时，优先在自己的模块暴露 component 构造函数，再由 `src/runtime/components.rs` 统一组合，不要把 shutdown 顺序散落到入口。
+
+audit runtime component、`audit_logs` 共享 schema、基础写入、批量写入、通用 cursor 查询、统计和删除 helper 来自 AsterForge。Yggdrasil 只保留 typed `AuditAction`、detail schema、权限、presentation 和业务统计口径。
 
 ## 数据库 helper 与事务
 
@@ -103,7 +111,7 @@ frontend-panel/src/pages/      需要时增加页面
 
 ## 后台任务
 
-任务系统在 `src/services/task_service/` 和 `src/runtime/tasks.rs`。
+任务系统在 `src/services/task_service/` 和 `src/tasks/runtime.rs`。
 
 持久化的 `BackgroundTaskKind` 当前仍只有 `system_runtime`。具体系统任务通过 `SystemRuntimeTaskKind` 区分，当前包括：
 

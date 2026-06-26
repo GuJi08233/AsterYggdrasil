@@ -1,6 +1,6 @@
 //! Passkey credential entity.
 
-use crate::types::StoredPasskeyCredential;
+use crate::types::passkey::StoredPasskeyCredential;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

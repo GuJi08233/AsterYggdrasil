@@ -10,7 +10,9 @@ use crate::entities::yggdrasil_session_forward_server::{
     self, Entity as YggdrasilSessionForwardServer,
 };
 use crate::errors::{AsterError, Result};
-use crate::types::{YggdrasilSessionForwardProviderKind, YggdrasilSessionForwardServerSortBy};
+use crate::types::{
+    yggdrasil::YggdrasilSessionForwardProviderKind, yggdrasil::YggdrasilSessionForwardServerSortBy,
+};
 use aster_forge_api::CursorSlice;
 
 pub async fn list_enabled_ordered(

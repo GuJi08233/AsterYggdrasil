@@ -7,7 +7,7 @@ use crate::db::{
 use crate::entities::background_task;
 use crate::errors::Result;
 use crate::runtime::DatabaseRuntimeState;
-use crate::types::BackgroundTaskKind;
+use crate::types::task::BackgroundTaskKind;
 use aster_forge_tasks::TaskLease;
 
 use super::TASK_PROCESSING_STALE_SECS;

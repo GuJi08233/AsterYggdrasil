@@ -187,9 +187,11 @@ fn oidc_external_auth_provider_model(
         key: Set(key.to_string()),
         display_name: Set(format!("{key} provider")),
         icon_url: Set(None),
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::Oidc),
-        protocol: Set(aster_yggdrasil::types::ExternalAuthProtocol::Oidc),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::Oidc),
+        protocol: Set(aster_yggdrasil::types::external_auth::ExternalAuthProtocol::Oidc),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         issuer_url: Set(Some(issuer_url.to_string())),
         authorization_url: Set(None),
         token_url: Set(None),
@@ -221,8 +223,10 @@ pub fn google_external_auth_provider_model(
     enabled: bool,
 ) -> external_auth_provider::ActiveModel {
     external_auth_provider::ActiveModel {
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::Google),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::Google),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         scopes: Set("openid profile email".to_string()),
         subject_claim: Set(Some("sub".to_string())),
         display_name_claim: Set(Some("name".to_string())),
@@ -239,8 +243,12 @@ pub fn microsoft_external_auth_provider_model(
     enabled: bool,
 ) -> external_auth_provider::ActiveModel {
     external_auth_provider::ActiveModel {
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::Microsoft),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(
+            aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::Microsoft,
+        ),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         scopes: Set("openid profile email".to_string()),
         require_email_verified: Set(false),
         subject_claim: Set(Some("sub".to_string())),
@@ -575,7 +583,7 @@ pub async fn disable_user(state: &aster_yggdrasil::runtime::AppState, user_id: i
         .expect("user should query")
         .expect("user should exist");
     let mut active = user.into_active_model();
-    active.status = Set(aster_yggdrasil::types::UserStatus::Disabled);
+    active.status = Set(aster_yggdrasil::types::user::UserStatus::Disabled);
     active
         .update(state.writer_db())
         .await

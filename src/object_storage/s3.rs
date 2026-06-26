@@ -4,7 +4,8 @@ use super::{ObjectBlobMetadata, ObjectStorage};
 use crate::config::S3ObjectStorageConfig;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use aster_forge_storage_core::{
-    join_key_prefix, normalize_object_key, normalize_object_prefix, strip_key_prefix,
+    S3ConfigError, join_key_prefix, normalize_object_key, normalize_object_prefix,
+    normalize_s3_endpoint_and_bucket, strip_key_prefix,
 };
 use async_trait::async_trait;
 use aws_credential_types::Credentials;
@@ -60,16 +61,17 @@ impl S3ObjectStorage {
             )
             .force_path_style(config.force_path_style);
 
-        let endpoint = normalize_endpoint(&config.endpoint)?;
-        if let Some(endpoint) = endpoint.as_deref() {
+        let normalized_s3 = normalize_storage_s3_config(config)?;
+        if !normalized_s3.endpoint.is_empty() {
+            let endpoint = normalized_s3.endpoint.as_str();
             builder = builder.endpoint_url(endpoint);
         }
 
         Ok(Self {
             client: aws_sdk_s3::Client::from_conf(builder.build()),
-            bucket: config.bucket.trim().to_string(),
+            bucket: normalized_s3.bucket,
             base_path: normalize_storage_prefix(&config.base_path)?,
-            endpoint,
+            endpoint: endpoint_option(normalized_s3.endpoint),
             force_path_style: config.force_path_style,
         })
     }
@@ -305,11 +307,7 @@ impl S3ObjectStorage {
 }
 
 fn validate_config(config: &S3ObjectStorageConfig) -> Result<()> {
-    if config.bucket.trim().is_empty() {
-        return Err(AsterError::config_error(
-            "object_storage.s3.bucket cannot be empty",
-        ));
-    }
+    normalize_storage_s3_config(config)?;
     if config.access_key_id.trim().is_empty() {
         return Err(AsterError::config_error(
             "object_storage.s3.access_key_id cannot be empty",
@@ -320,17 +318,30 @@ fn validate_config(config: &S3ObjectStorageConfig) -> Result<()> {
             "object_storage.s3.secret_access_key cannot be empty",
         ));
     }
-    normalize_endpoint(&config.endpoint)?;
     Ok(())
 }
 
-fn normalize_endpoint(endpoint: &str) -> Result<Option<String>> {
-    aster_forge_utils::url::normalize_http_base_url(
-        endpoint,
-        "object_storage.s3.endpoint",
-        aster_forge_utils::url::HttpBaseUrlOptions::optional_without_query_fragment(),
-    )
-    .map_err(|error| AsterError::config_error(error.to_string()))
+fn normalize_storage_s3_config(
+    config: &S3ObjectStorageConfig,
+) -> Result<aster_forge_storage_core::NormalizedS3Config> {
+    normalize_s3_endpoint_and_bucket(&config.endpoint, &config.bucket).map_err(map_s3_config_error)
+}
+
+fn map_s3_config_error(error: S3ConfigError) -> AsterError {
+    match error {
+        S3ConfigError::MissingBucket => {
+            AsterError::config_error("object_storage.s3.bucket cannot be empty")
+        }
+        S3ConfigError::InvalidEndpoint(message) => AsterError::config_error(message),
+    }
+}
+
+fn endpoint_option(endpoint: String) -> Option<String> {
+    if endpoint.is_empty() {
+        None
+    } else {
+        Some(endpoint)
+    }
 }
 
 fn normalize_storage_object_key(storage_key: &str) -> Result<String> {
@@ -392,8 +403,8 @@ fn format_error_source_chain(error: &dyn StdError) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        S3ObjectStorage, format_sdk_error, normalize_endpoint, normalize_storage_object_key,
-        normalize_storage_prefix,
+        S3ObjectStorage, format_sdk_error, normalize_storage_object_key, normalize_storage_prefix,
+        normalize_storage_s3_config,
     };
     use crate::config::{ObjectStorageConfig, S3ObjectStorageConfig};
     use crate::object_storage::{ObjectStorage, create_object_storage};
@@ -432,19 +443,34 @@ mod tests {
 
     #[test]
     fn endpoint_is_normalized_and_validated() {
-        assert_eq!(normalize_endpoint("").unwrap(), None);
+        let mut config = valid_config();
+        config.endpoint = String::new();
+        config.bucket = "textures".to_string();
+        let normalized = normalize_storage_s3_config(&config).unwrap();
+        assert_eq!(normalized.endpoint, "");
+        assert_eq!(normalized.bucket, "textures");
+
+        config.endpoint = " http://127.0.0.1:9000/ ".to_string();
         assert_eq!(
-            normalize_endpoint(" http://127.0.0.1:9000/ ").unwrap(),
-            Some("http://127.0.0.1:9000".to_string())
+            normalize_storage_s3_config(&config).unwrap().endpoint,
+            "http://127.0.0.1:9000"
         );
+
+        config.endpoint = "https://s3.example.test/root/".to_string();
         assert_eq!(
-            normalize_endpoint("https://s3.example.test/root/").unwrap(),
-            Some("https://s3.example.test/root".to_string())
+            normalize_storage_s3_config(&config).unwrap().endpoint,
+            "https://s3.example.test/root"
         );
-        assert!(normalize_endpoint("ftp://s3.example.test").is_err());
-        assert!(normalize_endpoint("http://").is_err());
-        assert!(normalize_endpoint("https://s3.example.test/root?x=1").is_err());
-        assert!(normalize_endpoint("https://s3.example.test/root#fragment").is_err());
+
+        for endpoint in [
+            "ftp://s3.example.test",
+            "http://",
+            "https://s3.example.test/root?x=1",
+            "https://s3.example.test/root#fragment",
+        ] {
+            config.endpoint = endpoint.to_string();
+            assert!(normalize_storage_s3_config(&config).is_err());
+        }
     }
 
     #[test]

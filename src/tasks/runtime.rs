@@ -1,6 +1,5 @@
 //! Runtime background task management.
 
-use std::future::Future;
 use std::time::Duration;
 
 use actix_web::web;
@@ -11,68 +10,28 @@ use crate::config::operations;
 use crate::runtime::{AppState, SharedRuntimeState};
 use crate::services::task_service::{RuntimeTaskRunOutcome, SystemRuntimeTaskKind};
 use aster_forge_metrics::SharedMetricsRecorder;
-use aster_forge_runtime::{
-    RuntimeComponentBundle, RuntimeComponentBundleRegistration, RuntimeComponentKind,
-    RuntimeComponentRegistry, runtime_component,
-};
 use aster_forge_tasks::BackgroundTasks;
 
 const MAINTENANCE_CLEANUP_JITTER_CAP: Duration = Duration::from_secs(30);
-
-/// Runtime component that owns spawned background task handles.
-pub struct BackgroundTaskRuntimeComponent {
-    background_tasks: BackgroundTasks,
-}
-
-impl BackgroundTaskRuntimeComponent {
-    /// Creates a background task runtime component from spawned task handles.
-    pub const fn new(background_tasks: BackgroundTasks) -> Self {
-        Self { background_tasks }
-    }
-}
-
-impl RuntimeComponentBundle for BackgroundTaskRuntimeComponent {
-    fn register(self, registry: &mut RuntimeComponentRegistry) {
-        register_system_runtime_task_descriptors(registry);
-        register_background_tasks_shutdown(registry, self.background_tasks);
-    }
-}
+const BACKGROUND_TASK_RUNTIME_LEASE_ID: &str = "aster_yggdrasil.background_tasks";
+const BACKGROUND_TASK_RUNTIME_LEASE_TTL: Duration = Duration::from_secs(30);
+const BACKGROUND_TASK_RUNTIME_LEASE_RENEW_INTERVAL: Duration = Duration::from_secs(10);
+const BACKGROUND_TASK_RUNTIME_LEASE_STANDBY_RETRY_INTERVAL: Duration = Duration::from_secs(5);
+const SCHEDULED_TASK_CLAIM_TTL: Duration = Duration::from_secs(120);
 
 /// Creates the background task runtime component used by the product entrypoint.
 pub fn task_component(
     background_tasks: BackgroundTasks,
-) -> RuntimeComponentBundleRegistration<BackgroundTaskRuntimeComponent> {
-    runtime_component(BackgroundTaskRuntimeComponent::new(background_tasks))
-}
-
-/// Registers graceful shutdown for all spawned runtime background tasks.
-pub fn register_background_tasks_shutdown(
-    registry: &mut RuntimeComponentRegistry,
-    background_tasks: BackgroundTasks,
-) {
-    registry.component_shutdown_once(
-        "background_tasks",
-        RuntimeComponentKind::Tasks,
-        "background_tasks",
-        None,
+) -> aster_forge_runtime::RuntimeComponentBundleRegistration<
+    aster_forge_tasks::BackgroundTaskRuntimeDefinitionsComponent<
+        SystemRuntimeTaskKind,
+        crate::services::task_service::types::TaskPresentationCode,
+    >,
+> {
+    aster_forge_tasks::background_task_component_with_definitions(
         background_tasks,
-        |background_tasks| async move {
-            background_tasks.shutdown().await;
-            Ok(())
-        },
-    );
-}
-
-/// Registers static metadata for runtime tasks owned by the background task component.
-pub fn register_system_runtime_task_descriptors(registry: &mut RuntimeComponentRegistry) {
-    for task in crate::services::task_service::registered_system_runtime_tasks() {
-        registry.component_task(
-            "background_tasks",
-            RuntimeComponentKind::Tasks,
-            task.wire_value,
-            task.display_name,
-        );
-    }
+        crate::services::task_service::registered_system_runtime_tasks(),
+    )
 }
 
 pub fn spawn_runtime_background_tasks(
@@ -83,138 +42,146 @@ pub fn spawn_runtime_background_tasks(
     let mut tasks = build_background_tasks_base(state.metrics(), shutdown_token);
     let shutdown_token = tasks.shutdown_token();
 
-    tasks.push(spawn_background_task_dispatcher(
-        shutdown_token.clone(),
-        state.clone(),
-    ));
+    if state.get_ref().config_sync().enabled() {
+        tasks.push(spawn_config_reload_subscription(
+            shutdown_token.clone(),
+            state.clone(),
+        ));
+    }
 
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::MailOutboxDispatch,
-        mail_outbox_dispatch_interval,
-        None,
-        &shutdown_token,
-        &state,
-        run_mail_outbox_dispatch,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::SystemHealthCheck,
-        maintenance_cleanup_interval,
-        None,
-        &shutdown_token,
-        &state,
-        run_system_health_check,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::AuthSessionCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_auth_session_cleanup,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::ExternalAuthFlowCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_external_auth_flow_cleanup,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::YggdrasilTokenCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_yggdrasil_token_cleanup,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::AuditCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_audit_cleanup,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::TaskCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_task_cleanup,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::YggdrasilStorageConsistencyCheck,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_yggdrasil_storage_consistency_check,
-    );
-
-    push_recorded_periodic_task(
-        &mut tasks,
-        SystemRuntimeTaskKind::YggdrasilTextureCleanup,
-        maintenance_cleanup_interval,
-        Some(MAINTENANCE_CLEANUP_JITTER_CAP),
-        &shutdown_token,
-        &state,
-        run_yggdrasil_texture_cleanup,
-    );
+    tasks.push(run_background_runtime_group(shutdown_token.clone(), state));
 
     tasks
 }
 
-fn push_recorded_periodic_task<F, I, Fut>(
-    tasks: &mut BackgroundTasks,
-    name: SystemRuntimeTaskKind,
-    interval_fn: I,
-    jitter_cap: Option<Duration>,
-    shutdown_token: &CancellationToken,
-    state: &web::Data<AppState>,
-    task_fn: F,
-) where
-    I: Fn(&AppState) -> Duration + Send + Sync + 'static,
-    F: Fn(web::Data<AppState>) -> Fut + Send + Sync + 'static,
-    Fut: Future<Output = RuntimeTaskRunOutcome> + Send + 'static,
-{
-    let interval_fn = move |state: &web::Data<AppState>| interval_fn(state.get_ref());
-    tasks.push(aster_forge_tasks::run_periodic_task(
-        aster_forge_tasks::PeriodicTask {
-            name,
-            task_name: name.as_str(),
-            interval_fn,
-            jitter_cap,
-            shutdown_token: shutdown_token.clone(),
-            state: state.clone(),
-            hooks: aster_forge_tasks::RecordedTaskHooks::new(
-                task_fn,
-                |panic_message| {
-                    RuntimeTaskRunOutcome::failed(Some("Task panicked".to_string()), panic_message)
-                },
-                record_periodic_task_outcome,
-            ),
+async fn run_background_runtime_group(
+    shutdown_token: CancellationToken,
+    state: web::Data<AppState>,
+) {
+    let config = aster_forge_tasks::LeasedScheduledRuntimeConfig::new(
+        "aster_yggdrasil",
+        BACKGROUND_TASK_RUNTIME_LEASE_ID,
+        aster_forge_db::RuntimeLeaseDbStore::new(state.writer_db().clone()),
+        aster_forge_db::ScheduledTaskDbStore::new(state.writer_db().clone()),
+        state,
+        |panic_message| {
+            RuntimeTaskRunOutcome::failed(Some("Task panicked".to_string()), panic_message)
         },
-    ));
+        record_scheduled_task_outcome,
+    )
+    .claim_ttl(SCHEDULED_TASK_CLAIM_TTL)
+    .lease_ttl(BACKGROUND_TASK_RUNTIME_LEASE_TTL)
+    .lease_renew_interval(BACKGROUND_TASK_RUNTIME_LEASE_RENEW_INTERVAL)
+    .lease_standby_retry_interval(BACKGROUND_TASK_RUNTIME_LEASE_STANDBY_RETRY_INTERVAL);
+
+    config
+        .run(shutdown_token, |runtime| {
+            runtime.worker(spawn_background_task_dispatcher);
+            runtime.scheduled(
+                SystemRuntimeTaskKind::MailOutboxDispatch,
+                mail_outbox_dispatch_interval_for_web_state,
+                None,
+                run_mail_outbox_dispatch,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::SystemHealthCheck,
+                maintenance_cleanup_interval_for_web_state,
+                None,
+                run_system_health_check,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::AuthSessionCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_auth_session_cleanup,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::ExternalAuthFlowCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_external_auth_flow_cleanup,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::YggdrasilTokenCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_yggdrasil_token_cleanup,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::AuditCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_audit_cleanup,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::TaskCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_task_cleanup,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::YggdrasilStorageConsistencyCheck,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_yggdrasil_storage_consistency_check,
+            );
+            runtime.scheduled(
+                SystemRuntimeTaskKind::YggdrasilTextureCleanup,
+                maintenance_cleanup_interval_for_web_state,
+                Some(MAINTENANCE_CLEANUP_JITTER_CAP),
+                run_yggdrasil_texture_cleanup,
+            );
+        })
+        .await;
 }
 
-async fn record_periodic_task_outcome(
+fn spawn_config_reload_subscription(
+    shutdown_token: CancellationToken,
+    state: web::Data<AppState>,
+) -> impl Future<Output = ()> + Send + 'static {
+    let state = std::sync::Arc::new(state.get_ref().clone());
+    let settings = state.config_sync().clone();
+    async move {
+        if let Err(error) =
+            crate::services::config_service::runtime::run_config_reload_subscription(
+                state,
+                settings,
+                shutdown_token,
+            )
+            .await
+        {
+            tracing::warn!(
+                error = %error,
+                "runtime config reload subscription stopped"
+            );
+        }
+    }
+}
+
+async fn record_scheduled_task_outcome(
+    state: web::Data<AppState>,
+    name: SystemRuntimeTaskKind,
+    claim: aster_forge_tasks::ScheduledTaskClaim,
+    started_at: chrono::DateTime<Utc>,
+    finished_at: chrono::DateTime<Utc>,
+    outcome: RuntimeTaskRunOutcome,
+) {
+    let task_name = name.as_str();
+    if let Err(error) = crate::services::task_service::record_scheduled_runtime_task_run(
+        state.get_ref(),
+        name,
+        claim.scheduled_at,
+        started_at,
+        finished_at,
+        &outcome,
+    )
+    .await
+    {
+        tracing::warn!("failed to record runtime task '{task_name}': {error}");
+    }
+}
+
+async fn record_runtime_task_outcome(
     state: web::Data<AppState>,
     name: SystemRuntimeTaskKind,
     started_at: chrono::DateTime<Utc>,
@@ -586,7 +553,7 @@ async fn run_background_task_dispatch_iteration(
             }
             RuntimeTaskRunOutcome::failed(Some("Task panicked".to_string()), panic_message)
         },
-        &record_periodic_task_outcome,
+        &record_runtime_task_outcome,
     )
     .await;
 
@@ -651,10 +618,18 @@ fn maintenance_cleanup_interval(state: &impl SharedRuntimeState) -> Duration {
     ))
 }
 
+fn maintenance_cleanup_interval_for_web_state(state: &web::Data<AppState>) -> Duration {
+    maintenance_cleanup_interval(state.get_ref())
+}
+
 fn mail_outbox_dispatch_interval(state: &impl SharedRuntimeState) -> Duration {
     Duration::from_secs(operations::mail_outbox_dispatch_interval_secs(
         state.runtime_config(),
     ))
+}
+
+fn mail_outbox_dispatch_interval_for_web_state(state: &web::Data<AppState>) -> Duration {
+    mail_outbox_dispatch_interval(state.get_ref())
 }
 
 #[cfg(test)]
@@ -673,7 +648,7 @@ mod tests {
         });
 
         let descriptor = registry
-            .descriptor("background_tasks")
+            .descriptor(aster_forge_tasks::BACKGROUND_TASKS_COMPONENT)
             .expect("background task component should be registered");
         assert_eq!(
             descriptor.kind,
@@ -684,7 +659,7 @@ mod tests {
                 .shutdown
                 .expect("background task shutdown should be registered")
                 .phase_name,
-            "background_tasks"
+            aster_forge_tasks::BACKGROUND_TASKS_SHUTDOWN_PHASE
         );
         assert_eq!(
             descriptor
@@ -702,10 +677,14 @@ mod tests {
     #[test]
     fn task_shutdown_registrar_can_be_used_directly() {
         let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            register_background_tasks_shutdown(registry, BackgroundTasks::new());
+            aster_forge_tasks::register_background_tasks_shutdown(registry, BackgroundTasks::new());
         });
 
-        assert!(registry.descriptor("background_tasks").is_some());
+        assert!(
+            registry
+                .descriptor(aster_forge_tasks::BACKGROUND_TASKS_COMPONENT)
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -742,7 +721,10 @@ mod tests {
     #[test]
     fn system_health_outcome_succeeds_when_report_is_healthy() {
         let outcome = system_health_outcome(SystemHealthReport::new(vec![
-            HealthComponentReport::healthy("database", "database ping succeeded"),
+            HealthComponentReport::healthy(
+                aster_forge_db::DATABASE_HEALTH_CHECK,
+                "database ping succeeded",
+            ),
             HealthComponentReport::healthy("cache", "cache health check succeeded"),
         ]));
 
@@ -765,7 +747,10 @@ mod tests {
     #[test]
     fn system_health_outcome_fails_when_report_has_issues() {
         let outcome = system_health_outcome(SystemHealthReport::new(vec![
-            HealthComponentReport::healthy("database", "database ping succeeded"),
+            HealthComponentReport::healthy(
+                aster_forge_db::DATABASE_HEALTH_CHECK,
+                "database ping succeeded",
+            ),
             HealthComponentReport::degraded("cache", "memory fallback active")
                 .with_detail("active_backend", "memory"),
         ]));

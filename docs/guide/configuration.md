@@ -21,12 +21,22 @@ url = "sqlite://asteryggdrasil.db?mode=rwc"
 [cache]
 backend = "memory"
 
+[config_sync]
+backend = "disabled"
+endpoint = ""
+topic = "aster_yggdrasil.config_reload"
+
 [object_storage]
 backend = "local"
 local_root = "storage"
 ```
 
 相对路径按 `data/config.toml` 所在目录解析。默认 `local_root = "storage"` 会落到 `data/storage`。材质和用户上传头像都走这个对象存储配置。
+
+`config_sync` 用于多进程部署时同步运行时配置 reload 信号。默认 `disabled`，单进程部署不需要配置。
+当前可用 backend 是 `redis`，`endpoint` 填 Redis URL，`topic` 是逻辑主题；服务内部会把它映射到具体 transport 的通道名。
+通知只携带“哪些 key 变了”的 reload hint，不携带配置值；其他进程收到后会从数据库重新加载 runtime config。
+进程级 runtime ID 由 Forge 自动生成，用于忽略本进程发出的 reload 回声，不需要在业务配置里指定。
 
 ## Yggdrasil 运行时配置
 

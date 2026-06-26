@@ -3,12 +3,6 @@
 
 use chrono::{DateTime, Utc};
 
-use crate::db::repository::background_task_repo;
-use crate::entities::background_task;
-use crate::errors::Result;
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::{BackgroundTaskStatus, StoredTaskPayload};
-
 use super::spec::{self, SystemRuntimeTask};
 use super::types::{
     RuntimeSystemHealthResult, RuntimeTaskPayload, RuntimeTaskResult, TaskPresentationCode,
@@ -17,6 +11,11 @@ use super::{
     TypedTaskCreate, insert_typed_task_record, task_expiration_from, truncate_error,
     truncate_status_text,
 };
+use crate::db::repository::background_task_repo;
+use crate::entities::background_task;
+use crate::errors::Result;
+use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
+use crate::types::task::{BackgroundTaskStatus, StoredTaskPayload};
 
 pub(crate) type SystemRuntimeTaskDefinition =
     aster_forge_tasks::RuntimeTaskDefinition<SystemRuntimeTaskKind, TaskPresentationCode>;
@@ -251,6 +250,49 @@ pub async fn record_runtime_task_run(
     finished_at: DateTime<Utc>,
     outcome: &RuntimeTaskRunOutcome,
 ) -> Result<Option<background_task::Model>> {
+    record_runtime_task_run_with_dedupe_key(
+        state,
+        task_name,
+        started_at,
+        finished_at,
+        outcome,
+        None,
+    )
+    .await
+}
+
+pub async fn record_scheduled_runtime_task_run(
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    task_name: SystemRuntimeTaskKind,
+    scheduled_at: DateTime<Utc>,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    outcome: &RuntimeTaskRunOutcome,
+) -> Result<Option<background_task::Model>> {
+    let dedupe_key = aster_forge_tasks::scheduled_task_dedupe_key(
+        "aster_yggdrasil",
+        task_name.as_str(),
+        scheduled_at,
+    )?;
+    record_runtime_task_run_with_dedupe_key(
+        state,
+        task_name,
+        started_at,
+        finished_at,
+        outcome,
+        Some(dedupe_key),
+    )
+    .await
+}
+
+async fn record_runtime_task_run_with_dedupe_key(
+    state: &(impl DatabaseRuntimeState + RuntimeConfigRuntimeState),
+    task_name: SystemRuntimeTaskKind,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    outcome: &RuntimeTaskRunOutcome,
+    dedupe_key: Option<aster_forge_tasks::TaskDedupeKey>,
+) -> Result<Option<background_task::Model>> {
     if !outcome.should_record() {
         return Ok(None);
     }
@@ -313,6 +355,9 @@ pub async fn record_runtime_task_run(
             None
         })
         .result(&result)?;
+    if let Some(dedupe_key) = dedupe_key {
+        create = create.dedupe_key(dedupe_key);
+    }
     if let Some(summary) = summary {
         create = create.status_text(summary);
     }
@@ -342,12 +387,12 @@ fn should_refresh_latest_success(
 mod tests {
     use super::{
         RuntimeTaskRunOutcome, SystemRuntimeTaskKind, find_latest_system_runtime_by_task_name,
-        record_runtime_task_run, system_runtime_payload_json,
+        record_runtime_task_run, record_scheduled_runtime_task_run, system_runtime_payload_json,
     };
     use crate::services::task_service::types::{
         RuntimeSystemHealthComponent, RuntimeSystemHealthResult, RuntimeSystemHealthStatus,
     };
-    use crate::types::BackgroundTaskStatus;
+    use crate::types::task::BackgroundTaskStatus;
     use chrono::{Duration, Utc};
 
     async fn test_state() -> crate::runtime::AppState {
@@ -373,7 +418,7 @@ mod tests {
             .expect("runtime task config should reload");
         let config = std::sync::Arc::new(crate::config::Config {
             database: db_cfg,
-            cache: crate::config::CacheConfig {
+            cache: aster_forge_cache::CacheConfig {
                 ..Default::default()
             },
             ..Default::default()
@@ -388,6 +433,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("runtime task test AppState should build")
@@ -528,6 +576,53 @@ mod tests {
         assert_eq!(failed.progress_total, 1);
         assert_eq!(failed.last_error.as_deref(), Some("boom"));
         assert_eq!(failed.failure_can_retry, Some(false));
+    }
+
+    #[tokio::test]
+    async fn scheduled_runtime_task_run_is_idempotent_for_same_due_time() {
+        let state = test_state().await;
+        let scheduled_at = Utc::now() - Duration::minutes(5);
+        let first_start = scheduled_at + Duration::seconds(1);
+        let first_finish = first_start + Duration::seconds(1);
+
+        let first = record_scheduled_runtime_task_run(
+            &state,
+            SystemRuntimeTaskKind::AuditCleanup,
+            scheduled_at,
+            first_start,
+            first_finish,
+            &RuntimeTaskRunOutcome::succeeded(Some("audit cleanup done".to_string())),
+        )
+        .await
+        .unwrap()
+        .expect("first scheduled runtime task should record");
+
+        let second = record_scheduled_runtime_task_run(
+            &state,
+            SystemRuntimeTaskKind::AuditCleanup,
+            scheduled_at,
+            first_start + Duration::seconds(10),
+            first_finish + Duration::seconds(10),
+            &RuntimeTaskRunOutcome::succeeded(Some("audit cleanup duplicate".to_string())),
+        )
+        .await
+        .unwrap()
+        .expect("duplicate scheduled runtime task should return existing row");
+
+        assert_eq!(second.id, first.id);
+        assert_eq!(second.status_text.as_deref(), Some("audit cleanup done"));
+        assert_eq!(
+            second.dedupe_key.as_deref(),
+            Some(
+                aster_forge_tasks::scheduled_task_dedupe_key(
+                    "aster_yggdrasil",
+                    SystemRuntimeTaskKind::AuditCleanup.as_str(),
+                    scheduled_at,
+                )
+                .unwrap()
+                .as_str()
+            )
+        );
     }
 
     #[tokio::test]

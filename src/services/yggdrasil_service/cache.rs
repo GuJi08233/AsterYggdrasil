@@ -259,8 +259,8 @@ fn join_session_key(server_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::CacheConfig;
     use aster_forge_cache::CacheBackend;
+    use aster_forge_cache::CacheConfig;
     use aster_forge_cache::create_cache;
     use std::sync::Arc;
 

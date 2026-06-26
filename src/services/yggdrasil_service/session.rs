@@ -17,8 +17,10 @@ use crate::runtime::{
     YggdrasilSessionForwardRuntimeState,
 };
 use crate::services::{audit_service, ban_service, yggdrasil_signature};
-use crate::types::UserBanScope;
-use crate::types::{YggdrasilSessionForwardEndpointKind, YggdrasilSessionForwardProviderKind};
+use crate::types::user::UserBanScope;
+use crate::types::{
+    yggdrasil::YggdrasilSessionForwardEndpointKind, yggdrasil::YggdrasilSessionForwardProviderKind,
+};
 use aster_forge_crypto::sha256_hex;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};

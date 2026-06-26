@@ -7,8 +7,7 @@ use sea_orm::{
 use super::common::claimable_condition;
 use crate::entities::background_task::{self, Entity as BackgroundTask};
 use crate::errors::{AsterError, Result};
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus};
-
+use crate::types::task::{BackgroundTaskKind, BackgroundTaskStatus};
 pub async fn list_claimable<C: ConnectionTrait>(
     db: &C,
     now: DateTime<Utc>,

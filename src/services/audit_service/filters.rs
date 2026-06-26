@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::{IntoParams, ToSchema};
 
-use crate::types::AuditEntityType;
+use crate::types::audit::AuditEntityType;
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(
@@ -54,7 +54,7 @@ impl AuditLogFilters {
 #[cfg(test)]
 mod tests {
     use super::{AuditLogFilterQuery, AuditLogFilters};
-    use crate::types::AuditEntityType;
+    use crate::types::audit::AuditEntityType;
 
     #[test]
     fn from_query_preserves_scalar_filters_and_parses_rfc3339_bounds() {

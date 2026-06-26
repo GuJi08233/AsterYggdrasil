@@ -322,9 +322,13 @@ pub fn external_auth_provider_model(
         key: Set(key.to_string()),
         display_name: Set(format!("{key} provider")),
         icon_url: Set(None),
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::GenericOAuth2),
-        protocol: Set(aster_yggdrasil::types::ExternalAuthProtocol::OAuth2),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(
+            aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::GenericOAuth2,
+        ),
+        protocol: Set(aster_yggdrasil::types::external_auth::ExternalAuthProtocol::OAuth2),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         issuer_url: Set(None),
         authorization_url: Set(Some(format!("{base_url}/authorize"))),
         token_url: Set(Some(format!("{base_url}/token"))),
@@ -360,9 +364,11 @@ pub fn github_external_auth_provider_model(
         key: Set(key.to_string()),
         display_name: Set(format!("{key} provider")),
         icon_url: Set(None),
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::GitHub),
-        protocol: Set(aster_yggdrasil::types::ExternalAuthProtocol::OAuth2),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::GitHub),
+        protocol: Set(aster_yggdrasil::types::external_auth::ExternalAuthProtocol::OAuth2),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         issuer_url: Set(None),
         authorization_url: Set(Some(format!("{base_url}/authorize"))),
         token_url: Set(Some(format!("{base_url}/token"))),
@@ -399,9 +405,11 @@ pub fn qq_external_auth_provider_model(
         key: Set(key.to_string()),
         display_name: Set(format!("{key} provider")),
         icon_url: Set(None),
-        provider_kind: Set(aster_yggdrasil::types::ExternalAuthProviderKind::Qq),
-        protocol: Set(aster_yggdrasil::types::ExternalAuthProtocol::OAuth2),
-        options: Set(aster_yggdrasil::types::StoredExternalAuthProviderOptions::empty()),
+        provider_kind: Set(aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::Qq),
+        protocol: Set(aster_yggdrasil::types::external_auth::ExternalAuthProtocol::OAuth2),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions::empty(),
+        ),
         issuer_url: Set(None),
         authorization_url: Set(Some(format!("{base_url}/authorize"))),
         token_url: Set(Some(format!("{base_url}/qq/token"))),
@@ -434,7 +442,7 @@ pub async fn disable_user(state: &aster_yggdrasil::runtime::AppState, user_id: i
         .expect("user should query")
         .expect("user should exist");
     let mut active = user.into_active_model();
-    active.status = Set(aster_yggdrasil::types::UserStatus::Disabled);
+    active.status = Set(aster_yggdrasil::types::user::UserStatus::Disabled);
     active
         .update(state.writer_db())
         .await

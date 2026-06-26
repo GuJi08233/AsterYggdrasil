@@ -1,6 +1,6 @@
 //! Contact verification token entity.
 
-use crate::types::{VerificationChannel, VerificationPurpose};
+use crate::types::auth::{VerificationChannel, VerificationPurpose};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

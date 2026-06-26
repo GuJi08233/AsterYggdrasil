@@ -8,7 +8,8 @@ use aster_yggdrasil::config::definitions::BRANDING_TITLE_KEY;
 use aster_yggdrasil::db::repository::{background_task_repo, system_config_repo, user_repo};
 use aster_yggdrasil::entities::background_task;
 use aster_yggdrasil::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
+    task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    task::StoredTaskResult,
 };
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveValue::Set, ConnectionTrait, DatabaseConnection, DbBackend, Statement};

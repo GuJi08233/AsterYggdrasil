@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
-    StoredTaskRuntime, StoredTaskSteps,
+    task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    task::StoredTaskResult, task::StoredTaskRuntime, task::StoredTaskSteps,
 };
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
@@ -21,6 +21,7 @@ pub struct Model {
     pub status: BackgroundTaskStatus,
     pub creator_user_id: Option<i64>,
     pub display_name: String,
+    pub dedupe_key: Option<String>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
     pub payload_json: StoredTaskPayload,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]

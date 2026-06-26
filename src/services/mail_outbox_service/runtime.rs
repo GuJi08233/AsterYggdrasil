@@ -10,10 +10,7 @@ use std::sync::Arc;
 use crate::config::RuntimeConfig;
 use crate::runtime::MailRuntimeState;
 use aster_forge_mail::MailSender;
-use aster_forge_runtime::{
-    RuntimeComponentBundle, RuntimeComponentBundleRegistration, RuntimeComponentKind,
-    RuntimeComponentRegistry, runtime_component,
-};
+use aster_forge_runtime::RuntimeComponentBundleRegistration;
 use sea_orm::DatabaseConnection;
 
 /// Minimal runtime resources needed to drain the mail outbox.
@@ -51,62 +48,33 @@ impl MailOutboxRuntimeResources {
     }
 }
 
-/// Runtime component that drains due mail outbox rows during graceful shutdown.
-pub struct MailOutboxRuntimeComponent {
-    resources: MailOutboxRuntimeResources,
-}
-
-impl MailOutboxRuntimeComponent {
-    /// Creates a mail outbox runtime component from owned runtime resources.
-    pub const fn new(resources: MailOutboxRuntimeResources) -> Self {
-        Self { resources }
-    }
-}
-
-impl RuntimeComponentBundle for MailOutboxRuntimeComponent {
-    fn register(self, registry: &mut RuntimeComponentRegistry) {
-        register_mail_outbox_shutdown(registry, self.resources);
-    }
-}
-
 /// Creates the mail outbox runtime component used by the product entrypoint.
 pub fn mail_outbox_component(
     resources: MailOutboxRuntimeResources,
-) -> RuntimeComponentBundleRegistration<MailOutboxRuntimeComponent> {
-    runtime_component(MailOutboxRuntimeComponent::new(resources))
+) -> RuntimeComponentBundleRegistration<
+    aster_forge_runtime::ShutdownResourceComponent<MailOutboxRuntimeResources>,
+> {
+    aster_forge_mail::mail_outbox_component(resources, drain_mail_outbox_on_shutdown)
 }
 
-/// Registers graceful mail outbox draining after runtime background tasks stop.
-pub fn register_mail_outbox_shutdown(
-    registry: &mut RuntimeComponentRegistry,
+async fn drain_mail_outbox_on_shutdown(
     resources: MailOutboxRuntimeResources,
-) {
-    registry
-        .component("mail_outbox")
-        .kind(RuntimeComponentKind::Mail)
-        .depends_on("background_tasks")
-        .shutdown_once(
-            "mail_outbox_drain",
-            None,
-            resources,
-            |resources| async move {
-                super::drain_with(
-                    &resources.db,
-                    &resources.runtime_config,
-                    &resources.mail_sender,
-                )
-                .await
-                .map(|_| ())
-                .map_err(|error| error.to_string())
-            },
-        );
+) -> Result<(), String> {
+    super::drain_with(
+        &resources.db,
+        &resources.runtime_config,
+        &resources.mail_sender,
+    )
+    .await
+    .map(|_| ())
+    .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use super::{MailOutboxRuntimeResources, mail_outbox_component, register_mail_outbox_shutdown};
+    use super::{MailOutboxRuntimeResources, mail_outbox_component};
     use aster_forge_runtime::RuntimeComponentBundle;
     use sea_orm::EntityTrait;
 
@@ -129,19 +97,22 @@ mod tests {
         });
 
         let descriptor = registry
-            .descriptor("mail_outbox")
+            .descriptor(aster_forge_mail::MAIL_OUTBOX_COMPONENT)
             .expect("mail outbox component should be registered");
         assert_eq!(
             descriptor.kind,
             aster_forge_runtime::RuntimeComponentKind::Mail
         );
-        assert_eq!(descriptor.dependencies, vec!["background_tasks"]);
+        assert_eq!(
+            descriptor.dependencies,
+            vec![aster_forge_tasks::BACKGROUND_TASKS_COMPONENT]
+        );
         assert_eq!(
             descriptor
                 .shutdown
                 .expect("mail outbox shutdown should be registered")
                 .phase_name,
-            "mail_outbox_drain"
+            aster_forge_mail::MAIL_OUTBOX_DRAIN_SHUTDOWN_PHASE
         );
     }
 
@@ -149,10 +120,18 @@ mod tests {
     async fn mail_outbox_shutdown_registrar_can_be_used_directly() {
         let resources = test_resources().await;
         let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            register_mail_outbox_shutdown(registry, resources);
+            aster_forge_mail::register_mail_outbox_shutdown(
+                registry,
+                resources,
+                super::drain_mail_outbox_on_shutdown,
+            );
         });
 
-        assert!(registry.descriptor("mail_outbox").is_some());
+        assert!(
+            registry
+                .descriptor(aster_forge_mail::MAIL_OUTBOX_COMPONENT)
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -195,17 +174,20 @@ mod tests {
 
         assert!(!report.has_failures());
         assert_eq!(report.phases.len(), 1);
-        assert_eq!(report.phases[0].name, "mail_outbox_drain");
+        assert_eq!(
+            report.phases[0].name,
+            aster_forge_mail::MAIL_OUTBOX_DRAIN_SHUTDOWN_PHASE
+        );
 
         let stored = crate::entities::mail_outbox::Entity::find_by_id(row.id)
             .one(&db)
             .await
             .expect("mail outbox drain test row lookup should succeed")
             .expect("mail outbox drain test row should exist");
-        assert_eq!(stored.status, crate::types::MailOutboxStatus::Sent);
+        assert_eq!(stored.status, aster_forge_mail::MailOutboxStatus::Sent);
         assert_eq!(
             stored.payload_json.as_ref(),
-            crate::types::StoredMailPayload::CLEARED_JSON
+            aster_forge_mail::StoredMailPayload::CLEARED_JSON
         );
 
         let sender = aster_forge_mail::memory_sender_ref(&mail_sender)

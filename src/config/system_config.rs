@@ -4,7 +4,7 @@ use crate::config::RuntimeConfig;
 use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef};
 use crate::entities::system_config;
 use crate::errors::Result;
-use crate::types::{SystemConfigSource, SystemConfigValueType};
+use crate::types::config::{SystemConfigSource, SystemConfigValueType};
 use aster_forge_config::{ConfigValueLookup, StoredConfig};
 
 impl ConfigValueLookup for RuntimeConfig {
@@ -62,15 +62,18 @@ fn model_to_stored_config(config: &system_config::Model) -> StoredConfig {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
+    use chrono::Utc;
+
     use super::{apply_definition, normalize_system_value, validate_value_type};
     use crate::config::definitions::{CONFIG_CATEGORY_SITE_PUBLIC, PUBLIC_SITE_URL_KEY};
     use crate::config::yggdrasil::{YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY};
     use crate::config::{audit, cors, operations};
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-    use chrono::Utc;
-    use std::collections::HashMap;
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     fn model(key: &str, value: &str, source: SystemConfigSource) -> system_config::Model {
         system_config::Model {
             id: 1,

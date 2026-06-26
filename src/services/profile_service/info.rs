@@ -12,7 +12,7 @@ use crate::db::repository::user_profile_repo;
 use crate::entities::{user, user_profile};
 use crate::errors::Result;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::AvatarSource;
+use crate::types::user::AvatarSource;
 
 use super::shared::{AVATAR_SIZE_LG, AVATAR_SIZE_SM, stored_avatar_prefix};
 

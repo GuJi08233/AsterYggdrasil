@@ -11,8 +11,8 @@ use super::{
 use crate::config::DatabaseConfig;
 use crate::entities::background_task;
 use crate::types::{
-    BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
-    StoredTaskRuntime, StoredTaskSteps,
+    task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    task::StoredTaskResult, task::StoredTaskRuntime, task::StoredTaskSteps,
 };
 use chrono::{Duration, Utc};
 use sea_orm::{ActiveModelTrait, Set};

@@ -17,7 +17,7 @@ use crate::services::{
     mail_outbox_service,
     mail_template::MailTemplatePayload,
 };
-use crate::types::{UserInvitationStatus, UserRole, UserStatus};
+use crate::types::user::{UserInvitationStatus, UserRole, UserStatus};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 use aster_forge_crypto as hash;
 use aster_forge_utils::numbers::u64_to_i64;

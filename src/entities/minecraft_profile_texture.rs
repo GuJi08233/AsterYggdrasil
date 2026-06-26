@@ -1,6 +1,6 @@
 //! Minecraft profile current texture binding entity.
 
-use crate::types::MinecraftTextureType;
+use crate::types::yggdrasil::MinecraftTextureType;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

@@ -145,7 +145,7 @@ where
         .collect::<Vec<_>>();
     if !metadata
         .iter()
-        .any(|texture| texture.texture_type == crate::types::MinecraftTextureType::Skin)
+        .any(|texture| texture.texture_type == crate::types::yggdrasil::MinecraftTextureType::Skin)
     {
         metadata.push(default_skin_metadata(state, profile)?);
     }
@@ -212,9 +212,9 @@ where
         profile_uuid: profile.uuid.clone(),
         profile_name: profile.name.clone(),
         hash: skin.hash.to_string(),
-        texture_type: crate::types::MinecraftTextureType::Skin,
+        texture_type: crate::types::yggdrasil::MinecraftTextureType::Skin,
         texture_model: skin.model,
-        visibility: crate::types::MinecraftTextureVisibility::Public,
+        visibility: crate::types::yggdrasil::MinecraftTextureVisibility::Public,
         width: skin.width,
         height: skin.height,
         file_size: skin.file_size,
@@ -223,7 +223,7 @@ where
         preview_url: super::current_texture_preview_url(
             state.runtime_config(),
             skin.hash,
-            crate::types::MinecraftTextureType::Skin,
+            crate::types::yggdrasil::MinecraftTextureType::Skin,
             skin.model,
         ),
         source: MinecraftTextureMetadataSource::Default,
@@ -496,7 +496,7 @@ where
             .avatar
         })
         .unwrap_or_else(|| profile_service::AvatarInfo {
-            source: crate::types::AvatarSource::None,
+            source: crate::types::user::AvatarSource::None,
             url_512: None,
             url_1024: None,
             version: 0,

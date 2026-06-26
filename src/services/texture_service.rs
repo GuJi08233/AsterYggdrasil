@@ -57,8 +57,9 @@ use crate::runtime::{
 };
 use crate::services::ban_service;
 use crate::types::{
-    MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
-    MinecraftTextureReportStatus, MinecraftTextureType, MinecraftTextureVisibility, UserBanScope,
+    user::UserBanScope, yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
+    yggdrasil::MinecraftTextureReportReason, yggdrasil::MinecraftTextureReportStatus,
+    yggdrasil::MinecraftTextureType, yggdrasil::MinecraftTextureVisibility,
 };
 use aster_forge_api::{CursorPage, DateTimeIdCursor, NullablePatch, SortOrderNameIdCursor};
 use chrono::{DateTime, Utc};

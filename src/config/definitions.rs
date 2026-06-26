@@ -1131,7 +1131,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::RegisterActivation,
+                aster_forge_mail::MailTemplateCode::RegisterActivation,
             )
             .to_string()
         },
@@ -1149,7 +1149,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::RegisterActivation,
+                aster_forge_mail::MailTemplateCode::RegisterActivation,
             )
             .to_string()
         },
@@ -1167,7 +1167,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::ContactChangeConfirmation,
+                aster_forge_mail::MailTemplateCode::ContactChangeConfirmation,
             )
             .to_string()
         },
@@ -1185,7 +1185,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::ContactChangeConfirmation,
+                aster_forge_mail::MailTemplateCode::ContactChangeConfirmation,
             )
             .to_string()
         },
@@ -1203,7 +1203,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::PasswordReset,
+                aster_forge_mail::MailTemplateCode::PasswordReset,
             )
             .to_string()
         },
@@ -1221,7 +1221,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::PasswordReset,
+                aster_forge_mail::MailTemplateCode::PasswordReset,
             )
             .to_string()
         },
@@ -1239,7 +1239,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::PasswordResetNotice,
+                aster_forge_mail::MailTemplateCode::PasswordResetNotice,
             )
             .to_string()
         },
@@ -1257,7 +1257,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::PasswordResetNotice,
+                aster_forge_mail::MailTemplateCode::PasswordResetNotice,
             )
             .to_string()
         },
@@ -1275,7 +1275,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::ContactChangeNotice,
+                aster_forge_mail::MailTemplateCode::ContactChangeNotice,
             )
             .to_string()
         },
@@ -1293,7 +1293,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::ContactChangeNotice,
+                aster_forge_mail::MailTemplateCode::ContactChangeNotice,
             )
             .to_string()
         },
@@ -1311,7 +1311,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::ExternalAuthEmailVerification,
+                aster_forge_mail::MailTemplateCode::ExternalAuthEmailVerification,
             )
             .to_string()
         },
@@ -1329,7 +1329,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::ExternalAuthEmailVerification,
+                aster_forge_mail::MailTemplateCode::ExternalAuthEmailVerification,
             )
             .to_string()
         },
@@ -1347,7 +1347,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::LoginEmailCode,
+                aster_forge_mail::MailTemplateCode::LoginEmailCode,
             )
             .to_string()
         },
@@ -1365,7 +1365,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::LoginEmailCode,
+                aster_forge_mail::MailTemplateCode::LoginEmailCode,
             )
             .to_string()
         },
@@ -1383,7 +1383,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::String,
         default_fn: || {
             crate::config::mail::default_template_subject(
-                crate::types::MailTemplateCode::UserInvitation,
+                aster_forge_mail::MailTemplateCode::UserInvitation,
             )
             .to_string()
         },
@@ -1401,7 +1401,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         value_type: ConfigValueType::Multiline,
         default_fn: || {
             crate::config::mail::default_template_html(
-                crate::types::MailTemplateCode::UserInvitation,
+                aster_forge_mail::MailTemplateCode::UserInvitation,
             )
             .to_string()
         },

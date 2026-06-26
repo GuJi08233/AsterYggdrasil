@@ -20,7 +20,7 @@ pub async fn list_enabled_providers<C: ConnectionTrait>(
 
 pub async fn list_enabled_providers_by_kind<C: ConnectionTrait>(
     db: &C,
-    kind: crate::types::ExternalAuthKind,
+    kind: crate::types::external_auth::ExternalAuthKind,
 ) -> Result<Vec<external_auth_provider::Model>> {
     ExternalAuthProvider::find()
         .filter(external_auth_provider::Column::Enabled.eq(true))
@@ -179,10 +179,8 @@ mod tests {
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
     use crate::entities::external_auth_provider;
-    use crate::types::{ExternalAuthKind, UserRole};
-    use chrono::{Duration, Utc};
-    use sea_orm::Set;
-
+    use crate::types::external_auth::ExternalAuthKind;
+    use crate::types::user::UserRole;
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {

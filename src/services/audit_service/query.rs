@@ -9,7 +9,7 @@ use super::presentation::build_audit_presentation;
 use crate::db::repository::{audit_log_repo, user_repo};
 use crate::entities::audit_log;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::AuditEntityType;
+use crate::types::audit::AuditEntityType;
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 
 async fn build_audit_entries<S: DatabaseRuntimeState>(

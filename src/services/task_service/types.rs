@@ -5,9 +5,8 @@ use std::collections::BTreeMap;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 use utoipa::ToSchema;
 
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus};
-
 use super::runtime::SystemRuntimeTaskKind;
+use crate::types::task::{BackgroundTaskKind, BackgroundTaskStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]

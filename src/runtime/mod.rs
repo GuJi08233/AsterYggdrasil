@@ -2,6 +2,7 @@
 
 pub mod assembly;
 pub mod bootstrap;
+pub mod components;
 pub mod entrypoint;
 pub mod http;
 pub mod metrics;
@@ -11,7 +12,7 @@ pub mod state_traits;
 
 pub use state::{AppState, AppStateParts};
 pub use state_traits::{
-    AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState, MailRuntimeState,
-    MetricsRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState, SharedRuntimeState,
-    TaskRuntimeState, YggdrasilSessionForwardRuntimeState,
+    AppConfigRuntimeState, CacheRuntimeState, ConfigSyncRuntimeState, DatabaseRuntimeState,
+    MailRuntimeState, MetricsRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState,
+    SharedRuntimeState, TaskRuntimeState, YggdrasilSessionForwardRuntimeState,
 };

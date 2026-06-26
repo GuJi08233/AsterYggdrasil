@@ -2,7 +2,7 @@
 
 use crate::entities::contact_verification_token::{self, Entity as ContactVerificationToken};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{VerificationChannel, VerificationPurpose};
+use crate::types::auth::{VerificationChannel, VerificationPurpose};
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QueryOrder,

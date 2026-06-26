@@ -21,12 +21,25 @@ url = "sqlite://asteryggdrasil.db?mode=rwc"
 [cache]
 backend = "memory"
 
+[config_sync]
+backend = "disabled"
+endpoint = ""
+topic = "aster_yggdrasil.config_reload"
+
 [object_storage]
 backend = "local"
 local_root = "storage"
 ```
 
 Relative paths resolve against the directory containing `data/config.toml`. The default `local_root = "storage"` resolves to `data/storage`. Textures and uploaded user avatars both use this object storage config.
+
+`config_sync` synchronizes runtime-config reload hints in multi-process deployments. It is disabled by
+default and is not needed for single-process deployments. The currently implemented backend is
+`redis`: `endpoint` is the Redis URL, and `topic` is the logical reload topic that the service maps
+to the transport-specific channel name. Notifications only carry reload hints and changed keys; other
+processes reload runtime config from the database instead of trusting values from pub/sub. Forge
+generates a process-level runtime ID automatically to ignore local notification echoes; products do
+not configure it.
 
 ## Yggdrasil Runtime Config
 

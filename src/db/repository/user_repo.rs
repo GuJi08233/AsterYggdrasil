@@ -5,7 +5,7 @@ use crate::entities::{
     user::{self, Entity as User},
 };
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{UserRole, UserStatus};
+use crate::types::user::{UserRole, UserStatus};
 use aster_forge_api::CursorSlice;
 use aster_forge_db::search_query;
 use chrono::{DateTime, Utc};
@@ -390,8 +390,7 @@ mod tests {
         find_by_ids, find_by_public_uuid,
     };
     use crate::config::DatabaseConfig;
-    use crate::types::{UserRole, UserStatus};
-
+    use crate::types::user::{UserRole, UserStatus};
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {

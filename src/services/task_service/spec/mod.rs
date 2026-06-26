@@ -4,7 +4,7 @@ use crate::config::RuntimeConfig;
 use crate::entities::background_task;
 use crate::errors::AsterError;
 use crate::runtime::AppState;
-use crate::types::BackgroundTaskKind;
+use crate::types::task::BackgroundTaskKind;
 
 use super::dispatch::TaskLane;
 use super::types::{TaskPayload, TaskResult};
@@ -56,7 +56,7 @@ impl<T> BackgroundTaskSpec for T where
 
 pub(super) fn serialize_payload<S>(
     payload: &S::Payload,
-) -> crate::errors::Result<crate::types::StoredTaskPayload>
+) -> crate::errors::Result<crate::types::task::StoredTaskPayload>
 where
     S: aster_forge_tasks::BackgroundTaskSpec<
             AppState,
@@ -78,13 +78,13 @@ where
         TaskExecutionContext,
         AsterError,
     >(payload)
-    .map(crate::types::StoredTaskPayload)
+    .map(crate::types::task::StoredTaskPayload)
     .map_err(AsterError::from)
 }
 
 pub(super) fn serialize_result<S>(
     result: &S::Result,
-) -> crate::errors::Result<crate::types::StoredTaskResult>
+) -> crate::errors::Result<crate::types::task::StoredTaskResult>
 where
     S: aster_forge_tasks::BackgroundTaskSpec<
             AppState,
@@ -106,7 +106,7 @@ where
         TaskExecutionContext,
         AsterError,
     >(result)
-    .map(crate::types::StoredTaskResult)
+    .map(crate::types::task::StoredTaskResult)
     .map_err(AsterError::from)
 }
 
@@ -134,6 +134,9 @@ pub(crate) use runtime::SystemRuntimeTask;
 
 #[cfg(test)]
 mod tests {
+    use aster_forge_tasks::{BackgroundTaskSpec, ErasedBackgroundTaskSpec};
+    use chrono::Utc;
+
     use super::{TaskSpecAdapter, serialize_payload, serialize_result};
     use crate::entities::background_task;
     use crate::services::task_service::runtime::SystemRuntimeTaskKind;
@@ -142,11 +145,9 @@ mod tests {
         RuntimeTaskName, RuntimeTaskPayload, RuntimeTaskResult, TaskPayload, TaskResult,
     };
     use crate::types::{
-        BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload, StoredTaskResult,
+        task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+        task::StoredTaskResult,
     };
-    use aster_forge_tasks::{BackgroundTaskSpec as _, ErasedBackgroundTaskSpec as _};
-    use chrono::Utc;
-
     fn task_model(
         kind: BackgroundTaskKind,
         payload_json: StoredTaskPayload,
@@ -159,6 +160,7 @@ mod tests {
             status: BackgroundTaskStatus::Succeeded,
             creator_user_id: None,
             display_name: "Task".to_string(),
+            dedupe_key: None,
             payload_json,
             result_json,
             runtime_json: None,

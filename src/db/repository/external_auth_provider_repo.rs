@@ -8,7 +8,7 @@ use sea_orm::{
 
 use crate::entities::external_auth_provider::{self, Entity as ExternalAuthProvider};
 use crate::errors::{AsterError, Result};
-use crate::types::ExternalAuthProviderKind;
+use crate::types::external_auth::ExternalAuthProviderKind;
 use aster_forge_api::CursorSlice;
 
 pub async fn find_all(db: &DatabaseConnection) -> Result<Vec<external_auth_provider::Model>> {

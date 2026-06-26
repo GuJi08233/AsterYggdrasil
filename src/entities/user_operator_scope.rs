@@ -1,6 +1,6 @@
 //! Operator scope binding entity.
 
-use crate::types::OperatorScope;
+use crate::types::user::OperatorScope;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]

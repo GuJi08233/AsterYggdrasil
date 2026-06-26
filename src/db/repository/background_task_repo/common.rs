@@ -2,8 +2,7 @@ use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, Condition, QueryFilter, Select};
 
 use crate::entities::background_task::{self, Entity as BackgroundTask};
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus};
-
+use crate::types::task::{BackgroundTaskKind, BackgroundTaskStatus};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AdminTaskFilters {
     pub kind: Option<BackgroundTaskKind>,

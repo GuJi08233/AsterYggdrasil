@@ -27,9 +27,9 @@ pub mod yggdrasil;
 
 pub use runtime_config::RuntimeConfig;
 pub use schema::{
-    AuthConfig, CacheConfig, Config, DEFAULT_AUTH_CSRF_COOKIE_NAME, DEFAULT_AUTH_CSRF_HEADER_NAME,
-    DatabaseConfig, LoggingConfig, NetworkTrustConfig, ObjectStorageConfig, RateLimitConfig,
-    RateLimitTier, S3ObjectStorageConfig, ServerConfig,
+    AuthConfig, Config, DEFAULT_AUTH_CSRF_COOKIE_NAME, DEFAULT_AUTH_CSRF_HEADER_NAME,
+    DatabaseConfig, NetworkTrustConfig, ObjectStorageConfig, RateLimitConfig, RateLimitTier,
+    S3ObjectStorageConfig, ServerConfig,
 };
 
 use std::sync::Arc;

@@ -73,7 +73,7 @@ impl RuntimeConfig {
         self.snapshot.get_bool_or(key, default)
     }
 
-    pub fn should_record_audit_action(&self, action: crate::types::AuditAction) -> bool {
+    pub fn should_record_audit_action(&self, action: crate::types::audit::AuditAction) -> bool {
         self.audit_log_settings.read().should_record(action)
     }
 
@@ -117,6 +117,8 @@ fn build_audit_log_settings(
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
+
     use super::RuntimeConfig;
     use crate::config::DatabaseConfig;
     use crate::config::audit;
@@ -127,9 +129,9 @@ mod tests {
     use crate::db;
     use crate::db::repository::system_config_repo;
     use crate::entities::system_config;
-    use crate::types::{AuditAction, SystemConfigSource, SystemConfigValueType};
-    use chrono::Utc;
-
+    use crate::types::{
+        audit::AuditAction, config::SystemConfigSource, config::SystemConfigValueType,
+    };
     async fn setup_db() -> sea_orm::DatabaseConnection {
         let db = db::connect_with_metrics(
             &DatabaseConfig {
@@ -155,7 +157,7 @@ mod tests {
             requires_restart,
             is_sensitive: false,
             source: SystemConfigSource::System,
-            visibility: crate::types::SystemConfigVisibility::Private,
+            visibility: crate::types::config::SystemConfigVisibility::Private,
             namespace: String::new(),
             category: CONFIG_CATEGORY_SITE_BRANDING.to_string(),
             description: "test".to_string(),

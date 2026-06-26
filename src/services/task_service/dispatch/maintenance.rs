@@ -3,7 +3,7 @@ use chrono::Utc;
 use crate::db::repository::background_task_repo;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{AppConfigRuntimeState, AppState, DatabaseRuntimeState};
-use crate::types::BackgroundTaskStatus;
+use crate::types::task::BackgroundTaskStatus;
 use aster_forge_tasks::DispatchStats;
 
 use super::{TASK_DRAIN_MAX_ROUNDS, dispatch_due};
@@ -125,13 +125,16 @@ async fn cleanup_expired_in_root(
 
 #[cfg(test)]
 mod tests {
-    use super::cleanup_expired_in_root;
-    use crate::entities::background_task;
-    use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
-    use chrono::{Duration, Utc};
-    use sea_orm::{ActiveModelTrait, Set};
     use std::sync::Arc;
 
+    use chrono::{Duration, Utc};
+    use sea_orm::{ActiveModelTrait, Set};
+
+    use super::cleanup_expired_in_root;
+    use crate::entities::background_task;
+    use crate::types::{
+        task::BackgroundTaskKind, task::BackgroundTaskStatus, task::StoredTaskPayload,
+    };
     async fn test_state(temp_dir: String) -> crate::runtime::AppState {
         let db_cfg = crate::config::DatabaseConfig {
             url: "sqlite::memory:".to_string(),
@@ -159,7 +162,7 @@ mod tests {
                 ..Default::default()
             },
             database: db_cfg,
-            cache: crate::config::CacheConfig {
+            cache: aster_forge_cache::CacheConfig {
                 ..Default::default()
             },
             ..Default::default()
@@ -174,6 +177,9 @@ mod tests {
             cache,
             object_storage,
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("task maintenance test AppState should build")

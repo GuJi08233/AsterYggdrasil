@@ -454,8 +454,9 @@ fn skin_domain_matches_host(domain: &str, host: &str) -> bool {
 mod tests {
     use super::*;
     use crate::entities::system_config;
-    use crate::types::{SystemConfigSource, SystemConfigValueType, SystemConfigVisibility};
-
+    use crate::types::{
+        config::SystemConfigSource, config::SystemConfigValueType, config::SystemConfigVisibility,
+    };
     fn config_model(key: &str, value: &str) -> system_config::Model {
         system_config::Model {
             id: 1,

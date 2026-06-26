@@ -7,7 +7,7 @@ use crate::services::task_service::{
     dispatch::TaskLane,
     types::{RuntimeTaskPayload, RuntimeTaskResult, TaskPayload, TaskResult},
 };
-use crate::types::BackgroundTaskKind;
+use crate::types::task::BackgroundTaskKind;
 use aster_forge_tasks::TaskExecutionContext;
 
 const NO_STEPS: &[aster_forge_tasks::TaskStepSpec] = &[];

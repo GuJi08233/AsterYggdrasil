@@ -48,8 +48,8 @@ pub async fn record_server_start(state: &impl crate::runtime::SharedRuntimeState
     crate::services::audit_service::log(
         state,
         &crate::services::audit_service::AuditContext::system(),
-        crate::types::AuditAction::ServerStart,
-        crate::types::AuditEntityType::System,
+        crate::types::audit::AuditAction::ServerStart,
+        crate::types::audit::AuditEntityType::System,
         None,
         Some("server"),
         None,
@@ -98,6 +98,9 @@ mod tests {
             object_storage: crate::object_storage::create_object_storage(&config.object_storage)
                 .expect("test object storage should initialize"),
             mail_sender: aster_forge_mail::memory_sender(),
+            config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test(
+                "aster_yggdrasil",
+            ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
         })
         .expect("runtime startup test AppState should build");
@@ -115,7 +118,7 @@ mod tests {
         let count = crate::entities::audit_log::Entity::find()
             .filter(
                 crate::entities::audit_log::Column::Action
-                    .eq(crate::types::AuditAction::ServerStart),
+                    .eq(crate::types::audit::AuditAction::ServerStart),
             )
             .count(&db)
             .await

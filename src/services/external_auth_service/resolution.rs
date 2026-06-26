@@ -10,7 +10,7 @@ use crate::entities::{
 use crate::errors::{AsterError, Result, auth_forbidden_with_code};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
-use crate::types::{UserRole, UserStatus};
+use crate::types::user::{UserRole, UserStatus};
 use aster_forge_crypto as hash;
 use aster_forge_external_auth::ExternalAuthProfile;
 

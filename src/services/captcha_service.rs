@@ -4,6 +4,7 @@ use crate::api::error_code::AsterErrorCode;
 use crate::config::auth_runtime::RuntimeCaptchaPolicy;
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::{CacheRuntimeState, RuntimeConfigRuntimeState};
+use aster_forge_cache::CacheExt;
 use aster_forge_crypto as hash;
 use aster_forge_utils::numbers::{i64_to_u64, u32_to_usize, u64_to_usize};
 use captcha_rs::CaptchaBuilder;
@@ -205,7 +206,9 @@ async fn store_challenge<S>(
 ) where
     S: CacheRuntimeState,
 {
-    crate::services::cache_facade::set(state, &cache_key(challenge_id), challenge, Some(ttl_secs))
+    state
+        .cache()
+        .set(&cache_key(challenge_id), challenge, Some(ttl_secs))
         .await;
 }
 
@@ -213,14 +216,14 @@ async fn get_challenge<S>(state: &S, challenge_id: &str) -> Option<CaptchaChalle
 where
     S: CacheRuntimeState,
 {
-    crate::services::cache_facade::get(state, &cache_key(challenge_id)).await
+    state.cache().get(&cache_key(challenge_id)).await
 }
 
 async fn delete_challenge<S>(state: &S, challenge_id: &str)
 where
     S: CacheRuntimeState,
 {
-    crate::services::cache_facade::delete(state, &cache_key(challenge_id)).await;
+    state.cache().delete(&cache_key(challenge_id)).await;
 }
 
 fn answer_hash(answer: &str) -> String {

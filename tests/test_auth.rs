@@ -12,8 +12,8 @@ use aster_yggdrasil::db::repository::{
 use aster_yggdrasil::entities::{audit_log, auth_session, contact_verification_token, passkey};
 use aster_yggdrasil::services::auth_service::AccessClaims;
 use aster_yggdrasil::types::{
-    StoredPasskeyCredential, TokenType, UserRole, UserStatus, VerificationChannel,
-    VerificationPurpose,
+    auth::TokenType, auth::VerificationChannel, auth::VerificationPurpose,
+    passkey::StoredPasskeyCredential, user::UserRole, user::UserStatus,
 };
 use base64::Engine as _;
 use chrono::{Duration, Utc};

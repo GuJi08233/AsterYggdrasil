@@ -7,7 +7,7 @@ use sea_orm::{
 use super::common::{AdminTaskFilters, active_processing_by_kinds_condition, apply_admin_filters};
 use crate::entities::background_task::{self, Entity as BackgroundTask};
 use crate::errors::{AsterError, Result};
-use crate::types::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
+use crate::types::task::{BackgroundTaskKind, BackgroundTaskStatus, StoredTaskPayload};
 use aster_forge_api::CursorSlice;
 
 pub async fn find_by_id<C: ConnectionTrait>(db: &C, id: i64) -> Result<background_task::Model> {
@@ -68,6 +68,17 @@ pub async fn find_latest_system_runtime_by_payload<C: ConnectionTrait>(
         .filter(background_task::Column::Kind.eq(BackgroundTaskKind::SystemRuntime))
         .filter(background_task::Column::PayloadJson.eq(payload_json.clone()))
         .order_by_desc(background_task::Column::UpdatedAt)
+        .one(db)
+        .await
+        .map_err(AsterError::from)
+}
+
+pub async fn find_by_dedupe_key<C: ConnectionTrait>(
+    db: &C,
+    dedupe_key: &str,
+) -> Result<Option<background_task::Model>> {
+    BackgroundTask::find()
+        .filter(background_task::Column::DedupeKey.eq(dedupe_key))
         .one(db)
         .await
         .map_err(AsterError::from)

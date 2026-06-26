@@ -1,6 +1,6 @@
 //! User capability ban entity.
 
-use crate::types::{UserBanScopes, UserBanStatus};
+use crate::types::user::{UserBanScopes, UserBanStatus};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

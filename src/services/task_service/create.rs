@@ -1,20 +1,20 @@
 use chrono::Utc;
 use sea_orm::{ConnectionTrait, Set};
 
-use crate::db::repository::background_task_repo;
-use crate::entities::background_task;
-use crate::errors::Result;
-use crate::runtime::{RuntimeConfigRuntimeState, TaskRuntimeState};
-use crate::types::{BackgroundTaskStatus, StoredTaskResult, StoredTaskSteps};
-
 use super::{
     BackgroundTaskSpec, registry, serialize_task_steps, spec, task_expiration_from,
     truncate_display_name, truncate_error, truncate_status_text,
 };
+use crate::db::repository::background_task_repo;
+use crate::entities::background_task;
+use crate::errors::Result;
+use crate::runtime::{RuntimeConfigRuntimeState, TaskRuntimeState};
+use crate::types::task::{BackgroundTaskStatus, StoredTaskResult, StoredTaskSteps};
 
 pub(in crate::services::task_service) struct TypedTaskCreate<S: BackgroundTaskSpec> {
     display_name: String,
     payload: S::Payload,
+    dedupe_key: Option<String>,
     creator_user_id: Option<i64>,
     status: BackgroundTaskStatus,
     result_json: Option<StoredTaskResult>,
@@ -41,6 +41,7 @@ impl<S: BackgroundTaskSpec> TypedTaskCreate<S> {
         Self {
             display_name: display_name.into(),
             payload,
+            dedupe_key: None,
             creator_user_id: None,
             status: BackgroundTaskStatus::Pending,
             result_json: None,
@@ -65,6 +66,21 @@ impl<S: BackgroundTaskSpec> TypedTaskCreate<S> {
     ) -> Self {
         self.creator_user_id = creator_user_id;
         self
+    }
+
+    pub(in crate::services::task_service) fn dedupe_key(
+        mut self,
+        dedupe_key: aster_forge_tasks::TaskDedupeKey,
+    ) -> Self {
+        self.dedupe_key = Some(dedupe_key.into_string());
+        self
+    }
+
+    pub(in crate::services::task_service) fn dedupe_key_str(
+        self,
+        dedupe_key: impl Into<String>,
+    ) -> Result<Self> {
+        Ok(self.dedupe_key(aster_forge_tasks::TaskDedupeKey::new(dedupe_key)?))
     }
 
     pub(in crate::services::task_service) fn next_run_at(
@@ -161,6 +177,7 @@ impl<S: BackgroundTaskSpec> TypedTaskCreate<S> {
             status: Set(self.status),
             creator_user_id: Set(self.creator_user_id),
             display_name: Set(truncate_display_name(&self.display_name)),
+            dedupe_key: Set(self.dedupe_key),
             payload_json: Set(payload_json),
             result_json: Set(self.result_json),
             runtime_json: Set(None),
@@ -198,9 +215,26 @@ pub(in crate::services::task_service) async fn insert_typed_task_record<
     db: &C,
     request: TypedTaskCreate<S>,
 ) -> Result<background_task::Model> {
+    let dedupe_key = request.dedupe_key.clone();
     let active = request.into_active_model(state)?;
     tracing::debug!("inserting typed background task record");
-    let task = background_task_repo::create(db, active).await?;
+    let task = match background_task_repo::create(db, active).await {
+        Ok(task) => task,
+        Err(error) => {
+            if let Some(dedupe_key) = dedupe_key
+                && let Some(existing) =
+                    background_task_repo::find_by_dedupe_key(db, &dedupe_key).await?
+            {
+                tracing::debug!(
+                    task_id = existing.id,
+                    dedupe_key,
+                    "returning existing background task after dedupe collision"
+                );
+                return Ok(existing);
+            }
+            return Err(error);
+        }
+    };
     tracing::debug!(
         task_id = task.id,
         kind = ?task.kind,
