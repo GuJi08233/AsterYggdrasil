@@ -22,8 +22,8 @@ pub async fn run(state: crate::runtime::AppState) -> io::Result<()> {
     let app_state = state.get_ref();
 
     let runtime = aster_forge_runtime::AsterRuntime::builder()
-        .component(crate::runtime::http::http_component(
-            crate::runtime::http::HttpRuntimeConfig {
+        .component(crate::api::http::http_component(
+            crate::api::http::HttpRuntimeConfig {
                 host: host.as_str(),
                 port,
                 workers,

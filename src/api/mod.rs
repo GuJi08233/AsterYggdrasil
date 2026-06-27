@@ -8,6 +8,7 @@ pub mod api_error_code {
     pub use super::error_code::AsterErrorCode as ApiErrorCode;
     pub use super::error_code::*;
 }
+pub mod http;
 pub mod middleware;
 #[cfg(all(debug_assertions, feature = "openapi"))]
 pub mod openapi;

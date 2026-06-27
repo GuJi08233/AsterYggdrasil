@@ -3,7 +3,6 @@
 pub mod assembly;
 pub mod bootstrap;
 pub mod entrypoint;
-pub mod http;
 pub mod metrics;
 pub mod startup;
 pub mod state;

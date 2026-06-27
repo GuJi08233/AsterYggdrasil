@@ -1,8 +1,8 @@
 //! HTTP runtime component construction.
 //!
-//! This module owns the Actix server assembly for the product runtime. The
-//! entrypoint provides already prepared state and runtime handles, while this
-//! module turns them into the Forge service component consumed by
+//! This module owns the Actix server assembly for the product API layer. The
+//! runtime entrypoint provides already prepared state and runtime handles, while
+//! this module turns them into the Forge service component consumed by
 //! `AsterRuntime`.
 
 use std::io;
