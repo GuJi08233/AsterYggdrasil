@@ -1,31 +1,17 @@
 //! Runtime-editable system configuration cache.
 
-use aster_forge_config::{RuntimeConfigRecord, SyncConfigSnapshot, SyncRuntimeConfig};
+use aster_forge_config::{SyncConfigSnapshot, SyncRuntimeConfig};
 use parking_lot::RwLock;
 use sea_orm::ConnectionTrait;
 
 use crate::config::audit::{self, AuditLogRuntimeSettings};
 use crate::db::repository::system_config_repo;
-use crate::entities::system_config;
 use crate::errors::Result;
+use aster_forge_db::system_config;
 
 pub struct RuntimeConfig {
     snapshot: SyncRuntimeConfig<system_config::Model>,
     audit_log_settings: RwLock<AuditLogRuntimeSettings>,
-}
-
-impl RuntimeConfigRecord for system_config::Model {
-    fn config_key(&self) -> &str {
-        &self.key
-    }
-
-    fn config_value(&self) -> &str {
-        &self.value
-    }
-
-    fn config_requires_restart(&self) -> bool {
-        self.requires_restart
-    }
 }
 
 impl RuntimeConfig {
@@ -128,9 +114,9 @@ mod tests {
     };
     use crate::db;
     use crate::db::repository::system_config_repo;
-    use crate::entities::system_config;
     use crate::types::audit::AuditAction;
     use aster_forge_config::{ConfigSource, ConfigValueType};
+    use aster_forge_db::system_config;
     async fn setup_db() -> sea_orm::DatabaseConnection {
         let db = db::connect_with_metrics(
             &DatabaseConfig {

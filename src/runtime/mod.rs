@@ -2,7 +2,6 @@
 
 pub mod assembly;
 pub mod bootstrap;
-pub mod components;
 pub mod entrypoint;
 pub mod http;
 pub mod metrics;

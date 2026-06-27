@@ -211,7 +211,7 @@ mod tests {
     };
     use crate::config::RuntimeConfig;
     use crate::config::definitions::CONFIG_CATEGORY_MAIL_CONFIG;
-    use crate::entities::system_config;
+    use aster_forge_db::system_config;
     use aster_forge_mail::MailTemplateCode;
     use chrono::Utc;
 

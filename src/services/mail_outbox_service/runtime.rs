@@ -57,6 +57,18 @@ pub fn mail_outbox_component(
     aster_forge_mail::mail_outbox_component(resources, drain_mail_outbox_on_shutdown)
 }
 
+/// Creates the mail runtime component from product state.
+pub fn mail_runtime_component<S>(
+    state: &S,
+) -> RuntimeComponentBundleRegistration<
+    aster_forge_runtime::ShutdownResourceComponent<MailOutboxRuntimeResources>,
+>
+where
+    S: MailRuntimeState,
+{
+    mail_outbox_component(MailOutboxRuntimeResources::from_state(state))
+}
+
 async fn drain_mail_outbox_on_shutdown(
     resources: MailOutboxRuntimeResources,
 ) -> Result<(), String> {
@@ -113,24 +125,6 @@ mod tests {
                 .expect("mail outbox shutdown should be registered")
                 .phase_name,
             aster_forge_mail::MAIL_OUTBOX_DRAIN_SHUTDOWN_PHASE
-        );
-    }
-
-    #[tokio::test]
-    async fn mail_outbox_shutdown_registrar_can_be_used_directly() {
-        let resources = test_resources().await;
-        let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            aster_forge_mail::register_mail_outbox_shutdown(
-                registry,
-                resources,
-                super::drain_mail_outbox_on_shutdown,
-            );
-        });
-
-        assert!(
-            registry
-                .descriptor(aster_forge_mail::MAIL_OUTBOX_COMPONENT)
-                .is_some()
         );
     }
 

@@ -8,19 +8,14 @@
 
 use std::sync::Arc;
 
-use aster_forge_config::{ConfigSyncConfig, ConfigSyncRuntime};
+use aster_forge_config::ConfigSyncRuntime;
 use tokio_util::sync::CancellationToken;
 
 use crate::errors::{AsterError, Result};
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 
-const CONFIG_RELOAD_NAMESPACE: &str = "aster_yggdrasil";
-
-/// Builds the namespaced config-sync runtime from static product configuration.
-pub fn build_config_sync_runtime(config: &ConfigSyncConfig) -> Result<ConfigSyncRuntime> {
-    aster_forge_config::build_config_sync_runtime(config, CONFIG_RELOAD_NAMESPACE)
-        .map_err(map_config_core_error)
-}
+/// Product namespace used for cross-process config reload notifications.
+pub const CONFIG_RELOAD_NAMESPACE: &str = "aster_yggdrasil";
 
 /// Runs the config reload subscription worker until shutdown.
 pub async fn run_config_reload_subscription<S>(
@@ -54,19 +49,21 @@ where
         .map_err(map_config_core_error)
 }
 
-pub(super) fn map_config_core_error(error: aster_forge_config::ConfigCoreError) -> AsterError {
+pub(crate) fn map_config_core_error(error: aster_forge_config::ConfigCoreError) -> AsterError {
     AsterError::internal_error(format!("config sync failed: {error}"))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::build_config_sync_runtime;
     use aster_forge_config::ConfigSyncConfig;
 
     #[test]
     fn config_sync_settings_are_disabled_by_default() {
-        let runtime = build_config_sync_runtime(&ConfigSyncConfig::default())
-            .expect("default config sync should be valid");
+        let runtime = aster_forge_config::build_config_sync_runtime(
+            &ConfigSyncConfig::default(),
+            super::CONFIG_RELOAD_NAMESPACE,
+        )
+        .expect("default config sync should be valid");
 
         assert!(!runtime.enabled());
         assert_eq!(runtime.namespace(), "aster_yggdrasil");
@@ -75,15 +72,22 @@ mod tests {
 
     #[test]
     fn redis_config_sync_requires_endpoint() {
-        let result = build_config_sync_runtime(&ConfigSyncConfig {
-            backend: aster_forge_config::CONFIG_SYNC_BACKEND_REDIS.to_string(),
-            endpoint: String::new(),
-            topic: "aster.test".to_string(),
-        });
+        let result = aster_forge_config::build_config_sync_runtime(
+            &ConfigSyncConfig {
+                backend: aster_forge_config::CONFIG_SYNC_BACKEND_REDIS.to_string(),
+                endpoint: String::new(),
+                topic: "aster.test".to_string(),
+            },
+            super::CONFIG_RELOAD_NAMESPACE,
+        );
         let Err(error) = result else {
             panic!("redis config sync without endpoint should fail");
         };
 
-        assert!(error.message().contains("config_sync.endpoint is required"));
+        assert!(
+            error
+                .to_string()
+                .contains("config_sync.endpoint is required")
+        );
     }
 }

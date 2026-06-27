@@ -29,8 +29,8 @@ mod tests {
 
     use super::{gravatar_base_url_or_default, normalize_gravatar_base_url_config_value};
     use crate::config::RuntimeConfig;
-    use crate::entities::system_config;
     use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_db::system_config;
     #[test]
     fn gravatar_base_url_normalization_rejects_query_and_bad_scheme() {
         assert_eq!(

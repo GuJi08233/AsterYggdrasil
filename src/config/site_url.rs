@@ -108,7 +108,7 @@ mod tests {
         public_site_urls,
     };
     use crate::config::RuntimeConfig;
-    use crate::entities::system_config;
+    use aster_forge_db::system_config;
     use chrono::Utc;
 
     fn config_model(key: &str, value: &str) -> system_config::Model {

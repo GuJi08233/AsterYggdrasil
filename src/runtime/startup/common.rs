@@ -30,8 +30,11 @@ pub(super) async fn prepare_common_state(config: Arc<Config>) -> Result<AppState
         .await?;
     let cache = aster_forge_cache::create_cache(&config.cache).await;
     let object_storage = object_storage::create_object_storage(&config.object_storage)?;
-    let config_sync =
-        crate::services::config_service::runtime::build_config_sync_runtime(&config.config_sync)?;
+    let config_sync = aster_forge_config::build_config_sync_runtime(
+        &config.config_sync,
+        crate::services::config_service::runtime::CONFIG_RELOAD_NAMESPACE,
+    )
+    .map_err(crate::services::config_service::runtime::map_config_core_error)?;
 
     crate::services::audit_service::runtime::prepare_runtime_audit_manager(
         db_handles.writer().clone(),

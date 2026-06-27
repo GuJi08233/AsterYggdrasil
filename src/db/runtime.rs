@@ -1,10 +1,8 @@
 //! Database runtime component registration.
 
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::runtime::DatabaseRuntimeState;
 use aster_forge_db::DbHandles;
 use aster_forge_metrics::SharedMetricsRecorder;
-use aster_forge_runtime::RuntimeComponentRegistry;
 
 const DATABASE_SHUTDOWN_DEPENDENCIES: &[&str] = &[
     aster_forge_tasks::BACKGROUND_TASKS_COMPONENT,
@@ -32,39 +30,12 @@ pub async fn prepare_database_handles(
     crate::db::connect_reader_for_writer_with_metrics(config, writer, metrics).await
 }
 
-/// Registers database readiness and diagnostics health checks.
-pub fn register_database_health_check<S>(registry: &mut RuntimeComponentRegistry, state: &S)
-where
-    S: DatabaseRuntimeState,
-{
-    aster_forge_db::register_database_health_check(registry, state.reader_db().clone());
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{
-        DATABASE_SHUTDOWN_DEPENDENCIES, database_component, prepare_database_handles,
-        register_database_health_check,
-    };
+    use super::{database_component, prepare_database_handles};
     use crate::config::DatabaseConfig;
-    use crate::runtime::DatabaseRuntimeState;
     use aster_forge_runtime::RuntimeComponentBundle;
     use aster_forge_runtime::{HealthCheckScope, HealthStatus};
-    use sea_orm::DatabaseConnection;
-
-    struct DatabaseHealthState {
-        db: DatabaseConnection,
-    }
-
-    impl DatabaseRuntimeState for DatabaseHealthState {
-        fn writer_db(&self) -> &DatabaseConnection {
-            &self.db
-        }
-
-        fn reader_db(&self) -> &DatabaseConnection {
-            &self.db
-        }
-    }
 
     #[tokio::test]
     async fn database_component_registers_shutdown_dependency() {
@@ -99,28 +70,7 @@ mod tests {
                 .phase_name,
             aster_forge_db::DATABASE_CONNECTIONS_SHUTDOWN_PHASE
         );
-    }
-
-    #[tokio::test]
-    async fn database_shutdown_registrar_can_be_used_directly() {
-        let db = sea_orm::Database::connect("sqlite::memory:")
-            .await
-            .expect("database registrar test database should connect");
-        let db_handles = aster_forge_db::DbHandles::single(db);
-
-        let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            aster_forge_db::register_database_shutdown(
-                registry,
-                db_handles,
-                DATABASE_SHUTDOWN_DEPENDENCIES,
-            );
-        });
-
-        assert!(
-            registry
-                .descriptor(aster_forge_db::DATABASE_COMPONENT)
-                .is_some()
-        );
+        assert_eq!(descriptor.health_checks.len(), 1);
     }
 
     #[tokio::test]
@@ -176,10 +126,9 @@ mod tests {
         )
         .await
         .expect("database readiness test database should connect");
-        let state = DatabaseHealthState { db };
         let mut registry = aster_forge_runtime::RuntimeComponentRegistry::new();
 
-        register_database_health_check(&mut registry, &state);
+        registry.register_bundle(aster_forge_db::database_health_component(db));
 
         assert_eq!(registry.len(), 1);
         let report = registry.run_health(HealthCheckScope::Readiness).await;

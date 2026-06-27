@@ -96,8 +96,8 @@ mod tests {
         normalize_interval_config_value, task_list_max_limit,
     };
     use crate::config::{RuntimeConfig, definitions::CONFIG_CATEGORY_RUNTIME_TASKS};
-    use crate::entities::system_config;
     use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_db::system_config;
     fn model(key: &str, value: &str) -> system_config::Model {
         system_config::Model {
             id: 1,

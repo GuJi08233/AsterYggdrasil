@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::config::RuntimeConfig;
 use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use aster_forge_runtime::{RuntimeComponentBundleRegistration, RuntimeComponentRegistry};
+use aster_forge_runtime::RuntimeComponentBundleRegistration;
 use sea_orm::DatabaseConnection;
 
 /// Minimal runtime resources needed to record the process shutdown audit event.
@@ -55,29 +55,30 @@ pub fn audit_component(
     })
 }
 
+/// Creates the full audit runtime component from product state.
+pub fn audit_runtime_component<S>(
+    state: &S,
+) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle + use<S>>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let resources = AuditRuntimeResources::from_state(state);
+    aster_forge_runtime::runtime_component((
+        audit_component(resources.clone()),
+        server_start_audit_component(resources),
+    ))
+}
+
+/// Creates the server-start audit startup component.
+pub fn server_start_audit_component(
+    resources: AuditRuntimeResources,
+) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle> {
+    aster_forge_audit::server_start_audit_component(resources, record_server_start_on_startup)
+}
+
 /// Initializes the global audit log manager for runtime writes.
 pub fn prepare_runtime_audit_manager(db: DatabaseConnection) {
     super::init_global_audit_log_manager(db);
-}
-
-/// Registers the process shutdown audit event before the audit manager is drained.
-pub fn register_server_shutdown_audit(
-    registry: &mut RuntimeComponentRegistry,
-    resources: AuditRuntimeResources,
-) {
-    aster_forge_audit::register_server_shutdown_audit(
-        registry,
-        resources,
-        record_server_shutdown_on_shutdown,
-    );
-}
-
-/// Registers graceful shutdown for the global audit log manager.
-pub fn register_audit_shutdown(registry: &mut RuntimeComponentRegistry) {
-    aster_forge_audit::register_audit_manager_shutdown(registry, |()| async {
-        super::shutdown_global_audit_log_manager().await;
-        Ok(())
-    });
 }
 
 async fn record_server_shutdown_on_shutdown(
@@ -85,6 +86,28 @@ async fn record_server_shutdown_on_shutdown(
 ) -> Result<(), String> {
     record_server_shutdown(&resources).await;
     Ok(())
+}
+
+async fn record_server_start_on_startup(resources: AuditRuntimeResources) -> Result<(), String> {
+    record_server_start(&resources).await;
+    Ok(())
+}
+
+/// Records the process start audit event.
+pub async fn record_server_start<S>(state: &S)
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    super::log(
+        state,
+        &super::AuditContext::system(),
+        crate::types::audit::AuditAction::ServerStart,
+        crate::types::audit::AuditEntityType::System,
+        None,
+        Some("server"),
+        None,
+    )
+    .await;
 }
 
 /// Records the process shutdown audit event.
@@ -108,7 +131,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{AuditRuntimeResources, audit_component, register_audit_shutdown};
+    use super::{AuditRuntimeResources, audit_component};
     use aster_forge_runtime::RuntimeComponentBundle;
 
     async fn test_resources() -> AuditRuntimeResources {
@@ -157,19 +180,6 @@ mod tests {
                 .expect("audit manager shutdown should be registered")
                 .phase_name,
             aster_forge_audit::AUDIT_MANAGER_FLUSH_SHUTDOWN_PHASE
-        );
-    }
-
-    #[test]
-    fn audit_shutdown_registrar_can_be_used_directly() {
-        let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            register_audit_shutdown(registry);
-        });
-
-        assert!(
-            registry
-                .descriptor(aster_forge_audit::AUDIT_MANAGER_COMPONENT)
-                .is_some()
         );
     }
 }

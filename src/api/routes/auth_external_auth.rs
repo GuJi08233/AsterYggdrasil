@@ -10,7 +10,7 @@ use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::auth_service::AuthUserInfo;
 use crate::services::{auth_service, external_auth_service};
-use crate::types::external_auth::ExternalAuthKind;
+use crate::types::external_auth::ExternalAuthProviderKind;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
 use aster_forge_actix_middleware::csrf::RequestSourceMode;
@@ -49,8 +49,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     );
 }
 
-fn parse_kind(value: &str) -> Result<ExternalAuthKind> {
-    ExternalAuthKind::parse(value).ok_or_else(|| {
+fn parse_kind(value: &str) -> Result<ExternalAuthProviderKind> {
+    ExternalAuthProviderKind::parse(value).ok_or_else(|| {
         AsterError::record_not_found(format!("external auth provider kind '{value}'"))
     })
 }
@@ -99,7 +99,7 @@ pub async fn list_providers(
     path = "/api/v1/auth/external-auth/{kind}/providers",
     tag = "external-auth",
     operation_id = "auth_external_auth_list_providers_by_kind",
-    params(("kind" = ExternalAuthKind, Path, description = "External auth provider kind"), LimitQuery, ExternalAuthProviderCursorQuery),
+    params(("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"), LimitQuery, ExternalAuthProviderCursorQuery),
     responses(
         (status = 200, description = "Enabled external auth providers for kind", body = inline(ApiResponse<CursorPage<external_auth_service::ExternalAuthPublicProvider, StringIdCursor>>)),
         (status = 404, description = "Provider kind not found"),
@@ -133,7 +133,7 @@ pub async fn list_providers_by_kind(
     tag = "external-auth",
     operation_id = "auth_external_auth_start_login",
     params(
-        ("kind" = ExternalAuthKind, Path, description = "External auth provider kind"),
+        ("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"),
         ("provider" = String, Path, description = "External auth provider slug"),
     ),
     request_body = StartExternalAuthReq,
@@ -179,7 +179,7 @@ pub struct ExternalAuthFinishLoginResponse {
     tag = "external-auth",
     operation_id = "auth_external_auth_finish_login",
     params(
-        ("kind" = ExternalAuthKind, Path, description = "External auth provider kind"),
+        ("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"),
         ("provider" = String, Path, description = "External auth provider slug"),
         ExternalAuthCallbackQuery,
     ),
@@ -531,7 +531,7 @@ fn add_auth_redirect_status(location: String, status: &str) -> String {
 
 async fn ensure_provider_kind(
     state: &AppState,
-    kind: ExternalAuthKind,
+    kind: ExternalAuthProviderKind,
     provider: &str,
 ) -> Result<()> {
     let providers = external_auth_service::list_public_providers_by_kind(state, kind).await?;

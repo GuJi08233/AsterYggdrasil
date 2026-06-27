@@ -17,7 +17,7 @@ use crate::services::yggdrasil_session_forward_service::{
     CreateYggdrasilSessionForwardServerInput, UpdateYggdrasilSessionForwardServerInput,
 };
 use crate::types::{
-    external_auth::ExternalAuthKind, external_auth::ExternalAuthProviderOptions,
+    external_auth::ExternalAuthProviderKind, external_auth::ExternalAuthProviderOptions,
     task::BackgroundTaskKind, task::BackgroundTaskStatus, user::OperatorScope, user::UserBanScope,
     user::UserBanStatus, user::UserRole, user::UserStatus,
     yggdrasil::YggdrasilSessionForwardEndpointKind, yggdrasil::YggdrasilSessionForwardServerSortBy,
@@ -220,7 +220,7 @@ pub struct AdminMinecraftProfileListQuery {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct CreateExternalAuthProviderReq {
-    pub provider_kind: ExternalAuthKind,
+    pub provider_kind: ExternalAuthProviderKind,
     #[validate(custom(function = "crate::api::dto::validation::validate_non_blank"))]
     #[validate(length(max = 128, message = "display_name must not exceed 128 bytes"))]
     pub display_name: String,
@@ -359,8 +359,8 @@ impl From<UpdateExternalAuthProviderReq> for UpdateExternalAuthProviderInput {
 #[derive(Debug, Deserialize, Validate)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct ExternalAuthProviderTestParamsReq {
-    pub kind: Option<ExternalAuthKind>,
-    pub provider_kind: Option<ExternalAuthKind>,
+    pub kind: Option<ExternalAuthProviderKind>,
+    pub provider_kind: Option<ExternalAuthProviderKind>,
     pub options: Option<ExternalAuthProviderOptions>,
     pub issuer_url: Option<String>,
     pub authorization_url: Option<String>,
@@ -380,7 +380,7 @@ impl From<ExternalAuthProviderTestParamsReq> for ExternalAuthProviderTestParamsI
             provider_kind: value
                 .provider_kind
                 .or(value.kind)
-                .unwrap_or(ExternalAuthKind::Oidc),
+                .unwrap_or(ExternalAuthProviderKind::Oidc),
             options: value.options,
             issuer_url: value.issuer_url,
             authorization_url: value.authorization_url.or(value.authorize_url),

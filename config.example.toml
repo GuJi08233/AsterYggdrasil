@@ -20,7 +20,7 @@ bootstrap_insecure_cookies = false
 
 [cache]
 backend = "memory"
-redis_url = ""
+endpoint = ""
 default_ttl = 3600
 
 [config_sync]

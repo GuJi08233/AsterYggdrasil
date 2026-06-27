@@ -7,8 +7,8 @@
 
 /// Prepared process state needed by the runtime entrypoint.
 pub struct BootstrappedRuntime {
-    /// Prepared product runtime state and startup report.
-    pub prepared: crate::runtime::startup::PreparedRuntime,
+    /// Prepared product runtime state.
+    pub state: crate::runtime::AppState,
     _logging: aster_forge_logging::LoggingInitResult,
 }
 
@@ -25,10 +25,10 @@ pub async fn bootstrap() -> crate::errors::Result<BootstrappedRuntime> {
         tracing::warn!("{warning}");
     }
 
-    let prepared = crate::runtime::startup::prepare(config).await?;
+    let state = crate::runtime::startup::prepare_runtime_state(config).await?;
 
     Ok(BootstrappedRuntime {
-        prepared,
+        state,
         _logging: logging,
     })
 }

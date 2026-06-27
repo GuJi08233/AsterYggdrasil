@@ -29,8 +29,6 @@ pub enum ExternalAuthProviderKind {
     Qq,
 }
 
-pub type ExternalAuthKind = ExternalAuthProviderKind;
-
 impl ExternalAuthProviderKind {
     pub const ALL: [Self; 6] = [
         Self::Oidc,

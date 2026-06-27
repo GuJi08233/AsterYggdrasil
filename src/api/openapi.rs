@@ -381,7 +381,6 @@ use utoipa::{Modify, OpenApi};
             crate::entities::minecraft_texture::Model,
             crate::entities::minecraft_texture_tag::Model,
             crate::entities::minecraft_texture_tag_binding::Model,
-            crate::entities::system_config::Model,
             crate::entities::user::Model,
 
             crate::types::user::UserRole,
@@ -391,7 +390,7 @@ use utoipa::{Modify, OpenApi};
             crate::types::user::UserBanEventType,
             crate::types::user::UserStatus,
             crate::types::user::AvatarSource,
-            crate::types::external_auth::ExternalAuthKind,
+            crate::types::external_auth::ExternalAuthProviderKind,
             aster_forge_config::ConfigSource,
             aster_forge_config::ConfigValueType,
             aster_forge_config::ConfigVisibility,

@@ -6,7 +6,7 @@
 
 use crate::config::RuntimeConfig;
 use crate::errors::{AsterError, Result};
-use aster_forge_actix_middleware::cors as forge_cors;
+use aster_forge_actix_middleware::cors::{CorsAllowedOrigins, RuntimeCorsPolicy};
 use aster_forge_config::{
     normalize_non_negative_u64_config_value, normalize_strict_bool_config_value,
 };
@@ -18,9 +18,6 @@ pub use crate::config::definitions::{
 pub const DEFAULT_CORS_ENABLED: bool = false;
 pub const DEFAULT_CORS_ALLOW_CREDENTIALS: bool = false;
 pub const DEFAULT_CORS_MAX_AGE_SECS: u64 = 3600;
-
-pub type CorsAllowedOrigins = forge_cors::CorsAllowedOrigins;
-pub type RuntimeCorsPolicy = forge_cors::RuntimeCorsPolicy;
 
 pub fn runtime_cors_policy(runtime_config: &RuntimeConfig) -> RuntimeCorsPolicy {
     let enabled = match runtime_config.get(CORS_ENABLED_KEY) {
@@ -205,7 +202,7 @@ mod tests {
 
     use crate::config::RuntimeConfig;
     use crate::config::definitions::CONFIG_CATEGORY_NETWORK_CORS;
-    use crate::entities::system_config;
+    use aster_forge_db::system_config;
 
     use super::{
         CORS_ALLOW_CREDENTIALS_KEY, CORS_ALLOWED_ORIGINS_KEY, CORS_ENABLED_KEY,

@@ -439,8 +439,8 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::entities::system_config;
     use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_db::system_config;
     #[test]
     fn normalizes_background_aliases_and_hex() {
         assert_eq!(

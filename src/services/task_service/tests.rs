@@ -131,7 +131,7 @@ async fn typed_task_create_builds_active_model_with_truncation_and_runtime_defau
     let state = test_state().await;
     state
         .runtime_config()
-        .apply(crate::entities::system_config::Model {
+        .apply(aster_forge_db::system_config::Model {
             id: 999,
             key: operations::TASK_RETENTION_HOURS_KEY.to_string(),
             value: "48".to_string(),

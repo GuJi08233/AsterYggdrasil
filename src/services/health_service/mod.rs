@@ -1,18 +1,18 @@
 //! Generic health and readiness checks.
 
-mod cache;
-
 use crate::errors::{AsterError, Result};
 use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
 use aster_forge_runtime::{
-    HealthCheckScope, HealthStatus, RuntimeComponentRegistry, SystemHealthReport,
+    HealthCheckScope, HealthStatus, RuntimeComponentBundle, RuntimeComponentBundleRegistration,
+    RuntimeComponentRegistry, SystemHealthReport,
 };
 
 pub async fn check_ready<S: DatabaseRuntimeState>(state: &S) -> Result<()> {
     tracing::debug!("running readiness check");
-    let report = run_health_scope(state, HealthCheckScope::Readiness, |registry, state| {
-        crate::db::runtime::register_database_health_check(registry, state);
-    })
+    let report = run_health_scope(
+        HealthCheckScope::Readiness,
+        aster_forge_db::database_health_component(state.reader_db().clone()),
+    )
     .await;
     record_health_metrics(HealthCheckScope::Readiness, &report);
     if report.has_issues() {
@@ -29,10 +29,8 @@ where
     S: DatabaseRuntimeState + AppConfigRuntimeState + CacheRuntimeState,
 {
     tracing::debug!("running system health checks");
-    let report = run_health_scope(state, HealthCheckScope::Diagnostics, |registry, state| {
-        register_core_health_checks(registry, state);
-    })
-    .await;
+    let report =
+        run_health_scope(HealthCheckScope::Diagnostics, core_health_component(state)).await;
     record_health_metrics(HealthCheckScope::Diagnostics, &report);
     tracing::debug!(
         component_count = report.components.len(),
@@ -51,23 +49,27 @@ where
     report
 }
 
-pub fn register_core_health_checks<S>(registry: &mut RuntimeComponentRegistry, state: &S)
+pub fn core_health_component<S>(
+    state: &S,
+) -> RuntimeComponentBundleRegistration<impl RuntimeComponentBundle + use<S>>
 where
     S: DatabaseRuntimeState + AppConfigRuntimeState + CacheRuntimeState,
 {
-    crate::db::runtime::register_database_health_check(registry, state);
-    cache::register_cache_health_check(registry, state);
+    aster_forge_runtime::runtime_component((
+        aster_forge_db::database_health_component(state.reader_db().clone()),
+        aster_forge_cache::cache_health_component(
+            state.config().cache.clone(),
+            state.cache().clone(),
+        ),
+    ))
 }
 
-async fn run_health_scope<S, F>(
-    state: &S,
-    scope: HealthCheckScope,
-    configure: F,
-) -> SystemHealthReport
+async fn run_health_scope<B>(scope: HealthCheckScope, bundle: B) -> SystemHealthReport
 where
-    F: FnOnce(&mut RuntimeComponentRegistry, &S),
+    B: RuntimeComponentBundle,
 {
-    let mut registry = RuntimeComponentRegistry::configured_with_state(state, configure);
+    let mut registry = RuntimeComponentRegistry::new();
+    registry.register_bundle(bundle);
     registry.run_health(scope).await
 }
 
@@ -81,10 +83,11 @@ fn record_health_metrics(scope: HealthCheckScope, report: &SystemHealthReport) {
 
 #[cfg(test)]
 mod tests {
-    use super::{HealthCheckScope, HealthStatus, register_core_health_checks};
+    use super::{HealthCheckScope, HealthStatus, core_health_component};
     use crate::config::{Config, DatabaseConfig};
     use crate::runtime::{AppConfigRuntimeState, CacheRuntimeState, DatabaseRuntimeState};
     use aster_forge_cache::CacheBackend;
+    use aster_forge_runtime::RuntimeComponentBundle;
     use sea_orm::DatabaseConnection;
     use std::sync::Arc;
 
@@ -117,7 +120,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn core_health_checks_register_database_and_cache_components() {
+    async fn core_health_component_registers_database_and_cache_components() {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {
                 url: "sqlite::memory:".to_string(),
@@ -133,7 +136,7 @@ mod tests {
         let state = HealthState { db, config, cache };
         let mut registry = aster_forge_runtime::RuntimeComponentRegistry::new();
 
-        register_core_health_checks(&mut registry, &state);
+        core_health_component(&state).register(&mut registry);
 
         assert_eq!(registry.len(), 2);
         let report = registry
@@ -167,7 +170,9 @@ mod tests {
         };
         let mut registry = aster_forge_runtime::RuntimeComponentRegistry::new();
 
-        crate::db::runtime::register_database_health_check(&mut registry, &state);
+        registry.register_bundle(aster_forge_db::database_health_component(
+            state.reader_db().clone(),
+        ));
 
         assert_eq!(registry.len(), 1);
         let report = registry.run_health(HealthCheckScope::Readiness).await;

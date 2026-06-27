@@ -8,7 +8,9 @@
 use std::io;
 
 use actix_web::{App, HttpServer, middleware, web};
-use aster_forge_runtime::{RuntimeComponentKind, RuntimeServiceComponent};
+use aster_forge_runtime::{
+    RuntimeComponentKind, RuntimeServiceComponent, TryRuntimeComponentWithShutdown,
+};
 use tokio_util::sync::CancellationToken;
 
 const HTTP_SHUTDOWN_TIMEOUT_SECS: u64 = 8;
@@ -23,14 +25,28 @@ pub struct HttpRuntimeConfig<'a> {
     pub workers: usize,
 }
 
-/// Builds the HTTP service component used by the product entrypoint.
+/// Builds the HTTP runtime component used by the product entrypoint.
 pub fn http_component(
     config: HttpRuntimeConfig<'_>,
     state: web::Data<crate::runtime::AppState>,
-    shutdown_data: web::Data<CancellationToken>,
+    metrics_data: web::Data<aster_forge_metrics::SharedMetricsRecorder>,
+) -> TryRuntimeComponentWithShutdown<
+    RuntimeServiceComponent<actix_web::dev::Server>,
+    impl FnOnce(CancellationToken) -> io::Result<RuntimeServiceComponent<actix_web::dev::Server>>,
+    io::Error,
+> {
+    aster_forge_runtime::try_runtime_component_with_shutdown(move |shutdown_token| {
+        build_http_service_component(config, state, shutdown_token, metrics_data)
+    })
+}
+
+fn build_http_service_component(
+    config: HttpRuntimeConfig<'_>,
+    state: web::Data<crate::runtime::AppState>,
+    shutdown_token: CancellationToken,
     metrics_data: web::Data<aster_forge_metrics::SharedMetricsRecorder>,
 ) -> io::Result<RuntimeServiceComponent<actix_web::dev::Server>> {
-    let shutdown_token = shutdown_data.get_ref().clone();
+    let shutdown_data = web::Data::new(shutdown_token.clone());
     let server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::Compress::default())

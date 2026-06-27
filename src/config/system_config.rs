@@ -1,11 +1,11 @@
 //! Runtime system configuration helpers.
 
 use crate::config::RuntimeConfig;
-use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef};
-use crate::entities::system_config;
+use crate::config::definitions::CONFIG_REGISTRY;
 use crate::errors::Result;
-use aster_forge_config::{ConfigSource, ConfigValueType};
+use aster_forge_config::{ConfigDefinition, ConfigSource, ConfigValueType};
 use aster_forge_config::{ConfigValueLookup, StoredConfig};
+use aster_forge_db::system_config;
 
 impl ConfigValueLookup for RuntimeConfig {
     fn get_config_value(&self, key: &str) -> Option<String> {
@@ -13,7 +13,7 @@ impl ConfigValueLookup for RuntimeConfig {
     }
 }
 
-pub fn get_definition(key: &str) -> Option<&'static ConfigDef> {
+pub fn get_definition(key: &str) -> Option<&'static ConfigDefinition> {
     CONFIG_REGISTRY.get(key)
 }
 
@@ -70,8 +70,8 @@ mod tests {
     use crate::config::definitions::{CONFIG_CATEGORY_SITE_PUBLIC, PUBLIC_SITE_URL_KEY};
     use crate::config::yggdrasil::{YGGDRASIL_MAX_ACTIVE_TOKENS_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY};
     use crate::config::{audit, cors, operations};
-    use crate::entities::system_config;
     use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_db::system_config;
     fn model(key: &str, value: &str, source: ConfigSource) -> system_config::Model {
         system_config::Model {
             id: 1,

@@ -3,59 +3,7 @@
 mod common;
 mod state;
 
-use std::sync::Arc;
-
-use crate::config::Config;
-use crate::errors::Result;
-use crate::runtime::AppState;
-use aster_forge_runtime::{StartupReport, run_required_startup_phase};
-
-pub use state::{PreparedRuntimeState, prepare_runtime_state};
-
-pub struct PreparedRuntime {
-    pub state: AppState,
-    pub startup_report: StartupReport,
-}
-
-pub async fn prepare(config: Arc<Config>) -> Result<PreparedRuntime> {
-    let mut phase_reports = Vec::new();
-    let prepared = run_required_startup_phase("prepare_runtime_state", move || {
-        let config = config.clone();
-        async move {
-            prepare_runtime_state(config)
-                .await
-                .map(|prepared| prepared.state)
-        }
-    })
-    .await?;
-    let state = prepared.value;
-    phase_reports.push(prepared.report);
-
-    let audit = run_required_startup_phase("record_server_start", || async {
-        record_server_start(&state).await;
-        Ok::<(), crate::errors::AsterError>(())
-    })
-    .await?;
-    phase_reports.push(audit.report);
-
-    Ok(PreparedRuntime {
-        state,
-        startup_report: StartupReport::new(phase_reports),
-    })
-}
-
-pub async fn record_server_start(state: &impl crate::runtime::SharedRuntimeState) {
-    crate::services::audit_service::log(
-        state,
-        &crate::services::audit_service::AuditContext::system(),
-        crate::types::audit::AuditAction::ServerStart,
-        crate::types::audit::AuditEntityType::System,
-        None,
-        Some("server"),
-        None,
-    )
-    .await;
-}
+pub use state::prepare_runtime_state;
 
 #[cfg(test)]
 mod tests {
@@ -64,7 +12,6 @@ mod tests {
     use migration::Migrator;
     use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
-    use super::record_server_start;
     use crate::runtime::{AppState, AppStateParts};
 
     async fn test_state() -> (AppState, sea_orm::DatabaseConnection) {
@@ -112,7 +59,7 @@ mod tests {
     async fn record_server_start_writes_audit_log() {
         let (state, db) = test_state().await;
 
-        record_server_start(&state).await;
+        crate::services::audit_service::runtime::record_server_start(&state).await;
         crate::services::audit_service::flush_global_audit_log_manager().await;
 
         let count = crate::entities::audit_log::Entity::find()

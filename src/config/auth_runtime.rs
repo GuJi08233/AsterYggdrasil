@@ -502,7 +502,7 @@ mod tests {
     };
     use crate::config::RuntimeConfig;
     use crate::config::definitions::CONFIG_CATEGORY_AUTH_SESSION;
-    use crate::entities::system_config;
+    use aster_forge_db::system_config;
     use chrono::Utc;
 
     fn config_model(key: &str, value: &str) -> system_config::Model {

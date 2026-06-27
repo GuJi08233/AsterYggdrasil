@@ -16,7 +16,6 @@ pub mod minecraft_texture_report;
 pub mod minecraft_texture_tag;
 pub mod minecraft_texture_tag_binding;
 pub mod passkey;
-pub mod system_config;
 pub mod user;
 pub mod user_ban;
 pub mod user_ban_event;

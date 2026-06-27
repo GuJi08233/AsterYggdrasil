@@ -139,10 +139,10 @@ mod tests {
 
     use crate::api::error_code::AsterErrorCode;
     use crate::config::{RuntimeConfig, site_url};
-    use crate::entities::system_config;
     use crate::errors::AsterError;
     use aster_forge_actix_middleware::csrf::{RequestSourceMode, build_csrf_token};
     use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_db::system_config;
 
     use super::{ensure_double_submit_token, ensure_request_source_allowed, token_names};
     fn error_code(error: &AsterError) -> Option<AsterErrorCode> {

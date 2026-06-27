@@ -402,18 +402,18 @@ mod tests {
         let second = ensure_signature_key(&db).await.unwrap();
         assert!(second.is_none());
 
-        let stored = crate::entities::system_config::Entity::find()
+        let stored = aster_forge_db::system_config::Entity::find()
             .filter(
-                crate::entities::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY),
+                aster_forge_db::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY),
             )
             .one(&db)
             .await
             .unwrap()
             .unwrap();
         assert_eq!(stored.value, generated);
-        let public = crate::entities::system_config::Entity::find()
+        let public = aster_forge_db::system_config::Entity::find()
             .filter(
-                crate::entities::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
+                aster_forge_db::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
             )
             .one(&db)
             .await
@@ -454,9 +454,9 @@ mod tests {
             .expect("blank key should be replaced");
 
         assert!(generated.contains("BEGIN PRIVATE KEY"));
-        let public = crate::entities::system_config::Entity::find()
+        let public = aster_forge_db::system_config::Entity::find()
             .filter(
-                crate::entities::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
+                aster_forge_db::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
             )
             .one(&db)
             .await
@@ -495,9 +495,9 @@ mod tests {
         let generated = ensure_signature_key(&db).await.unwrap();
 
         assert!(generated.is_none());
-        let public = crate::entities::system_config::Entity::find()
+        let public = aster_forge_db::system_config::Entity::find()
             .filter(
-                crate::entities::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
+                aster_forge_db::system_config::Column::Key.eq(YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY),
             )
             .one(&db)
             .await

@@ -20,7 +20,7 @@ pub async fn list_enabled_providers<C: ConnectionTrait>(
 
 pub async fn list_enabled_providers_by_kind<C: ConnectionTrait>(
     db: &C,
-    kind: crate::types::external_auth::ExternalAuthKind,
+    kind: crate::types::external_auth::ExternalAuthProviderKind,
 ) -> Result<Vec<external_auth_provider::Model>> {
     ExternalAuthProvider::find()
         .filter(external_auth_provider::Column::Enabled.eq(true))
@@ -179,7 +179,7 @@ mod tests {
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
     use crate::entities::external_auth_provider;
-    use crate::types::external_auth::ExternalAuthKind;
+    use crate::types::external_auth::ExternalAuthProviderKind;
     use crate::types::user::UserRole;
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
@@ -201,7 +201,7 @@ mod tests {
     fn provider_active_model(
         slug: &str,
         display_name: &str,
-        kind: ExternalAuthKind,
+        kind: ExternalAuthProviderKind,
         enabled: bool,
     ) -> external_auth_provider::ActiveModel {
         let now = Utc::now();
@@ -227,7 +227,7 @@ mod tests {
         db: &sea_orm::DatabaseConnection,
         slug: &str,
         display_name: &str,
-        kind: ExternalAuthKind,
+        kind: ExternalAuthProviderKind,
         enabled: bool,
     ) -> external_auth_provider::Model {
         insert_provider(db, provider_active_model(slug, display_name, kind, enabled))
@@ -251,11 +251,19 @@ mod tests {
     #[tokio::test]
     async fn provider_queries_filter_enabled_kind_and_find_by_id_or_slug() {
         let db = build_test_db().await;
-        let beta = insert_test_provider(&db, "beta", "Beta", ExternalAuthKind::Oidc, true).await;
-        let alpha =
-            insert_test_provider(&db, "alpha", "Alpha", ExternalAuthKind::Oauth2, true).await;
+        let beta =
+            insert_test_provider(&db, "beta", "Beta", ExternalAuthProviderKind::Oidc, true).await;
+        let alpha = insert_test_provider(
+            &db,
+            "alpha",
+            "Alpha",
+            ExternalAuthProviderKind::GenericOAuth2,
+            true,
+        )
+        .await;
         let disabled =
-            insert_test_provider(&db, "disabled", "Disabled", ExternalAuthKind::Oidc, false).await;
+            insert_test_provider(&db, "disabled", "Disabled", ExternalAuthProviderKind::Oidc, false)
+                .await;
 
         let enabled = list_enabled_providers(&db).await.unwrap();
         assert_eq!(
@@ -266,7 +274,7 @@ mod tests {
             vec!["alpha", "beta"]
         );
 
-        let oidc = list_enabled_providers_by_kind(&db, ExternalAuthKind::Oidc)
+        let oidc = list_enabled_providers_by_kind(&db, ExternalAuthProviderKind::Oidc)
             .await
             .unwrap();
         assert_eq!(
@@ -318,7 +326,7 @@ mod tests {
     async fn login_flow_consume_and_cleanup_enforce_state_lifecycle() {
         let db = build_test_db().await;
         let provider =
-            insert_test_provider(&db, "oidc", "OIDC", ExternalAuthKind::Oidc, true).await;
+            insert_test_provider(&db, "oidc", "OIDC", ExternalAuthProviderKind::Oidc, true).await;
         let now = Utc::now();
 
         let flow = create_login_flow(
@@ -400,7 +408,8 @@ mod tests {
     async fn link_identity_persists_provider_subject_and_profile_fields() {
         let db = build_test_db().await;
         let provider =
-            insert_test_provider(&db, "identity", "Identity", ExternalAuthKind::Oidc, true).await;
+            insert_test_provider(&db, "identity", "Identity", ExternalAuthProviderKind::Oidc, true)
+                .await;
         let user_id = insert_user(&db).await;
 
         let identity = link_identity(

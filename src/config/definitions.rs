@@ -197,8 +197,6 @@ pub const DEPRECATED_AVATAR_DIR_KEY: &str = "avatar_dir";
 
 pub const DEPRECATED_SYSTEM_CONFIG_KEYS: &[&str] = &[DEPRECATED_AVATAR_DIR_KEY];
 
-pub type ConfigDef = ConfigDefinition;
-
 fn empty_origin_list_default() -> String {
     "[]".to_string()
 }

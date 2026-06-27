@@ -19,6 +19,30 @@ const BACKGROUND_TASK_RUNTIME_LEASE_RENEW_INTERVAL: Duration = Duration::from_se
 const BACKGROUND_TASK_RUNTIME_LEASE_STANDBY_RETRY_INTERVAL: Duration = Duration::from_secs(5);
 const SCHEDULED_TASK_CLAIM_TTL: Duration = Duration::from_secs(120);
 
+/// Runtime component factory for Yggdrasil background workers.
+pub struct BackgroundTasksRuntimeComponent {
+    state: web::Data<AppState>,
+}
+
+/// Creates the background task component used by the product entrypoint.
+pub fn background_tasks_component(state: web::Data<AppState>) -> BackgroundTasksRuntimeComponent {
+    BackgroundTasksRuntimeComponent { state }
+}
+
+impl<S> aster_forge_runtime::AsterRuntimeComponent<S> for BackgroundTasksRuntimeComponent {
+    type Output = aster_forge_runtime::AsterRuntimeBuilder<S>;
+
+    fn apply(self, builder: aster_forge_runtime::AsterRuntimeBuilder<S>) -> Self::Output {
+        aster_forge_runtime::AsterRuntimeComponent::apply(
+            aster_forge_runtime::runtime_component_with_shutdown(move |shutdown_token| {
+                let background_tasks = spawn_runtime_background_tasks(self.state, shutdown_token);
+                task_component(background_tasks)
+            }),
+            builder,
+        )
+    }
+}
+
 /// Creates the background task runtime component used by the product entrypoint.
 pub fn task_component(
     background_tasks: BackgroundTasks,
@@ -139,8 +163,8 @@ fn spawn_config_reload_subscription(
     shutdown_token: CancellationToken,
     state: web::Data<AppState>,
 ) -> impl Future<Output = ()> + Send + 'static {
-    let state = std::sync::Arc::new(state.get_ref().clone());
     let settings = state.config_sync().clone();
+    let state = state.into_inner();
     async move {
         if let Err(error) =
             crate::services::config_service::runtime::run_config_reload_subscription(
@@ -671,19 +695,6 @@ mod tests {
                 .iter()
                 .map(|task| task.wire_value)
                 .collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn task_shutdown_registrar_can_be_used_directly() {
-        let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            aster_forge_tasks::register_background_tasks_shutdown(registry, BackgroundTasks::new());
-        });
-
-        assert!(
-            registry
-                .descriptor(aster_forge_tasks::BACKGROUND_TASKS_COMPONENT)
-                .is_some()
         );
     }
 

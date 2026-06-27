@@ -1,96 +1,44 @@
-//! System config repository.
+//! Product-bound system config repository.
+//!
+//! Forge owns the shared `system_config` table contract and CRUD mechanics.
+//! This module binds those mechanics to Yggdrasil's config registry,
+//! deprecated-key list, cursor API type, and public error semantics.
 
-use crate::config::definitions::{CONFIG_REGISTRY, ConfigDef, DEPRECATED_SYSTEM_CONFIG_KEYS};
-use crate::entities::system_config::{self, Entity as SystemConfig};
+use crate::config::definitions::{CONFIG_REGISTRY, DEPRECATED_SYSTEM_CONFIG_KEYS};
 use crate::errors::{AsterError, Result};
 use aster_forge_api::CursorSlice;
-use aster_forge_config::ConfigSeedRecord;
-use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
-use chrono::Utc;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DbBackend, EntityTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set, TryInsertResult,
-};
+use aster_forge_config::ConfigVisibility;
+use aster_forge_db::system_config::{self, SystemConfigDbBinding, SystemConfigUpsert};
+use sea_orm::ConnectionTrait;
 
-fn find_definition(key: &str) -> Option<&'static ConfigDef> {
-    CONFIG_REGISTRY.get(key)
+static STORE: SystemConfigDbBinding =
+    SystemConfigDbBinding::new(&CONFIG_REGISTRY, DEPRECATED_SYSTEM_CONFIG_KEYS);
+
+fn map_store_error(error: aster_forge_db::DbError) -> AsterError {
+    let message = error.to_string();
+    if message.contains("cannot delete system configuration") {
+        return AsterError::auth_forbidden("cannot delete system configuration");
+    }
+    if let Some(key) = config_key_from_message(&message) {
+        return AsterError::record_not_found(format!("config key '{key}'"));
+    }
+    AsterError::from(error)
 }
 
-fn build_system_active_model(
-    def: &ConfigDef,
-    value: String,
-    now: chrono::DateTime<Utc>,
-    updated_by: Option<i64>,
-) -> system_config::ActiveModel {
-    system_config::ActiveModel {
-        key: Set(def.key.to_string()),
-        value: Set(value),
-        value_type: Set(def.value_type),
-        requires_restart: Set(def.requires_restart),
-        is_sensitive: Set(def.is_sensitive),
-        source: Set(ConfigSource::System),
-        visibility: Set(def.visibility),
-        namespace: Set(String::new()),
-        category: Set(def.category.to_string()),
-        description: Set(def.description.to_string()),
-        updated_at: Set(now),
-        updated_by: Set(updated_by),
-        ..Default::default()
-    }
+fn config_key_from_message(message: &str) -> Option<&str> {
+    let prefix = "config key '";
+    let start = message.find(prefix)? + prefix.len();
+    let rest = &message[start..];
+    let end = rest.find('\'')?;
+    Some(&rest[..end])
 }
 
-fn build_system_active_model_from_seed(
-    seed: ConfigSeedRecord,
-    now: chrono::DateTime<Utc>,
-    updated_by: Option<i64>,
-) -> system_config::ActiveModel {
-    system_config::ActiveModel {
-        key: Set(seed.key),
-        value: Set(seed.value),
-        value_type: Set(seed.value_type),
-        requires_restart: Set(seed.requires_restart),
-        is_sensitive: Set(seed.is_sensitive),
-        source: Set(seed.source),
-        visibility: Set(seed.visibility),
-        namespace: Set(String::new()),
-        category: Set(seed.category),
-        description: Set(seed.description),
-        updated_at: Set(now),
-        updated_by: Set(updated_by),
-        ..Default::default()
-    }
-}
-
-fn build_custom_active_model(
-    key: &str,
-    value: String,
-    visibility: ConfigVisibility,
-    now: chrono::DateTime<Utc>,
-    updated_by: Option<i64>,
-) -> system_config::ActiveModel {
-    system_config::ActiveModel {
-        key: Set(key.to_string()),
-        value: Set(value),
-        value_type: Set(ConfigValueType::String),
-        requires_restart: Set(false),
-        is_sensitive: Set(false),
-        source: Set(ConfigSource::Custom),
-        visibility: Set(visibility),
-        namespace: Set(String::new()),
-        category: Set(String::new()),
-        description: Set(String::new()),
-        updated_at: Set(now),
-        updated_by: Set(updated_by),
-        ..Default::default()
-    }
+fn map_store_result<T>(result: aster_forge_db::Result<T>) -> Result<T> {
+    result.map_err(map_store_error)
 }
 
 pub async fn find_all<C: ConnectionTrait>(db: &C) -> Result<Vec<system_config::Model>> {
-    SystemConfig::find()
-        .order_by_asc(system_config::Column::Id)
-        .all(db)
-        .await
-        .map_err(AsterError::from)
+    map_store_result(STORE.find_all(db).await)
 }
 
 pub async fn find_cursor<C: ConnectionTrait>(
@@ -98,72 +46,30 @@ pub async fn find_cursor<C: ConnectionTrait>(
     limit: u64,
     after_id: Option<i64>,
 ) -> Result<CursorSlice<system_config::Model>> {
-    let limit = limit.clamp(1, 100);
-    let base = SystemConfig::find();
-    let total = base.clone().count(db).await.map_err(AsterError::from)?;
-    if total == 0 {
-        return Ok(CursorSlice::empty(total));
-    }
-
-    let mut query = base;
-    if let Some(after_id) = after_id {
-        query = query.filter(system_config::Column::Id.gt(after_id));
-    }
-
-    let items = query
-        .order_by_asc(system_config::Column::Id)
-        .limit(limit.saturating_add(1))
-        .all(db)
-        .await
-        .map_err(AsterError::from)?;
-    Ok(CursorSlice::from_overfetch(items, total, limit)?)
+    let page = map_store_result(STORE.find_cursor(db, limit, after_id).await)?;
+    Ok(CursorSlice {
+        items: page.items,
+        total: page.total,
+        has_more: page.has_more,
+    })
 }
 
 pub async fn find_by_key<C: ConnectionTrait>(
     db: &C,
     key: &str,
 ) -> Result<Option<system_config::Model>> {
-    SystemConfig::find()
-        .filter(system_config::Column::Key.eq(key))
-        .one(db)
-        .await
-        .map_err(AsterError::from)
+    map_store_result(STORE.find_by_key(db, key).await)
 }
 
 pub async fn find_visible_custom<C: ConnectionTrait>(
     db: &C,
     include_authenticated: bool,
 ) -> Result<Vec<system_config::Model>> {
-    let mut visibility_filter =
-        Condition::any().add(system_config::Column::Visibility.eq(ConfigVisibility::Public));
-    if include_authenticated {
-        visibility_filter = visibility_filter
-            .add(system_config::Column::Visibility.eq(ConfigVisibility::Authenticated));
-    }
-
-    SystemConfig::find()
-        .filter(system_config::Column::Source.eq(ConfigSource::Custom))
-        .filter(visibility_filter)
-        .order_by_asc(system_config::Column::Key)
-        .all(db)
-        .await
-        .map_err(AsterError::from)
+    map_store_result(STORE.find_visible_custom(db, include_authenticated).await)
 }
 
 pub async fn lock_by_key<C: ConnectionTrait>(db: &C, key: &str) -> Result<()> {
-    let query = SystemConfig::find().filter(system_config::Column::Key.eq(key));
-    let config = match db.get_database_backend() {
-        DbBackend::Postgres | DbBackend::MySql => query
-            .lock_exclusive()
-            .one(db)
-            .await
-            .map_err(AsterError::from)?,
-        _ => query.one(db).await.map_err(AsterError::from)?,
-    };
-
-    config
-        .map(|_| ())
-        .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))
+    map_store_result(STORE.lock_by_key(db, key).await)
 }
 
 pub async fn upsert<C: ConnectionTrait>(
@@ -191,70 +97,23 @@ pub async fn upsert_with_options<C: ConnectionTrait>(
     visibility: Option<ConfigVisibility>,
     updated_by: Option<i64>,
 ) -> Result<system_config::Model> {
-    let now = Utc::now();
-    let definition = find_definition(key);
-    let is_custom_key = definition.is_none();
-    let active = definition
-        .map(|def| build_system_active_model(def, value.to_string(), now, updated_by))
-        .unwrap_or_else(|| {
-            build_custom_active_model(
-                key,
-                value.to_string(),
-                visibility.unwrap_or_default(),
-                now,
-                updated_by,
+    map_store_result(
+        STORE
+            .upsert(
+                db,
+                SystemConfigUpsert {
+                    key,
+                    value,
+                    visibility,
+                    updated_by,
+                },
             )
-        });
-    let inserted = match SystemConfig::insert(active)
-        .on_conflict_do_nothing_on([system_config::Column::Key])
-        .exec(db)
-        .await
-        .map_err(AsterError::from)?
-    {
-        TryInsertResult::Inserted(_) => true,
-        TryInsertResult::Conflicted => false,
-        TryInsertResult::Empty => {
-            return Err(AsterError::internal_error(
-                "system config upsert produced empty insert result",
-            ));
-        }
-    };
-
-    if !inserted {
-        let existing = find_by_key(db, key)
-            .await?
-            .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))?;
-        let mut active: system_config::ActiveModel = existing.into();
-        active.value = Set(value.to_string());
-        if is_custom_key && let Some(visibility) = visibility {
-            active.visibility = Set(visibility);
-        }
-        active.updated_at = Set(now);
-        active.updated_by = Set(updated_by);
-        active.update(db).await.map_err(AsterError::from)?;
-    }
-
-    find_by_key(db, key)
-        .await?
-        .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))
+            .await,
+    )
 }
 
 pub async fn delete_by_key<C: ConnectionTrait>(db: &C, key: &str) -> Result<()> {
-    let existing = find_by_key(db, key)
-        .await?
-        .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))?;
-
-    if existing.source == ConfigSource::System {
-        return Err(AsterError::auth_forbidden(
-            "cannot delete system configuration",
-        ));
-    }
-
-    SystemConfig::delete_by_id(existing.id)
-        .exec(db)
-        .await
-        .map_err(AsterError::from)?;
-    Ok(())
+    map_store_result(STORE.delete_by_key(db, key).await)
 }
 
 pub async fn ensure_system_value_if_missing<C: ConnectionTrait>(
@@ -262,99 +121,15 @@ pub async fn ensure_system_value_if_missing<C: ConnectionTrait>(
     key: &str,
     value: &str,
 ) -> Result<bool> {
-    let def = find_definition(key)
-        .ok_or_else(|| AsterError::record_not_found(format!("config key '{key}'")))?;
-    let now = Utc::now();
-    let inserted =
-        match SystemConfig::insert(build_system_active_model(def, value.to_string(), now, None))
-            .on_conflict_do_nothing_on([system_config::Column::Key])
-            .exec(db)
-            .await
-            .map_err(AsterError::from)?
-        {
-            TryInsertResult::Inserted(_) => true,
-            TryInsertResult::Conflicted => false,
-            TryInsertResult::Empty => {
-                return Err(AsterError::internal_error(
-                    "ensure_system_value_if_missing produced empty insert result",
-                ));
-            }
-        };
-
-    Ok(inserted)
+    map_store_result(STORE.ensure_system_value_if_missing(db, key, value).await)
 }
 
 pub async fn delete_deprecated_keys<C: ConnectionTrait>(db: &C) -> Result<u64> {
-    if DEPRECATED_SYSTEM_CONFIG_KEYS.is_empty() {
-        return Ok(0);
-    }
-
-    let result = SystemConfig::delete_many()
-        .filter(system_config::Column::Key.is_in(DEPRECATED_SYSTEM_CONFIG_KEYS.iter().copied()))
-        .exec(db)
-        .await
-        .map_err(AsterError::from)?;
-
-    if result.rows_affected > 0 {
-        tracing::info!(
-            count = result.rows_affected,
-            keys = ?DEPRECATED_SYSTEM_CONFIG_KEYS,
-            "deleted deprecated system config keys"
-        );
-    }
-
-    Ok(result.rows_affected)
+    map_store_result(STORE.delete_deprecated_keys(db).await)
 }
 
 pub async fn ensure_defaults<C: ConnectionTrait>(db: &C) -> Result<usize> {
-    let mut count = 0;
-
-    delete_deprecated_keys(db).await?;
-
-    for seed in CONFIG_REGISTRY.default_seed_records()? {
-        let now = Utc::now();
-        let key = seed.key.clone();
-        let inserted =
-            match SystemConfig::insert(build_system_active_model_from_seed(seed, now, None))
-                .on_conflict_do_nothing_on([system_config::Column::Key])
-                .exec(db)
-                .await
-                .map_err(AsterError::from)?
-            {
-                TryInsertResult::Inserted(_) => true,
-                TryInsertResult::Conflicted => false,
-                TryInsertResult::Empty => {
-                    return Err(AsterError::internal_error(
-                        "ensure_defaults produced empty insert result",
-                    ));
-                }
-            };
-
-        if inserted {
-            count += 1;
-            continue;
-        }
-
-        let def = CONFIG_REGISTRY.require(&key).map_err(AsterError::from)?;
-        let existing = find_by_key(db, def.key)
-            .await?
-            .ok_or_else(|| AsterError::record_not_found(format!("config key '{}'", def.key)))?;
-        let mut active: system_config::ActiveModel = existing.into();
-        active.source = Set(ConfigSource::System);
-        active.value_type = Set(def.value_type);
-        active.requires_restart = Set(def.requires_restart);
-        active.is_sensitive = Set(def.is_sensitive);
-        active.visibility = Set(def.visibility);
-        active.category = Set(def.category.to_string());
-        active.description = Set(def.description.to_string());
-        active.update(db).await.map_err(AsterError::from)?;
-    }
-
-    if count > 0 {
-        tracing::info!("initialized {count} default configuration items");
-    }
-
-    Ok(count)
+    map_store_result(STORE.ensure_defaults(db).await)
 }
 
 #[cfg(test)]
@@ -363,8 +138,7 @@ mod tests {
 
     use super::{
         delete_by_key, delete_deprecated_keys, ensure_defaults, ensure_system_value_if_missing,
-        find_all, find_by_key, find_cursor, find_visible_custom, lock_by_key, upsert,
-        upsert_with_actor, upsert_with_options,
+        find_all, find_by_key, find_cursor, lock_by_key, upsert_with_actor,
     };
     use crate::config::{
         DatabaseConfig,
@@ -373,8 +147,9 @@ mod tests {
             PUBLIC_SITE_URL_KEY,
         },
     };
-    use crate::entities::system_config;
-    use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+    use aster_forge_config::{ConfigSource, ConfigValueType};
+    use aster_forge_db::system_config;
+
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {
@@ -393,7 +168,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ensure_defaults_inserts_once_and_repairs_definition_metadata() {
+    async fn ensure_defaults_uses_yggdrasil_registry_and_repairs_metadata() {
         let db = build_test_db().await;
 
         let inserted = ensure_defaults(&db).await.unwrap();
@@ -429,7 +204,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ensure_defaults_deletes_deprecated_config_keys() {
+    async fn ensure_defaults_deletes_yggdrasil_deprecated_config_keys() {
         let db = build_test_db().await;
 
         upsert_with_actor(&db, DEPRECATED_AVATAR_DIR_KEY, "/tmp/avatars", None)
@@ -448,123 +223,26 @@ mod tests {
                 .is_none()
         );
         assert!(find_by_key(&db, "custom_keep_me").await.unwrap().is_some());
-
         assert_eq!(delete_deprecated_keys(&db).await.unwrap(), 0);
 
         db.close().await.unwrap();
     }
 
     #[tokio::test]
-    async fn upsert_system_and_custom_config_preserves_expected_metadata() {
-        let db = build_test_db().await;
-
-        let system = upsert(&db, BRANDING_TITLE_KEY, "Custom Title", 42)
-            .await
-            .unwrap();
-        assert_eq!(system.value, "Custom Title");
-        assert_eq!(system.updated_by, Some(42));
-        assert_eq!(system.source, ConfigSource::System);
-        assert_eq!(system.visibility, ConfigVisibility::Private);
-        assert_eq!(system.value_type, ConfigValueType::String);
-
-        let updated_system = upsert_with_actor(&db, BRANDING_TITLE_KEY, "New Title", None)
-            .await
-            .unwrap();
-        assert_eq!(updated_system.id, system.id);
-        assert_eq!(updated_system.value, "New Title");
-        assert_eq!(updated_system.updated_by, None);
-
-        let custom = upsert_with_options(
-            &db,
-            "custom_public_banner",
-            "hello",
-            Some(ConfigVisibility::Public),
-            Some(7),
-        )
-        .await
-        .unwrap();
-        assert_eq!(custom.source, ConfigSource::Custom);
-        assert_eq!(custom.visibility, ConfigVisibility::Public);
-        assert_eq!(custom.value_type, ConfigValueType::String);
-        assert_eq!(custom.updated_by, Some(7));
-
-        let updated_custom = upsert_with_options(
-            &db,
-            "custom_public_banner",
-            "hello again",
-            Some(ConfigVisibility::Authenticated),
-            None,
-        )
-        .await
-        .unwrap();
-        assert_eq!(updated_custom.id, custom.id);
-        assert_eq!(updated_custom.value, "hello again");
-        assert_eq!(updated_custom.visibility, ConfigVisibility::Authenticated);
-        assert_eq!(updated_custom.updated_by, None);
-
-        db.close().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn find_visible_custom_filters_visibility_and_orders_by_key() {
+    async fn repository_preserves_product_error_semantics_and_cursor_api() {
         let db = build_test_db().await;
         ensure_defaults(&db).await.unwrap();
-        upsert_with_options(
-            &db,
-            "visible_public",
-            "public",
-            Some(ConfigVisibility::Public),
-            None,
-        )
-        .await
-        .unwrap();
-        upsert_with_options(
-            &db,
-            "visible_authenticated",
-            "authenticated",
-            Some(ConfigVisibility::Authenticated),
-            None,
-        )
-        .await
-        .unwrap();
-        upsert_with_options(
-            &db,
-            "visible_private",
-            "private",
-            Some(ConfigVisibility::Private),
-            None,
-        )
-        .await
-        .unwrap();
 
-        let public_only = find_visible_custom(&db, false).await.unwrap();
-        assert_eq!(
-            public_only
-                .iter()
-                .map(|config| config.key.as_str())
-                .collect::<Vec<_>>(),
-            vec!["visible_public"]
-        );
+        let all = find_all(&db).await.unwrap();
+        assert_eq!(all.len(), ALL_CONFIGS.len());
+        let page = find_cursor(&db, 2, Some(all[0].id)).await.unwrap();
+        assert_eq!(page.total, ALL_CONFIGS.len() as u64);
+        assert!(page.has_more);
+        assert_eq!(page.items.len(), 2);
 
-        let public_and_authenticated = find_visible_custom(&db, true).await.unwrap();
-        assert_eq!(
-            public_and_authenticated
-                .iter()
-                .map(|config| config.key.as_str())
-                .collect::<Vec<_>>(),
-            vec!["visible_authenticated", "visible_public"]
-        );
-
-        db.close().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn delete_rejects_system_config_and_removes_custom_config() {
-        let db = build_test_db().await;
-        ensure_defaults(&db).await.unwrap();
-        upsert_with_actor(&db, "custom_delete_me", "value", None)
-            .await
-            .unwrap();
+        lock_by_key(&db, BRANDING_TITLE_KEY).await.unwrap();
+        let missing = lock_by_key(&db, "missing_lock_key").await.unwrap_err();
+        assert!(missing.message().contains("config key 'missing_lock_key'"));
 
         let system_error = delete_by_key(&db, BRANDING_TITLE_KEY).await.unwrap_err();
         assert!(
@@ -573,48 +251,11 @@ mod tests {
                 .contains("cannot delete system configuration")
         );
 
-        delete_by_key(&db, "custom_delete_me").await.unwrap();
-        assert!(
-            find_by_key(&db, "custom_delete_me")
-                .await
-                .unwrap()
-                .is_none()
-        );
-
-        let missing_error = delete_by_key(&db, "missing_custom").await.unwrap_err();
-        assert!(
-            missing_error
-                .message()
-                .contains("config key 'missing_custom'")
-        );
-
         db.close().await.unwrap();
     }
 
     #[tokio::test]
-    async fn find_cursor_and_lock_by_key_follow_repository_contract() {
-        let db = build_test_db().await;
-        ensure_defaults(&db).await.unwrap();
-
-        let all = find_all(&db).await.unwrap();
-        assert_eq!(all.len(), ALL_CONFIGS.len());
-
-        let page = find_cursor(&db, 2, Some(all[0].id)).await.unwrap();
-        assert_eq!(page.total, ALL_CONFIGS.len() as u64);
-        assert!(page.has_more);
-        assert_eq!(page.items.len(), 2);
-        assert_eq!(page.items[0].id, all[1].id);
-        assert_eq!(page.items[1].id, all[2].id);
-
-        lock_by_key(&db, BRANDING_TITLE_KEY).await.unwrap();
-        let missing = lock_by_key(&db, "missing_lock_key").await.unwrap_err();
-        assert!(missing.message().contains("config key 'missing_lock_key'"));
-
-        db.close().await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn ensure_system_value_if_missing_inserts_known_keys_only() {
+    async fn ensure_system_value_if_missing_uses_product_registry() {
         let db = build_test_db().await;
 
         assert!(

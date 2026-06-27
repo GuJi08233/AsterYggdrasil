@@ -4,6 +4,7 @@ use aster_yggdrasil::runtime::{AppState, AppStateParts};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs::{File, OpenOptions},
     hash::{Hash, Hasher},
@@ -12,6 +13,11 @@ use std::{
     process::Command,
     sync::{Mutex, OnceLock},
 };
+
+thread_local! {
+    static LAST_CSRF_TOKENS_BY_SESSION: RefCell<HashMap<String, String>> =
+        RefCell::new(HashMap::new());
+}
 
 const TEST_DATABASE_BACKEND_ENV: &str = "ASTER_TEST_DATABASE_BACKEND";
 const TEST_DATABASE_BACKEND_ALIAS_ENV: &str = "ASTER_DATABASE_BACKEND";
@@ -994,35 +1000,35 @@ pub fn bearer_header(access_token: impl AsRef<str>) -> (&'static str, String) {
 #[allow(dead_code)]
 pub fn access_cookie_header(access_token: impl AsRef<str>) -> String {
     let access_token = access_token.as_ref();
-    format!(
-        "aster_access={access_token}; aster_yggdrasil_csrf={}",
-        csrf_token_for(access_token)
-    )
+    let csrf_token = csrf_token_for(access_token);
+    pin_csrf_token_for_current_thread(access_token, &csrf_token);
+    format!("aster_access={access_token}; aster_yggdrasil_csrf={csrf_token}")
 }
 
 #[allow(dead_code)]
 pub fn refresh_cookie_header(
     refresh_token: impl AsRef<str>,
-    _csrf_token: impl AsRef<str>,
+    csrf_token: impl AsRef<str>,
 ) -> String {
     let refresh_token = refresh_token.as_ref();
-    format!(
-        "aster_refresh={refresh_token}; aster_yggdrasil_csrf={}",
-        csrf_token_for(refresh_token)
-    )
+    let csrf_token = csrf_token.as_ref();
+    pin_csrf_token_for_current_thread(refresh_token, csrf_token);
+    format!("aster_refresh={refresh_token}; aster_yggdrasil_csrf={csrf_token}")
 }
 
 #[allow(dead_code)]
 pub fn access_and_refresh_cookie_header(
     access_token: impl AsRef<str>,
     refresh_token: impl AsRef<str>,
-    _csrf_token: impl AsRef<str>,
+    csrf_token: impl AsRef<str>,
 ) -> String {
     let access_token = access_token.as_ref();
     let refresh_token = refresh_token.as_ref();
+    let csrf_token = csrf_token.as_ref();
+    pin_csrf_token_for_current_thread(access_token, csrf_token);
+    pin_csrf_token_for_current_thread(refresh_token, csrf_token);
     format!(
-        "aster_access={access_token}; aster_refresh={refresh_token}; aster_yggdrasil_csrf={}",
-        csrf_token_for(access_token)
+        "aster_access={access_token}; aster_refresh={refresh_token}; aster_yggdrasil_csrf={csrf_token}"
     )
 }
 
@@ -1043,9 +1049,23 @@ fn remember_csrf_token(session_token: &str, csrf_token: &str) {
         .insert(session_token.to_string(), csrf_token.to_string());
 }
 
+fn pin_csrf_token_for_current_thread(session_token: &str, csrf_token: &str) {
+    LAST_CSRF_TOKENS_BY_SESSION.with(|tokens| {
+        tokens
+            .borrow_mut()
+            .insert(session_token.to_string(), csrf_token.to_string());
+    });
+}
+
 #[allow(dead_code)]
 pub fn csrf_token_for(session_token: impl AsRef<str>) -> String {
     let token = session_token.as_ref();
+    if let Some(csrf_token) =
+        LAST_CSRF_TOKENS_BY_SESSION.with(|tokens| tokens.borrow().get(token).cloned())
+    {
+        return csrf_token;
+    }
+
     csrf_tokens_by_session()
         .lock()
         .expect("csrf token map should lock")
@@ -1132,11 +1152,8 @@ pub fn extract_token_from_mail_message(
 }
 
 #[allow(dead_code)]
-pub fn system_config_model(
-    key: &str,
-    value: &str,
-) -> aster_yggdrasil::entities::system_config::Model {
-    aster_yggdrasil::entities::system_config::Model {
+pub fn system_config_model(key: &str, value: &str) -> aster_forge_db::system_config::Model {
+    aster_forge_db::system_config::Model {
         id: 0,
         key: key.to_string(),
         value: value.to_string(),

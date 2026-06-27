@@ -2,13 +2,14 @@ use crate::config::definitions::{AUTH_COOKIE_SECURE_KEY, CONFIG_REGISTRY};
 use crate::config::system_config as shared_system_config;
 use crate::config::yggdrasil::YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY;
 use crate::db::repository::system_config_repo;
-use crate::entities::system_config;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{ConfigSyncRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::audit_service::{self, AuditContext};
 use aster_forge_api::{CursorPage, IdCursor};
-use aster_forge_config::ConfigValue;
 use aster_forge_config::{ConfigSource, ConfigValueType, ConfigVisibility};
+use aster_forge_config::{ConfigValue, config_value_audit_string};
+use aster_forge_db::PresentedSystemConfig;
+use aster_forge_db::system_config;
 use sea_orm::ConnectionTrait;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -49,32 +50,32 @@ pub struct SystemConfigWarning {
 
 impl From<system_config::Model> for SystemConfig {
     fn from(model: system_config::Model) -> Self {
-        let value = ConfigValue::for_presentation(
-            model.value_type,
-            model.value,
-            model.is_sensitive,
-            |error| {
-                tracing::warn!(
-                    error = %error,
-                    value_type = %model.value_type,
-                    "invalid stored config value; returning an empty presentation value"
-                );
-            },
-        );
+        let presented = aster_forge_db::present_system_config(model, |error| {
+            tracing::warn!(
+                error = %error,
+                "invalid stored config value; returning an empty presentation value"
+            );
+        });
+        Self::from(presented)
+    }
+}
+
+impl From<PresentedSystemConfig> for SystemConfig {
+    fn from(presented: PresentedSystemConfig) -> Self {
         Self {
-            id: model.id,
-            key: model.key,
-            value,
-            value_type: model.value_type,
-            requires_restart: model.requires_restart,
-            is_sensitive: model.is_sensitive,
-            source: model.source,
-            visibility: model.visibility,
-            namespace: model.namespace,
-            category: model.category,
-            description: model.description,
-            updated_at: model.updated_at,
-            updated_by: model.updated_by,
+            id: presented.id,
+            key: presented.key,
+            value: presented.value,
+            value_type: presented.value_type,
+            requires_restart: presented.requires_restart,
+            is_sensitive: presented.is_sensitive,
+            source: presented.source,
+            visibility: presented.visibility,
+            namespace: presented.namespace,
+            category: presented.category,
+            description: presented.description,
+            updated_at: presented.updated_at,
+            updated_by: presented.updated_by,
         }
     }
 }
@@ -312,18 +313,18 @@ async fn audit_config_update(
         Some(config.id),
         Some(&config.key),
         || {
-            let audit_value = if config.is_sensitive {
-                ConfigValue::REDACTED.to_string()
-            } else {
-                ConfigValue::from_storage_lossy(config.value_type, config.value.clone(), |error| {
+            let audit_value = config_value_audit_string(
+                config.value_type,
+                config.value.clone(),
+                config.is_sensitive,
+                |error| {
                     tracing::warn!(
                         error = %error,
                         value_type = %config.value_type,
                         "invalid stored config value; returning an empty audit value"
                     );
-                })
-                .to_audit_string()
-            };
+                },
+            );
             audit_service::details(audit_service::ConfigUpdateDetails {
                 value: &audit_value,
                 visibility: config.visibility,
@@ -489,8 +490,8 @@ mod tests {
         assert_eq!(config.value, ConfigValue::StringArray(Vec::new()));
     }
 
-    fn system_config_model(key: &str, value: &str) -> crate::entities::system_config::Model {
-        crate::entities::system_config::Model {
+    fn system_config_model(key: &str, value: &str) -> aster_forge_db::system_config::Model {
+        aster_forge_db::system_config::Model {
             id: 1,
             key: key.to_string(),
             value: value.to_string(),

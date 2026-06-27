@@ -13,7 +13,7 @@ pub async fn run() -> io::Result<()> {
     let bootstrap = crate::runtime::bootstrap::bootstrap()
         .await
         .map_err(to_io_error)?;
-    crate::runtime::assembly::run(bootstrap.prepared).await
+    crate::runtime::assembly::run(bootstrap.state).await
 }
 
 fn to_io_error(error: impl ToString) -> io::Error {
