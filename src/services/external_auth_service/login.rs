@@ -277,10 +277,14 @@ pub async fn finish_callback(
         ));
     }
 
-    let resolved =
-        match resolve_external_auth_user(state, &provider, &user_claims, linuxdo_metadata.as_deref())
-            .await?
-        {
+    let resolved = match resolve_external_auth_user(
+        state,
+        &provider,
+        &user_claims,
+        linuxdo_metadata.as_deref(),
+    )
+    .await?
+    {
         Some(resolved) => resolved,
         None => {
             let pending = create_pending_email_verification_flow(
@@ -387,7 +391,10 @@ pub(super) async fn exchange_linuxdo_callback(
     // Fetch userinfo
     let userinfo_response = http_client
         .get("https://connect.linux.do/api/user")
-        .header("Authorization", format!("Bearer {}", token_data.access_token))
+        .header(
+            "Authorization",
+            format!("Bearer {}", token_data.access_token),
+        )
         .header("Accept", "application/json")
         .send()
         .await
@@ -450,7 +457,5 @@ pub(super) async fn exchange_linuxdo_callback(
 
 /// Builds metadata JSON for LinuxDo trust_level.
 pub(super) fn linuxdo_trust_level_metadata(trust_level: Option<i32>) -> Option<String> {
-    trust_level.map(|level| {
-        serde_json::json!({ "linuxdo_trust_level": level }).to_string()
-    })
+    trust_level.map(|level| serde_json::json!({ "linuxdo_trust_level": level }).to_string())
 }

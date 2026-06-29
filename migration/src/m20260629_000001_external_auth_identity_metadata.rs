@@ -12,7 +12,11 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(ExternalAuthIdentities::Table)
-                    .add_column(ColumnDef::new(ExternalAuthIdentities::Metadata).text().null())
+                    .add_column(
+                        ColumnDef::new(ExternalAuthIdentities::Metadata)
+                            .text()
+                            .null(),
+                    )
                     .to_owned(),
             )
             .await

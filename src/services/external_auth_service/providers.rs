@@ -530,7 +530,16 @@ pub async fn create_provider(
 
     // LinuxDo uses fixed endpoints and claim mappings
     let is_linuxdo = provider_kind == ExternalAuthProviderKind::LinuxDo;
-    let (authorization_url, token_url, userinfo_url, scopes_override, subject_claim, username_claim, display_name_claim, require_email_verified_override) = if is_linuxdo {
+    let (
+        authorization_url,
+        token_url,
+        userinfo_url,
+        scopes_override,
+        subject_claim,
+        username_claim,
+        display_name_claim,
+        require_email_verified_override,
+    ) = if is_linuxdo {
         (
             Some("https://connect.linux.do/oauth2/authorize".to_string()),
             Some("https://connect.linux.do/oauth2/token".to_string()),
@@ -615,15 +624,23 @@ pub async fn create_provider(
         require_email_verified: Set(require_email_verified_override
             .or(input.require_email_verified)
             .unwrap_or_else(|| default_require_email_verified(provider_kind))),
-        subject_claim: Set(subject_claim
-            .or(input.subject_claim)
-            .and_then(|v| normalize_optional_claim(Some(v), "subject_claim").ok().flatten())),
-        username_claim: Set(username_claim
-            .or(input.username_claim)
-            .and_then(|v| normalize_optional_claim(Some(v), "username_claim").ok().flatten())),
+        subject_claim: Set(subject_claim.or(input.subject_claim).and_then(|v| {
+            normalize_optional_claim(Some(v), "subject_claim")
+                .ok()
+                .flatten()
+        })),
+        username_claim: Set(username_claim.or(input.username_claim).and_then(|v| {
+            normalize_optional_claim(Some(v), "username_claim")
+                .ok()
+                .flatten()
+        })),
         display_name_claim: Set(display_name_claim
             .or(input.display_name_claim)
-            .and_then(|v| normalize_optional_claim(Some(v), "display_name_claim").ok().flatten())),
+            .and_then(|v| {
+                normalize_optional_claim(Some(v), "display_name_claim")
+                    .ok()
+                    .flatten()
+            })),
         email_claim: Set(normalize_optional_claim(input.email_claim, "email_claim")?),
         email_verified_claim: Set(normalize_optional_claim(
             input.email_verified_claim,
@@ -682,8 +699,7 @@ pub async fn update_provider(
     }
     // LinuxDo uses fixed endpoints - ignore URL changes
     if existing.provider_kind != ExternalAuthProviderKind::LinuxDo {
-        if let Some(authorization_url) =
-            input.authorization_url.and_then(nullable_patch_to_update)
+        if let Some(authorization_url) = input.authorization_url.and_then(nullable_patch_to_update)
         {
             active.authorization_url = Set(normalize_manual_endpoint_input(
                 authorization_url,
