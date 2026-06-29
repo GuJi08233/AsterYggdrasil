@@ -161,7 +161,8 @@ fn admin_issuer_url(
         }
         ExternalAuthProviderKind::GitHub
         | ExternalAuthProviderKind::Google
-        | ExternalAuthProviderKind::Qq => None,
+        | ExternalAuthProviderKind::Qq
+        | ExternalAuthProviderKind::LinuxDo => None,
     }
 }
 
@@ -174,7 +175,8 @@ fn admin_manual_endpoint(
         ExternalAuthProviderKind::GitHub
         | ExternalAuthProviderKind::Google
         | ExternalAuthProviderKind::Microsoft
-        | ExternalAuthProviderKind::Qq => None,
+        | ExternalAuthProviderKind::Qq
+        | ExternalAuthProviderKind::LinuxDo => None,
     }
 }
 
