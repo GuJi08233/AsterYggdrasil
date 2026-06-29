@@ -1206,6 +1206,7 @@ async fn finish_callback_rejects_disabled_user_with_existing_identity() {
             subject: "disabled-subject",
             email_snapshot: Some("disabled@example.com"),
             display_name_snapshot: Some("Disabled User"),
+            metadata: None,
             now: Utc::now(),
         },
     )
@@ -1252,6 +1253,7 @@ async fn finish_callback_allows_existing_identity_without_email_claim() {
             subject: "linked-no-email-subject",
             email_snapshot: None,
             display_name_snapshot: Some("Linked No Email"),
+            metadata: None,
             now: Utc::now(),
         },
     )
@@ -2323,6 +2325,7 @@ async fn external_auth_identity_lookup_uses_namespace_subject_not_provider_id() 
             subject: "shared-subject",
             email_snapshot: Some("a@example.com"),
             display_name_snapshot: Some("Provider A"),
+            metadata: None,
             now: Utc::now(),
         },
     )
@@ -2354,6 +2357,7 @@ async fn external_auth_identity_lookup_uses_namespace_subject_not_provider_id() 
             subject: "shared-subject",
             email_snapshot: Some("b@example.com"),
             display_name_snapshot: Some("Provider B"),
+            metadata: None,
             now: Utc::now(),
         },
     )
