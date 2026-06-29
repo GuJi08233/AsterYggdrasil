@@ -1,6 +1,6 @@
 services:
   asteryggdrasil:
-    image: ghcr.io/astercommunity/asteryggdrasil:latest
+    image: ghcr.io/guji08233/asteryggdrasil:v0.1.0-beta.1
     ports:
       - "3000:3000"
     volumes:
