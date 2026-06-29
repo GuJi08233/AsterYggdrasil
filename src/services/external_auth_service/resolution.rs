@@ -534,7 +534,7 @@ pub(super) async fn resolve_external_auth_user(
             );
             return Err(AsterError::auth_forbidden("account is disabled"));
         }
-        create_identity_for_claims(state.writer_db(), user.id, provider, claims, now).await?;
+        create_identity_for_claims(state.writer_db(), user.id, provider, claims, now, None).await?;
         tracing::debug!(
             provider_id = provider.id,
             user_id = user.id,

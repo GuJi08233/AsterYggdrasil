@@ -344,16 +344,18 @@ pub(super) async fn exchange_linuxdo_callback(
         .map_err(|err| AsterError::internal_error(format!("failed to build HTTP client: {err}")))?;
 
     // Exchange code for access_token
+    let form_body = format!(
+        "client_id={}&client_secret={}&code={}&redirect_uri={}&grant_type=authorization_code",
+        urlencoding::encode(client_id),
+        urlencoding::encode(client_secret),
+        urlencoding::encode(code),
+        urlencoding::encode(redirect_uri),
+    );
     let token_response = http_client
         .post("https://connect.linux.do/oauth2/token")
         .header("Accept", "application/json")
-        .form(&[
-            ("client_id", client_id),
-            ("client_secret", client_secret),
-            ("code", code),
-            ("redirect_uri", redirect_uri),
-            ("grant_type", "authorization_code"),
-        ])
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(form_body)
         .send()
         .await
         .map_err(|err| {
