@@ -145,6 +145,9 @@ pub struct ExternalAuthLinkInfo {
     pub updated_at: chrono::DateTime<Utc>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub last_login_at: Option<chrono::DateTime<Utc>>,
+    /// Provider-specific metadata (e.g., LinuxDo trust_level).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone)]

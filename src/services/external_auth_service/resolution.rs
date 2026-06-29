@@ -170,6 +170,7 @@ async fn create_identity_for_claims<C: sea_orm::ConnectionTrait>(
     provider: &external_auth_provider::Model,
     claims: &ExternalAuthUserClaims,
     now: chrono::DateTime<Utc>,
+    metadata: Option<&str>,
 ) -> Result<external_auth_identity::Model> {
     external_auth_identity_repo::create_identity(
         db,
@@ -180,6 +181,7 @@ async fn create_identity_for_claims<C: sea_orm::ConnectionTrait>(
             subject: &claims.subject,
             email_snapshot: claims.email.as_deref(),
             display_name_snapshot: claims.display_name.as_deref(),
+            metadata,
             now,
         },
     )
@@ -212,6 +214,7 @@ pub(super) async fn link_external_auth_identity_to_authenticated_user<
             identity.id,
             claims.email.as_deref(),
             claims.display_name.as_deref(),
+            None,
             now,
         )
         .await?;
@@ -222,7 +225,7 @@ pub(super) async fn link_external_auth_identity_to_authenticated_user<
         });
     }
 
-    create_identity_for_claims(db, user.id, provider, claims, now).await?;
+    create_identity_for_claims(db, user.id, provider, claims, now, None).await?;
     Ok(ResolvedExternalAuthUser {
         user,
         linked: true,
@@ -286,7 +289,7 @@ async fn create_external_auth_user_and_identity(
                 },
             )
             .await?;
-            create_identity_for_claims(&txn, user.id, provider, claims, now).await?;
+            create_identity_for_claims(&txn, user.id, provider, claims, now, None).await?;
             Ok(user)
         }
         .await;
@@ -365,7 +368,7 @@ async fn create_external_auth_user_and_identity_in_connection<C: sea_orm::Connec
         .await
         {
             Ok(user) => {
-                create_identity_for_claims(db, user.id, provider, claims, now).await?;
+                create_identity_for_claims(db, user.id, provider, claims, now, None).await?;
                 return Ok(user);
             }
             Err(err) if external_auth_username_conflict(&err) => {
@@ -412,6 +415,7 @@ pub(super) async fn resolve_external_auth_user_with_verified_email<C: sea_orm::C
             identity.id,
             claims.email.as_deref(),
             claims.display_name.as_deref(),
+            None,
             now,
         )
         .await?;
@@ -435,7 +439,7 @@ pub(super) async fn resolve_external_auth_user_with_verified_email<C: sea_orm::C
                 "local account email is not verified",
             ));
         }
-        create_identity_for_claims(db, user.id, provider, claims, now).await?;
+        create_identity_for_claims(db, user.id, provider, claims, now, None).await?;
         return Ok(ResolvedExternalAuthUser {
             user,
             linked: true,
@@ -457,6 +461,7 @@ pub(super) async fn resolve_external_auth_user(
     state: &impl SharedRuntimeState,
     provider: &external_auth_provider::Model,
     claims: &ExternalAuthUserClaims,
+    metadata: Option<&str>,
 ) -> Result<Option<ResolvedExternalAuthUser>> {
     let now = Utc::now();
     tracing::debug!(
@@ -485,6 +490,7 @@ pub(super) async fn resolve_external_auth_user(
             identity.id,
             claims.email.as_deref(),
             claims.display_name.as_deref(),
+            metadata,
             now,
         )
         .await?;
@@ -604,6 +610,7 @@ pub(super) async fn resolve_existing_external_auth_identity<C: sea_orm::Connecti
     db: &C,
     claims: &ExternalAuthUserClaims,
     now: chrono::DateTime<Utc>,
+    metadata: Option<&str>,
 ) -> Result<Option<ResolvedExternalAuthUser>> {
     let Some(identity) = external_auth_identity_repo::find_by_identity_namespace_subject(
         db,
@@ -620,6 +627,7 @@ pub(super) async fn resolve_existing_external_auth_identity<C: sea_orm::Connecti
         identity.id,
         claims.email.as_deref(),
         claims.display_name.as_deref(),
+        metadata,
         now,
     )
     .await?;

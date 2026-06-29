@@ -79,6 +79,10 @@ fn link_to_info(
     identity: external_auth_identity::Model,
     provider: &external_auth_provider::Model,
 ) -> ExternalAuthLinkInfo {
+    let metadata = identity
+        .metadata
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok());
     ExternalAuthLinkInfo {
         id: identity.id,
         provider_id: identity.provider_id,
@@ -93,6 +97,7 @@ fn link_to_info(
         created_at: identity.created_at,
         updated_at: identity.updated_at,
         last_login_at: identity.last_login_at,
+        metadata,
     }
 }
 

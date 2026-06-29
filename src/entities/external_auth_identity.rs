@@ -17,6 +17,7 @@ pub struct Model {
     pub subject: String,
     pub email_snapshot: Option<String>,
     pub display_name_snapshot: Option<String>,
+    pub metadata: Option<String>,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]
     pub created_at: DateTimeUtc,
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = String))]

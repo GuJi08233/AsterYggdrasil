@@ -3233,7 +3233,7 @@ export interface components {
         /** @enum {string} */
         ExternalAuthProtocol: "oidc" | "oauth2";
         /** @enum {string} */
-        ExternalAuthProviderKind: "oidc" | "generic_oauth2" | "github" | "google" | "microsoft" | "qq";
+        ExternalAuthProviderKind: "oidc" | "generic_oauth2" | "github" | "google" | "microsoft" | "qq" | "linuxdo";
         ExternalAuthProviderKindInfo: {
             authorization_url_required: boolean;
             default_scopes: string;

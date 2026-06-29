@@ -14,6 +14,8 @@ export function externalAuthKindIconPath(kind: ExternalAuthKind): string {
 			return "/static/external-auth/microsoft-logo.svg";
 		case "qq":
 			return "/static/external-auth/qq-logo.svg";
+		case "linuxdo":
+			return "/static/external-auth/linuxdo-logo.svg";
 		case "oidc":
 			return "/static/external-auth/openid-seeklogo.svg";
 		default:

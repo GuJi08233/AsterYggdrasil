@@ -11,6 +11,25 @@ use super::{
     ExternalAuthProviderDescriptor, map_external_auth_error, map_external_auth_provider_descriptor,
 };
 
+/// LinuxDo fixed-connection descriptor.
+fn linuxdo_descriptor() -> ExternalAuthProviderDescriptor {
+    ExternalAuthProviderDescriptor {
+        kind: ExternalAuthProviderKind::LinuxDo,
+        protocol: super::ExternalAuthProtocol::OAuth2,
+        display_name: "LinuxDo",
+        description: "Sign in with LinuxDo community account",
+        default_scopes: "user",
+        issuer_url_required: false,
+        manual_endpoint_configuration_supported: false,
+        authorization_url_required: false,
+        token_url_required: false,
+        userinfo_url_required: false,
+        supports_discovery: false,
+        supports_pkce: false,
+        supports_email_verified_claim: false,
+    }
+}
+
 /// Registry boundary for feature-enabled external authentication provider drivers.
 pub struct ExternalAuthProviderRegistry {
     inner: aster_forge_external_auth::ExternalAuthProviderRegistry,
@@ -24,23 +43,32 @@ impl ExternalAuthProviderRegistry {
         }
     }
 
-    /// Returns registered provider kinds.
+    /// Returns registered provider kinds including Yggdrasil-local kinds.
     pub fn supported_kinds(&self) -> impl Iterator<Item = ExternalAuthProviderKind> + '_ {
-        self.inner.supported_kinds().map(Into::into)
+        self.inner
+            .supported_kinds()
+            .map(Into::into)
+            .chain(std::iter::once(ExternalAuthProviderKind::LinuxDo))
     }
 
     /// Returns registered provider descriptors sorted by provider kind.
     pub fn descriptors(&self) -> Vec<ExternalAuthProviderDescriptor> {
-        self.inner
+        let mut result: Vec<ExternalAuthProviderDescriptor> = self
+            .inner
             .descriptors()
             .into_iter()
             .map(map_external_auth_provider_descriptor)
-            .collect()
+            .collect();
+        result.push(linuxdo_descriptor());
+        result
     }
 
     /// Returns whether a provider kind is registered.
     pub fn contains(&self, kind: ExternalAuthProviderKind) -> bool {
-        self.inner.contains(kind.into())
+        match kind {
+            ExternalAuthProviderKind::LinuxDo => true,
+            _ => self.inner.contains(kind.into()),
+        }
     }
 
     /// Returns a provider descriptor by provider kind.
@@ -48,10 +76,14 @@ impl ExternalAuthProviderRegistry {
         &self,
         kind: ExternalAuthProviderKind,
     ) -> Result<ExternalAuthProviderDescriptor> {
-        self.inner
-            .descriptor_for(kind.into())
-            .map(map_external_auth_provider_descriptor)
-            .map_err(map_external_auth_error)
+        match kind {
+            ExternalAuthProviderKind::LinuxDo => Ok(linuxdo_descriptor()),
+            _ => self
+                .inner
+                .descriptor_for(kind.into())
+                .map(map_external_auth_provider_descriptor)
+                .map_err(map_external_auth_error),
+        }
     }
 
     /// Returns a registered Forge provider driver by provider kind.
@@ -59,8 +91,15 @@ impl ExternalAuthProviderRegistry {
         &self,
         kind: ExternalAuthProviderKind,
     ) -> Result<Arc<dyn ExternalAuthProviderDriver>> {
+        // LinuxDo uses the GenericOAuth2 driver
+        let forge_kind = match kind {
+            ExternalAuthProviderKind::LinuxDo => {
+                aster_forge_external_auth::ExternalAuthProviderKind::GenericOAuth2
+            }
+            other => other.into(),
+        };
         self.inner
-            .get_driver(kind.into())
+            .get_driver(forge_kind)
             .map_err(map_external_auth_error)
     }
 

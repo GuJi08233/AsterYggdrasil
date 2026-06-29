@@ -170,7 +170,8 @@ export function isSpecializedProviderKind(
 		value === "github" ||
 		value === "google" ||
 		value === "microsoft" ||
-		value === "qq"
+		value === "qq" ||
+		value === "linuxdo"
 	);
 }
 
@@ -214,6 +215,7 @@ export function sortExternalAuthProviderKinds(
 		google: 3,
 		microsoft: 4,
 		qq: 5,
+		linuxdo: 6,
 	};
 	return kinds.toSorted((left, right) => order[left.kind] - order[right.kind]);
 }

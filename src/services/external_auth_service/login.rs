@@ -1,5 +1,6 @@
 use chrono::{Duration, Utc};
 use sea_orm::ActiveValue::Set;
+use serde::Deserialize;
 
 use crate::db::repository::{external_auth_login_flow_repo, external_auth_provider_repo};
 use crate::entities::external_auth_login_flow;
@@ -7,7 +8,9 @@ use crate::errors::{AsterError, Result};
 use crate::external_auth::{MapExternalAuthResult, registry};
 use crate::runtime::SharedRuntimeState;
 use crate::types::external_auth::ExternalAuthProviderKind;
+use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 use aster_forge_external_auth::ExternalAuthCallback;
+use aster_forge_external_auth::ExternalAuthProfile;
 use aster_forge_utils::numbers::u64_to_i64;
 
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};
@@ -179,19 +182,34 @@ pub async fn finish_callback(
         ));
     }
 
-    let user_claims = registry::default_registry()
-        .get_driver(provider.provider_kind)?
-        .exchange_callback(
-            &external_auth_provider_config(&provider),
-            ExternalAuthCallback {
-                code: code.to_string(),
-                nonce: flow.nonce,
-                pkce_verifier: flow.pkce_verifier,
-                redirect_uri: flow.redirect_uri.clone(),
-            },
+    // LinuxDo uses a custom flow to also fetch trust_level
+    let linuxdo_metadata;
+    let user_claims = if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
+        let linuxdo_result = exchange_linuxdo_callback(
+            &provider.client_id,
+            provider.client_secret.as_deref().unwrap_or(""),
+            code,
+            &flow.redirect_uri,
         )
-        .await
-        .map_external_auth()?;
+        .await?;
+        linuxdo_metadata = linuxdo_trust_level_metadata(linuxdo_result.trust_level);
+        linuxdo_result.profile
+    } else {
+        linuxdo_metadata = None;
+        registry::default_registry()
+            .get_driver(provider.provider_kind)?
+            .exchange_callback(
+                &external_auth_provider_config(&provider),
+                ExternalAuthCallback {
+                    code: code.to_string(),
+                    nonce: flow.nonce,
+                    pkce_verifier: flow.pkce_verifier,
+                    redirect_uri: flow.redirect_uri.clone(),
+                },
+            )
+            .await
+            .map_external_auth()?
+    };
 
     tracing::debug!(
         provider_id = provider.id,
@@ -207,9 +225,13 @@ pub async fn finish_callback(
     if external_auth_claims_missing_email(&user_claims) {
         // Existing bindings are keyed by issuer + subject, so they may sign in
         // even when the current callback cannot provide an email snapshot.
-        if let Some(resolved) =
-            resolve_existing_external_auth_identity(state.writer_db(), &user_claims, Utc::now())
-                .await?
+        if let Some(resolved) = resolve_existing_external_auth_identity(
+            state.writer_db(),
+            &user_claims,
+            Utc::now(),
+            linuxdo_metadata.as_deref(),
+        )
+        .await?
         {
             tracing::debug!(
                 provider_id = provider.id,
@@ -255,7 +277,10 @@ pub async fn finish_callback(
         ));
     }
 
-    let resolved = match resolve_external_auth_user(state, &provider, &user_claims).await? {
+    let resolved =
+        match resolve_external_auth_user(state, &provider, &user_claims, linuxdo_metadata.as_deref())
+            .await?
+        {
         Some(resolved) => resolved,
         None => {
             let pending = create_pending_email_verification_flow(
@@ -295,4 +320,135 @@ pub async fn finish_callback(
             },
         },
     ))
+}
+
+/// Result of a LinuxDo OAuth callback exchange.
+pub(super) struct LinuxDoExchangeResult {
+    pub profile: ExternalAuthProfile,
+    pub trust_level: Option<i32>,
+}
+
+/// LinuxDo-specific code exchange and userinfo fetch.
+///
+/// LinuxDo does not return email, so the email field will be None.
+/// The trust_level (0-4) is extracted from the userinfo response.
+pub(super) async fn exchange_linuxdo_callback(
+    client_id: &str,
+    client_secret: &str,
+    code: &str,
+    redirect_uri: &str,
+) -> Result<LinuxDoExchangeResult> {
+    let http_client = reqwest::Client::builder()
+        .user_agent(OUTBOUND_HTTP_USER_AGENT)
+        .build()
+        .map_err(|err| AsterError::internal_error(format!("failed to build HTTP client: {err}")))?;
+
+    // Exchange code for access_token
+    let token_response = http_client
+        .post("https://connect.linux.do/oauth2/token")
+        .header("Accept", "application/json")
+        .form(&[
+            ("client_id", client_id),
+            ("client_secret", client_secret),
+            ("code", code),
+            ("redirect_uri", redirect_uri),
+            ("grant_type", "authorization_code"),
+        ])
+        .send()
+        .await
+        .map_err(|err| {
+            AsterError::internal_error(format!("LinuxDo token exchange failed: {err}"))
+        })?;
+
+    if !token_response.status().is_success() {
+        let status = token_response.status();
+        let body = token_response.text().await.unwrap_or_default();
+        tracing::warn!(
+            status = %status,
+            body = %body,
+            "LinuxDo token exchange returned non-success status"
+        );
+        return Err(AsterError::auth_invalid_credentials(
+            "LinuxDo token exchange failed",
+        ));
+    }
+
+    #[derive(Deserialize)]
+    struct TokenResponse {
+        access_token: String,
+    }
+
+    let token_data: TokenResponse = token_response.json().await.map_err(|err| {
+        AsterError::internal_error(format!("failed to parse LinuxDo token response: {err}"))
+    })?;
+
+    // Fetch userinfo
+    let userinfo_response = http_client
+        .get("https://connect.linux.do/api/user")
+        .header("Authorization", format!("Bearer {}", token_data.access_token))
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|err| {
+            AsterError::internal_error(format!("LinuxDo userinfo fetch failed: {err}"))
+        })?;
+
+    if !userinfo_response.status().is_success() {
+        let status = userinfo_response.status();
+        let body = userinfo_response.text().await.unwrap_or_default();
+        tracing::warn!(
+            status = %status,
+            body = %body,
+            "LinuxDo userinfo returned non-success status"
+        );
+        return Err(AsterError::auth_invalid_credentials(
+            "LinuxDo userinfo fetch failed",
+        ));
+    }
+
+    #[derive(Deserialize)]
+    struct LinuxDoUserInfo {
+        id: u64,
+        username: String,
+        name: Option<String>,
+        trust_level: Option<i32>,
+    }
+
+    let user_info: LinuxDoUserInfo = userinfo_response.json().await.map_err(|err| {
+        AsterError::internal_error(format!("failed to parse LinuxDo userinfo response: {err}"))
+    })?;
+
+    tracing::debug!(
+        linuxdo_user_id = user_info.id,
+        linuxdo_username = %user_info.username,
+        linuxdo_trust_level = ?user_info.trust_level,
+        "LinuxDo userinfo fetched"
+    );
+
+    let identity_namespace = "https://connect.linux.do".to_string();
+    let subject = user_info.id.to_string();
+    let preferred_username = Some(user_info.username.clone());
+    let display_name = user_info
+        .name
+        .filter(|n| !n.is_empty())
+        .or(preferred_username.clone());
+
+    Ok(LinuxDoExchangeResult {
+        profile: ExternalAuthProfile {
+            identity_namespace,
+            subject,
+            email: None,
+            email_verified: false,
+            display_name,
+            preferred_username,
+        },
+        trust_level: user_info.trust_level,
+    })
+}
+
+/// Builds metadata JSON for LinuxDo trust_level.
+pub(super) fn linuxdo_trust_level_metadata(trust_level: Option<i32>) -> Option<String> {
+    trust_level.map(|level| {
+        serde_json::json!({ "linuxdo_trust_level": level }).to_string()
+    })
 }

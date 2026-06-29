@@ -18,6 +18,7 @@ pub struct CreateExternalAuthIdentityInput<'a> {
     pub subject: &'a str,
     pub email_snapshot: Option<&'a str>,
     pub display_name_snapshot: Option<&'a str>,
+    pub metadata: Option<&'a str>,
     pub now: chrono::DateTime<Utc>,
 }
 
@@ -124,6 +125,7 @@ pub async fn create_identity<C: ConnectionTrait>(
             subject: Set(input.subject.to_string()),
             email_snapshot: Set(input.email_snapshot.map(str::to_string)),
             display_name_snapshot: Set(input.display_name_snapshot.map(str::to_string)),
+            metadata: Set(input.metadata.map(str::to_string)),
             created_at: Set(input.now),
             updated_at: Set(input.now),
             last_login_at: Set(Some(input.now)),
@@ -138,6 +140,7 @@ pub async fn touch_login<C: ConnectionTrait>(
     id: i64,
     email_snapshot: Option<&str>,
     display_name_snapshot: Option<&str>,
+    metadata: Option<&str>,
     now: chrono::DateTime<Utc>,
 ) -> Result<bool> {
     let mut update = ExternalAuthIdentity::update_many();
@@ -151,6 +154,12 @@ pub async fn touch_login<C: ConnectionTrait>(
         update = update.col_expr(
             external_auth_identity::Column::DisplayNameSnapshot,
             Expr::value(display_name_snapshot.to_string()),
+        );
+    }
+    if let Some(metadata) = metadata {
+        update = update.col_expr(
+            external_auth_identity::Column::Metadata,
+            Expr::value(metadata.to_string()),
         );
     }
     let result = update

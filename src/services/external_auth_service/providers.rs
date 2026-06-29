@@ -286,7 +286,8 @@ fn normalize_provider_issuer_url_input(
         }
         ExternalAuthProviderKind::GitHub
         | ExternalAuthProviderKind::Google
-        | ExternalAuthProviderKind::Qq => normalize_specialized_issuer_url_input(
+        | ExternalAuthProviderKind::Qq
+        | ExternalAuthProviderKind::LinuxDo => normalize_specialized_issuer_url_input(
             provider_kind,
             value,
             "Dedicated external auth providers use fixed endpoints",
@@ -372,7 +373,9 @@ fn serialize_options(
 fn default_require_email_verified(provider_kind: ExternalAuthProviderKind) -> bool {
     !matches!(
         provider_kind,
-        ExternalAuthProviderKind::Microsoft | ExternalAuthProviderKind::Qq
+        ExternalAuthProviderKind::Microsoft
+            | ExternalAuthProviderKind::Qq
+            | ExternalAuthProviderKind::LinuxDo
     )
 }
 
@@ -522,36 +525,70 @@ pub async fn create_provider(
     let display_name = normalize_required(&input.display_name, "display_name", 128)?;
     let icon_url = normalize_icon_url_input(input.icon_url)?;
     let options = normalize_provider_options_from_create(provider_kind, input.options)?;
+
+    // LinuxDo uses fixed endpoints and claim mappings
+    let is_linuxdo = provider_kind == ExternalAuthProviderKind::LinuxDo;
+    let (authorization_url, token_url, userinfo_url, scopes_override, subject_claim, username_claim, display_name_claim, require_email_verified_override) = if is_linuxdo {
+        (
+            Some("https://connect.linux.do/oauth2/authorize".to_string()),
+            Some("https://connect.linux.do/oauth2/token".to_string()),
+            Some("https://connect.linux.do/api/user".to_string()),
+            Some("user".to_string()),
+            Some("id".to_string()),
+            Some("username".to_string()),
+            Some("name".to_string()),
+            Some(false),
+        )
+    } else {
+        (None, None, None, None, None, None, None, None)
+    };
+
     let issuer_url = normalize_provider_issuer_url_input(
         provider_kind,
         legacy_issuer_url,
         descriptor.issuer_url_required,
         false,
     )?;
-    let authorization_url = normalize_manual_endpoint_input(
-        input.authorization_url,
-        "authorization_url",
-        descriptor.authorization_url_required,
-        descriptor.manual_endpoint_configuration_supported,
-    )?;
-    let token_url = normalize_manual_endpoint_input(
-        input.token_url,
-        "token_url",
-        descriptor.token_url_required,
-        descriptor.manual_endpoint_configuration_supported,
-    )?;
-    let userinfo_url = normalize_manual_endpoint_input(
-        input.userinfo_url,
-        "userinfo_url",
-        descriptor.userinfo_url_required,
-        descriptor.manual_endpoint_configuration_supported,
-    )?;
+    let authorization_url = if is_linuxdo {
+        authorization_url
+    } else {
+        normalize_manual_endpoint_input(
+            input.authorization_url,
+            "authorization_url",
+            descriptor.authorization_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
+    let token_url = if is_linuxdo {
+        token_url
+    } else {
+        normalize_manual_endpoint_input(
+            input.token_url,
+            "token_url",
+            descriptor.token_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
+    let userinfo_url = if is_linuxdo {
+        userinfo_url
+    } else {
+        normalize_manual_endpoint_input(
+            input.userinfo_url,
+            "userinfo_url",
+            descriptor.userinfo_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
     let client_id = normalize_required(&input.client_id, "client_id", 512)?;
-    let scopes = normalize_scopes_with_default(
-        input.scopes.as_deref(),
-        descriptor.default_scopes,
-        descriptor.protocol,
-    )?;
+    let scopes = if is_linuxdo {
+        scopes_override.unwrap_or_else(|| descriptor.default_scopes.to_string())
+    } else {
+        normalize_scopes_with_default(
+            input.scopes.as_deref(),
+            descriptor.default_scopes,
+            descriptor.protocol,
+        )?
+    };
     let allowed_domains = normalize_allowed_domains(input.allowed_domains)?;
     let now = Utc::now();
     let model = external_auth_provider::ActiveModel {
@@ -573,21 +610,18 @@ pub async fn create_provider(
         auto_link_verified_email_enabled: Set(input
             .auto_link_verified_email_enabled
             .unwrap_or(false)),
-        require_email_verified: Set(input
-            .require_email_verified
+        require_email_verified: Set(require_email_verified_override
+            .or(input.require_email_verified)
             .unwrap_or_else(|| default_require_email_verified(provider_kind))),
-        subject_claim: Set(normalize_optional_claim(
-            input.subject_claim,
-            "subject_claim",
-        )?),
-        username_claim: Set(normalize_optional_claim(
-            input.username_claim,
-            "username_claim",
-        )?),
-        display_name_claim: Set(normalize_optional_claim(
-            input.display_name_claim,
-            "display_name_claim",
-        )?),
+        subject_claim: Set(subject_claim
+            .or(input.subject_claim)
+            .and_then(|v| normalize_optional_claim(Some(v), "subject_claim").ok().flatten())),
+        username_claim: Set(username_claim
+            .or(input.username_claim)
+            .and_then(|v| normalize_optional_claim(Some(v), "username_claim").ok().flatten())),
+        display_name_claim: Set(display_name_claim
+            .or(input.display_name_claim)
+            .and_then(|v| normalize_optional_claim(Some(v), "display_name_claim").ok().flatten())),
         email_claim: Set(normalize_optional_claim(input.email_claim, "email_claim")?),
         email_verified_claim: Set(normalize_optional_claim(
             input.email_verified_claim,
@@ -644,29 +678,37 @@ pub async fn update_provider(
             active.issuer_url = Set(None);
         }
     }
-    if let Some(authorization_url) = input.authorization_url.and_then(nullable_patch_to_update) {
-        active.authorization_url = Set(normalize_manual_endpoint_input(
-            authorization_url,
-            "authorization_url",
-            descriptor.authorization_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?);
-    }
-    if let Some(token_url) = input.token_url.and_then(nullable_patch_to_update) {
-        active.token_url = Set(normalize_manual_endpoint_input(
-            token_url,
-            "token_url",
-            descriptor.token_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?);
-    }
-    if let Some(userinfo_url) = input.userinfo_url.and_then(nullable_patch_to_update) {
-        active.userinfo_url = Set(normalize_manual_endpoint_input(
-            userinfo_url,
-            "userinfo_url",
-            descriptor.userinfo_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?);
+    // LinuxDo uses fixed endpoints - ignore URL changes
+    if existing.provider_kind != ExternalAuthProviderKind::LinuxDo {
+        if let Some(authorization_url) =
+            input.authorization_url.and_then(nullable_patch_to_update)
+        {
+            active.authorization_url = Set(normalize_manual_endpoint_input(
+                authorization_url,
+                "authorization_url",
+                descriptor.authorization_url_required,
+                descriptor.manual_endpoint_configuration_supported,
+            )?);
+        }
+        if let Some(token_url) = input.token_url.and_then(nullable_patch_to_update) {
+            active.token_url = Set(normalize_manual_endpoint_input(
+                token_url,
+                "token_url",
+                descriptor.token_url_required,
+                descriptor.manual_endpoint_configuration_supported,
+            )?);
+        }
+        if let Some(userinfo_url) = input.userinfo_url.and_then(nullable_patch_to_update) {
+            active.userinfo_url = Set(normalize_manual_endpoint_input(
+                userinfo_url,
+                "userinfo_url",
+                descriptor.userinfo_url_required,
+                descriptor.manual_endpoint_configuration_supported,
+            )?);
+        }
+        if let Some(scopes) = input.scopes {
+            active.scopes = Set(normalize_scopes(Some(&scopes), existing.protocol)?);
+        }
     }
     if let Some(client_id) = input.client_id {
         active.client_id = Set(normalize_required(&client_id, "client_id", 512)?);
@@ -676,9 +718,6 @@ pub async fn update_provider(
             client_secret,
             existing.client_secret.clone(),
         ));
-    }
-    if let Some(scopes) = input.scopes {
-        active.scopes = Set(normalize_scopes(Some(&scopes), existing.protocol)?);
     }
     if let Some(enabled) = input.enabled {
         active.enabled = Set(enabled);

@@ -27,16 +27,20 @@ pub enum ExternalAuthProviderKind {
     #[serde(rename = "qq")]
     #[sea_orm(string_value = "qq")]
     Qq,
+    #[serde(rename = "linuxdo")]
+    #[sea_orm(string_value = "linuxdo")]
+    LinuxDo,
 }
 
 impl ExternalAuthProviderKind {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Oidc,
         Self::GenericOAuth2,
         Self::GitHub,
         Self::Google,
         Self::Microsoft,
         Self::Qq,
+        Self::LinuxDo,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -47,6 +51,7 @@ impl ExternalAuthProviderKind {
             Self::Google => "google",
             Self::Microsoft => "microsoft",
             Self::Qq => "qq",
+            Self::LinuxDo => "linuxdo",
         }
     }
 
@@ -58,6 +63,7 @@ impl ExternalAuthProviderKind {
             "google" => Some(Self::Google),
             "microsoft" => Some(Self::Microsoft),
             "qq" => Some(Self::Qq),
+            "linuxdo" => Some(Self::LinuxDo),
             _ => None,
         }
     }
@@ -65,7 +71,9 @@ impl ExternalAuthProviderKind {
     pub fn default_protocol(self) -> ExternalAuthProtocol {
         match self {
             Self::Oidc => ExternalAuthProtocol::Oidc,
-            Self::GenericOAuth2 | Self::GitHub | Self::Qq => ExternalAuthProtocol::OAuth2,
+            Self::GenericOAuth2 | Self::GitHub | Self::Qq | Self::LinuxDo => {
+                ExternalAuthProtocol::OAuth2
+            }
             Self::Google | Self::Microsoft => ExternalAuthProtocol::Oidc,
         }
     }
@@ -86,6 +94,7 @@ impl From<ExternalAuthProviderKind> for aster_forge_external_auth::ExternalAuthP
             ExternalAuthProviderKind::Google => Self::Google,
             ExternalAuthProviderKind::Microsoft => Self::Microsoft,
             ExternalAuthProviderKind::Qq => Self::Qq,
+            ExternalAuthProviderKind::LinuxDo => Self::GenericOAuth2,
         }
     }
 }
