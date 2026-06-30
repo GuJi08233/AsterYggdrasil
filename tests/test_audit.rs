@@ -565,6 +565,11 @@ async fn account_audit_logs_accept_admin_shape_sort_query() {
 #[actix_web::test]
 async fn account_overview_returns_recent_current_user_activity() {
     let state = common::setup().await;
+    // Allow 2 profiles per user so the test can create two profiles.
+    state.runtime_config.apply(common::system_config_model(
+        aster_yggdrasil::config::definitions::YGGDRASIL_MAX_PROFILES_PER_USER_KEY,
+        "2",
+    ));
     let app = create_test_app!(state);
     let _admin_token = setup_admin!(app);
     let token = register_user!(

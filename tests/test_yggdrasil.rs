@@ -5449,6 +5449,12 @@ async fn admin_can_rename_any_minecraft_profile_and_duplicate_names_are_rejected
     let state = setup_yggdrasil().await;
     let app = create_test_app!(state.clone());
     let access = setup_admin!(app);
+    // Allow enough renames so the test can hit the duplicate-name guard
+    // before the rename-count guard.
+    state.runtime_config.apply(common::system_config_model(
+        aster_yggdrasil::config::definitions::YGGDRASIL_MAX_PROFILE_RENAMES_KEY,
+        "10",
+    ));
     let first_profile = create_profile!(app, &access, "AdminRenameA");
     let second_profile = create_profile!(app, &access, "AdminRenameB");
     let login = ygg_login_selected!(
