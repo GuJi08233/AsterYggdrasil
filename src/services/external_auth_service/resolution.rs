@@ -30,6 +30,24 @@ pub(super) struct ResolvedExternalAuthUser {
     pub(super) auto_provisioned: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(super) struct ResolveExternalAuthUserOptions {
+    pub(super) enforce_email_domain: bool,
+    pub(super) allow_verified_email_auto_link: bool,
+}
+
+impl ResolveExternalAuthUserOptions {
+    pub(super) const DEFAULT: Self = Self {
+        enforce_email_domain: true,
+        allow_verified_email_auto_link: true,
+    };
+
+    pub(super) const INTERNAL_PLACEHOLDER_EMAIL: Self = Self {
+        enforce_email_domain: false,
+        allow_verified_email_auto_link: false,
+    };
+}
+
 fn require_email_if_configured(
     provider: &external_auth_provider::Model,
     claims: &ExternalAuthUserClaims,
@@ -238,6 +256,8 @@ async fn create_external_auth_user_and_identity(
     provider: &external_auth_provider::Model,
     claims: &ExternalAuthUserClaims,
     now: chrono::DateTime<Utc>,
+    metadata: Option<&str>,
+    options: ResolveExternalAuthUserOptions,
 ) -> Result<ResolvedExternalAuthUser> {
     let auth_policy = RuntimeAuthPolicy::from_runtime_config(state.runtime_config());
     if !auth_policy.allow_user_registration {
@@ -257,7 +277,7 @@ async fn create_external_auth_user_and_identity(
             "external auth auto provisioning requires verified email",
         ));
     }
-    if !email_domain_allowed(provider, email)? {
+    if options.enforce_email_domain && !email_domain_allowed(provider, email)? {
         return Err(AsterError::auth_forbidden(
             "external auth email domain is not allowed for this provider",
         ));
@@ -289,7 +309,7 @@ async fn create_external_auth_user_and_identity(
                 },
             )
             .await?;
-            create_identity_for_claims(&txn, user.id, provider, claims, now, None).await?;
+            create_identity_for_claims(&txn, user.id, provider, claims, now, metadata).await?;
             Ok(user)
         }
         .await;
@@ -463,6 +483,23 @@ pub(super) async fn resolve_external_auth_user(
     claims: &ExternalAuthUserClaims,
     metadata: Option<&str>,
 ) -> Result<Option<ResolvedExternalAuthUser>> {
+    resolve_external_auth_user_with_options(
+        state,
+        provider,
+        claims,
+        metadata,
+        ResolveExternalAuthUserOptions::DEFAULT,
+    )
+    .await
+}
+
+pub(super) async fn resolve_external_auth_user_with_options(
+    state: &impl SharedRuntimeState,
+    provider: &external_auth_provider::Model,
+    claims: &ExternalAuthUserClaims,
+    metadata: Option<&str>,
+    options: ResolveExternalAuthUserOptions,
+) -> Result<Option<ResolvedExternalAuthUser>> {
     let now = Utc::now();
     tracing::debug!(
         provider_id = provider.id,
@@ -470,6 +507,8 @@ pub(super) async fn resolve_external_auth_user(
         auto_provision_enabled = provider.auto_provision_enabled,
         has_email = claims.email.as_ref().is_some_and(|email| !email.is_empty()),
         email_verified = claims.email_verified,
+        enforce_email_domain = options.enforce_email_domain,
+        allow_verified_email_auto_link = options.allow_verified_email_auto_link,
         "resolving external auth user"
     );
     if let Some(identity) = external_auth_identity_repo::find_by_identity_namespace_subject(
@@ -512,7 +551,8 @@ pub(super) async fn resolve_external_auth_user(
     }
 
     require_email_if_configured(provider, claims)?;
-    if let Some(email) = claims.email.as_deref()
+    if options.enforce_email_domain
+        && let Some(email) = claims.email.as_deref()
         && !email_domain_allowed(provider, email)?
     {
         return Err(AsterError::auth_forbidden(
@@ -520,7 +560,8 @@ pub(super) async fn resolve_external_auth_user(
         ));
     }
 
-    if provider.auto_link_verified_email_enabled
+    if options.allow_verified_email_auto_link
+        && provider.auto_link_verified_email_enabled
         && claims.email_verified
         && let Some(email) = claims.email.as_deref()
         && let Some(user) = user_repo::find_by_email(state.writer_db(), email).await?
@@ -534,7 +575,8 @@ pub(super) async fn resolve_external_auth_user(
             );
             return Err(AsterError::auth_forbidden("account is disabled"));
         }
-        create_identity_for_claims(state.writer_db(), user.id, provider, claims, now, None).await?;
+        create_identity_for_claims(state.writer_db(), user.id, provider, claims, now, metadata)
+            .await?;
         tracing::debug!(
             provider_id = provider.id,
             user_id = user.id,
@@ -582,9 +624,10 @@ pub(super) async fn resolve_external_auth_user(
             );
             return Ok(None);
         }
-        let resolved = create_external_auth_user_and_identity(state, provider, claims, now)
-            .await
-            .map(Some)?;
+        let resolved =
+            create_external_auth_user_and_identity(state, provider, claims, now, metadata, options)
+                .await
+                .map(Some)?;
         if let Some(resolved) = resolved.as_ref() {
             tracing::debug!(
                 provider_id = provider.id,

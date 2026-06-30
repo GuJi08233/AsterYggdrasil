@@ -1034,6 +1034,167 @@ async fn unverified_email_does_not_auto_link_existing_user() {
 }
 
 #[actix_web::test]
+async fn linuxdo_auto_provision_ignores_allowed_domains_for_internal_placeholder_email() {
+    let (mock_provider, server) = start_mock_oauth2_provider().await;
+    mock_provider.set_expected_token_auth(TokenAuthObservation::Post);
+    mock_provider.set_linuxdo_user(1547, "linuxdo-user", Some(2));
+
+    let state = common::setup().await;
+    configure_oauth2_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let mut provider =
+        linuxdo_external_auth_provider_model("linuxdo-test", &mock_provider.base_url, true, 0);
+    provider.allowed_domains = Set(Some("example.com".to_string()));
+    let provider = provider
+        .insert(state.writer_db())
+        .await
+        .expect("LinuxDo provider should insert");
+
+    let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
+    let resp = finish_linuxdo_callback(&app, &state_value).await;
+
+    assert_eq!(resp.status(), 302);
+    let location = resp
+        .headers()
+        .get("Location")
+        .and_then(|value| value.to_str().ok())
+        .expect("LinuxDo success redirect location should exist");
+    assert_eq!(
+        location,
+        "http://localhost:8080/account?auth_redirect=login_success"
+    );
+    assert!(common::extract_cookie(&resp, "aster_access").is_some());
+    assert_eq!(
+        mock_provider.token_auth_observations(),
+        vec![TokenAuthObservation::Basic, TokenAuthObservation::Post]
+    );
+
+    let identities = external_auth_identity::Entity::find()
+        .all(state.writer_db())
+        .await
+        .expect("identities should query");
+    assert_eq!(identities.len(), 1);
+    let identity = &identities[0];
+    assert_eq!(identity.provider_id, provider.id);
+    assert_eq!(identity.identity_namespace, "https://connect.linux.do");
+    assert_eq!(identity.subject, "1547");
+    assert_eq!(
+        identity.email_snapshot.as_deref(),
+        Some("linuxdo_1547@local.placeholder")
+    );
+    let metadata: Value = serde_json::from_str(
+        identity
+            .metadata
+            .as_deref()
+            .expect("LinuxDo identity metadata should be stored"),
+    )
+    .expect("LinuxDo identity metadata should parse");
+    assert_eq!(metadata["linuxdo_trust_level"], 2);
+
+    let user = user::Entity::find_by_id(identity.user_id)
+        .one(state.writer_db())
+        .await
+        .expect("user should query")
+        .expect("user should exist");
+    assert_eq!(user.email, "linuxdo_1547@local.placeholder");
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn linuxdo_placeholder_email_does_not_auto_link_existing_local_user() {
+    let (mock_provider, server) = start_mock_oauth2_provider().await;
+    mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
+    mock_provider.set_linuxdo_user(1549, "placeholder-link", Some(2));
+
+    let state = common::setup().await;
+    configure_oauth2_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let (admin_token, _) = register_and_login!(app);
+    let local_user_id = admin_create_user!(
+        app,
+        admin_token,
+        "placeholderuser",
+        "linuxdo_1549@local.placeholder",
+        "password1234"
+    );
+    let mut provider = linuxdo_external_auth_provider_model(
+        "linuxdo-placeholder",
+        &mock_provider.base_url,
+        true,
+        0,
+    );
+    provider.auto_link_verified_email_enabled = Set(true);
+    let provider = provider
+        .insert(state.writer_db())
+        .await
+        .expect("LinuxDo provider should insert");
+
+    let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
+    let resp = finish_linuxdo_callback(&app, &state_value).await;
+
+    assert_eq!(resp.status(), 302);
+    let location = resp
+        .headers()
+        .get("Location")
+        .and_then(|value| value.to_str().ok())
+        .expect("LinuxDo email verification redirect location should exist");
+    assert!(location.starts_with("http://localhost:8080/login?external_auth=email_required"));
+    assert!(common::extract_cookie(&resp, "aster_access").is_none());
+
+    let identities = external_auth_identity::Entity::find()
+        .all(state.writer_db())
+        .await
+        .expect("identities should query");
+    assert!(identities.is_empty());
+    let local_user = user::Entity::find_by_id(local_user_id)
+        .one(state.writer_db())
+        .await
+        .expect("user should query")
+        .expect("local placeholder user should still exist");
+    assert_eq!(local_user.email, "linuxdo_1549@local.placeholder");
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn linuxdo_callback_rejects_user_below_minimum_trust_level() {
+    let (mock_provider, server) = start_mock_oauth2_provider().await;
+    mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
+    mock_provider.set_linuxdo_user(1548, "low-trust", Some(1));
+
+    let state = common::setup().await;
+    configure_oauth2_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let provider =
+        linuxdo_external_auth_provider_model("linuxdo-low-trust", &mock_provider.base_url, true, 2)
+            .insert(state.writer_db())
+            .await
+            .expect("LinuxDo provider should insert");
+
+    let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
+    let resp = finish_linuxdo_callback(&app, &state_value).await;
+
+    assert_oauth2_error_redirect(&resp);
+    let location = resp
+        .headers()
+        .get("Location")
+        .and_then(|value| value.to_str().ok())
+        .expect("LinuxDo error redirect location should exist");
+    assert_eq!(
+        location,
+        "http://localhost:8080/login?external_auth=error&code=forbidden"
+    );
+    let identities = external_auth_identity::Entity::find()
+        .all(state.writer_db())
+        .await
+        .expect("identities should query");
+    assert!(identities.is_empty());
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
 async fn finish_callback_rejects_flow_after_provider_disabled() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     let state = common::setup().await;

@@ -17,14 +17,18 @@ use aster_forge_utils::numbers::u64_to_i64;
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};
 use super::providers::external_auth_provider_config;
 use super::resolution::{
-    external_auth_claims_missing_email, resolve_existing_external_auth_identity,
-    resolve_external_auth_user,
+    ResolveExternalAuthUserOptions, external_auth_claims_missing_email,
+    resolve_existing_external_auth_identity, resolve_external_auth_user,
+    resolve_external_auth_user_with_options,
 };
 use super::verification::create_pending_email_verification_flow;
 use super::{
     ExternalAuthCallbackOutcome, ExternalAuthCallbackQuery, ExternalAuthCallbackResult,
     ExternalAuthPrimaryLogin, ExternalAuthStartLoginResponse, FLOW_TTL_SECS,
 };
+
+const LINUXDO_TOKEN_URL: &str = "https://connect.linux.do/oauth2/token";
+const LINUXDO_USERINFO_URL: &str = "https://connect.linux.do/api/user";
 
 pub async fn start_login(
     state: &impl SharedRuntimeState,
@@ -194,6 +198,11 @@ pub async fn finish_callback(
             code,
             &flow.redirect_uri,
             flow.pkce_verifier.as_deref(),
+            provider.token_url.as_deref().unwrap_or(LINUXDO_TOKEN_URL),
+            provider
+                .userinfo_url
+                .as_deref()
+                .unwrap_or(LINUXDO_USERINFO_URL),
         )
         .await?;
         linuxdo_metadata = linuxdo_trust_level_metadata(linuxdo_result.trust_level);
@@ -296,11 +305,12 @@ pub async fn finish_callback(
             linuxdo_claims.email = Some(placeholder_email);
             linuxdo_claims.email_verified = true;
 
-            if let Some(resolved) = resolve_external_auth_user(
+            if let Some(resolved) = resolve_external_auth_user_with_options(
                 state,
                 &provider,
                 &linuxdo_claims,
                 linuxdo_metadata.as_deref(),
+                ResolveExternalAuthUserOptions::INTERNAL_PLACEHOLDER_EMAIL,
             )
             .await?
             {
@@ -426,6 +436,17 @@ pub(super) struct LinuxDoExchangeResult {
     pub trust_level: Option<i32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LinuxDoTokenAuthMethod {
+    Basic,
+    ClientSecretPost,
+}
+
+#[derive(Deserialize)]
+struct LinuxDoTokenResponse {
+    access_token: String,
+}
+
 /// LinuxDo-specific code exchange and userinfo fetch.
 ///
 /// LinuxDo does not return email, so the email field will be None.
@@ -436,63 +457,29 @@ pub(super) async fn exchange_linuxdo_callback(
     code: &str,
     redirect_uri: &str,
     pkce_verifier: Option<&str>,
+    token_url: &str,
+    userinfo_url: &str,
 ) -> Result<LinuxDoExchangeResult> {
     let http_client = reqwest::Client::builder()
         .user_agent(OUTBOUND_HTTP_USER_AGENT)
         .build()
         .map_err(|err| AsterError::internal_error(format!("failed to build HTTP client: {err}")))?;
 
-    // Exchange code for access_token using HTTP Basic Authentication.
-    // LinuxDO requires client credentials in the Authorization header (RFC 6749 §2.3.1),
-    // not in the request body.
-    let credentials = format!("{client_id}:{client_secret}");
-    let basic_auth = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
-
-    let mut form_body = format!(
-        "grant_type=authorization_code&code={}&redirect_uri={}",
-        urlencoding::encode(code),
-        urlencoding::encode(redirect_uri),
-    );
-    if let Some(verifier) = pkce_verifier {
-        form_body.push_str(&format!("&code_verifier={}", urlencoding::encode(verifier)));
-    }
-    let token_response = http_client
-        .post("https://connect.linux.do/oauth2/token")
-        .header("Authorization", format!("Basic {basic_auth}"))
-        .header("Accept", "application/json")
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(form_body)
-        .send()
-        .await
-        .map_err(|err| {
-            AsterError::internal_error(format!("LinuxDo token exchange failed: {err}"))
-        })?;
-
-    if !token_response.status().is_success() {
-        let status = token_response.status();
-        let body = token_response.text().await.unwrap_or_default();
-        tracing::warn!(
-            status = %status,
-            body = %body,
-            "LinuxDo token exchange returned non-success status"
-        );
-        return Err(AsterError::auth_invalid_credentials(
-            "LinuxDo token exchange failed",
-        ));
-    }
-
-    #[derive(Deserialize)]
-    struct TokenResponse {
-        access_token: String,
-    }
-
-    let token_data: TokenResponse = token_response.json().await.map_err(|err| {
-        AsterError::internal_error(format!("failed to parse LinuxDo token response: {err}"))
-    })?;
+    let token_data = request_linuxdo_token(
+        &http_client,
+        token_url,
+        client_id,
+        client_secret,
+        code,
+        redirect_uri,
+        pkce_verifier,
+        LinuxDoTokenAuthMethod::Basic,
+    )
+    .await?;
 
     // Fetch userinfo
     let userinfo_response = http_client
-        .get("https://connect.linux.do/api/user")
+        .get(userinfo_url)
         .header(
             "Authorization",
             format!("Bearer {}", token_data.access_token),
@@ -560,4 +547,107 @@ pub(super) async fn exchange_linuxdo_callback(
 /// Builds metadata JSON for LinuxDo trust_level.
 pub(super) fn linuxdo_trust_level_metadata(trust_level: Option<i32>) -> Option<String> {
     trust_level.map(|level| serde_json::json!({ "linuxdo_trust_level": level }).to_string())
+}
+
+async fn request_linuxdo_token(
+    http_client: &reqwest::Client,
+    token_url: &str,
+    client_id: &str,
+    client_secret: &str,
+    code: &str,
+    redirect_uri: &str,
+    pkce_verifier: Option<&str>,
+    auth_method: LinuxDoTokenAuthMethod,
+) -> Result<LinuxDoTokenResponse> {
+    let mut form = vec![
+        ("grant_type", "authorization_code".to_string()),
+        ("code", code.to_string()),
+        ("redirect_uri", redirect_uri.to_string()),
+    ];
+    if let Some(verifier) = pkce_verifier {
+        form.push(("code_verifier", verifier.to_string()));
+    }
+
+    let mut authorization = None;
+    match auth_method {
+        LinuxDoTokenAuthMethod::Basic => {
+            let credentials = format!("{client_id}:{client_secret}");
+            let basic_auth =
+                base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
+            authorization = Some(format!("Basic {basic_auth}"));
+        }
+        LinuxDoTokenAuthMethod::ClientSecretPost => {
+            form.push(("client_id", client_id.to_string()));
+            form.push(("client_secret", client_secret.to_string()));
+        }
+    }
+
+    let mut request = http_client
+        .post(token_url)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(linuxdo_form_body(&form));
+    if let Some(authorization) = authorization {
+        request = request.header("Authorization", authorization);
+    }
+
+    let token_response = request.send().await.map_err(|err| {
+        AsterError::internal_error(format!("LinuxDo token exchange failed: {err}"))
+    })?;
+
+    if token_response.status().is_success() {
+        return token_response.json().await.map_err(|err| {
+            AsterError::internal_error(format!("failed to parse LinuxDo token response: {err}"))
+        });
+    }
+
+    let status = token_response.status();
+    let body = token_response.text().await.unwrap_or_default();
+    tracing::warn!(
+        status = %status,
+        auth_method = ?auth_method,
+        body = %body,
+        "LinuxDo token exchange returned non-success status"
+    );
+
+    if auth_method == LinuxDoTokenAuthMethod::Basic
+        && linuxdo_should_retry_client_secret_post(status, &body)
+    {
+        tracing::debug!("retrying LinuxDo token exchange with client_secret_post");
+        return Box::pin(request_linuxdo_token(
+            http_client,
+            token_url,
+            client_id,
+            client_secret,
+            code,
+            redirect_uri,
+            pkce_verifier,
+            LinuxDoTokenAuthMethod::ClientSecretPost,
+        ))
+        .await;
+    }
+
+    Err(AsterError::auth_invalid_credentials(
+        "LinuxDo token exchange failed",
+    ))
+}
+
+fn linuxdo_should_retry_client_secret_post(status: reqwest::StatusCode, body: &str) -> bool {
+    status == reqwest::StatusCode::UNAUTHORIZED
+        || (status == reqwest::StatusCode::BAD_REQUEST
+            && body.to_ascii_lowercase().contains("invalid_client"))
+}
+
+fn linuxdo_form_body(fields: &[(&str, String)]) -> String {
+    fields
+        .iter()
+        .map(|(key, value)| {
+            format!(
+                "{}={}",
+                urlencoding::encode(key),
+                urlencoding::encode(value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("&")
 }

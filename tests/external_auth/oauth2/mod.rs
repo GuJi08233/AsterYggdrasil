@@ -282,6 +282,57 @@ where
     test::call_service(app, req).await
 }
 
+pub async fn start_linuxdo_login<S, B, E>(
+    app: &S,
+    mock_provider: &mock::MockOAuth2Provider,
+    provider_key: &str,
+    return_path: &str,
+) -> String
+where
+    S: actix_web::dev::Service<
+            actix_http::Request,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = E,
+        >,
+    B: MessageBody,
+    E: std::fmt::Debug,
+{
+    let req = test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/auth/external-auth/linuxdo/{provider_key}/start"
+        ))
+        .insert_header(("Origin", TEST_BROWSER_ORIGIN))
+        .set_json(serde_json::json!({ "return_path": return_path }))
+        .to_request();
+    let resp = test::call_service(app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    let auth_url = body["data"]["authorization_url"]
+        .as_str()
+        .expect("authorization url should be returned");
+    request_mock_authorize(auth_url).await;
+    mock_provider.last_authorize_request().state
+}
+
+pub async fn finish_linuxdo_callback<S, B, E>(app: &S, state_value: &str) -> ServiceResponse<B>
+where
+    S: actix_web::dev::Service<
+            actix_http::Request,
+            Response = actix_web::dev::ServiceResponse<B>,
+            Error = E,
+        >,
+    B: MessageBody,
+    E: std::fmt::Debug,
+{
+    let callback =
+        format!("/api/v1/auth/external-auth/linuxdo/callback?code=mock-code&state={state_value}");
+    let req = test::TestRequest::get()
+        .uri(&callback)
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .to_request();
+    test::call_service(app, req).await
+}
+
 pub fn assert_oauth2_error_redirect<B>(resp: &ServiceResponse<B>) {
     assert_eq!(resp.status(), 302);
     let location = resp
@@ -424,6 +475,56 @@ pub fn qq_external_auth_provider_model(
         subject_claim: Set(None),
         username_claim: Set(None),
         display_name_claim: Set(None),
+        email_claim: Set(None),
+        email_verified_claim: Set(None),
+        groups_claim: Set(None),
+        avatar_url_claim: Set(None),
+        allowed_domains: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+}
+
+pub fn linuxdo_external_auth_provider_model(
+    key: &str,
+    base_url: &str,
+    enabled: bool,
+    min_trust_level: i32,
+) -> external_auth_provider::ActiveModel {
+    let now = Utc::now();
+    external_auth_provider::ActiveModel {
+        key: Set(key.to_string()),
+        display_name: Set(format!("{key} provider")),
+        icon_url: Set(None),
+        provider_kind: Set(
+            aster_yggdrasil::types::external_auth::ExternalAuthProviderKind::LinuxDo,
+        ),
+        protocol: Set(aster_yggdrasil::types::external_auth::ExternalAuthProtocol::OAuth2),
+        options: Set(
+            aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions(
+                serde_json::json!({
+                    "linuxdo": {
+                        "min_trust_level": min_trust_level
+                    }
+                })
+                .to_string(),
+            ),
+        ),
+        issuer_url: Set(None),
+        authorization_url: Set(Some(format!("{base_url}/authorize"))),
+        token_url: Set(Some(format!("{base_url}/token"))),
+        userinfo_url: Set(Some(format!("{base_url}/api/user"))),
+        client_id: Set(TEST_CLIENT_ID.to_string()),
+        client_secret: Set(Some(TEST_CLIENT_SECRET.to_string())),
+        scopes: Set("user".to_string()),
+        enabled: Set(enabled),
+        auto_provision_enabled: Set(true),
+        auto_link_verified_email_enabled: Set(false),
+        require_email_verified: Set(false),
+        subject_claim: Set(Some("id".to_string())),
+        username_claim: Set(Some("username".to_string())),
+        display_name_claim: Set(Some("name".to_string())),
         email_claim: Set(None),
         email_verified_claim: Set(None),
         groups_claim: Set(None),

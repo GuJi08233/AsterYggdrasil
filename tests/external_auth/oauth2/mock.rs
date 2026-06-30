@@ -29,6 +29,10 @@ pub struct MockOAuth2Provider {
     qq_userinfo_ret: Arc<Mutex<i64>>,
     qq_userinfo_msg: Arc<Mutex<String>>,
     qq_nickname: Arc<Mutex<String>>,
+    linuxdo_user_id: Arc<Mutex<u64>>,
+    linuxdo_username: Arc<Mutex<String>>,
+    linuxdo_name: Arc<Mutex<Option<String>>>,
+    linuxdo_trust_level: Arc<Mutex<Option<i32>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -105,6 +109,10 @@ impl MockOAuth2Provider {
             qq_userinfo_ret: Arc::new(Mutex::new(0)),
             qq_userinfo_msg: Arc::new(Mutex::new(String::new())),
             qq_nickname: Arc::new(Mutex::new("QQ Test User".to_string())),
+            linuxdo_user_id: Arc::new(Mutex::new(1547)),
+            linuxdo_username: Arc::new(Mutex::new("linuxdo_test".to_string())),
+            linuxdo_name: Arc::new(Mutex::new(Some("LinuxDo Test User".to_string()))),
+            linuxdo_trust_level: Arc::new(Mutex::new(Some(1))),
         }
     }
 
@@ -196,6 +204,26 @@ impl MockOAuth2Provider {
             .expect("QQ userinfo msg lock should not be poisoned") = msg.to_string();
     }
 
+    pub fn set_linuxdo_user(&self, id: u64, username: &str, trust_level: Option<i32>) {
+        *self
+            .linuxdo_user_id
+            .lock()
+            .expect("LinuxDo user id lock should not be poisoned") = id;
+        *self
+            .linuxdo_username
+            .lock()
+            .expect("LinuxDo username lock should not be poisoned") = username.to_string();
+        *self
+            .linuxdo_name
+            .lock()
+            .expect("LinuxDo name lock should not be poisoned") =
+            Some(format!("{username} display"));
+        *self
+            .linuxdo_trust_level
+            .lock()
+            .expect("LinuxDo trust level lock should not be poisoned") = trust_level;
+    }
+
     fn userinfo_payload(&self) -> serde_json::Value {
         let subject = self
             .profile_subject
@@ -246,6 +274,36 @@ impl MockOAuth2Provider {
                 .collect(),
         )
     }
+
+    fn linuxdo_userinfo_payload(&self) -> serde_json::Value {
+        let mut payload = serde_json::json!({
+            "id": *self
+                .linuxdo_user_id
+                .lock()
+                .expect("LinuxDo user id lock should not be poisoned"),
+            "username": self
+                .linuxdo_username
+                .lock()
+                .expect("LinuxDo username lock should not be poisoned")
+                .clone(),
+        });
+        if let Some(name) = self
+            .linuxdo_name
+            .lock()
+            .expect("LinuxDo name lock should not be poisoned")
+            .clone()
+        {
+            payload["name"] = serde_json::json!(name);
+        }
+        if let Some(trust_level) = *self
+            .linuxdo_trust_level
+            .lock()
+            .expect("LinuxDo trust level lock should not be poisoned")
+        {
+            payload["trust_level"] = serde_json::json!(trust_level);
+        }
+        payload
+    }
 }
 
 pub async fn start_mock_oauth2_provider() -> (MockOAuth2Provider, actix_web::dev::ServerHandle) {
@@ -266,6 +324,7 @@ pub async fn start_mock_oauth2_provider() -> (MockOAuth2Provider, actix_web::dev
             .route("/token", web::post().to(mock_token))
             .route("/userinfo", web::get().to(mock_userinfo))
             .route("/user", web::get().to(mock_userinfo))
+            .route("/api/user", web::get().to(mock_linuxdo_userinfo))
             .route("/user/emails", web::get().to(mock_github_emails))
             .route("/qq/token", web::get().to(mock_qq_token))
             .route("/qq/me", web::get().to(mock_qq_openid))
@@ -385,6 +444,18 @@ async fn mock_userinfo(
         .and_then(|value| value.to_str().ok());
     assert_eq!(auth, Some("Bearer mock-access-token"));
     HttpResponse::Ok().json(provider.userinfo_payload())
+}
+
+async fn mock_linuxdo_userinfo(
+    provider: web::Data<MockOAuth2Provider>,
+    req: HttpRequest,
+) -> impl Responder {
+    let auth = req
+        .headers()
+        .get("Authorization")
+        .and_then(|value| value.to_str().ok());
+    assert_eq!(auth, Some("Bearer mock-access-token"));
+    HttpResponse::Ok().json(provider.linuxdo_userinfo_payload())
 }
 
 async fn mock_github_emails(
