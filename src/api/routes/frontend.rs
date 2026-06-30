@@ -93,7 +93,7 @@ impl FrontendService {
         };
 
         let processed = html
-            .replace("%ASTERYGGDRASIL_VERSION%", env!("CARGO_PKG_VERSION"))
+            .replace("%ASTERYGGDRASIL_VERSION%", crate::build_info::VERSION)
             .replace(
                 "%ASTERYGGDRASIL_TITLE%",
                 &escape_html(branding::title_or_default(state.runtime_config())),

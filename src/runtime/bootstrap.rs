@@ -36,7 +36,7 @@ pub async fn bootstrap() -> crate::errors::Result<BootstrappedRuntime> {
 fn install_panic_hook() {
     aster_forge_panic::install_panic_hook(aster_forge_panic::PanicHookConfig::new(
         "AsterYggdrasil",
-        env!("CARGO_PKG_VERSION"),
-        env!("CARGO_PKG_REPOSITORY"),
+        crate::build_info::VERSION,
+        crate::build_info::REPOSITORY,
     ));
 }

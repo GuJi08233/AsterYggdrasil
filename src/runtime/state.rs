@@ -16,7 +16,7 @@ use tokio::sync::Notify;
 
 const YGGDRASIL_SESSION_FORWARD_USER_AGENT: &str = concat!(
     "AsterYggdrasil/",
-    env!("CARGO_PKG_VERSION"),
+    env!("ASTER_BUILD_VERSION"),
     " yggdrasil-session-forward"
 );
 

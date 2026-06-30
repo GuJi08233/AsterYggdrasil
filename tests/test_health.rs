@@ -159,7 +159,10 @@ async fn admin_system_info_exposes_build_and_runtime_metadata_after_auth() {
 
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["code"], AsterErrorCode::Success.as_str());
-    assert_eq!(body["data"]["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(
+        body["data"]["version"],
+        aster_yggdrasil::build_info::VERSION
+    );
     assert!(body["data"]["build_time"].as_str().is_some());
     assert!(body["data"]["uptime_seconds"].as_u64().is_some());
     assert_eq!(body["data"]["status"], Value::Null);

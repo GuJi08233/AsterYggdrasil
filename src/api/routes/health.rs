@@ -70,7 +70,7 @@ fn status_response(status: &str) -> HealthResponse {
 
 pub fn system_info_response(state: &AppState) -> crate::api::response::SystemInfoResponse {
     crate::api::response::SystemInfoResponse {
-        version: env!("CARGO_PKG_VERSION").to_string(),
+        version: crate::build_info::VERSION.to_string(),
         build_time: compile_time().to_string(),
         uptime_seconds: state.uptime().as_secs(),
     }
@@ -78,5 +78,5 @@ pub fn system_info_response(state: &AppState) -> crate::api::response::SystemInf
 
 #[inline]
 pub(crate) fn compile_time() -> &'static str {
-    option_env!("ASTER_BUILD_TIME").unwrap_or("unknown")
+    crate::build_info::build_time()
 }

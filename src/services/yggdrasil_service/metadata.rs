@@ -18,7 +18,7 @@ pub fn metadata<S: RuntimeConfigRuntimeState>(state: &S) -> YggdrasilMetaResp {
         meta: YggdrasilMeta {
             server_name: policy.server_name,
             implementation_name: "AsterYggdrasil".to_string(),
-            implementation_version: env!("CARGO_PKG_VERSION").to_string(),
+            implementation_version: crate::build_info::VERSION.to_string(),
             links: meta_links(runtime_config),
             feature_non_email_login: policy.allow_profile_name_login,
             feature_enable_profile_key: policy.enable_profile_key,

@@ -7,7 +7,7 @@ use utoipa::{Modify, OpenApi};
 #[openapi(
     info(
         title = "AsterYggdrasil API",
-        version = env!("CARGO_PKG_VERSION"),
+        version = env!("ASTER_BUILD_VERSION"),
         description = "Self-hosted Minecraft skin site and Yggdrasil authentication server.",
         license(name = "MIT"),
     ),
