@@ -195,6 +195,37 @@ fn external_auth_provider_config_from_test_params(
         input.options,
         input.issuer_url.as_deref(),
     )?;
+    let is_linuxdo = input.provider_kind == ExternalAuthProviderKind::LinuxDo;
+    let authorization_url = if is_linuxdo {
+        Some("https://connect.linux.do/oauth2/authorize".to_string())
+    } else {
+        normalize_manual_endpoint_input(
+            input.authorization_url,
+            "authorization_url",
+            descriptor.authorization_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
+    let token_url = if is_linuxdo {
+        Some("https://connect.linux.do/oauth2/token".to_string())
+    } else {
+        normalize_manual_endpoint_input(
+            input.token_url,
+            "token_url",
+            descriptor.token_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
+    let userinfo_url = if is_linuxdo {
+        Some("https://connect.linux.do/api/user".to_string())
+    } else {
+        normalize_manual_endpoint_input(
+            input.userinfo_url,
+            "userinfo_url",
+            descriptor.userinfo_url_required,
+            descriptor.manual_endpoint_configuration_supported,
+        )?
+    };
     Ok(ExternalAuthProviderConfig {
         id: 0,
         key: "draft".to_string(),
@@ -207,24 +238,9 @@ fn external_auth_provider_config_from_test_params(
             descriptor.issuer_url_required,
             true,
         )?,
-        authorization_url: normalize_manual_endpoint_input(
-            input.authorization_url,
-            "authorization_url",
-            descriptor.authorization_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?,
-        token_url: normalize_manual_endpoint_input(
-            input.token_url,
-            "token_url",
-            descriptor.token_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?,
-        userinfo_url: normalize_manual_endpoint_input(
-            input.userinfo_url,
-            "userinfo_url",
-            descriptor.userinfo_url_required,
-            descriptor.manual_endpoint_configuration_supported,
-        )?,
+        authorization_url,
+        token_url,
+        userinfo_url,
         client_id: normalize_required(&input.client_id, "client_id", 512)?,
         client_secret: normalize_secret_create(input.client_secret),
         scopes: normalize_scopes_with_default(
