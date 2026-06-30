@@ -1610,7 +1610,9 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         label_i18n_key: "config.yggdrasil_max_profiles_per_user.label",
         description_i18n_key: "config.yggdrasil_max_profiles_per_user.description",
         value_type: ConfigValueType::Number,
-        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER.to_string(),
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER.to_string()
+        },
         requires_restart: false,
         is_sensitive: false,
         category: CONFIG_CATEGORY_YGGDRASIL_AUTH,

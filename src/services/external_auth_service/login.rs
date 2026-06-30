@@ -343,13 +343,14 @@ pub async fn finish_callback(
     // Auto-create a Minecraft profile for newly provisioned LinuxDo users.
     if resolved.auto_provisioned && provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
         if let Some(preferred_username) = &user_claims.preferred_username {
-            if let Err(error) = crate::services::yggdrasil_service::create_profile_for_external_auth(
-                state,
-                resolved.user.id,
-                resolved.user.role,
-                preferred_username,
-            )
-            .await
+            if let Err(error) =
+                crate::services::yggdrasil_service::create_profile_for_external_auth(
+                    state,
+                    resolved.user.id,
+                    resolved.user.role,
+                    preferred_username,
+                )
+                .await
             {
                 tracing::warn!(
                     user_id = resolved.user.id,

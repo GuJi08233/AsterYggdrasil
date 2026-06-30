@@ -74,7 +74,8 @@ where
         .await?;
     let policy = RuntimeYggdrasilPolicy::from_runtime_config(state.runtime_config());
     if !user_role.is_admin() {
-        let existing_count = minecraft_profile_repo::count_by_user(state.reader_db(), user_id).await?;
+        let existing_count =
+            minecraft_profile_repo::count_by_user(state.reader_db(), user_id).await?;
         if existing_count >= policy.max_profiles_per_user {
             tracing::debug!(
                 user_id,
@@ -387,7 +388,10 @@ where
             // Truncate to 16 chars if needed
             if candidate.len() > 16 {
                 let max_base = 16 - suffix.to_string().len();
-                candidate = format!("{}{suffix}", &profile_name[..max_base.min(profile_name.len())]);
+                candidate = format!(
+                    "{}{suffix}",
+                    &profile_name[..max_base.min(profile_name.len())]
+                );
             }
             if minecraft_profile_repo::find_by_name(state.reader_db(), &candidate)
                 .await?
