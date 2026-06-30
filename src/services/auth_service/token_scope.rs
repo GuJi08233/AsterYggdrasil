@@ -7,6 +7,7 @@ fn password_change_path_allowed(method: &str, path: &str) -> bool {
         (method, path),
         ("GET", "/api/v1/auth/me")
             | ("PUT", "/api/v1/auth/password")
+            | ("PUT", "/api/v1/auth/password/local")
             | ("POST", "/api/v1/auth/logout")
     )
 }

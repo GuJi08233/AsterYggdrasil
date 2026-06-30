@@ -26,7 +26,7 @@ use aster_yggdrasil::entities::{
 };
 use aster_yggdrasil::errors::{AsterError, Result};
 use aster_yggdrasil::object_storage::{ObjectBlobMetadata, ObjectStorage};
-use aster_yggdrasil::services::{audit_service, profile_service};
+use aster_yggdrasil::services::{audit_service, auth_service, profile_service};
 use aster_yggdrasil::types::{
     user::AvatarSource, yggdrasil::MinecraftTextureModel,
     yggdrasil::YggdrasilSessionForwardProviderKind,
@@ -609,6 +609,56 @@ async fn yggdrasil_authenticate_validate_refresh_and_invalidate_flow() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 204);
+}
+
+#[actix_web::test]
+async fn yggdrasil_authenticate_accepts_emailless_external_user_after_local_password_setup() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let _ = setup_admin!(app);
+    let user = common::create_external_auth_linked_user_without_email(
+        &state,
+        "linuxplayer",
+        "internal-password",
+    )
+    .await;
+    let issue_req = test::TestRequest::default()
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .to_http_request();
+    let session = auth_service::issue_tokens_for_user_id(&state, user.id, &issue_req)
+        .await
+        .expect("external auth user session should be issued");
+
+    let req = test::TestRequest::put()
+        .uri("/api/v1/auth/password/local")
+        .insert_header(common::bearer_header(&session.access_token))
+        .set_json(serde_json::json!({
+            "new_password": "launcher-password"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let access =
+        common::extract_cookie(&resp, "aster_access").expect("fresh access cookie should be set");
+
+    let profile_id = create_profile!(app, &access, "LinuxPlayer");
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/authenticate")
+        .set_json(serde_json::json!({
+            "username": "linuxplayer",
+            "password": "launcher-password",
+            "clientToken": "linuxdo-launcher-client",
+            "requestUser": true,
+            "agent": { "name": "Minecraft", "version": 1 }
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["clientToken"], "linuxdo-launcher-client");
+    assert_eq!(body["selectedProfile"]["id"], profile_id);
+    assert_eq!(body["selectedProfile"]["name"], "LinuxPlayer");
+    assert_unsigned_uuid(body["user"]["id"].as_str().unwrap());
 }
 
 #[actix_web::test]

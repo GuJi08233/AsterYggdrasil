@@ -31,7 +31,11 @@ import {
 } from "@/lib/contactVerificationRedirect";
 import { externalAuthKindIconPath } from "@/lib/externalAuthProviders";
 import { cn } from "@/lib/utils";
-import { emailSchema } from "@/lib/validation";
+import {
+	emailSchema,
+	localPasswordSetupSchema,
+	passwordChangeSchema,
+} from "@/lib/validation";
 import { accountPaths } from "@/routes/routePaths";
 import { authService } from "@/services/authService";
 import { externalAuthService } from "@/services/externalAuthService";
@@ -45,8 +49,27 @@ import type {
 } from "@/types/api";
 
 type SettingsSectionId = "profile" | "security" | "passkeys" | "external-auth";
+type PasswordFieldName = "confirmPassword" | "currentPassword" | "newPassword";
+type PasswordFormValues = Record<PasswordFieldName, string>;
+type PasswordFormTouched = Record<PasswordFieldName, boolean>;
+type PasswordFormErrors = Partial<Record<PasswordFieldName, string>>;
 
 const EXTERNAL_AUTH_LINK_PAGE_SIZE = 20;
+const passwordInitialValues: PasswordFormValues = {
+	confirmPassword: "",
+	currentPassword: "",
+	newPassword: "",
+};
+const passwordInitialTouched: PasswordFormTouched = {
+	confirmPassword: false,
+	currentPassword: false,
+	newPassword: false,
+};
+const passwordAllTouched: PasswordFormTouched = {
+	confirmPassword: true,
+	currentPassword: true,
+	newPassword: true,
+};
 
 type SectionDefinition = {
 	id: SettingsSectionId;
@@ -107,6 +130,43 @@ function getLinuxDoTrustLevel(metadata: unknown): number | null {
 	const value = (metadata as { linuxdo_trust_level?: unknown })
 		.linuxdo_trust_level;
 	return typeof value === "number" ? value : null;
+}
+
+function passwordFormErrors(
+	values: PasswordFormValues,
+	touched: PasswordFormTouched,
+	localSetup: boolean,
+): PasswordFormErrors {
+	const result = localSetup
+		? localPasswordSetupSchema.safeParse({
+				newPassword: values.newPassword,
+				confirmPassword: values.confirmPassword,
+			})
+		: passwordChangeSchema.safeParse(values);
+	if (result.success) return {};
+
+	const next: PasswordFormErrors = {};
+	for (const issue of result.error.issues) {
+		const field = issue.path[0];
+		if (
+			(field === "confirmPassword" ||
+				field === "currentPassword" ||
+				field === "newPassword") &&
+			touched[field]
+		) {
+			next[field] ??= issue.message;
+		}
+	}
+	return next;
+}
+
+function passwordCanSubmit(values: PasswordFormValues, localSetup: boolean) {
+	return localSetup
+		? localPasswordSetupSchema.safeParse({
+				newPassword: values.newPassword,
+				confirmPassword: values.confirmPassword,
+			}).success
+		: passwordChangeSchema.safeParse(values).success;
 }
 
 function settingSectionElementId(id: SettingsSectionId) {
@@ -726,6 +786,228 @@ function ProfileSection({ user }: { user: AuthUserInfo }) {
 	);
 }
 
+function PasswordSecuritySection({ user }: { user: AuthUserInfo }) {
+	const { t } = useTranslation();
+	const changePassword = useAuthStore((state) => state.changePassword);
+	const setLocalPassword = useAuthStore((state) => state.setLocalPassword);
+	const localSetup = !user.email?.trim();
+	const [values, setValues] = useState<PasswordFormValues>(
+		passwordInitialValues,
+	);
+	const [touched, setTouched] = useState<PasswordFormTouched>(
+		passwordInitialTouched,
+	);
+	const [submitting, setSubmitting] = useState(false);
+	const [showPasswords, setShowPasswords] = useState(false);
+	const errors = passwordFormErrors(values, touched, localSetup);
+	const canSubmit = passwordCanSubmit(values, localSetup);
+	const actionBusy = submitting;
+
+	function updateField(field: PasswordFieldName, value: string) {
+		const nextValues = { ...values, [field]: value };
+		const nextTouched = { ...touched, [field]: true };
+		setValues(nextValues);
+		setTouched(nextTouched);
+	}
+
+	async function submit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setTouched(passwordAllTouched);
+		if (!passwordCanSubmit(values, localSetup)) {
+			toast.error(t("login.validationFailed"));
+			return;
+		}
+
+		setSubmitting(true);
+		try {
+			if (localSetup) {
+				await setLocalPassword(values.newPassword);
+			} else {
+				await changePassword(values.currentPassword, values.newPassword);
+			}
+			setValues(passwordInitialValues);
+			setTouched(passwordInitialTouched);
+			toast.success(
+				localSetup
+					? t("personalSettings.localPasswordSet")
+					: t("personalSettings.passwordChanged"),
+			);
+		} catch (error) {
+			handleApiError(error);
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	const passwordType = showPasswords ? "text" : "password";
+
+	return (
+		<div className="rounded-lg border border-border/70 bg-background/55 dark:border-white/10 dark:bg-input/10">
+			<div className="flex flex-col gap-3 border-b border-border/70 px-4 py-4 sm:flex-row sm:items-start sm:justify-between dark:border-white/10">
+				<div className="min-w-0">
+					<h3 className="text-sm font-semibold">
+						{localSetup
+							? t("personalSettings.localPasswordTitle")
+							: t("personalSettings.passwordTitle")}
+					</h3>
+					<p className="mt-1 text-xs leading-5 text-muted-foreground">
+						{localSetup
+							? t("personalSettings.localPasswordDescription")
+							: t("personalSettings.passwordDescription")}
+					</p>
+				</div>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					disabled={actionBusy}
+					onClick={() => setShowPasswords((value) => !value)}
+				>
+					<Icon
+						name={showPasswords ? "EyeSlash" : "Eye"}
+						className="mr-2 size-4"
+					/>
+					{showPasswords
+						? t("personalSettings.hidePassword")
+						: t("personalSettings.showPassword")}
+				</Button>
+			</div>
+			<form className="grid gap-3 px-4 py-4" onSubmit={submit}>
+				{localSetup ? null : (
+					<div className="grid gap-2">
+						<label
+							htmlFor="current-password"
+							className="text-xs font-medium text-muted-foreground"
+						>
+							{t("personalSettings.currentPassword")}
+						</label>
+						<Input
+							id="current-password"
+							type={passwordType}
+							value={values.currentPassword}
+							autoComplete="current-password"
+							placeholder={t("personalSettings.currentPasswordPlaceholder")}
+							disabled={actionBusy}
+							aria-invalid={Boolean(errors.currentPassword)}
+							aria-describedby={
+								errors.currentPassword ? "current-password-error" : undefined
+							}
+							onChange={(event) =>
+								updateField("currentPassword", event.currentTarget.value)
+							}
+						/>
+						{errors.currentPassword ? (
+							<p
+								id="current-password-error"
+								className="text-xs leading-5 text-destructive"
+							>
+								{t(errors.currentPassword)}
+							</p>
+						) : null}
+					</div>
+				)}
+				<div className="grid gap-3 md:grid-cols-2">
+					<div className="grid gap-2">
+						<label
+							htmlFor="new-local-password"
+							className="text-xs font-medium text-muted-foreground"
+						>
+							{t("personalSettings.newPassword")}
+						</label>
+						<Input
+							id="new-local-password"
+							type={passwordType}
+							value={values.newPassword}
+							autoComplete="new-password"
+							placeholder={t("personalSettings.newPasswordPlaceholder")}
+							disabled={actionBusy}
+							aria-invalid={Boolean(errors.newPassword)}
+							aria-describedby={
+								errors.newPassword
+									? "new-local-password-error"
+									: "new-local-password-help"
+							}
+							onChange={(event) =>
+								updateField("newPassword", event.currentTarget.value)
+							}
+						/>
+						{errors.newPassword ? (
+							<p
+								id="new-local-password-error"
+								className="text-xs leading-5 text-destructive"
+							>
+								{t(errors.newPassword)}
+							</p>
+						) : (
+							<p
+								id="new-local-password-help"
+								className="text-xs leading-5 text-muted-foreground"
+							>
+								{t("personalSettings.passwordHint")}
+							</p>
+						)}
+					</div>
+					<div className="grid gap-2">
+						<label
+							htmlFor="confirm-local-password"
+							className="text-xs font-medium text-muted-foreground"
+						>
+							{t("personalSettings.confirmPassword")}
+						</label>
+						<Input
+							id="confirm-local-password"
+							type={passwordType}
+							value={values.confirmPassword}
+							autoComplete="new-password"
+							placeholder={t("personalSettings.confirmPasswordPlaceholder")}
+							disabled={actionBusy}
+							aria-invalid={Boolean(errors.confirmPassword)}
+							aria-describedby={
+								errors.confirmPassword
+									? "confirm-local-password-error"
+									: undefined
+							}
+							onChange={(event) =>
+								updateField("confirmPassword", event.currentTarget.value)
+							}
+						/>
+						{errors.confirmPassword ? (
+							<p
+								id="confirm-local-password-error"
+								className="text-xs leading-5 text-destructive"
+							>
+								{t(errors.confirmPassword)}
+							</p>
+						) : null}
+					</div>
+				</div>
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+					<p className="text-xs leading-5 text-muted-foreground">
+						{localSetup
+							? t("personalSettings.localPasswordLauncherHint", {
+									username: user.username,
+								})
+							: t("personalSettings.passwordLauncherHint")}
+					</p>
+					<Button
+						type="submit"
+						disabled={actionBusy || !canSubmit}
+						className="sm:w-40"
+					>
+						<Icon
+							name={submitting ? "Spinner" : "Key"}
+							className={cn("mr-2 size-4", submitting && "animate-spin")}
+						/>
+						{localSetup
+							? t("personalSettings.localPasswordSubmit")
+							: t("personalSettings.passwordSubmit")}
+					</Button>
+				</div>
+			</form>
+		</div>
+	);
+}
+
 function EmailChangeSection({ user }: { user: AuthUserInfo }) {
 	const { t } = useTranslation();
 	const refreshUser = useAuthStore((state) => state.refreshUser);
@@ -1076,6 +1358,9 @@ export default function AccountSettingsPage() {
 								<div className="text-sm leading-6 text-muted-foreground">
 									{t("personalSettings.securityDescription")}
 								</div>
+							</div>
+							<div className="mt-4">
+								<PasswordSecuritySection user={user} />
 							</div>
 							<div className="mt-4">
 								<EmailChangeSection user={user} />

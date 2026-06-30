@@ -17,7 +17,7 @@ use crate::db::repository::{passkey_repo, user_repo};
 use crate::entities::{passkey, user};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
-use crate::services::auth_service::{self, is_email_verified};
+use crate::services::auth_service::{self, is_email_activation_satisfied};
 use crate::types::passkey::StoredPasskeyCredential;
 use actix_web::HttpRequest;
 use aster_forge_cache::CacheExt;
@@ -444,7 +444,7 @@ fn ensure_login_user(user: &user::Model) -> Result<()> {
     if !user.status.is_active() {
         return Err(AsterError::auth_forbidden("account is disabled"));
     }
-    if !is_email_verified(user) {
+    if !is_email_activation_satisfied(user) {
         return Err(AsterError::auth_pending_activation(
             "account pending activation",
         ));

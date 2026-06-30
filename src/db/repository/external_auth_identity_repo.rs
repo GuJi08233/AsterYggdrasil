@@ -35,6 +35,15 @@ pub async fn list_for_user(
         .map_err(AsterError::from)
 }
 
+pub async fn exists_for_user<C: ConnectionTrait>(db: &C, user_id: i64) -> Result<bool> {
+    let count = ExternalAuthIdentity::find()
+        .filter(external_auth_identity::Column::UserId.eq(user_id))
+        .count(db)
+        .await
+        .map_err(AsterError::from)?;
+    Ok(count > 0)
+}
+
 pub async fn list_for_user_cursor(
     db: &DatabaseConnection,
     user_id: i64,

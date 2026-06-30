@@ -8,7 +8,7 @@ use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_repo, user_repo};
 use crate::errors::AsterError;
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::services::{audit_service, ban_service};
+use crate::services::{audit_service, auth_service, ban_service};
 use crate::types::user::UserBanScope;
 use aster_forge_crypto::verify_password;
 
@@ -63,7 +63,7 @@ where
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }
-    if login_target.user.email_verified_at.is_none() {
+    if !auth_service::is_email_activation_satisfied(&login_target.user) {
         tracing::debug!(
             user_id = login_target.user.id,
             "yggdrasil authenticate rejected pending email activation"

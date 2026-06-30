@@ -65,7 +65,7 @@ pub async fn link_with_password(
     if !user.status.is_active() {
         return Err(AsterError::auth_forbidden("account is disabled"));
     }
-    if !auth_service::is_email_verified(&user) {
+    if !auth_service::is_email_activation_satisfied(&user) {
         return Err(AsterError::auth_pending_activation(
             "account pending activation",
         ));

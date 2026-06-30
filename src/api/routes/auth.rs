@@ -8,8 +8,8 @@ use crate::api::dto::{
     ContactVerificationConfirmQuery, LoginReq, LogoutReq, LogoutResp, PasskeyLoginFinishReq,
     PasskeyLoginStartReq, PasskeyRegisterFinishReq, PasskeyRegisterStartReq,
     PasswordResetConfirmReq, PasswordResetRequestReq, PatchPasskeyReq, RefreshReq, RegisterReq,
-    RemovedCountResponse, RequestEmailChangeReq, ResendRegisterActivationReq, SetupReq,
-    UpdateAvatarSourceReq, UpdateProfileReq, validate_request,
+    RemovedCountResponse, RequestEmailChangeReq, ResendRegisterActivationReq, SetLocalPasswordReq,
+    SetupReq, UpdateAvatarSourceReq, UpdateProfileReq, validate_request,
 };
 use crate::api::error_code::AsterErrorCode;
 use crate::api::middleware::csrf;
@@ -86,6 +86,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     .route("/confirm", web::post().to(confirm_password_reset)),
             )
             .route("/password", web::put().to(change_password))
+            .route("/password/local", web::put().to(set_local_password))
             .route(
                 "/invitations/{token}",
                 web::get().to(verify_user_invitation),
@@ -650,6 +651,41 @@ pub async fn change_password(
         &req,
         user.id,
         &body.current_password,
+        &body.new_password,
+    )
+    .await?;
+    let session = auth_service::issue_tokens_for_user_id(state.get_ref(), updated.id, &req).await?;
+    authenticated_response(state.get_ref(), session)
+}
+
+#[aster_forge_api_docs_macros::path(
+    put,
+    path = "/api/v1/auth/password/local",
+    tag = "auth",
+    operation_id = "set_local_password",
+    request_body = SetLocalPasswordReq,
+    responses(
+        (status = 200, description = "Local password set and fresh session cookies issued", body = inline(ApiResponse<auth_service::AuthTokenResponse>)),
+        (status = 400, description = "Invalid new password"),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Account is not linked to an external auth identity"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn set_local_password(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    body: web::Json<SetLocalPasswordReq>,
+) -> Result<HttpResponse> {
+    validate_request(&*body)?;
+    if access_cookie_token(&req).is_some() {
+        ensure_cookie_write_allowed(state.get_ref(), &req)?;
+    }
+    let user = auth_service::current_user(state.get_ref(), &req).await?;
+    let updated = auth_service::set_local_password_with_audit(
+        state.get_ref(),
+        &req,
+        user.id,
         &body.new_password,
     )
     .await?;

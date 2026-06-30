@@ -33,6 +33,7 @@ import type {
 	RegisterResponse,
 	RequestEmailChangeRequest,
 	RevokeOtherAuthSessionsResponse,
+	SetLocalPasswordRequest,
 	SetupRequest,
 	UpdateAvatarSourceRequest,
 	UpdateProfileRequest,
@@ -310,6 +311,13 @@ export const authService = {
 		invalidateAuthServiceCaches();
 		return api.put<AuthTokenResponse, ChangePasswordRequest>(
 			"/auth/password",
+			data,
+		);
+	},
+	setLocalPassword: async (data: SetLocalPasswordRequest) => {
+		invalidateAuthServiceCaches();
+		return api.put<AuthTokenResponse, SetLocalPasswordRequest>(
+			"/auth/password/local",
 			data,
 		);
 	},

@@ -1127,6 +1127,94 @@ pub async fn flush_mail_outbox_with(
 }
 
 #[allow(dead_code)]
+pub async fn create_external_auth_linked_user_without_email(
+    state: &AppState,
+    username: &str,
+    password: &str,
+) -> aster_yggdrasil::entities::user::Model {
+    use aster_yggdrasil::db::repository::external_auth_identity_repo;
+    use aster_yggdrasil::entities::external_auth_provider;
+    use aster_yggdrasil::services::auth_service;
+    use aster_yggdrasil::types::{
+        external_auth::{
+            ExternalAuthProtocol, ExternalAuthProviderKind, StoredExternalAuthProviderOptions,
+        },
+        user::{UserRole, UserStatus},
+    };
+    use sea_orm::{ActiveModelTrait, Set};
+
+    let user = auth_service::shared::create_user_without_email_with_role(
+        state.writer_db(),
+        state,
+        auth_service::shared::CreateUserWithoutEmailWithRoleInput {
+            username,
+            password,
+            role: UserRole::User,
+            status: UserStatus::Active,
+            must_change_password: false,
+        },
+    )
+    .await
+    .expect("external auth test user should be created");
+
+    let now = chrono::Utc::now();
+    let provider = external_auth_provider::ActiveModel {
+        key: Set(format!("linuxdo-{username}")),
+        display_name: Set("LinuxDO".to_string()),
+        icon_url: Set(None),
+        provider_kind: Set(ExternalAuthProviderKind::LinuxDo),
+        protocol: Set(ExternalAuthProtocol::OAuth2),
+        options: Set(StoredExternalAuthProviderOptions::empty()),
+        issuer_url: Set(None),
+        authorization_url: Set(Some(
+            "https://connect.linux.do/oauth2/authorize".to_string(),
+        )),
+        token_url: Set(Some("https://connect.linux.do/oauth2/token".to_string())),
+        userinfo_url: Set(Some("https://connect.linux.do/api/user".to_string())),
+        client_id: Set("test-client".to_string()),
+        client_secret: Set(Some("test-secret".to_string())),
+        scopes: Set("user".to_string()),
+        enabled: Set(true),
+        auto_provision_enabled: Set(true),
+        auto_link_verified_email_enabled: Set(false),
+        require_email_verified: Set(false),
+        subject_claim: Set(Some("id".to_string())),
+        username_claim: Set(Some("username".to_string())),
+        display_name_claim: Set(Some("name".to_string())),
+        email_claim: Set(None),
+        email_verified_claim: Set(None),
+        groups_claim: Set(None),
+        avatar_url_claim: Set(None),
+        allowed_domains: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(state.writer_db())
+    .await
+    .expect("external auth test provider should be created");
+
+    let subject = format!("test-subject-{}", user.id);
+    external_auth_identity_repo::create_identity(
+        state.writer_db(),
+        external_auth_identity_repo::CreateExternalAuthIdentityInput {
+            user_id: user.id,
+            provider_id: provider.id,
+            identity_namespace: "https://connect.linux.do",
+            subject: &subject,
+            email_snapshot: None,
+            display_name_snapshot: Some(username),
+            metadata: Some(r#"{"linuxdo_trust_level":2}"#),
+            now,
+        },
+    )
+    .await
+    .expect("external auth test identity should be created");
+
+    user
+}
+
+#[allow(dead_code)]
 fn extract_token_from_content(content: &str, marker: &str) -> Option<String> {
     let (_, suffix) = content.split_once(marker)?;
     let encoded: String = suffix

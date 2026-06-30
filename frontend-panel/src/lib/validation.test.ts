@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	localPasswordSetupSchema,
 	passwordChangeSchema,
 	passwordSchema,
 	usernameSchema,
@@ -57,6 +58,27 @@ describe("validation schemas", () => {
 				currentPassword: "",
 				newPassword: "a".repeat(7),
 				confirmPassword: "",
+			}).success,
+		).toBe(false);
+	});
+
+	it("validates local password setup without a current password", () => {
+		expect(
+			localPasswordSetupSchema.safeParse({
+				newPassword: "launcher-password",
+				confirmPassword: "launcher-password",
+			}).success,
+		).toBe(true);
+		expect(
+			localPasswordSetupSchema.safeParse({
+				newPassword: "launcher-password",
+				confirmPassword: "different-password",
+			}).success,
+		).toBe(false);
+		expect(
+			localPasswordSetupSchema.safeParse({
+				newPassword: "short",
+				confirmPassword: "short",
 			}).success,
 		).toBe(false);
 	});

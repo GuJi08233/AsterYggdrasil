@@ -1236,6 +1236,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password/local": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_local_password"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/password/reset/confirm": {
         parameters: {
             query?: never;
@@ -3676,6 +3692,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+            normalized_name: string;
             /** Format: int32 */
             rename_count: number;
             texture_model: components["schemas"]["MinecraftTextureModel"];
@@ -4132,6 +4149,9 @@ export interface components {
         SetConfigReq: {
             value: components["schemas"]["ConfigValue"];
             visibility?: null | components["schemas"]["ConfigVisibility"];
+        };
+        SetLocalPasswordReq: {
+            new_password: string;
         };
         SetupReq: {
             email: string;
@@ -10538,6 +10558,60 @@ export interface operations {
             };
             /** @description Current password is invalid */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_local_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetLocalPasswordReq"];
+            };
+        };
+        responses: {
+            /** @description Local password set and fresh session cookies issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            /** Format: int64 */
+                            expires_in: number;
+                            status: components["schemas"]["AuthTokenStatus"];
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Invalid new password */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account is not linked to an external auth identity */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

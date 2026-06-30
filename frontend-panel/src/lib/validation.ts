@@ -42,3 +42,13 @@ export const passwordChangeMatchSchema = z
 	});
 
 export const passwordChangeSchema = passwordChangeMatchSchema;
+
+export const localPasswordSetupSchema = z
+	.object({
+		newPassword: passwordSchema,
+		confirmPassword: confirmPasswordRequiredSchema,
+	})
+	.refine((value) => value.newPassword === value.confirmPassword, {
+		path: ["confirmPassword"],
+		message: "login.passwordMismatch",
+	});

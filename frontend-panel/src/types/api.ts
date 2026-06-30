@@ -104,6 +104,8 @@ export type AuditPresentationMessage =
 	components["schemas"]["AuditPresentationMessage"];
 export type AuthTokenResponse = components["schemas"]["AuthTokenResponse"];
 export type ChangePasswordRequest = components["schemas"]["ChangePasswordReq"];
+export type SetLocalPasswordRequest =
+	components["schemas"]["SetLocalPasswordReq"];
 export type RegisterResponse = components["schemas"]["RegisterResponse"];
 export type AuthUserInfo = components["schemas"]["AuthUserInfo"];
 export type AdminUserInfo = components["schemas"]["AdminUserInfo"];

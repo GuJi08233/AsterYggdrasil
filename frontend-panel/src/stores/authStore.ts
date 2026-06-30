@@ -75,6 +75,7 @@ type AuthState = {
 		currentPassword: string,
 		newPassword: string,
 	) => Promise<void>;
+	setLocalPassword: (newPassword: string) => Promise<void>;
 	acceptInvitation: (
 		token: string,
 		username: string,
@@ -499,6 +500,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	async changePassword(currentPassword, newPassword) {
 		const response = await authService.changePassword({
 			current_password: currentPassword,
+			new_password: newPassword,
+		});
+		await syncUserAfterTokenResponse(set, response);
+	},
+	async setLocalPassword(newPassword) {
+		const response = await authService.setLocalPassword({
 			new_password: newPassword,
 		});
 		await syncUserAfterTokenResponse(set, response);

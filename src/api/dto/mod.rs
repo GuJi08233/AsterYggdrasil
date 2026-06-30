@@ -29,8 +29,8 @@ pub use auth::{
     ContactVerificationConfirmQuery, LoginReq, LogoutReq, LogoutResp, PasskeyLoginFinishReq,
     PasskeyLoginStartReq, PasskeyRegisterFinishReq, PasskeyRegisterStartReq,
     PasswordResetConfirmReq, PasswordResetRequestReq, PatchPasskeyReq, PublicCaptchaPolicyResp,
-    RefreshReq, RegisterReq, RequestEmailChangeReq, ResendRegisterActivationReq, SetupReq,
-    UpdateAvatarSourceReq, UpdateProfileReq,
+    RefreshReq, RegisterReq, RequestEmailChangeReq, ResendRegisterActivationReq,
+    SetLocalPasswordReq, SetupReq, UpdateAvatarSourceReq, UpdateProfileReq,
 };
 pub use external_auth::{ExternalAuthCallbackQuery, StartExternalAuthReq};
 pub use profiles::{

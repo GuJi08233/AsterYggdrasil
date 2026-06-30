@@ -10,6 +10,7 @@ import type {
 import AccountSettingsPage from "./AccountSettingsPage";
 
 const authServiceMock = vi.hoisted(() => ({
+	changePassword: vi.fn(),
 	me: vi.fn(),
 	requestEmailChange: vi.fn(),
 	resendEmailChange: vi.fn(),
@@ -17,6 +18,7 @@ const authServiceMock = vi.hoisted(() => ({
 	revokeSession: vi.fn(),
 	sessions: vi.fn(),
 	sessionsPage: vi.fn(),
+	setLocalPassword: vi.fn(),
 	setAvatarSource: vi.fn(),
 	updateProfile: vi.fn(),
 	uploadAvatar: vi.fn(),
@@ -79,6 +81,7 @@ const baseUser: AuthUserInfo = {
 	email: "alex@example.com",
 	email_verified: true,
 	must_change_password: false,
+	operator_scopes: [],
 	pending_email: null,
 	role: "user",
 	status: "active",
@@ -131,6 +134,10 @@ describe("AccountSettingsPage", () => {
 		vi.clearAllMocks();
 		useAuthStore.getState().clear();
 		authServiceMock.me.mockResolvedValue(baseUser);
+		authServiceMock.changePassword.mockResolvedValue({
+			expires_in: 3600,
+			status: "authenticated",
+		});
 		authServiceMock.requestEmailChange.mockResolvedValue({
 			...baseUser,
 			pending_email: "next@example.com",
@@ -142,6 +149,10 @@ describe("AccountSettingsPage", () => {
 		authServiceMock.revokeSession.mockResolvedValue(undefined);
 		authServiceMock.sessions.mockResolvedValue([]);
 		authServiceMock.sessionsPage.mockResolvedValue(emptyAuthSessionPage);
+		authServiceMock.setLocalPassword.mockResolvedValue({
+			expires_in: 3600,
+			status: "authenticated",
+		});
 		authServiceMock.updateProfile.mockResolvedValue(baseUser.profile);
 		authServiceMock.setAvatarSource.mockResolvedValue(baseUser.profile);
 		authServiceMock.uploadAvatar.mockResolvedValue(baseUser.profile);
@@ -240,12 +251,69 @@ describe("AccountSettingsPage", () => {
 		expect(await screen.findByText("No browser sessions")).toBeInTheDocument();
 	});
 
+	it("sets a launcher password for an emailless external-auth account", async () => {
+		const linuxDoUser = {
+			...baseUser,
+			username: "linuxplayer",
+			email: null,
+			email_verified: false,
+		};
+		authServiceMock.me.mockResolvedValue(linuxDoUser);
+		renderPage(linuxDoUser);
+
+		expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+		fireEvent.change(screen.getByLabelText("New password"), {
+			target: { value: "launcher-password" },
+		});
+		fireEvent.change(screen.getByLabelText("Confirm password"), {
+			target: { value: "launcher-password" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Set password" }));
+
+		await waitFor(() =>
+			expect(authServiceMock.setLocalPassword).toHaveBeenCalledWith({
+				new_password: "launcher-password",
+			}),
+		);
+		expect(authServiceMock.changePassword).not.toHaveBeenCalled();
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith("Launcher password set"),
+		);
+	});
+
+	it("changes a normal account password with the current password", async () => {
+		authServiceMock.me.mockResolvedValue(baseUser);
+		renderPage();
+
+		fireEvent.change(screen.getByLabelText("Current password"), {
+			target: { value: "old-password" },
+		});
+		fireEvent.change(screen.getByLabelText("New password"), {
+			target: { value: "new-password" },
+		});
+		fireEvent.change(screen.getByLabelText("Confirm password"), {
+			target: { value: "new-password" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+
+		await waitFor(() =>
+			expect(authServiceMock.changePassword).toHaveBeenCalledWith({
+				current_password: "old-password",
+				new_password: "new-password",
+			}),
+		);
+		expect(authServiceMock.setLocalPassword).not.toHaveBeenCalled();
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith("Password changed"),
+		);
+	});
+
 	it("requests an email change and refreshes the shared auth state", async () => {
 		const refreshedUser = {
 			...baseUser,
 			pending_email: "next@example.com",
 		};
-		authServiceMock.me.mockResolvedValueOnce(refreshedUser);
+		authServiceMock.me.mockResolvedValue(refreshedUser);
 		renderPage();
 
 		fireEvent.change(screen.getByRole("textbox", { name: "New email" }), {
@@ -315,7 +383,7 @@ describe("AccountSettingsPage", () => {
 			email: "next@example.com",
 			pending_email: null,
 		};
-		authServiceMock.me.mockResolvedValueOnce(refreshedUser);
+		authServiceMock.me.mockResolvedValue(refreshedUser);
 		renderPage(
 			{
 				...baseUser,

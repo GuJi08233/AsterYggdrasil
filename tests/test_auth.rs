@@ -10,7 +10,7 @@ use aster_yggdrasil::db::repository::{
     auth_session_repo, contact_verification_token_repo, passkey_repo, system_config_repo, user_repo,
 };
 use aster_yggdrasil::entities::{audit_log, auth_session, contact_verification_token, passkey};
-use aster_yggdrasil::services::auth_service::AccessClaims;
+use aster_yggdrasil::services::auth_service::{self, AccessClaims};
 use aster_yggdrasil::types::{
     auth::TokenType, auth::VerificationChannel, auth::VerificationPurpose,
     passkey::StoredPasskeyCredential, user::UserRole, user::UserStatus,
@@ -2616,6 +2616,68 @@ async fn auth_change_password_enforces_new_password_boundaries() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
+async fn external_auth_user_can_set_local_password_without_current_password() {
+    let state = common::setup().await;
+    let app = create_test_app!(state.clone());
+    let _ = setup_admin!(app);
+    let user = common::create_external_auth_linked_user_without_email(
+        &state,
+        "linuxuser",
+        "internal-password",
+    )
+    .await;
+    let issue_req = test::TestRequest::default()
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .to_http_request();
+    let session = auth_service::issue_tokens_for_user_id(&state, user.id, &issue_req)
+        .await
+        .expect("external auth user session should be issued");
+
+    let req = test::TestRequest::put()
+        .uri("/api/v1/auth/password/local")
+        .insert_header(common::bearer_header(&session.access_token))
+        .set_json(serde_json::json!({
+            "new_password": "launcher-password"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    assert!(common::extract_cookie(&resp, "aster_access").is_some());
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["status"], "authenticated");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .set_json(serde_json::json!({
+            "identifier": "linuxuser",
+            "password": "launcher-password"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
+async fn local_password_setup_rejects_accounts_without_external_identity() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+
+    let req = test::TestRequest::put()
+        .uri("/api/v1/auth/password/local")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({
+            "new_password": "launcher-password"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], AsterErrorCode::Forbidden.as_str());
 }
 
 #[actix_web::test]

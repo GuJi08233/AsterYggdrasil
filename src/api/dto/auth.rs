@@ -75,6 +75,13 @@ pub struct ChangePasswordReq {
 
 #[derive(Debug, Deserialize, Validate)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct SetLocalPasswordReq {
+    #[validate(custom(function = "crate::api::dto::validation::validate_auth_password"))]
+    pub new_password: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct AcceptUserInvitationReq {
     #[validate(custom(function = "crate::api::dto::validation::validate_auth_username"))]
     pub username: String,

@@ -32,7 +32,9 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-pub use password_change::{change_password, change_password_with_audit};
+pub use password_change::{
+    change_password, change_password_with_audit, set_local_password, set_local_password_with_audit,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
@@ -465,7 +467,7 @@ where
             "user is disabled",
         ));
     }
-    if !is_email_verified(&user) {
+    if !is_email_activation_satisfied(&user) {
         tracing::debug!(
             user_id = user.id,
             "local login rejected because email activation is pending"
@@ -1009,6 +1011,13 @@ pub fn is_email_verified(user: &user::Model) -> bool {
     user.email_verified_at.is_some()
 }
 
+pub fn is_email_activation_satisfied(user: &user::Model) -> bool {
+    user.email
+        .as_deref()
+        .is_none_or(|email| email.trim().is_empty())
+        || is_email_verified(user)
+}
+
 fn require_user_email(user: &user::Model) -> Result<&str> {
     user.email
         .as_deref()
@@ -1102,7 +1111,7 @@ where
             "user is disabled",
         ));
     }
-    if !is_email_verified(&existing) {
+    if !is_email_activation_satisfied(&existing) {
         return Err(AsterError::auth_forbidden_code(
             AsterErrorCode::AuthPendingActivation,
             "account must be activated before changing email",
@@ -1174,7 +1183,7 @@ where
             "user is disabled",
         ));
     }
-    if !is_email_verified(&user) {
+    if !is_email_activation_satisfied(&user) {
         return Err(AsterError::auth_forbidden_code(
             AsterErrorCode::AuthPendingActivation,
             "account must be activated before changing email",
