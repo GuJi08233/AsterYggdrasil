@@ -208,17 +208,20 @@ describe("external auth provider shared helpers", () => {
 		const update = updatePayload(blankForm, kind);
 
 		expect(create).toMatchObject({
+			allowed_domains: null,
 			client_secret: null,
 			icon_url: null,
 			issuer_url: "https://id.example.com",
 			scopes: "openid custom_profile custom_email",
 		});
 		expect(update).toMatchObject({
+			allowed_domains: null,
 			client_secret: undefined,
 			icon_url: undefined,
 			issuer_url: "https://id.example.com",
 			scopes: "openid custom_profile custom_email",
 		});
+		expect(JSON.stringify(update)).toContain('"allowed_domains":null');
 		expect(JSON.stringify(update)).not.toContain("client_secret");
 		expect(JSON.stringify(update)).not.toContain("icon_url");
 	});

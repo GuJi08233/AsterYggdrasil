@@ -645,7 +645,7 @@ pub async fn create_provider(
         client_secret: Set(normalize_secret_create(input.client_secret)),
         scopes: Set(scopes),
         enabled: Set(input.enabled.unwrap_or(true)),
-        auto_provision_enabled: Set(input.auto_provision_enabled.unwrap_or(false)),
+        auto_provision_enabled: Set(input.auto_provision_enabled.unwrap_or(is_linuxdo)),
         auto_link_verified_email_enabled: Set(input
             .auto_link_verified_email_enabled
             .unwrap_or(false)),

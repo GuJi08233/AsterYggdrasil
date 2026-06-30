@@ -186,11 +186,21 @@ function reducer(state: UiState, action: UiAction): UiState {
 				...state,
 				form: {
 					...state.form,
+					allowedDomains:
+						action.kind === "linuxdo" ? "" : state.form.allowedDomains,
 					authorizationUrl: "",
+					autoLinkVerifiedEmailEnabled:
+						action.kind === "linuxdo"
+							? false
+							: state.form.autoLinkVerifiedEmailEnabled,
+					autoProvisionEnabled:
+						action.kind === "linuxdo" ? true : state.form.autoProvisionEnabled,
 					issuerUrl: "",
 					microsoftTenant: "common",
 					microsoftTenantMode: "common",
 					providerKind: action.kind,
+					requireEmailVerified:
+						action.kind === "linuxdo" ? false : state.form.requireEmailVerified,
 					scopes: action.scopes,
 					tokenUrl: "",
 					userinfoUrl: "",

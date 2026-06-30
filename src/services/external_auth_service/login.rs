@@ -297,9 +297,7 @@ pub async fn finish_callback(
         // LinuxDO: auto-provision with a placeholder email so users can register
         // without configuring SMTP. The placeholder email is internal-only and
         // never receives real mail.
-        if provider.provider_kind == ExternalAuthProviderKind::LinuxDo
-            && provider.auto_provision_enabled
-        {
+        if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
             let placeholder_email = format!("linuxdo_{}@local.placeholder", user_claims.subject);
             let mut linuxdo_claims = user_claims.clone();
             linuxdo_claims.email = Some(placeholder_email);

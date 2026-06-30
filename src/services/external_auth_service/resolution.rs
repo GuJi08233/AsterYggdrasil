@@ -22,6 +22,7 @@ pub(super) type ExternalAuthUserClaims = ExternalAuthProfile;
 const UNIQUE_USERNAME_MAX_ATTEMPTS: usize = 5;
 const UNIQUE_USERNAME_SUFFIX_LEN: usize = 6;
 const UNIQUE_USERNAME_SUFFIX_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+const INTERNAL_PLACEHOLDER_EMAIL_MAX_ATTEMPTS: usize = 5;
 
 #[derive(Debug)]
 pub(super) struct ResolvedExternalAuthUser {
@@ -34,17 +35,23 @@ pub(super) struct ResolvedExternalAuthUser {
 pub(super) struct ResolveExternalAuthUserOptions {
     pub(super) enforce_email_domain: bool,
     pub(super) allow_verified_email_auto_link: bool,
+    pub(super) force_auto_provision: bool,
+    pub(super) retry_internal_placeholder_email_on_conflict: bool,
 }
 
 impl ResolveExternalAuthUserOptions {
     pub(super) const DEFAULT: Self = Self {
         enforce_email_domain: true,
         allow_verified_email_auto_link: true,
+        force_auto_provision: false,
+        retry_internal_placeholder_email_on_conflict: false,
     };
 
     pub(super) const INTERNAL_PLACEHOLDER_EMAIL: Self = Self {
         enforce_email_domain: false,
         allow_verified_email_auto_link: false,
+        force_auto_provision: true,
+        retry_internal_placeholder_email_on_conflict: true,
     };
 }
 
@@ -153,6 +160,34 @@ fn external_auth_username_conflict(err: &AsterError) -> bool {
         err.api_error_code_override(),
         Some(crate::api::api_error_code::ApiErrorCode::AuthUsernameExists)
     )
+}
+
+fn external_auth_email_conflict(err: &AsterError) -> bool {
+    matches!(
+        err.api_error_code_override(),
+        Some(crate::api::api_error_code::ApiErrorCode::AuthEmailExists)
+    )
+}
+
+fn internal_placeholder_email_candidate(
+    base_email: &str,
+    provider: &external_auth_provider::Model,
+    claims: &ExternalAuthUserClaims,
+    attempt: usize,
+) -> String {
+    if attempt == 0 {
+        return base_email.to_string();
+    }
+
+    let Some((local_part, domain)) = base_email.split_once('@') else {
+        return base_email.to_string();
+    };
+    let digest_input = format!(
+        "{}:{}:{}:{}",
+        provider.id, claims.identity_namespace, claims.subject, attempt
+    );
+    let digest = &hash::sha256_hex(digest_input.as_bytes())[..10];
+    format!("{local_part}_{digest}@{domain}")
 }
 
 pub(super) fn claims_with_verified_local_email(
@@ -267,7 +302,7 @@ async fn create_external_auth_user_and_identity(
         ));
     }
 
-    let email = claims.email.as_deref().ok_or_else(|| {
+    let base_email = claims.email.as_deref().ok_or_else(|| {
         AsterError::auth_forbidden("external auth auto provisioning requires an email claim")
     })?;
     if (provider.require_email_verified || provider.auto_link_verified_email_enabled)
@@ -277,66 +312,109 @@ async fn create_external_auth_user_and_identity(
             "external auth auto provisioning requires verified email",
         ));
     }
-    if options.enforce_email_domain && !email_domain_allowed(provider, email)? {
+    if options.enforce_email_domain && !email_domain_allowed(provider, base_email)? {
         return Err(AsterError::auth_forbidden(
             "external auth email domain is not allowed for this provider",
         ));
     }
 
     let username_base = external_auth_username_base(claims);
-    for attempt in 0..UNIQUE_USERNAME_MAX_ATTEMPTS {
-        let username = external_auth_username_candidate(&username_base, attempt);
-        let password = random_internal_password();
+    let email_attempts = if options.retry_internal_placeholder_email_on_conflict {
+        INTERNAL_PLACEHOLDER_EMAIL_MAX_ATTEMPTS
+    } else {
+        1
+    };
+    let mut saw_email_conflict = false;
 
-        let txn = crate::db::transaction::begin(state.writer_db()).await?;
-        let result = async {
-            if user_repo::find_by_email(&txn, email).await?.is_some() {
-                return Err(AsterError::validation_error(
-                    "account exists; automatic linking disabled",
-                ));
-            }
-            let user = auth_service::shared::create_user_with_role(
-                &txn,
-                state,
-                auth_service::shared::CreateUserWithRoleInput {
-                    username: &username,
-                    email,
-                    password: &password,
-                    role: UserRole::User,
-                    status: UserStatus::Active,
-                    must_change_password: false,
-                    email_verified_at: claims.email_verified.then_some(now),
-                },
-            )
-            .await?;
-            create_identity_for_claims(&txn, user.id, provider, claims, now, metadata).await?;
-            Ok(user)
-        }
-        .await;
+    for email_attempt in 0..email_attempts {
+        let email =
+            internal_placeholder_email_candidate(base_email, provider, claims, email_attempt);
+        let mut claims_for_identity = claims.clone();
+        claims_for_identity.email = Some(email.clone());
 
-        match result {
-            Ok(user) => {
-                crate::db::transaction::commit(txn).await?;
-                return Ok(ResolvedExternalAuthUser {
-                    user,
-                    linked: true,
-                    auto_provisioned: true,
-                });
+        for attempt in 0..UNIQUE_USERNAME_MAX_ATTEMPTS {
+            let username = external_auth_username_candidate(&username_base, attempt);
+            let password = random_internal_password();
+
+            let txn = crate::db::transaction::begin(state.writer_db()).await?;
+            let result = async {
+                if !options.retry_internal_placeholder_email_on_conflict
+                    && user_repo::find_by_email(&txn, &email).await?.is_some()
+                {
+                    return Err(AsterError::validation_error(
+                        "account exists; automatic linking disabled",
+                    ));
+                }
+                let user = auth_service::shared::create_user_with_role(
+                    &txn,
+                    state,
+                    auth_service::shared::CreateUserWithRoleInput {
+                        username: &username,
+                        email: &email,
+                        password: &password,
+                        role: UserRole::User,
+                        status: UserStatus::Active,
+                        must_change_password: false,
+                        email_verified_at: claims.email_verified.then_some(now),
+                    },
+                )
+                .await?;
+                create_identity_for_claims(
+                    &txn,
+                    user.id,
+                    provider,
+                    &claims_for_identity,
+                    now,
+                    metadata,
+                )
+                .await?;
+                Ok(user)
             }
-            Err(err) if external_auth_username_conflict(&err) => {
-                tracing::debug!(
-                    username,
-                    attempt = attempt + 1,
-                    "external auth username candidate conflicted, retrying"
-                );
+            .await;
+
+            match result {
+                Ok(user) => {
+                    crate::db::transaction::commit(txn).await?;
+                    return Ok(ResolvedExternalAuthUser {
+                        user,
+                        linked: true,
+                        auto_provisioned: true,
+                    });
+                }
+                Err(err) if external_auth_username_conflict(&err) => {
+                    tracing::debug!(
+                        username,
+                        attempt = attempt + 1,
+                        "external auth username candidate conflicted, retrying"
+                    );
+                }
+                Err(err)
+                    if options.retry_internal_placeholder_email_on_conflict
+                        && external_auth_email_conflict(&err) =>
+                {
+                    saw_email_conflict = true;
+                    tracing::debug!(
+                        provider_id = provider.id,
+                        email,
+                        attempt = email_attempt + 1,
+                        "external auth internal placeholder email conflicted, retrying"
+                    );
+                    break;
+                }
+                Err(err) => return Err(err),
             }
-            Err(err) => return Err(err),
         }
     }
 
-    Err(AsterError::validation_error(
-        "failed to allocate unique username for external auth user",
-    ))
+    if saw_email_conflict {
+        Err(AsterError::validation_error(
+            "failed to allocate unique internal email for external auth user",
+        ))
+    } else {
+        Err(AsterError::validation_error(
+            "failed to allocate unique username for external auth user",
+        ))
+    }
 }
 
 async fn create_external_auth_user_and_identity_in_connection<C: sea_orm::ConnectionTrait>(
@@ -589,7 +667,7 @@ pub(super) async fn resolve_external_auth_user_with_options(
         }));
     }
 
-    if provider.auto_provision_enabled {
+    if provider.auto_provision_enabled || options.force_auto_provision {
         let auth_policy = RuntimeAuthPolicy::from_runtime_config(state.runtime_config());
         let Some(email) = claims.email.as_deref().filter(|email| !email.is_empty()) else {
             tracing::debug!(
@@ -612,11 +690,18 @@ pub(super) async fn resolve_external_auth_user_with_options(
                 provider_id = provider.id,
                 "external auth resolution cannot auto provision because registration is disabled"
             );
+            if options.force_auto_provision {
+                return Err(auth_forbidden_with_code(
+                    ApiErrorCode::AuthRegistrationDisabled,
+                    "new user registration is disabled",
+                ));
+            }
             return Ok(None);
         }
-        if user_repo::find_by_email(state.writer_db(), email)
-            .await?
-            .is_some()
+        if !options.retry_internal_placeholder_email_on_conflict
+            && user_repo::find_by_email(state.writer_db(), email)
+                .await?
+                .is_some()
         {
             tracing::debug!(
                 provider_id = provider.id,

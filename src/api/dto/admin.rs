@@ -286,20 +286,44 @@ impl From<CreateExternalAuthProviderReq> for CreateExternalAuthProviderInput {
 pub struct UpdateExternalAuthProviderReq {
     #[validate(length(max = 128, message = "display_name must not exceed 128 bytes"))]
     pub display_name: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub icon_url: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub issuer_url: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub authorization_url: Option<NullablePatch<String>>,
     pub authorize_url: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub token_url: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub userinfo_url: Option<NullablePatch<String>>,
     pub options: Option<ExternalAuthProviderOptions>,
     #[validate(length(max = 255, message = "client_id must not exceed 255 bytes"))]
     pub client_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub client_secret: Option<NullablePatch<String>>,
     pub scopes: Option<String>,
@@ -307,20 +331,52 @@ pub struct UpdateExternalAuthProviderReq {
     pub auto_provision_enabled: Option<bool>,
     pub auto_link_verified_email_enabled: Option<bool>,
     pub require_email_verified: Option<bool>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub subject_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub username_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub display_name_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub email_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub email_verified_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub groups_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<String>))]
     pub avatar_url_claim: Option<NullablePatch<String>>,
+    #[serde(
+        default,
+        deserialize_with = "aster_forge_api::deserialize_nullable_patch_option"
+    )]
     #[cfg_attr(all(debug_assertions, feature = "openapi"), schema(value_type = Option<Vec<String>>))]
     pub allowed_domains: Option<NullablePatch<Vec<String>>>,
 }
@@ -477,5 +533,32 @@ impl From<UpdateYggdrasilSessionForwardServerReq> for UpdateYggdrasilSessionForw
             timeout_ms: value.timeout_ms,
             texture_forward_enabled: value.texture_forward_enabled,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn update_external_auth_provider_req_preserves_nullable_patch_nulls() {
+        let omitted: UpdateExternalAuthProviderReq = serde_json::from_str("{}").unwrap();
+        assert_eq!(omitted.icon_url, None);
+        assert_eq!(omitted.allowed_domains, None);
+
+        let patched: UpdateExternalAuthProviderReq = serde_json::from_str(
+            r#"{
+                "icon_url": null,
+                "allowed_domains": null,
+                "subject_claim": "sub"
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(patched.icon_url, Some(NullablePatch::Null));
+        assert_eq!(patched.allowed_domains, Some(NullablePatch::Null));
+        assert_eq!(
+            patched.subject_claim,
+            Some(NullablePatch::Value("sub".to_string()))
+        );
     }
 }

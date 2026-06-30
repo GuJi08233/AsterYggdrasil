@@ -285,6 +285,47 @@ async fn admin_create_and_test_qq_provider_uses_fixed_endpoints_and_defaults() {
 }
 
 #[actix_web::test]
+async fn admin_create_linuxdo_provider_uses_fixed_endpoints_and_auto_provision_default() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let (admin_token, _) = register_and_login!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/external-auth/providers")
+        .insert_header(("Cookie", common::access_cookie_header(&admin_token)))
+        .insert_header(common::csrf_header_for(&admin_token))
+        .set_json(serde_json::json!({
+            "provider_kind": "linuxdo",
+            "display_name": "Linux DO",
+            "client_id": TEST_CLIENT_ID,
+            "client_secret": TEST_CLIENT_SECRET
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["provider_kind"], "linuxdo");
+    assert_eq!(body["data"]["protocol"], "oauth2");
+    assert_eq!(
+        body["data"]["authorization_url"],
+        "https://connect.linux.do/oauth2/authorize"
+    );
+    assert_eq!(
+        body["data"]["token_url"],
+        "https://connect.linux.do/oauth2/token"
+    );
+    assert_eq!(
+        body["data"]["userinfo_url"],
+        "https://connect.linux.do/api/user"
+    );
+    assert_eq!(body["data"]["scopes"], "user");
+    assert_eq!(body["data"]["require_email_verified"], false);
+    assert_eq!(body["data"]["auto_provision_enabled"], true);
+    assert_eq!(body["data"]["auto_link_verified_email_enabled"], false);
+    assert_eq!(body["data"]["allowed_domains"], serde_json::json!([]));
+}
+
+#[actix_web::test]
 async fn start_login_builds_oauth2_authorization_url_with_default_scopes_without_nonce() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     let state = common::setup().await;
@@ -1124,6 +1165,7 @@ async fn linuxdo_placeholder_email_does_not_auto_link_existing_local_user() {
         true,
         0,
     );
+    provider.auto_provision_enabled = Set(false);
     provider.auto_link_verified_email_enabled = Set(true);
     let provider = provider
         .insert(state.writer_db())
@@ -1138,21 +1180,48 @@ async fn linuxdo_placeholder_email_does_not_auto_link_existing_local_user() {
         .headers()
         .get("Location")
         .and_then(|value| value.to_str().ok())
-        .expect("LinuxDo email verification redirect location should exist");
-    assert!(location.starts_with("http://localhost:8080/login?external_auth=email_required"));
-    assert!(common::extract_cookie(&resp, "aster_access").is_none());
+        .expect("LinuxDo success redirect location should exist");
+    assert_eq!(
+        location,
+        "http://localhost:8080/account?auth_redirect=login_success"
+    );
+    assert!(common::extract_cookie(&resp, "aster_access").is_some());
 
     let identities = external_auth_identity::Entity::find()
         .all(state.writer_db())
         .await
         .expect("identities should query");
-    assert!(identities.is_empty());
+    assert_eq!(identities.len(), 1);
+    let identity = &identities[0];
+    assert_eq!(identity.provider_id, provider.id);
+    assert_eq!(identity.identity_namespace, "https://connect.linux.do");
+    assert_eq!(identity.subject, "1549");
+    assert_ne!(identity.user_id, local_user_id);
+    assert_ne!(
+        identity.email_snapshot.as_deref(),
+        Some("linuxdo_1549@local.placeholder")
+    );
+    let identity_email = identity
+        .email_snapshot
+        .as_deref()
+        .expect("LinuxDo identity email snapshot should exist");
+    assert!(identity_email.starts_with("linuxdo_1549_"));
+    assert!(identity_email.ends_with("@local.placeholder"));
+
     let local_user = user::Entity::find_by_id(local_user_id)
         .one(state.writer_db())
         .await
         .expect("user should query")
         .expect("local placeholder user should still exist");
     assert_eq!(local_user.email, "linuxdo_1549@local.placeholder");
+
+    let linuxdo_user = user::Entity::find_by_id(identity.user_id)
+        .one(state.writer_db())
+        .await
+        .expect("LinuxDo user should query")
+        .expect("LinuxDo user should exist");
+    assert_eq!(linuxdo_user.email, identity_email);
+    assert_ne!(linuxdo_user.id, local_user_id);
 
     server.stop(true).await;
 }

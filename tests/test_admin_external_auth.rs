@@ -170,6 +170,58 @@ async fn admin_external_auth_crud_redacts_secret_and_exposes_public_provider() {
 }
 
 #[actix_web::test]
+async fn admin_external_auth_update_clears_nullable_policy_fields() {
+    let state = common::setup().await;
+    let app = create_test_app!(state);
+    let token = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/external-auth/providers")
+        .insert_header(common::bearer_header(&token))
+        .set_json(serde_json::json!({
+            "provider_kind": "generic_oauth2",
+            "display_name": "Clearable IdP",
+            "authorization_url": "http://127.0.0.1/authorize",
+            "token_url": "http://127.0.0.1/token",
+            "userinfo_url": "http://127.0.0.1/userinfo",
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "icon_url": "/static/external-auth/example.svg",
+            "subject_claim": "id",
+            "allowed_domains": ["example.com"]
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 201);
+    let body: Value = test::read_body_json(resp).await;
+    let provider_id = body["data"]["id"]
+        .as_i64()
+        .expect("provider id should be returned");
+    assert_eq!(
+        body["data"]["allowed_domains"],
+        serde_json::json!(["example.com"])
+    );
+
+    let req = test::TestRequest::patch()
+        .uri(&format!(
+            "/api/v1/admin/external-auth/providers/{provider_id}"
+        ))
+        .insert_header(common::bearer_header(&token))
+        .set_json(serde_json::json!({
+            "icon_url": null,
+            "subject_claim": null,
+            "allowed_domains": null
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert!(body["data"]["icon_url"].is_null());
+    assert!(body["data"]["subject_claim"].is_null());
+    assert_eq!(body["data"]["allowed_domains"], serde_json::json!([]));
+}
+
+#[actix_web::test]
 async fn admin_external_auth_rejects_immutable_or_legacy_request_fields() {
     let state = common::setup().await;
     let app = create_test_app!(state);
