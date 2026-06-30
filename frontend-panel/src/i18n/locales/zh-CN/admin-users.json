@@ -43,6 +43,7 @@
 			"searchPlaceholder": "搜索用户名或邮箱",
 			"username": "用户名",
 			"email": "邮箱",
+			"noEmail": "未绑定邮箱",
 			"password": "密码",
 			"roleLabel": "角色",
 			"operatorScopesLabel": "可管理区域",

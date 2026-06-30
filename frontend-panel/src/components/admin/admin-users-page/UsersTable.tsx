@@ -70,6 +70,10 @@ export function UsersTableRow({
 	const showUsernameSecondary =
 		getNormalizedDisplayName(user.profile.display_name) != null &&
 		displayName !== user.username;
+	const emailLabel = user.email ?? t("admin.users.noEmail");
+	const secondaryLabel = showUsernameSecondary
+		? `@${user.username} · ${emailLabel}`
+		: emailLabel;
 
 	return (
 		<TableRow
@@ -100,9 +104,7 @@ export function UsersTableRow({
 					<div className="min-w-0">
 						<div className="truncate font-medium">{displayName}</div>
 						<div className={cn("mt-1 truncate", ADMIN_TABLE_MUTED_TEXT_CLASS)}>
-							{showUsernameSecondary
-								? `@${user.username} · ${user.email}`
-								: user.email}
+							{secondaryLabel}
 						</div>
 					</div>
 				</div>

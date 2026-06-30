@@ -153,7 +153,7 @@ mod tests {
         AuthUserInfo {
             id: 42,
             username: "scope-user".to_string(),
-            email: "scope-user@example.com".to_string(),
+            email: Some("scope-user@example.com".to_string()),
             email_verified: true,
             pending_email: None,
             role,

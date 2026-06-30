@@ -43,6 +43,7 @@
 			"searchPlaceholder": "Search username or email",
 			"username": "Username",
 			"email": "Email",
+			"noEmail": "No email bound",
 			"password": "Password",
 			"roleLabel": "Role",
 			"operatorScopesLabel": "Manageable areas",

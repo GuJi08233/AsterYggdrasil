@@ -600,7 +600,7 @@ async fn register_skips_activation_when_activation_is_disabled() {
         .await
         .unwrap()
         .expect("registered user should exist");
-    assert_eq!(user.email, "direct@example.com");
+    assert_eq!(user.email.as_deref(), Some("direct@example.com"));
     assert!(user.email_verified_at.is_some());
 
     common::flush_mail_outbox(&state).await;
@@ -1065,7 +1065,10 @@ async fn contact_verification_tokens_allow_only_one_unconsumed_token_per_purpose
             user_id: Set(user.id),
             channel: Set(VerificationChannel::Email),
             purpose: Set(VerificationPurpose::RegisterActivation),
-            target: Set(user.email.clone()),
+            target: Set(user
+                .email
+                .clone()
+                .expect("admin user should have an email address")),
             token_hash: Set("token-hash-1".to_string()),
             expires_at: Set(now + Duration::minutes(10)),
             consumed_at: Set(None),
@@ -1082,7 +1085,10 @@ async fn contact_verification_tokens_allow_only_one_unconsumed_token_per_purpose
             user_id: Set(user.id),
             channel: Set(VerificationChannel::Email),
             purpose: Set(VerificationPurpose::RegisterActivation),
-            target: Set(user.email.clone()),
+            target: Set(user
+                .email
+                .clone()
+                .expect("admin user should have an email address")),
             token_hash: Set("token-hash-2".to_string()),
             expires_at: Set(now + Duration::minutes(20)),
             consumed_at: Set(None),
@@ -1114,7 +1120,7 @@ async fn contact_verification_tokens_allow_only_one_unconsumed_token_per_purpose
             user_id: Set(user.id),
             channel: Set(VerificationChannel::Email),
             purpose: Set(VerificationPurpose::RegisterActivation),
-            target: Set(user.email),
+            target: Set(user.email.expect("admin user should have an email address")),
             token_hash: Set("token-hash-3".to_string()),
             expires_at: Set(now + Duration::minutes(30)),
             consumed_at: Set(None),

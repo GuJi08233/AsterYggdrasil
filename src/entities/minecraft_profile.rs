@@ -19,8 +19,9 @@ pub struct Model {
     pub user_id: i64,
     #[sea_orm(unique)]
     pub uuid: String,
-    #[sea_orm(unique)]
     pub name: String,
+    #[sea_orm(unique)]
+    pub normalized_name: String,
     pub texture_model: MinecraftTextureModel,
     pub uploadable_textures: String,
     pub rename_count: i32,

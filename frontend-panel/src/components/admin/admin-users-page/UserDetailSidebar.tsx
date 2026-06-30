@@ -13,6 +13,10 @@ export function UserDetailSidebar({ user }: { user: AdminUserInfo }) {
 	const showUsernameSecondary =
 		getNormalizedDisplayName(user.profile.display_name) != null &&
 		displayName !== user.username;
+	const emailLabel = user.email ?? t("admin.users.noEmail");
+	const secondaryLabel = showUsernameSecondary
+		? `@${user.username} · ${emailLabel}`
+		: emailLabel;
 	return (
 		<aside className="border-b border-border/70 bg-muted/20 lg:border-r lg:border-b-0 dark:border-white/10">
 			<div className="space-y-5 p-5">
@@ -29,9 +33,7 @@ export function UserDetailSidebar({ user }: { user: AdminUserInfo }) {
 								{displayName}
 							</h3>
 							<p className="break-all text-sm text-muted-foreground">
-								{showUsernameSecondary
-									? `@${user.username} · ${user.email}`
-									: user.email}
+								{secondaryLabel}
 							</p>
 						</div>
 						<div className="flex flex-wrap gap-2">

@@ -27,7 +27,7 @@ fn current_admin_user_id(req: &HttpRequest) -> Result<i64> {
 fn user_audit_details(user: &admin_user_service::AdminUserInfo) -> Option<serde_json::Value> {
     audit_service::details(audit_service::UserAuditDetails {
         username: &user.username,
-        email: &user.email,
+        email: user.email.as_deref(),
         role: user.role,
         status: user.status,
         must_change_password: user.must_change_password,

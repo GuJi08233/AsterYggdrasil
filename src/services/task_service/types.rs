@@ -51,7 +51,7 @@ pub struct TaskPresentation {
 pub struct TaskCreatorSummary {
     pub id: i64,
     pub username: String,
-    pub email: String,
+    pub email: Option<String>,
 }
 
 pub type RuntimeTaskName = aster_forge_tasks::RuntimeTaskName<SystemRuntimeTaskKind>;

@@ -17,9 +17,8 @@ use aster_forge_utils::numbers::u64_to_i64;
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};
 use super::providers::external_auth_provider_config;
 use super::resolution::{
-    ResolveExternalAuthUserOptions, external_auth_claims_missing_email,
-    resolve_existing_external_auth_identity, resolve_external_auth_user,
-    resolve_external_auth_user_with_options,
+    external_auth_claims_missing_email, resolve_existing_external_auth_identity,
+    resolve_external_auth_user, resolve_external_auth_user_without_email,
 };
 use super::verification::create_pending_email_verification_flow;
 use super::{
@@ -294,43 +293,34 @@ pub async fn finish_callback(
             ));
         }
 
-        // LinuxDO: auto-provision with a placeholder email so users can register
-        // without configuring SMTP. The placeholder email is internal-only and
-        // never receives real mail.
+        // LinuxDO does not provide email. Create an external-only local account
+        // and bind it by issuer + subject instead of inventing a fake address.
         if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
-            let placeholder_email = format!("linuxdo_{}@local.placeholder", user_claims.subject);
-            let mut linuxdo_claims = user_claims.clone();
-            linuxdo_claims.email = Some(placeholder_email);
-            linuxdo_claims.email_verified = true;
-
-            if let Some(resolved) = resolve_external_auth_user_with_options(
+            let resolved = resolve_external_auth_user_without_email(
                 state,
                 &provider,
-                &linuxdo_claims,
+                &user_claims,
                 linuxdo_metadata.as_deref(),
-                ResolveExternalAuthUserOptions::INTERNAL_PLACEHOLDER_EMAIL,
             )
-            .await?
-            {
-                tracing::debug!(
-                    provider_id = provider.id,
-                    user_id = resolved.user.id,
-                    "LinuxDO auto-provisioned with placeholder email"
-                );
-                return Ok(ExternalAuthCallbackOutcome::Login(
-                    ExternalAuthCallbackResult {
-                        primary_login: ExternalAuthPrimaryLogin {
-                            user: resolved.user,
-                            return_path: flow.return_path.unwrap_or_else(|| "/".to_string()),
-                            provider_key: provider.key,
-                            issuer: linuxdo_claims.identity_namespace,
-                            subject: linuxdo_claims.subject,
-                            linked: resolved.linked,
-                            auto_provisioned: resolved.auto_provisioned,
-                        },
+            .await?;
+            tracing::debug!(
+                provider_id = provider.id,
+                user_id = resolved.user.id,
+                "LinuxDO auto-provisioned without email"
+            );
+            return Ok(ExternalAuthCallbackOutcome::Login(
+                ExternalAuthCallbackResult {
+                    primary_login: ExternalAuthPrimaryLogin {
+                        user: resolved.user,
+                        return_path: flow.return_path.unwrap_or_else(|| "/".to_string()),
+                        provider_key: provider.key,
+                        issuer: user_claims.identity_namespace,
+                        subject: user_claims.subject,
+                        linked: resolved.linked,
+                        auto_provisioned: resolved.auto_provisioned,
                     },
-                ));
-            }
+                },
+            ));
         }
 
         if provider.provider_kind == ExternalAuthProviderKind::GitHub

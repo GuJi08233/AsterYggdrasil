@@ -12,7 +12,7 @@ use crate::types::user::{UserRole, UserStatus};
 pub struct AuditUserSummary {
     pub id: i64,
     pub username: String,
-    pub email: String,
+    pub email: Option<String>,
     pub role: UserRole,
     pub status: UserStatus,
 }

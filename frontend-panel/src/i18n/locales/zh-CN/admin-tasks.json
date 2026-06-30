@@ -15,6 +15,7 @@
 			},
 			"source": {
 				"system": "系统",
+				"noEmail": "未绑定邮箱",
 				"userId": "用户 #{{id}}"
 			},
 			"table": {

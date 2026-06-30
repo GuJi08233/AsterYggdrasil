@@ -428,6 +428,7 @@
 		"emailSecurityDescription": "变更登录邮箱需要通过新邮箱里的确认链接完成。",
 		"emailVerified": "已验证",
 		"emailUnverified": "未验证",
+		"emailUnbound": "未绑定邮箱",
 		"currentEmail": "当前邮箱",
 		"pendingEmail": "待确认邮箱",
 		"newEmail": "新邮箱",

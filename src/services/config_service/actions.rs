@@ -128,7 +128,10 @@ async fn execute_mail_action(
         ConfigActionType::SendTestEmail => {
             let actor = user_repo::find_by_id(state.reader_db(), input.actor_user_id).await?;
             let requested_target = mail_action_target_email(input.values)?;
-            let requested_target = requested_target.as_deref().unwrap_or(&actor.email);
+            let requested_target = requested_target
+                .as_deref()
+                .or(actor.email.as_deref())
+                .ok_or_else(|| AsterError::validation_error("target_email is required"))?;
             let normalized_target = mail::normalize_mail_address_config_value(requested_target)?;
             if normalized_target.is_empty() {
                 return Err(AsterError::validation_error("target_email is required"));

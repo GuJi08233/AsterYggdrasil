@@ -334,9 +334,8 @@ export type SetupRequest = components["schemas"]["SetupReq"];
 export type SortOrder = components["schemas"]["SortOrder"];
 export type SystemConfig = components["schemas"]["SystemConfig"];
 export type SystemConfigPage = OperationData<"list_config">;
-export type SystemConfigValue = components["schemas"]["SystemConfigValue"];
-export type SystemConfigVisibility =
-	components["schemas"]["SystemConfigVisibility"];
+export type SystemConfigValue = components["schemas"]["ConfigValue"];
+export type SystemConfigVisibility = components["schemas"]["ConfigVisibility"];
 export type TemplateVariableGroup =
 	components["schemas"]["TemplateVariableGroup"];
 export type TemplateVariableItem =

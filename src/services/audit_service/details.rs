@@ -93,7 +93,8 @@ pub struct PasskeyAuditDetails<'a> {
 #[derive(Serialize)]
 pub struct UserAuditDetails<'a> {
     pub username: &'a str,
-    pub email: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<&'a str>,
     pub role: UserRole,
     pub status: UserStatus,
     pub must_change_password: bool,
@@ -389,7 +390,7 @@ mod tests {
         assert_eq!(
             details(UserAuditDetails {
                 username: "alex",
-                email: "alex@example.com",
+                email: Some("alex@example.com"),
                 role: UserRole::Admin,
                 status: UserStatus::Active,
                 must_change_password: true,

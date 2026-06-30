@@ -35,6 +35,8 @@ mod m20260626_000003_scheduled_tasks;
 mod m20260626_000004_widen_mail_outbox_template_code;
 mod m20260629_000001_external_auth_identity_metadata;
 mod m20260630_000001_minecraft_profile_rename_count;
+mod m20260701_000001_nullable_user_email;
+mod m20260701_000002_minecraft_profile_normalized_name;
 mod time;
 
 pub struct Migrator;
@@ -73,6 +75,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260626_000004_widen_mail_outbox_template_code::Migration),
             Box::new(m20260629_000001_external_auth_identity_metadata::Migration),
             Box::new(m20260630_000001_minecraft_profile_rename_count::Migration),
+            Box::new(m20260701_000001_nullable_user_email::Migration),
+            Box::new(m20260701_000002_minecraft_profile_normalized_name::Migration),
         ]
     }
 }

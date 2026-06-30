@@ -200,7 +200,7 @@ function taskSourceLabel(
 					{task.creator.username}
 				</div>
 				<div className="truncate text-xs text-muted-foreground">
-					{task.creator.email}
+					{task.creator.email ?? t("admin.tasks.source.noEmail")}
 				</div>
 			</div>
 		);

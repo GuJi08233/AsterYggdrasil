@@ -19,6 +19,10 @@ pub struct MinecraftProfileFilters {
     pub query: Option<String>,
 }
 
+pub fn normalize_profile_name(name: &str) -> String {
+    name.to_ascii_lowercase()
+}
+
 pub async fn create<C: ConnectionTrait>(
     db: &C,
     user_id: i64,
@@ -32,6 +36,7 @@ pub async fn create<C: ConnectionTrait>(
         user_id: Set(user_id),
         uuid: Set(uuid.to_string()),
         name: Set(name.to_string()),
+        normalized_name: Set(normalize_profile_name(name)),
         texture_model: Set(texture_model),
         uploadable_textures: Set(uploadable_textures.to_string()),
         created_at: Set(now),
@@ -108,7 +113,7 @@ pub async fn find_by_name<C: ConnectionTrait>(
     name: &str,
 ) -> Result<Option<minecraft_profile::Model>> {
     MinecraftProfile::find()
-        .filter(minecraft_profile::Column::Name.eq(name))
+        .filter(minecraft_profile::Column::NormalizedName.eq(normalize_profile_name(name)))
         .one(db)
         .await
         .map_aster_err(AsterError::database_operation)
@@ -146,6 +151,7 @@ pub async fn update_name_by_id<C: ConnectionTrait>(
     };
     let mut active: minecraft_profile::ActiveModel = existing.into();
     active.name = Set(name.to_string());
+    active.normalized_name = Set(normalize_profile_name(name));
     active.rename_count = Set(active.rename_count.unwrap() + 1);
     active.updated_at = Set(chrono::Utc::now());
     let updated = active
@@ -230,7 +236,8 @@ fn apply_filters(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
-        query = query.filter(minecraft_profile::Column::Name.eq(name));
+        query = query
+            .filter(minecraft_profile::Column::NormalizedName.eq(normalize_profile_name(name)));
     }
     if let Some(uuid) = filters
         .uuid
@@ -263,8 +270,13 @@ pub async fn list_by_names<C: ConnectionTrait>(
         return Ok(Vec::new());
     }
 
+    let normalized_names = names
+        .iter()
+        .map(|name| normalize_profile_name(name))
+        .collect::<Vec<_>>();
+
     MinecraftProfile::find()
-        .filter(minecraft_profile::Column::Name.is_in(names.iter().cloned()))
+        .filter(minecraft_profile::Column::NormalizedName.is_in(normalized_names))
         .order_by_asc(minecraft_profile::Column::Id)
         .all(db)
         .await

@@ -102,6 +102,13 @@ function displayNameForUser(user: AuthUserInfo) {
 	return user.profile?.display_name?.trim() || user.username;
 }
 
+function getLinuxDoTrustLevel(metadata: unknown): number | null {
+	if (!metadata || typeof metadata !== "object") return null;
+	const value = (metadata as { linuxdo_trust_level?: unknown })
+		.linuxdo_trust_level;
+	return typeof value === "number" ? value : null;
+}
+
 function settingSectionElementId(id: SettingsSectionId) {
 	return `settings-${id}`;
 }
@@ -317,6 +324,17 @@ function externalAuthLinksReducer(
 	}
 }
 
+function LinuxDoTrustLevelBadge({ metadata }: { metadata: unknown }) {
+	const { t } = useTranslation();
+	const trustLevel = getLinuxDoTrustLevel(metadata);
+	if (trustLevel == null) return null;
+	return (
+		<Badge variant="secondary" className="rounded-md">
+			{t("personalSettings.linuxdoTrustLevel", { level: trustLevel })}
+		</Badge>
+	);
+}
+
 function ExternalAuthLinksSection() {
 	const { t } = useTranslation();
 	const [state, dispatch] = useReducer(
@@ -439,13 +457,8 @@ function ExternalAuthLinksSection() {
 								<Badge variant="outline" className="rounded-md">
 									{link.provider_kind}
 								</Badge>
-								{link.provider_kind === "linuxdo" &&
-								link.metadata?.linuxdo_trust_level != null ? (
-									<Badge variant="secondary" className="rounded-md">
-										{t("personalSettings.linuxdoTrustLevel", {
-											level: link.metadata.linuxdo_trust_level,
-										})}
-									</Badge>
+								{link.provider_kind === "linuxdo" ? (
+									<LinuxDoTrustLevelBadge metadata={link.metadata} />
 								) : null}
 								<Button
 									type="button"
@@ -721,7 +734,8 @@ function EmailChangeSection({ user }: { user: AuthUserInfo }) {
 	const [submitting, setSubmitting] = useState(false);
 	const [resending, setResending] = useState(false);
 	const pendingEmail = user.pending_email?.trim() || null;
-	const normalizedCurrent = user.email.trim().toLowerCase();
+	const currentEmail = user.email?.trim() ?? "";
+	const normalizedCurrent = currentEmail.toLowerCase();
 	const normalizedPending = pendingEmail?.toLowerCase() ?? null;
 	const normalizedNext = newEmail.trim().toLowerCase();
 	const validation = emailSchema.safeParse(newEmail);
@@ -776,16 +790,26 @@ function EmailChangeSection({ user }: { user: AuthUserInfo }) {
 					</p>
 				</div>
 				<Badge variant="outline" className="w-fit rounded-md">
-					{user.email_verified
-						? t("personalSettings.emailVerified")
-						: t("personalSettings.emailUnverified")}
+					{!currentEmail
+						? t("personalSettings.emailUnbound")
+						: user.email_verified
+							? t("personalSettings.emailVerified")
+							: t("personalSettings.emailUnverified")}
 				</Badge>
 			</div>
 			<div className="grid gap-4 px-4 py-4">
 				<div className="grid gap-3 sm:grid-cols-2">
 					<DetailRow
 						label={t("personalSettings.currentEmail")}
-						value={<span className="truncate">{user.email}</span>}
+						value={
+							currentEmail ? (
+								<span className="truncate">{currentEmail}</span>
+							) : (
+								<span className="text-muted-foreground">
+									{t("personalSettings.emailUnbound")}
+								</span>
+							)
+						}
 					/>
 					<DetailRow
 						label={t("personalSettings.pendingEmail")}
@@ -967,7 +991,7 @@ export default function AccountSettingsPage() {
 		},
 		{
 			label: t("personalSettings.email"),
-			value: user.email || t("personalSettings.emptyValue"),
+			value: user.email || t("personalSettings.emailUnbound"),
 		},
 		{
 			label: t("personalSettings.role"),
@@ -984,6 +1008,7 @@ export default function AccountSettingsPage() {
 	] as const;
 
 	const userProfileKey = `${user.id}:${user.profile?.display_name ?? ""}`;
+	const profileEmailLabel = user.email || t("personalSettings.emailUnbound");
 
 	return (
 		<div className="mx-auto grid w-full max-w-[104rem] gap-6 px-4 py-5 sm:px-6 lg:px-7 xl:grid-cols-[minmax(0,1fr)_15rem]">
@@ -1009,7 +1034,7 @@ export default function AccountSettingsPage() {
 									{profileName}
 								</div>
 								<div className="truncate text-xs text-muted-foreground">
-									{user.email}
+									{profileEmailLabel}
 								</div>
 							</div>
 						</div>

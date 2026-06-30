@@ -67,11 +67,19 @@ fn build_avatar_info(
             url_1024: None,
             version,
         },
-        AvatarSource::Gravatar => AvatarInfo {
-            source,
-            url_512: Some(gravatar_url(&user.email, AVATAR_SIZE_SM, gravatar_base_url)),
-            url_1024: Some(gravatar_url(&user.email, AVATAR_SIZE_LG, gravatar_base_url)),
-            version,
+        AvatarSource::Gravatar => match user.email.as_deref() {
+            Some(email) => AvatarInfo {
+                source,
+                url_512: Some(gravatar_url(email, AVATAR_SIZE_SM, gravatar_base_url)),
+                url_1024: Some(gravatar_url(email, AVATAR_SIZE_LG, gravatar_base_url)),
+                version,
+            },
+            None => AvatarInfo {
+                source: AvatarSource::None,
+                url_512: None,
+                url_1024: None,
+                version,
+            },
         },
         AvatarSource::Upload => {
             let has_upload = stored_avatar_prefix(profile).is_some();

@@ -62,10 +62,11 @@ export function UserDetailAccountSection({
 						onChange={(event) => onUsernameChange(event.target.value)}
 					/>
 				</UserDetailField>
-				<UserDetailField label={t("admin.users.email")} required>
+				<UserDetailField label={t("admin.users.email")}>
 					<Input
 						id="admin-user-detail-email"
 						type="email"
+						placeholder={t("admin.users.noEmail")}
 						value={email}
 						disabled={savingProfile}
 						onChange={(event) => onEmailChange(event.target.value)}

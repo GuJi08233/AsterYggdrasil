@@ -76,7 +76,7 @@ type UserDetailPanelProps = {
 function createUserDraftState(user: AdminUserInfo): UserDetailDraftState {
 	return {
 		confirmPassword: "",
-		email: user.email,
+		email: user.email ?? "",
 		password: "",
 		revokingSessions: false,
 		savingForcePasswordChange: false,
@@ -160,7 +160,7 @@ function userDetailDraftKey(user: AdminUserInfo) {
 	return [
 		user.id,
 		user.username,
-		user.email,
+		user.email ?? "",
 		(user.operator_scopes ?? []).join(","),
 		user.role,
 		user.status,
@@ -239,15 +239,18 @@ export function UserDetailPanel({
 		username,
 	} = state;
 	const roleStatusLocked = user.id === 1;
+	const currentEmail = user.email ?? "";
+	const nextEmail = email.trim();
+	const emailCleared = currentEmail.length > 0 && nextEmail.length === 0;
 	const hasProfileChanges =
 		username.trim() !== user.username ||
-		email.trim() !== user.email ||
+		nextEmail !== currentEmail ||
 		(!roleStatusLocked && role !== user.role) ||
 		(!roleStatusLocked &&
 			role === "operator" &&
 			operatorScopes.join(",") !== (user.operator_scopes ?? []).join(",")) ||
 		(!roleStatusLocked && status !== user.status);
-	const profileInvalid = !username.trim() || !email.trim();
+	const profileInvalid = !username.trim() || emailCleared;
 	const busy =
 		savingProfile ||
 		savingPassword ||
@@ -323,10 +326,10 @@ export function UserDetailPanel({
 
 		const data: UpdateAdminUserRequest = {};
 		const nextUsername = username.trim();
-		const nextEmail = email.trim();
 
 		if (nextUsername !== user.username) data.username = nextUsername;
-		if (nextEmail !== user.email) data.email = nextEmail;
+		if (nextEmail.length > 0 && nextEmail !== currentEmail)
+			data.email = nextEmail;
 		if (!roleStatusLocked && role !== user.role) data.role = role;
 		if (
 			!roleStatusLocked &&

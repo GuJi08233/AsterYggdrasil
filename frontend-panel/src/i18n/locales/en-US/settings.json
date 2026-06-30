@@ -429,6 +429,7 @@
 		"emailSecurityDescription": "Changing your sign-in email requires confirming the link sent to the new address.",
 		"emailVerified": "Verified",
 		"emailUnverified": "Unverified",
+		"emailUnbound": "No email bound",
 		"currentEmail": "Current email",
 		"pendingEmail": "Pending email",
 		"newEmail": "New email",

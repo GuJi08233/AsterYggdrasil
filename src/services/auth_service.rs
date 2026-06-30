@@ -39,7 +39,7 @@ pub use password_change::{change_password, change_password_with_audit};
 pub struct AuthUserInfo {
     pub id: i64,
     pub username: String,
-    pub email: String,
+    pub email: Option<String>,
     pub email_verified: bool,
     pub pending_email: Option<String>,
     pub role: UserRole,
@@ -390,17 +390,18 @@ where
                 },
             )
             .await?;
+            let email = require_user_email(&user)?;
             let token = issue_contact_verification_token(
                 txn,
                 user.id,
                 VerificationPurpose::RegisterActivation,
-                &user.email,
+                email,
                 policy.register_activation_ttl_secs,
             )
             .await?;
             mail_outbox_service::enqueue(
                 txn,
-                &user.email,
+                email,
                 Some(&user.username),
                 MailTemplatePayload::register_activation(&user.username, &token, &site_name),
             )
@@ -1008,6 +1009,12 @@ pub fn is_email_verified(user: &user::Model) -> bool {
     user.email_verified_at.is_some()
 }
 
+fn require_user_email(user: &user::Model) -> Result<&str> {
+    user.email
+        .as_deref()
+        .ok_or_else(|| AsterError::validation_error("account does not have an email address"))
+}
+
 async fn ensure_email_available<C: ConnectionTrait>(
     db: &C,
     email: &str,
@@ -1101,7 +1108,7 @@ where
             "account must be activated before changing email",
         ));
     }
-    if existing.email == normalized_email {
+    if existing.email.as_deref() == Some(normalized_email.as_str()) {
         return Err(AsterError::validation_error(
             "new email must be different from current email",
         ));
@@ -1229,17 +1236,18 @@ where
     );
     let site_name = crate::config::branding::title_or_default(state.runtime_config());
     crate::db::transaction::with_transaction(state.writer_db(), async |txn| {
+        let email = require_user_email(&user)?;
         let token = issue_contact_verification_token(
             txn,
             user.id,
             VerificationPurpose::PasswordReset,
-            &user.email,
+            email,
             policy.password_reset_ttl_secs,
         )
         .await?;
         mail_outbox_service::enqueue(
             txn,
-            &user.email,
+            email,
             Some(&user.username),
             MailTemplatePayload::password_reset(&user.username, &token, &site_name),
         )
@@ -1293,7 +1301,9 @@ where
                 "user is disabled",
             ));
         }
-        if !is_email_verified(&existing_user) || existing_user.email != record.target {
+        if !is_email_verified(&existing_user)
+            || existing_user.email.as_deref() != Some(record.target.as_str())
+        {
             return Err(AsterError::contact_verification_invalid(
                 "password reset request no longer exists",
             ));
@@ -1306,7 +1316,7 @@ where
         let updated = update_password_in_connection(txn, existing_user, new_password).await?;
         mail_outbox_service::enqueue(
             txn,
-            &updated.email,
+            require_user_email(&updated)?,
             Some(&updated.username),
             MailTemplatePayload::password_reset_notice(&updated.username, &site_name),
         )
@@ -1347,7 +1357,7 @@ where
     if crate::config::local_email_policy::LocalEmailPolicy::from_runtime_config(
         state.runtime_config(),
     )
-    .check(&user.email)
+    .check(require_user_email(&user)?)
     .is_err()
     {
         return Ok(RegisterActivationResendOutcome::EmailPolicyRejected);
@@ -1365,13 +1375,13 @@ where
             txn,
             user.id,
             VerificationPurpose::RegisterActivation,
-            &user.email,
+            require_user_email(&user)?,
             policy.register_activation_ttl_secs,
         )
         .await?;
         mail_outbox_service::enqueue(
             txn,
-            &user.email,
+            require_user_email(&user)?,
             Some(&user.username),
             MailTemplatePayload::register_activation(&user.username, &token, &site_name),
         )
@@ -1432,7 +1442,7 @@ where
         let now = Utc::now();
         match purpose {
             VerificationPurpose::RegisterActivation => {
-                if user.email != target {
+                if user.email.as_deref() != Some(target.as_str()) {
                     return Err(AsterError::contact_verification_invalid(
                         "contact verification target mismatch",
                     ));
@@ -1448,19 +1458,21 @@ where
                 }
             }
             VerificationPurpose::ContactChange => {
-                if user.email != target && user.pending_email.as_deref() != Some(target.as_str()) {
+                if user.email.as_deref() != Some(target.as_str())
+                    && user.pending_email.as_deref() != Some(target.as_str())
+                {
                     return Err(AsterError::contact_verification_invalid(
                         "contact change request no longer exists",
                     ));
                 }
                 ensure_email_available(txn, &target, Some(user.id)).await?;
-                if user.email != target {
+                if user.email.as_deref() != Some(target.as_str()) {
                     let previous_email = user.email.clone();
                     let username = user.username.clone();
                     let site_name =
                         crate::config::branding::title_or_default(state.runtime_config());
                     let mut active: user::ActiveModel = user.into();
-                    active.email = Set(target.clone());
+                    active.email = Set(Some(target.clone()));
                     active.pending_email = Set(None);
                     active.email_verified_at = Set(Some(now));
                     active.updated_at = Set(now);
@@ -1470,11 +1482,17 @@ where
                         .map_aster_err(AsterError::database_operation)?;
                     mail_outbox_service::enqueue(
                         txn,
-                        &previous_email,
+                        previous_email.as_deref().ok_or_else(|| {
+                            AsterError::validation_error("account does not have an email address")
+                        })?,
                         Some(&username),
                         MailTemplatePayload::contact_change_notice(
                             &username,
-                            &previous_email,
+                            previous_email.as_deref().ok_or_else(|| {
+                                AsterError::validation_error(
+                                    "account does not have an email address",
+                                )
+                            })?,
                             &target,
                             &site_name,
                         ),
@@ -1636,13 +1654,65 @@ pub mod shared {
         user::ActiveModel {
             public_uuid: Set(public_uuid),
             username: Set(input.username.to_string()),
-            email: Set(email),
+            email: Set(Some(email)),
             password_hash: Set(hash_password(input.password)?),
             role: Set(input.role),
             status: Set(input.status),
             must_change_password: Set(input.must_change_password),
             session_version: Set(1),
             email_verified_at: Set(input.email_verified_at),
+            pending_email: Set(None),
+            created_at: Set(now),
+            updated_at: Set(now),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .map_err(AsterError::from)
+    }
+
+    pub struct CreateUserWithoutEmailWithRoleInput<'a> {
+        pub username: &'a str,
+        pub password: &'a str,
+        pub role: UserRole,
+        pub status: UserStatus,
+        pub must_change_password: bool,
+    }
+
+    pub async fn create_user_without_email_with_role<C, S>(
+        db: &C,
+        _state: &S,
+        input: CreateUserWithoutEmailWithRoleInput<'_>,
+    ) -> Result<user::Model>
+    where
+        C: ConnectionTrait,
+        S: RuntimeConfigRuntimeState + ?Sized,
+    {
+        validate_username(input.username)?;
+        validate_password(input.password)?;
+
+        if user_repo::find_by_username(db, input.username)
+            .await?
+            .is_some()
+        {
+            return Err(AsterError::validation_error_code(
+                AsterErrorCode::AuthUsernameExists,
+                "username already exists",
+            ));
+        }
+
+        let now = Utc::now();
+        let public_uuid = user_repo::unique_public_uuid(db).await?;
+        user::ActiveModel {
+            public_uuid: Set(public_uuid),
+            username: Set(input.username.to_string()),
+            email: Set(None),
+            password_hash: Set(hash_password(input.password)?),
+            role: Set(input.role),
+            status: Set(input.status),
+            must_change_password: Set(input.must_change_password),
+            session_version: Set(1),
+            email_verified_at: Set(None),
             pending_email: Set(None),
             created_at: Set(now),
             updated_at: Set(now),

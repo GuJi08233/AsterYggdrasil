@@ -34,7 +34,7 @@ const GENERATED_PASSWORD_CHARSET: &[u8] =
 pub struct AdminUserInfo {
     pub id: i64,
     pub username: String,
-    pub email: String,
+    pub email: Option<String>,
     pub pending_email: Option<String>,
     pub role: UserRole,
     pub operator_scopes: Vec<OperatorScope>,
@@ -800,7 +800,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(created.user.username, "new-user");
-        assert_eq!(created.user.email, "new-user@example.com");
+        assert_eq!(created.user.email.as_deref(), Some("new-user@example.com"));
         assert!(created.generated_password.is_some());
         assert!(created.user.must_change_password);
 
@@ -836,7 +836,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(updated.username, "renamed-user");
-        assert_eq!(updated.email, "renamed@example.com");
+        assert_eq!(updated.email.as_deref(), Some("renamed@example.com"));
         assert_eq!(updated.role, UserRole::Admin);
         assert_eq!(updated.status, UserStatus::Disabled);
         assert!(updated.must_change_password);

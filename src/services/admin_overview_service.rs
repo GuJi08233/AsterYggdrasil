@@ -597,7 +597,7 @@ mod tests {
         user::ActiveModel {
             public_uuid: Set(uuid::Uuid::new_v4().to_string()),
             username: Set(username.to_string()),
-            email: Set(format!("{username}@example.com")),
+            email: Set(Some(format!("{username}@example.com"))),
             password_hash: Set("password-hash".to_string()),
             role: Set(UserRole::User),
             status: Set(UserStatus::Active),
@@ -641,6 +641,7 @@ mod tests {
             user_id: Set(user_id),
             uuid: Set(aster_forge_utils::id::new_short_token()),
             name: Set(name.to_string()),
+            normalized_name: Set(minecraft_profile_repo::normalize_profile_name(name)),
             texture_model: Set(MinecraftTextureModel::Default),
             uploadable_textures: Set("skin,cape".to_string()),
             created_at: Set(created_at),

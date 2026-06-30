@@ -911,6 +911,19 @@ async fn yggdrasil_profile_name_login_is_controlled_by_runtime_config() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["selectedProfile"]["name"], "ConfigUser");
 
+    let req = test::TestRequest::post()
+        .uri("/api/yggdrasil/authserver/authenticate")
+        .set_json(serde_json::json!({
+            "username": "configuser",
+            "password": "password1234",
+            "agent": { "name": "Minecraft", "version": 1 }
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["selectedProfile"]["name"], "ConfigUser");
+
     let saved = system_config_repo::upsert_with_options(
         state.writer_db(),
         YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY,
@@ -1634,6 +1647,16 @@ async fn minecraft_profile_duplicate_names_are_rejected_until_deleted() {
             .contains("profile name already exists")
     );
 
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "reusedname" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
     let req = test::TestRequest::delete()
         .uri(&format!("/api/v1/profiles/minecraft/{first_profile}"))
         .insert_header(common::bearer_header(&access))
@@ -1828,6 +1851,16 @@ async fn minecraft_profile_rename_rejects_invalid_duplicate_missing_and_foreign_
         .uri(&format!("/api/v1/profiles/minecraft/{first_profile}/name"))
         .insert_header(common::bearer_header(&access))
         .set_json(serde_json::json!({ "name": "RenameTwo" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{first_profile}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "renametwo" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
@@ -5506,6 +5539,18 @@ async fn admin_can_rename_any_minecraft_profile_and_duplicate_names_are_rejected
 
     let req = test::TestRequest::put()
         .uri(&format!(
+            "/api/v1/admin/minecraft-profiles/{first_profile}/name"
+        ))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "adminrenameb" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let req = test::TestRequest::put()
+        .uri(&format!(
             "/api/v1/admin/minecraft-profiles/{second_profile}/name"
         ))
         .insert_header(common::bearer_header(&access))
@@ -6193,13 +6238,14 @@ async fn yggdrasil_profile_lookup_batch_and_session_edges_follow_protocol_status
 
     let req = test::TestRequest::post()
         .uri("/api/yggdrasil/api/profiles/minecraft")
-        .set_json(serde_json::json!(["BatchUser", "MissingUser"]))
+        .set_json(serde_json::json!(["batchuser", "MissingUser"]))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body.as_array().unwrap().len(), 1);
     assert_eq!(body[0]["id"], profile);
+    assert_eq!(body[0]["name"], "BatchUser");
 
     let req = test::TestRequest::post()
         .uri("/api/yggdrasil/api/profiles/minecraft")

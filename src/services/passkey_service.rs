@@ -461,7 +461,7 @@ fn normalize_login_identifier(identifier: Option<&str>) -> Option<String> {
 
 fn ensure_login_identifier_matches(user: &user::Model, identifier: &str) -> Result<()> {
     let matches = if identifier.contains('@') {
-        user.email == identifier
+        user.email.as_deref() == Some(identifier)
     } else {
         user.username == identifier
     };
@@ -564,8 +564,8 @@ pub async fn start_registration(
     let has_exclude_credentials = exclude_credentials.is_some();
     let display_name = user
         .email
-        .split('@')
-        .next()
+        .as_deref()
+        .and_then(|email| email.split('@').next())
         .filter(|value| !value.is_empty())
         .unwrap_or(&user.username);
 

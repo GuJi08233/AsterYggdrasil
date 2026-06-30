@@ -282,7 +282,7 @@ pub async fn create_with_options<C: ConnectionTrait>(
     user::ActiveModel {
         public_uuid: Set(public_uuid),
         username: Set(username.to_string()),
-        email: Set(email.to_string()),
+        email: Set(Some(email.to_string())),
         password_hash: Set(password_hash.to_string()),
         role: Set(role),
         status: Set(status),
@@ -323,7 +323,7 @@ pub async fn update_admin<C: ConnectionTrait>(
         active.username = Set(username);
     }
     if let Some(email) = input.email {
-        active.email = Set(email);
+        active.email = Set(Some(email));
     }
     if let Some(password_hash) = input.password_hash {
         active.password_hash = Set(password_hash);
@@ -424,7 +424,7 @@ mod tests {
 
         assert_eq!(count_all(&db).await.unwrap(), 1);
         assert_eq!(user.username, "repo-user");
-        assert_eq!(user.email, "repo-user@example.com");
+        assert_eq!(user.email.as_deref(), Some("repo-user@example.com"));
         assert_eq!(user.role, UserRole::Admin);
         assert_eq!(user.status, UserStatus::Active);
         assert_eq!(user.session_version, 1);

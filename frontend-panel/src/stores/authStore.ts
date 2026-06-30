@@ -126,7 +126,7 @@ function sanitizeCachedUser(value: unknown): CachedAuthUser | null {
 		return null;
 	}
 	return {
-		email: typeof source.email === "string" ? source.email : "",
+		email: typeof source.email === "string" ? source.email : null,
 		email_verified:
 			typeof source.email_verified === "boolean"
 				? source.email_verified
@@ -307,7 +307,7 @@ function syncAdminUser(
 		set,
 		{
 			...currentUser,
-			email: adminUser.email,
+			email: adminUser.email ?? null,
 			email_verified: Boolean(adminUser.email_verified_at),
 			pending_email: adminUser.pending_email,
 			profile: adminUser.profile,

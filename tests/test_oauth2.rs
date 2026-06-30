@@ -499,7 +499,7 @@ async fn local_email_policy_does_not_apply_to_oauth2_auto_provision() {
     assert!(
         provisioned
             .iter()
-            .any(|user| user.email == "oauth2-user@example.com"),
+            .any(|user| user.email.as_deref() == Some("oauth2-user@example.com")),
         "OAuth2 auto-provision should not be denied by local email policy"
     );
 
@@ -1075,7 +1075,7 @@ async fn unverified_email_does_not_auto_link_existing_user() {
 }
 
 #[actix_web::test]
-async fn linuxdo_auto_provision_ignores_allowed_domains_for_internal_placeholder_email() {
+async fn linuxdo_auto_provision_without_email_ignores_allowed_domains() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     mock_provider.set_expected_token_auth(TokenAuthObservation::Post);
     mock_provider.set_linuxdo_user(1547, "linuxdo-user", Some(2));
@@ -1119,10 +1119,7 @@ async fn linuxdo_auto_provision_ignores_allowed_domains_for_internal_placeholder
     assert_eq!(identity.provider_id, provider.id);
     assert_eq!(identity.identity_namespace, "https://connect.linux.do");
     assert_eq!(identity.subject, "1547");
-    assert_eq!(
-        identity.email_snapshot.as_deref(),
-        Some("linuxdo_1547@local.placeholder")
-    );
+    assert_eq!(identity.email_snapshot.as_deref(), None);
     let metadata: Value = serde_json::from_str(
         identity
             .metadata
@@ -1137,13 +1134,13 @@ async fn linuxdo_auto_provision_ignores_allowed_domains_for_internal_placeholder
         .await
         .expect("user should query")
         .expect("user should exist");
-    assert_eq!(user.email, "linuxdo_1547@local.placeholder");
+    assert_eq!(user.email.as_deref(), None);
 
     server.stop(true).await;
 }
 
 #[actix_web::test]
-async fn linuxdo_placeholder_email_does_not_auto_link_existing_local_user() {
+async fn linuxdo_without_email_does_not_auto_link_existing_placeholder_like_local_user() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
     mock_provider.set_linuxdo_user(1549, "placeholder-link", Some(2));
@@ -1197,30 +1194,24 @@ async fn linuxdo_placeholder_email_does_not_auto_link_existing_local_user() {
     assert_eq!(identity.identity_namespace, "https://connect.linux.do");
     assert_eq!(identity.subject, "1549");
     assert_ne!(identity.user_id, local_user_id);
-    assert_ne!(
-        identity.email_snapshot.as_deref(),
-        Some("linuxdo_1549@local.placeholder")
-    );
-    let identity_email = identity
-        .email_snapshot
-        .as_deref()
-        .expect("LinuxDo identity email snapshot should exist");
-    assert!(identity_email.starts_with("linuxdo_1549_"));
-    assert!(identity_email.ends_with("@local.placeholder"));
+    assert_eq!(identity.email_snapshot.as_deref(), None);
 
     let local_user = user::Entity::find_by_id(local_user_id)
         .one(state.writer_db())
         .await
         .expect("user should query")
         .expect("local placeholder user should still exist");
-    assert_eq!(local_user.email, "linuxdo_1549@local.placeholder");
+    assert_eq!(
+        local_user.email.as_deref(),
+        Some("linuxdo_1549@local.placeholder")
+    );
 
     let linuxdo_user = user::Entity::find_by_id(identity.user_id)
         .one(state.writer_db())
         .await
         .expect("LinuxDo user should query")
         .expect("LinuxDo user should exist");
-    assert_eq!(linuxdo_user.email, identity_email);
+    assert_eq!(linuxdo_user.email.as_deref(), None);
     assert_ne!(linuxdo_user.id, local_user_id);
 
     server.stop(true).await;

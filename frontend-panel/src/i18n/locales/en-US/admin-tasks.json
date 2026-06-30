@@ -15,6 +15,7 @@
 			},
 			"source": {
 				"system": "System",
+				"noEmail": "No email bound",
 				"userId": "User #{{id}}"
 			},
 			"table": {
