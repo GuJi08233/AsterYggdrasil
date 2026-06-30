@@ -528,6 +528,10 @@ export function connectionRequirementsMissing(
 }
 
 export function primaryEndpoint(provider: AdminExternalAuthProviderInfo) {
+	// LinuxDO uses fixed endpoints
+	if (provider.provider_kind === "linuxdo") {
+		return "https://connect.linux.do";
+	}
 	if (provider.issuer_url) {
 		return provider.issuer_url;
 	}

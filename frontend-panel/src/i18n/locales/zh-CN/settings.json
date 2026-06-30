@@ -172,6 +172,8 @@
 	"settings_item_auth_refresh_token_ttl_secs_desc": "浏览器会话免重新登录续期的最长时间。",
 	"settings_item_auth_allow_user_registration_label": "用户注册",
 	"settings_item_auth_allow_user_registration_desc": "初始化完成后是否允许新用户创建站点账号。",
+	"settings_item_auth_allow_local_registration_label": "账号密码注册",
+	"settings_item_auth_allow_local_registration_desc": "是否允许通过用户名和密码注册新账号。关闭后仅允许通过外部认证注册。",
 	"settings_item_auth_register_activation_enabled_label": "注册激活",
 	"settings_item_auth_register_activation_enabled_desc": "新注册用户登录前是否必须通过邮件激活。",
 	"settings_item_auth_register_activation_ttl_secs_label": "激活令牌有效期",

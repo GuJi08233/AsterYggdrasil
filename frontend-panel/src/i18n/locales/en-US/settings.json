@@ -173,6 +173,8 @@
 	"settings_item_auth_refresh_token_ttl_secs_desc": "How long browser sessions can renew access without logging in again.",
 	"settings_item_auth_allow_user_registration_label": "User registration",
 	"settings_item_auth_allow_user_registration_desc": "Allow new users to create site accounts after initial setup.",
+	"settings_item_auth_allow_local_registration_label": "Username/password registration",
+	"settings_item_auth_allow_local_registration_desc": "Allow new users to register with username and password. When disabled, only external auth registration is allowed.",
 	"settings_item_auth_register_activation_enabled_label": "Registration activation",
 	"settings_item_auth_register_activation_enabled_desc": "Require email activation before newly registered users can sign in.",
 	"settings_item_auth_register_activation_ttl_secs_label": "Activation token lifetime",
