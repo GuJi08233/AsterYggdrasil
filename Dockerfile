@@ -30,9 +30,11 @@ COPY build.rs ./
 COPY --from=frontend /build/frontend-panel/dist/ frontend-panel/dist/
 
 ARG CARGO_FEATURES="server"
+ARG ASTER_BUILD_VERSION="unknown"
 ENV RUSTFLAGS="-C link-arg=-s"
 
-RUN cargo build --release --features "${CARGO_FEATURES}"
+RUN ASTER_BUILD_VERSION="${ASTER_BUILD_VERSION}" \
+    cargo build --release --features "${CARGO_FEATURES}"
 
 # Stage 3: Alpine runtime
 FROM alpine:3.23
