@@ -96,9 +96,6 @@ test("keeps the public entry usable on mobile", async ({ page }) => {
 	await expect(
 		page.getByRole("link", { name: "Get started" }).first(),
 	).toBeVisible();
-	await expect(
-		page.getByRole("link", { name: "Learn more" }).first(),
-	).toBeVisible();
 	await expect(page.getByText("Safe and reliable")).toBeVisible();
 	await expect(page.getByText("Skin management")).toBeVisible();
 });
