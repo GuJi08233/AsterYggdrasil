@@ -256,7 +256,7 @@ export function formFromProvider(
 		key: provider.key,
 		linuxdoMinTrustLevel:
 			provider.provider_kind === "linuxdo"
-				? provider.options.linuxdo?.min_trust_level ?? 0
+				? (provider.options.linuxdo?.min_trust_level ?? 0)
 				: 0,
 		microsoftTenant,
 		microsoftTenantMode: microsoftTenantModeForValue(microsoftTenant),
