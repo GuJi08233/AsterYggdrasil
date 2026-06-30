@@ -116,6 +116,8 @@
 		"renameSuccess": "角色档案已重命名",
 		"renameShortAction": "重命名",
 		"renameToast": "角色档案已重命名",
+			"limitExceeded": "已达角色档案数量上限",
+			"renameLimitExceeded": "该角色档案已达改名次数上限",
 		"uuid": "UUID",
 		"properties": "属性",
 		"selected": "当前",

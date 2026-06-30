@@ -63,6 +63,7 @@ pub fn profile_info(profile: &minecraft_profile::Model) -> MinecraftProfileInfo 
 pub async fn create_profile<S>(
     state: &S,
     user_id: i64,
+    user_role: crate::types::user::UserRole,
     name: &str,
 ) -> Result<minecraft_profile::Model>
 where
@@ -71,6 +72,22 @@ where
     tracing::debug!(user_id, name_len = name.len(), "creating minecraft profile");
     ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
         .await?;
+    let policy = RuntimeYggdrasilPolicy::from_runtime_config(state.runtime_config());
+    if !user_role.is_admin() {
+        let existing_count = minecraft_profile_repo::count_by_user(state.reader_db(), user_id).await?;
+        if existing_count >= policy.max_profiles_per_user {
+            tracing::debug!(
+                user_id,
+                existing_count,
+                max = policy.max_profiles_per_user,
+                "minecraft profile creation rejected because user reached profile limit"
+            );
+            return Err(AsterError::validation_error_code(
+                crate::api::error_code::AsterErrorCode::MinecraftProfileLimitExceeded,
+                "profile limit reached for this user",
+            ));
+        }
+    }
     validate_profile_name(name)?;
     if minecraft_profile_repo::find_by_name(state.reader_db(), name)
         .await?
@@ -165,7 +182,7 @@ pub async fn rename_profile_for_user<S>(
     new_name: &str,
 ) -> Result<Option<RenameMinecraftProfileResult>>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState,
+    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     tracing::debug!(
         user_id,
@@ -195,9 +212,23 @@ pub async fn rename_profile<S>(
     new_name: &str,
 ) -> Result<RenameMinecraftProfileResult>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState,
+    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     validate_profile_name(new_name)?;
+    let policy = RuntimeYggdrasilPolicy::from_runtime_config(state.runtime_config());
+    if u64::try_from(profile.rename_count).unwrap_or(0) >= policy.max_profile_renames {
+        tracing::debug!(
+            profile_id = profile.id,
+            profile_uuid = %profile.uuid,
+            rename_count = profile.rename_count,
+            max = policy.max_profile_renames,
+            "minecraft profile rename rejected because rename limit reached"
+        );
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::MinecraftProfileRenameLimitExceeded,
+            "profile rename limit reached",
+        ));
+    }
     if profile.name == new_name {
         tracing::debug!(
             profile_id = profile.id,
@@ -271,4 +302,108 @@ pub fn validate_profile_name(name: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+/// Sanitize an external auth username into a valid Minecraft profile name.
+///
+/// Replaces invalid characters with underscores, truncates to 16 chars,
+/// and pads with underscores if shorter than 3. Returns None if the result
+/// would be empty or entirely non-alphanumeric.
+fn sanitize_external_username(username: &str) -> Option<String> {
+    let sanitized: String = username
+        .chars()
+        .filter_map(|c| {
+            if c.is_ascii_alphanumeric() {
+                Some(c)
+            } else if c == '_' {
+                Some('_')
+            } else if c == '-' || c == '.' || c == ' ' {
+                Some('_')
+            } else {
+                None
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+
+    let mut name = if sanitized.len() > 16 {
+        sanitized[..16].trim_matches('_').to_string()
+    } else {
+        sanitized
+    };
+
+    if name.is_empty() {
+        return None;
+    }
+
+    while name.len() < 3 {
+        name.push('_');
+    }
+
+    // Ensure the name contains at least one alphanumeric character
+    if !name.bytes().any(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+
+    Some(name)
+}
+
+/// Create a Minecraft profile for an externally-authenticated user.
+///
+/// This is called during auto-provision (e.g., LinuxDo first login) to
+/// automatically create a profile using the external provider's username.
+/// If the username cannot be sanitized into a valid profile name (3-16 ASCII
+/// alphanumerics/underscores), the profile is silently skipped.
+pub async fn create_profile_for_external_auth<S>(
+    state: &S,
+    user_id: i64,
+    user_role: crate::types::user::UserRole,
+    external_username: &str,
+) -> Result<minecraft_profile::Model>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
+    let Some(profile_name) = sanitize_external_username(external_username) else {
+        tracing::debug!(
+            user_id,
+            external_username = %external_username,
+            "cannot auto-create profile: external username could not be sanitized"
+        );
+        return Err(AsterError::validation_error(
+            "external username cannot be converted to a valid profile name",
+        ));
+    };
+
+    // If the sanitized name is taken, append a numeric suffix
+    let final_name = if minecraft_profile_repo::find_by_name(state.reader_db(), &profile_name)
+        .await?
+        .is_some()
+    {
+        let mut candidate;
+        let mut suffix: u32 = 1;
+        loop {
+            candidate = format!("{profile_name}{suffix}");
+            // Truncate to 16 chars if needed
+            if candidate.len() > 16 {
+                let max_base = 16 - suffix.to_string().len();
+                candidate = format!("{}{suffix}", &profile_name[..max_base.min(profile_name.len())]);
+            }
+            if minecraft_profile_repo::find_by_name(state.reader_db(), &candidate)
+                .await?
+                .is_none()
+            {
+                break;
+            }
+            suffix += 1;
+            if suffix > 99 {
+                break;
+            }
+        }
+        candidate
+    } else {
+        profile_name
+    };
+
+    create_profile(state, user_id, user_role, &final_name).await
 }

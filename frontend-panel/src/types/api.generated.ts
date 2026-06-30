@@ -2845,6 +2845,7 @@ export interface components {
                 id: number;
                 issuer: string;
                 last_login_at?: string | null;
+                metadata?: Record<string, unknown> | null;
                 provider_display_name: string;
                 provider_icon_url?: string | null;
                 /** Format: int64 */
@@ -3249,9 +3250,10 @@ export interface components {
             token_url_required: boolean;
             userinfo_url_required: boolean;
         };
-        ExternalAuthProviderOptions: {
-            microsoft?: null | components["schemas"]["MicrosoftExternalAuthProviderOptions"];
-        };
+	        ExternalAuthProviderOptions: {
+	            linuxdo?: null | components["schemas"]["LinuxdoExternalAuthProviderOptions"];
+	            microsoft?: null | components["schemas"]["MicrosoftExternalAuthProviderOptions"];
+	        };
         ExternalAuthProviderTestCheck: {
             message: string;
             name: string;
@@ -3318,9 +3320,12 @@ export interface components {
         MailOutboxStatus: "pending" | "processing" | "retry" | "sent" | "failed";
         /** @enum {string} */
         MailTemplateCode: "register_activation" | "contact_change_confirmation" | "password_reset" | "password_reset_notice" | "contact_change_notice" | "external_auth_email_verification" | "login_email_code" | "user_invitation";
-        MicrosoftExternalAuthProviderOptions: {
-            tenant: string;
-        };
+	        MicrosoftExternalAuthProviderOptions: {
+	            tenant: string;
+	        };
+	        LinuxdoExternalAuthProviderOptions: {
+	            min_trust_level: number;
+	        };
         MinecraftProfileInfo: {
             created_at: string;
             /** Format: int64 */
@@ -9017,6 +9022,7 @@ export interface operations {
                                 id: number;
                                 issuer: string;
                                 last_login_at?: string | null;
+                                metadata?: Record<string, unknown> | null;
                                 provider_display_name: string;
                                 provider_icon_url?: string | null;
                                 /** Format: int64 */

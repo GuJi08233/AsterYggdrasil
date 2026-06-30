@@ -119,6 +119,8 @@
 		"renameSuccess": "Profile renamed",
 		"renameShortAction": "Rename",
 		"renameToast": "Profile renamed",
+			"limitExceeded": "You have reached the profile limit",
+			"renameLimitExceeded": "This profile has reached the rename limit",
 		"uuid": "UUID",
 		"properties": "Properties",
 		"selected": "Selected",

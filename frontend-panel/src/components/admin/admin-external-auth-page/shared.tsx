@@ -62,6 +62,7 @@ export interface ExternalAuthProviderFormData {
 	iconUrl: string;
 	issuerUrl: string;
 	key: string;
+	linuxdoMinTrustLevel: number;
 	microsoftTenant: string;
 	microsoftTenantMode: MicrosoftTenantMode;
 	providerKind: ExternalAuthKind;
@@ -102,6 +103,7 @@ export const emptyExternalAuthForm: ExternalAuthProviderFormData = {
 	iconUrl: "",
 	issuerUrl: "",
 	key: "",
+	linuxdoMinTrustLevel: 0,
 	microsoftTenant: MICROSOFT_DEFAULT_TENANT,
 	microsoftTenantMode: MICROSOFT_DEFAULT_TENANT,
 	providerKind: "oidc",
@@ -147,6 +149,8 @@ function kindFallbackLabel(kind: ExternalAuthKind) {
 			return "GitHub";
 		case "google":
 			return "Google";
+		case "linuxdo":
+			return "LinuxDO";
 		case "microsoft":
 			return "Microsoft";
 		case "qq":
@@ -250,6 +254,10 @@ export function formFromProvider(
 		iconUrl: provider.icon_url ?? "",
 		issuerUrl: provider.issuer_url ?? "",
 		key: provider.key,
+		linuxdoMinTrustLevel:
+			provider.provider_kind === "linuxdo"
+				? provider.options.linuxdo?.min_trust_level ?? 0
+				: 0,
 		microsoftTenant,
 		microsoftTenantMode: microsoftTenantModeForValue(microsoftTenant),
 		providerKind: provider.provider_kind,
@@ -397,12 +405,21 @@ export function parseAllowedDomains(value: string) {
 function optionsPayload(
 	form: ExternalAuthProviderFormData,
 ): ExternalAuthProviderOptions {
-	if (form.providerKind !== "microsoft") return {};
-	return {
-		microsoft: {
-			tenant: microsoftTenantValue(form) || MICROSOFT_DEFAULT_TENANT,
-		},
-	};
+	if (form.providerKind === "microsoft") {
+		return {
+			microsoft: {
+				tenant: microsoftTenantValue(form) || MICROSOFT_DEFAULT_TENANT,
+			},
+		};
+	}
+	if (form.providerKind === "linuxdo") {
+		return {
+			linuxdo: {
+				min_trust_level: form.linuxdoMinTrustLevel,
+			},
+		};
+	}
+	return {};
 }
 
 function microsoftTenantValue(form: ExternalAuthProviderFormData) {

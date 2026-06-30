@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { validateMinecraftTextureFile } from "@/lib/minecraftTextureValidation";
-import { formatUnknownError } from "@/services/http";
+import { ApiError, formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
 import type { MinecraftTextureType } from "@/types/api";
@@ -190,7 +190,14 @@ export function useMinecraftProfilesPageController() {
 			dispatch({ type: "profileName", value: "" });
 			await loadProfiles([], profilePageSize, created.id);
 		} catch (nextError) {
-			toast.error(formatUnknownError(nextError));
+			if (
+				nextError instanceof ApiError &&
+				nextError.code === "minecraft_profile.limit_exceeded"
+			) {
+				toast.error(t("profiles.limitExceeded"));
+			} else {
+				toast.error(formatUnknownError(nextError));
+			}
 		} finally {
 			dispatch({ type: "loading", value: false });
 		}
@@ -217,7 +224,14 @@ export function useMinecraftProfilesPageController() {
 			await loadProfiles([], profilePageSize, renamed.id);
 			toast.success(t("profiles.renameToast"));
 		} catch (nextError) {
-			toast.error(formatUnknownError(nextError));
+			if (
+				nextError instanceof ApiError &&
+				nextError.code === "minecraft_profile.rename_limit_exceeded"
+			) {
+				toast.error(t("profiles.renameLimitExceeded"));
+			} else {
+				toast.error(formatUnknownError(nextError));
+			}
 		} finally {
 			dispatch({ type: "renaming", value: false });
 		}

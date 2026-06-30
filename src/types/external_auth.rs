@@ -187,12 +187,17 @@ impl From<StoredExternalAuthProviderOptions> for String {
 pub struct ExternalAuthProviderOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub microsoft: Option<MicrosoftExternalAuthProviderOptions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linuxdo: Option<LinuxDoExternalAuthProviderOptions>,
 }
 
 impl ExternalAuthProviderOptions {
     pub fn normalized(mut self) -> Self {
         if let Some(microsoft) = self.microsoft.take() {
             self.microsoft = microsoft.normalized();
+        }
+        if let Some(linuxdo) = self.linuxdo.take() {
+            self.linuxdo = linuxdo.normalized();
         }
         self
     }
@@ -214,6 +219,24 @@ impl MicrosoftExternalAuthProviderOptions {
     fn normalized(self) -> Option<Self> {
         let tenant = self.tenant.trim().to_string();
         (!tenant.is_empty()).then_some(Self { tenant })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+pub struct LinuxDoExternalAuthProviderOptions {
+    #[serde(default)]
+    pub min_trust_level: i32,
+}
+
+impl LinuxDoExternalAuthProviderOptions {
+    pub fn new(min_trust_level: i32) -> Self {
+        Self { min_trust_level }
+    }
+
+    fn normalized(self) -> Option<Self> {
+        let min_trust_level = self.min_trust_level.clamp(0, 4);
+        Some(Self { min_trust_level })
     }
 }
 
@@ -245,6 +268,7 @@ impl From<aster_forge_external_auth::ExternalAuthProviderOptions> for ExternalAu
     fn from(value: aster_forge_external_auth::ExternalAuthProviderOptions) -> Self {
         Self {
             microsoft: value.microsoft.map(Into::into),
+            linuxdo: None,
         }
     }
 }

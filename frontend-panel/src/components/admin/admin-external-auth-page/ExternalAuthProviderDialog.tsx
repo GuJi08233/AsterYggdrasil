@@ -355,6 +355,7 @@ function ProviderFormFields({
 	const showIssuerUrl = shouldShowIssuerUrl(selectedKind);
 	const showManualEndpointFields = shouldShowManualEndpoints(selectedKind);
 	const isMicrosoft = form.providerKind === "microsoft";
+	const isLinuxdo = form.providerKind === "linuxdo";
 	const microsoftTenantOptions = [
 		...MICROSOFT_TENANT_PRESETS.map((value) => ({
 			label: t(`admin.externalAuth.microsoftTenant.${value}`),
@@ -431,26 +432,46 @@ function ProviderFormFields({
 					</Field>
 				) : null}
 				{isMicrosoft &&
-				form.microsoftTenantMode === MICROSOFT_CUSTOM_TENANT_MODE ? (
-					<Field
-						label={t("admin.externalAuth.microsoftTenant.customLabel")}
-						className="md:col-span-2"
-						required
-					>
-						<Input
-							value={form.microsoftTenant}
-							placeholder="11111111-2222-3333-4444-555555555555"
-							aria-invalid={
-								createStepTouched && !form.microsoftTenant.trim()
-									? true
-									: undefined
-							}
-							onChange={(event) =>
-								onFieldChange("microsoftTenant", event.target.value)
-							}
-						/>
-					</Field>
-				) : null}
+					form.microsoftTenantMode === MICROSOFT_CUSTOM_TENANT_MODE ? (
+						<Field
+							label={t("admin.externalAuth.microsoftTenant.customLabel")}
+							className="md:col-span-2"
+							required
+						>
+							<Input
+								value={form.microsoftTenant}
+								placeholder="11111111-2222-3333-4444-555555555555"
+								aria-invalid={
+									createStepTouched && !form.microsoftTenant.trim()
+										? true
+										: undefined
+								}
+								onChange={(event) =>
+									onFieldChange("microsoftTenant", event.target.value)
+								}
+							/>
+						</Field>
+					) : null}
+					{isLinuxdo ? (
+						<Field label={t("admin.externalAuth.linuxdoMinTrustLevel")}>
+							<Input
+								type="number"
+								min={0}
+								max={4}
+								step={1}
+								value={form.linuxdoMinTrustLevel}
+								onChange={(event) =>
+									onFieldChange(
+										"linuxdoMinTrustLevel",
+										Math.min(4, Math.max(0, Number(event.target.value) || 0)),
+									)
+								}
+							/>
+							<p className="text-xs leading-5 text-muted-foreground">
+								{t("admin.externalAuth.linuxdoMinTrustLevelHint")}
+							</p>
+						</Field>
+					) : null}
 				<Field label={t("admin.externalAuth.clientId")} required>
 					<Input
 						value={form.clientId}

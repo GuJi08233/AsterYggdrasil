@@ -16,6 +16,7 @@ pub use crate::config::definitions::{
     YGGDRASIL_ALLOW_CAPE_UPLOAD_KEY, YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY,
     YGGDRASIL_ALLOW_SKIN_UPLOAD_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
+    YGGDRASIL_MAX_PROFILE_RENAMES_KEY, YGGDRASIL_MAX_PROFILES_PER_USER_KEY,
     YGGDRASIL_MAX_TEXTURE_PIXELS_KEY, YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
     YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SERVER_NAME_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
     YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY,
@@ -35,6 +36,8 @@ pub const DEFAULT_YGGDRASIL_MAX_ACTIVE_TOKENS: u64 = 10;
 pub const DEFAULT_YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES: u64 = 4 * 1024 * 1024;
 pub const DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS: u64 = 4096 * 4096;
 pub const DEFAULT_YGGDRASIL_SKIN_DOMAINS: &[&str] = &[".minecraft.net", ".mojang.com"];
+pub const DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER: u64 = 1;
+pub const DEFAULT_YGGDRASIL_MAX_PROFILE_RENAMES: u64 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeYggdrasilPolicy {
@@ -48,6 +51,8 @@ pub struct RuntimeYggdrasilPolicy {
     pub max_active_tokens: u64,
     pub max_texture_upload_bytes: u64,
     pub max_texture_pixels: u64,
+    pub max_profiles_per_user: u64,
+    pub max_profile_renames: u64,
     pub skin_domains: Vec<String>,
     pub public_base_urls: Vec<String>,
     pub texture_public_base_url: Option<String>,
@@ -107,6 +112,16 @@ impl RuntimeYggdrasilPolicy {
                 YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
                 DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS,
             ),
+            max_profiles_per_user: forge_read_positive_u64(
+                runtime_config,
+                YGGDRASIL_MAX_PROFILES_PER_USER_KEY,
+                DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER,
+            ),
+            max_profile_renames: forge_read_positive_u64(
+                runtime_config,
+                YGGDRASIL_MAX_PROFILE_RENAMES_KEY,
+                DEFAULT_YGGDRASIL_MAX_PROFILE_RENAMES,
+            ),
             skin_domains,
             public_base_urls,
             texture_public_base_url,
@@ -146,7 +161,9 @@ pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String
         YGGDRASIL_TOKEN_TTL_DAYS_KEY
         | YGGDRASIL_MAX_ACTIVE_TOKENS_KEY
         | YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY
-        | YGGDRASIL_MAX_TEXTURE_PIXELS_KEY => {
+        | YGGDRASIL_MAX_TEXTURE_PIXELS_KEY
+        | YGGDRASIL_MAX_PROFILES_PER_USER_KEY
+        | YGGDRASIL_MAX_PROFILE_RENAMES_KEY => {
             normalize_positive_u64_config_value(key, value).map_err(Into::into)
         }
         YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY => {

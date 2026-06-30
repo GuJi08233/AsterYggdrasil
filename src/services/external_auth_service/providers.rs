@@ -326,9 +326,21 @@ fn normalize_provider_options(
             )?;
             options.microsoft = Some(MicrosoftExternalAuthProviderOptions::new(tenant));
         }
+        ExternalAuthProviderKind::LinuxDo => {
+            if options.linuxdo.is_none() {
+                options.linuxdo =
+                    Some(crate::types::external_auth::LinuxDoExternalAuthProviderOptions::new(0));
+            }
+        }
         _ if options.microsoft.is_some() => {
             return Err(AsterError::validation_error(format!(
                 "microsoft provider options are not valid for {} providers",
+                provider_kind.as_str()
+            )));
+        }
+        _ if options.linuxdo.is_some() => {
+            return Err(AsterError::validation_error(format!(
+                "linuxdo provider options are not valid for {} providers",
                 provider_kind.as_str()
             )));
         }

@@ -335,7 +335,7 @@ pub async fn create_minecraft_profile(
     );
     validate_request(&*body)?;
     let user = auth_service::current_user(state.get_ref(), &req).await?;
-    let profile = yggdrasil_service::create_profile(state.get_ref(), user.id, &body.name).await?;
+    let profile = yggdrasil_service::create_profile(state.get_ref(), user.id, user.role, &body.name).await?;
     let ctx = audit_service::AuditContext::from_request(&req, user.id);
     audit_service::log_with_details(
         state.get_ref(),

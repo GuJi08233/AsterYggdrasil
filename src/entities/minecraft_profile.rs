@@ -23,6 +23,7 @@ pub struct Model {
     pub name: String,
     pub texture_model: MinecraftTextureModel,
     pub uploadable_textures: String,
+    pub rename_count: i32,
     // TODO(ban-system): profile disabling should be modeled by the future ban system,
     // not by adding a quick disabled flag here. It must define login, join,
     // hasJoined, texture read, and admin policy semantics together.

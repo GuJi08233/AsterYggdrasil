@@ -20,8 +20,8 @@ pub use minecraft_services::{
 };
 pub use profile::{
     DeleteMinecraftProfileResult, MinecraftProfileInfo, RenameMinecraftProfileResult,
-    create_profile, delete_profile_for_user, profile_info, profile_summary, rename_profile,
-    rename_profile_for_user, validate_profile_name,
+    create_profile, create_profile_for_external_auth, delete_profile_for_user, profile_info,
+    profile_summary, rename_profile, rename_profile_for_user, validate_profile_name,
 };
 pub(crate) use properties::invalidate_profile_properties_cache;
 pub(crate) use session::invalidate_session_forward_server_cache;

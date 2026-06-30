@@ -43,6 +43,14 @@ pub async fn create<C: ConnectionTrait>(
     .map_aster_err(AsterError::database_operation)
 }
 
+pub async fn count_by_user<C: ConnectionTrait>(db: &C, user_id: i64) -> Result<u64> {
+    MinecraftProfile::find()
+        .filter(minecraft_profile::Column::UserId.eq(user_id))
+        .count(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
 pub async fn count_all<C: ConnectionTrait>(db: &C) -> Result<u64> {
     MinecraftProfile::find()
         .count(db)
@@ -138,6 +146,7 @@ pub async fn update_name_by_id<C: ConnectionTrait>(
     };
     let mut active: minecraft_profile::ActiveModel = existing.into();
     active.name = Set(name.to_string());
+    active.rename_count = Set(active.rename_count.unwrap() + 1);
     active.updated_at = Set(chrono::Utc::now());
     let updated = active
         .update(db)

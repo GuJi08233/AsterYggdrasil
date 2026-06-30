@@ -172,6 +172,8 @@ pub const YGGDRASIL_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_public_base_url";
 pub const YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY: &str = "yggdrasil_texture_public_base_url";
 pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public_key";
 pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
+pub const YGGDRASIL_MAX_PROFILES_PER_USER_KEY: &str = "yggdrasil_max_profiles_per_user";
+pub const YGGDRASIL_MAX_PROFILE_RENAMES_KEY: &str = "yggdrasil_max_profile_renames";
 
 pub const TEXTURE_LIBRARY_ENABLED_KEY: &str = "texture_library_enabled";
 pub const TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY: &str = "texture_library_review_required";
@@ -1601,6 +1603,32 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         is_sensitive: true,
         category: CONFIG_CATEGORY_YGGDRASIL_SIGNING,
         description: "PEM RSA private key used to sign Yggdrasil texture properties. Rotate via config action; new profile/hasJoined responses are signed with the current key",
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: YGGDRASIL_MAX_PROFILES_PER_USER_KEY,
+        label_i18n_key: "config.yggdrasil_max_profiles_per_user.label",
+        description_i18n_key: "config.yggdrasil_max_profiles_per_user.description",
+        value_type: ConfigValueType::Number,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
+        description: "Maximum number of Minecraft profiles a user can own",
+        normalize_fn: Some(normalize_yggdrasil),
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: YGGDRASIL_MAX_PROFILE_RENAMES_KEY,
+        label_i18n_key: "config.yggdrasil_max_profile_renames.label",
+        description_i18n_key: "config.yggdrasil_max_profile_renames.description",
+        value_type: ConfigValueType::Number,
+        default_fn: || crate::config::yggdrasil::DEFAULT_YGGDRASIL_MAX_PROFILE_RENAMES.to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
+        description: "Maximum number of profile renames allowed per user",
+        normalize_fn: Some(normalize_yggdrasil),
         ..ConfigDefinition::private_system()
     },
     ConfigDefinition {

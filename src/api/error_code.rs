@@ -143,6 +143,7 @@ define_error_codes! {
     MinecraftProfileNameTaken => "minecraft_profile.name_taken",
     MinecraftProfileLimitExceeded => "minecraft_profile.limit_exceeded",
     MinecraftProfileDeleteForbidden => "minecraft_profile.delete_forbidden",
+    MinecraftProfileRenameLimitExceeded => "minecraft_profile.rename_limit_exceeded",
 
     // User capability ban errors.
     UserBanNotFound => "user_ban.not_found",

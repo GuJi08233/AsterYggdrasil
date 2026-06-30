@@ -443,6 +443,7 @@
 		"externalAuthEmpty": "No external auth identities are linked.",
 		"externalAuthUnlink": "Unlink",
 		"externalAuthUnlinked": "External auth identity unlinked",
+		"linuxdoTrustLevel": "Trust Level: {{level}}",
 		"passkeysTitle": "Passkeys",
 		"passkeysDescription": "Sign in with device biometrics or a security key.",
 		"passkeysNamePlaceholder": "Device name",

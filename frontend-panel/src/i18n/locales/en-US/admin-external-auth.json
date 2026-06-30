@@ -53,49 +53,57 @@
 			"deleteDescription": "Users will no longer be able to start new logins with this provider. Existing local accounts are not deleted.",
 			"progress": "Step {{current}} / {{total}}",
 			"kind": {
-				"generic_oauth2": "Generic OAuth2",
-				"github": "GitHub",
-				"google": "Google",
-				"microsoft": "Microsoft",
-				"oidc": "OpenID Connect",
-				"qq": "QQ"
-			},
-			"kindDesc": {
-				"generic_oauth2": "Manually configure authorization, token, and userinfo endpoints for non-standard OAuth2 services.",
-				"github": "Use a GitHub OAuth App and read the verified primary email from the user emails API.",
-				"google": "Use Google OpenID Connect with fixed issuer and standard email verification semantics.",
-				"microsoft": "Use Microsoft or Entra ID sign-in with issuer handling controlled by the Microsoft provider.",
-				"oidc": "Reads authorization endpoints from issuer discovery metadata. Best for standard OIDC services.",
-				"qq": "Use QQ Connect OAuth2 with fixed token, openid, and userinfo endpoints."
-			},
+					"generic_oauth2": "Generic OAuth2",
+					"github": "GitHub",
+					"google": "Google",
+					"linuxdo": "LinuxDO",
+					"microsoft": "Microsoft",
+					"oidc": "OpenID Connect",
+					"qq": "QQ"
+				},
+				"kindDesc": {
+					"generic_oauth2": "Manually configure authorization, token, and userinfo endpoints for non-standard OAuth2 services.",
+					"github": "Use a GitHub OAuth App and read the verified primary email from the user emails API.",
+					"google": "Use Google OpenID Connect with fixed issuer and standard email verification semantics.",
+					"linuxdo": "Use LinuxDO OAuth2 with fixed endpoints. Users below the minimum trust level will be rejected.",
+					"microsoft": "Use Microsoft or Entra ID sign-in with issuer handling controlled by the Microsoft provider.",
+					"oidc": "Reads authorization endpoints from issuer discovery metadata. Best for standard OIDC services.",
+					"qq": "Use QQ Connect OAuth2 with fixed token, openid, and userinfo endpoints."
+				},
 			"fixedConnection": {
-				"title": "Fixed connection parameters",
-				"github": {
-					"description": "GitHub uses fixed OAuth endpoints and default scopes. Enter the OAuth App Client ID and Client Secret.",
-					"summary": "GitHub fixed OAuth endpoints"
+					"title": "Fixed connection parameters",
+					"github": {
+						"description": "GitHub uses fixed OAuth endpoints and default scopes. Enter the OAuth App Client ID and Client Secret.",
+						"summary": "GitHub fixed OAuth endpoints"
+					},
+					"google": {
+						"description": "Google uses a fixed OpenID Connect issuer and does not support issuer or manual endpoint overrides.",
+						"summary": "Google fixed OIDC issuer"
+					},
+					"linuxdo": {
+						"description": "LinuxDO uses fixed OAuth2 endpoints and default scopes. Enter the application credentials and optionally set a minimum trust level.",
+						"summary": "LinuxDO fixed OAuth2 endpoints"
+					},
+					"microsoft": {
+						"description": "Microsoft derives the issuer from fixed identity platform rules. Custom authorization, token, and userinfo endpoints are not required.",
+						"summary": "Microsoft identity platform"
+					},
+					"qq": {
+						"description": "QQ uses fixed OAuth2, openid, userinfo endpoints, and default scopes. Enter the QQ Connect app credentials.",
+						"summary": "QQ Connect fixed endpoints"
+					}
 				},
-				"google": {
-					"description": "Google uses a fixed OpenID Connect issuer and does not support issuer or manual endpoint overrides.",
-					"summary": "Google fixed OIDC issuer"
-				},
-				"microsoft": {
-					"description": "Microsoft derives the issuer from fixed identity platform rules. Custom authorization, token, and userinfo endpoints are not required.",
-					"summary": "Microsoft identity platform"
-				},
-				"qq": {
-					"description": "QQ uses fixed OAuth2, openid, userinfo endpoints, and default scopes. Enter the QQ Connect app credentials.",
-					"summary": "QQ Connect fixed endpoints"
-				}
-			},
 			"microsoftTenant": {
-				"label": "Microsoft tenant",
-				"hint": "Choose the Microsoft identity platform tenant scope. Custom values may be tenant IDs or domains.",
-				"consumers": "Personal Microsoft accounts",
-				"organizations": "Any organization tenant",
-				"common": "Personal and organization accounts",
-				"custom": "Custom tenant",
-				"customLabel": "Custom tenant"
-			},
+					"label": "Microsoft tenant",
+					"hint": "Choose the Microsoft identity platform tenant scope. Custom values may be tenant IDs or domains.",
+					"consumers": "Personal Microsoft accounts",
+					"organizations": "Any organization tenant",
+					"common": "Personal and organization accounts",
+					"custom": "Custom tenant",
+					"customLabel": "Custom tenant"
+				},
+				"linuxdoMinTrustLevel": "Minimum Trust Level",
+				"linuxdoMinTrustLevelHint": "Users with a trust level below this value will be rejected during login. Valid values: 0–4.",
 			"claims": {
 				"subject": "Subject claim",
 				"username": "Username claim",

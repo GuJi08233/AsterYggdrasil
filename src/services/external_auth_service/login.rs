@@ -7,7 +7,7 @@ use crate::entities::external_auth_login_flow;
 use crate::errors::{AsterError, Result};
 use crate::external_auth::{MapExternalAuthResult, registry};
 use crate::runtime::SharedRuntimeState;
-use crate::types::external_auth::ExternalAuthProviderKind;
+use crate::types::external_auth::{ExternalAuthProviderKind, parse_external_auth_provider_options};
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 use aster_forge_external_auth::ExternalAuthCallback;
 use aster_forge_external_auth::ExternalAuthProfile;
@@ -222,6 +222,32 @@ pub async fn finish_callback(
         "external auth callback exchanged claims"
     );
 
+    // LinuxDo trust_level gate: reject users below the configured minimum.
+    if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
+        let options = parse_external_auth_provider_options(provider.options.as_ref());
+        if let Some(linuxdo_opts) = &options.linuxdo {
+            let user_trust_level = linuxdo_metadata.as_ref().and_then(|m| {
+                serde_json::from_str::<serde_json::Value>(m)
+                    .ok()
+                    .and_then(|v| v.get("linuxdo_trust_level")?.as_i64())
+            });
+            let min_trust_level = linuxdo_opts.min_trust_level;
+            if let Some(level) = user_trust_level {
+                if level < i64::from(min_trust_level) {
+                    tracing::debug!(
+                        provider_id = provider.id,
+                        user_trust_level = level,
+                        min_trust_level = min_trust_level,
+                        "LinuxDo callback rejected: trust level below minimum"
+                    );
+                    return Err(AsterError::auth_forbidden(
+                        "LinuxDO trust level below minimum requirement",
+                    ));
+                }
+            }
+        }
+    }
+
     if external_auth_claims_missing_email(&user_claims) {
         // Existing bindings are keyed by issuer + subject, so they may sign in
         // even when the current callback cannot provide an email snapshot.
@@ -311,6 +337,28 @@ pub async fn finish_callback(
         auto_provisioned = resolved.auto_provisioned,
         "external auth callback resolved login"
     );
+
+    // Auto-create a Minecraft profile for newly provisioned LinuxDo users.
+    if resolved.auto_provisioned && provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
+        if let Some(preferred_username) = &user_claims.preferred_username {
+            if let Err(error) = crate::services::yggdrasil_service::create_profile_for_external_auth(
+                state,
+                resolved.user.id,
+                resolved.user.role,
+                preferred_username,
+            )
+            .await
+            {
+                tracing::warn!(
+                    user_id = resolved.user.id,
+                    username = %preferred_username,
+                    error = %error,
+                    "failed to auto-create Minecraft profile for LinuxDo user"
+                );
+            }
+        }
+    }
+
     Ok(ExternalAuthCallbackOutcome::Login(
         ExternalAuthCallbackResult {
             primary_login: ExternalAuthPrimaryLogin {

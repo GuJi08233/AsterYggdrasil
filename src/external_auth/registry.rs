@@ -16,7 +16,7 @@ fn linuxdo_descriptor() -> ExternalAuthProviderDescriptor {
     ExternalAuthProviderDescriptor {
         kind: ExternalAuthProviderKind::LinuxDo,
         protocol: super::ExternalAuthProtocol::OAuth2,
-        display_name: "LinuxDo",
+        display_name: "Linux DO",
         description: "Sign in with LinuxDo community account",
         default_scopes: "user",
         issuer_url_required: false,

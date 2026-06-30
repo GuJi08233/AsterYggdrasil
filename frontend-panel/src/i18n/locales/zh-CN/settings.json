@@ -442,6 +442,7 @@
 		"externalAuthEmpty": "还没有绑定外部认证身份。",
 		"externalAuthUnlink": "解除绑定",
 		"externalAuthUnlinked": "外部认证身份已解除绑定",
+		"linuxdoTrustLevel": "信任等级: {{level}}",
 		"passkeysTitle": "Passkey",
 		"passkeysDescription": "使用设备生物识别或安全密钥登录。",
 		"passkeysNamePlaceholder": "设备名称",

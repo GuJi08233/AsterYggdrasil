@@ -436,9 +436,17 @@ function ExternalAuthLinksSection() {
 								</div>
 							</div>
 							<div className="flex flex-wrap items-center gap-2 sm:justify-end">
-								<Badge variant="outline" className="rounded-md">
-									{link.provider_kind}
-								</Badge>
+									<Badge variant="outline" className="rounded-md">
+										{link.provider_kind}
+									</Badge>
+									{link.provider_kind === "linuxdo" &&
+									link.metadata?.linuxdo_trust_level != null ? (
+										<Badge variant="secondary" className="rounded-md">
+											{t("personalSettings.linuxdoTrustLevel", {
+												level: link.metadata.linuxdo_trust_level,
+											})}
+										</Badge>
+									) : null}
 								<Button
 									type="button"
 									size="sm"
