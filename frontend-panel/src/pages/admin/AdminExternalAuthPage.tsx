@@ -194,6 +194,12 @@ function reducer(state: UiState, action: UiAction): UiState {
 					scopes: action.scopes,
 					tokenUrl: "",
 					userinfoUrl: "",
+					displayName:
+						action.kind === "linuxdo" ? "Linux DO" : state.form.displayName,
+					iconUrl:
+						action.kind === "linuxdo"
+							? "https://linux.do/logo-128.svg"
+							: state.form.iconUrl,
 				},
 				testResult: null,
 			};
