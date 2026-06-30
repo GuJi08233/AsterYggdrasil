@@ -346,6 +346,16 @@ where
             "registration is disabled",
         ));
     }
+    if !auth_policy.allow_local_registration {
+        tracing::debug!(
+            username,
+            "local user registration rejected because local registration is disabled"
+        );
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::AuthRegistrationDisabled,
+            "local registration is disabled",
+        ));
+    }
     crate::config::local_email_policy::LocalEmailPolicy::from_runtime_config(
         state.runtime_config(),
     )

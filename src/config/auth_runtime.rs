@@ -12,7 +12,8 @@ use aster_forge_config::{
 };
 
 pub use crate::config::definitions::{
-    AUTH_ACCESS_TOKEN_TTL_SECS_KEY, AUTH_ALLOW_USER_REGISTRATION_KEY, AUTH_CAPTCHA_ENABLED_KEY,
+    AUTH_ACCESS_TOKEN_TTL_SECS_KEY, AUTH_ALLOW_LOCAL_REGISTRATION_KEY,
+    AUTH_ALLOW_USER_REGISTRATION_KEY, AUTH_CAPTCHA_ENABLED_KEY,
     AUTH_CAPTCHA_INVITATION_ACCEPT_REQUIRED_KEY, AUTH_CAPTCHA_LENGTH_KEY,
     AUTH_CAPTCHA_LOGIN_REQUIRED_KEY, AUTH_CAPTCHA_MAX_ATTEMPTS_KEY, AUTH_CAPTCHA_PRESET_KEY,
     AUTH_CAPTCHA_REGISTER_ACTIVATION_RESEND_REQUIRED_KEY, AUTH_CAPTCHA_REGISTER_REQUIRED_KEY,
@@ -28,6 +29,7 @@ pub use crate::config::definitions::{
 
 pub const DEFAULT_AUTH_COOKIE_SECURE: bool = true;
 pub const DEFAULT_AUTH_ALLOW_USER_REGISTRATION: bool = true;
+pub const DEFAULT_AUTH_ALLOW_LOCAL_REGISTRATION: bool = true;
 pub const DEFAULT_AUTH_REGISTER_ACTIVATION_ENABLED: bool = true;
 pub const DEFAULT_AUTH_ACCESS_TOKEN_TTL_SECS: u64 = 900;
 pub const DEFAULT_AUTH_REFRESH_TOKEN_TTL_SECS: u64 = 604800;
@@ -139,6 +141,7 @@ pub struct CaptchaRenderParams {
 pub struct RuntimeAuthPolicy {
     pub cookie_secure: bool,
     pub allow_user_registration: bool,
+    pub allow_local_registration: bool,
     pub passkey_login_enabled: bool,
     pub register_activation_enabled: bool,
     pub access_token_ttl_secs: u64,
@@ -187,6 +190,11 @@ impl RuntimeAuthPolicy {
             AUTH_ALLOW_USER_REGISTRATION_KEY,
             DEFAULT_AUTH_ALLOW_USER_REGISTRATION,
         );
+        let allow_local_registration = forge_read_bool(
+            runtime_config,
+            AUTH_ALLOW_LOCAL_REGISTRATION_KEY,
+            DEFAULT_AUTH_ALLOW_LOCAL_REGISTRATION,
+        );
         let register_activation_enabled = forge_read_bool(
             runtime_config,
             AUTH_REGISTER_ACTIVATION_ENABLED_KEY,
@@ -213,6 +221,7 @@ impl RuntimeAuthPolicy {
         Self {
             cookie_secure,
             allow_user_registration,
+            allow_local_registration,
             passkey_login_enabled,
             register_activation_enabled,
             access_token_ttl_secs,

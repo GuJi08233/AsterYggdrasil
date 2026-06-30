@@ -70,6 +70,7 @@ pub const AUTH_COOKIE_SECURE_KEY: &str = "auth_cookie_secure";
 pub const AUTH_ACCESS_TOKEN_TTL_SECS_KEY: &str = "auth_access_token_ttl_secs";
 pub const AUTH_REFRESH_TOKEN_TTL_SECS_KEY: &str = "auth_refresh_token_ttl_secs";
 pub const AUTH_ALLOW_USER_REGISTRATION_KEY: &str = "auth_allow_user_registration";
+pub const AUTH_ALLOW_LOCAL_REGISTRATION_KEY: &str = "auth_allow_local_registration";
 pub const AUTH_REGISTER_ACTIVATION_ENABLED_KEY: &str = "auth_register_activation_enabled";
 pub const AUTH_REGISTER_ACTIVATION_TTL_SECS_KEY: &str = "auth_register_activation_ttl_secs";
 pub const AUTH_USER_INVITATION_TTL_SECS_KEY: &str = "auth_user_invitation_ttl_secs";
@@ -630,6 +631,18 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "Allow users to register after the initial setup",
         normalize_fn: Some(normalize_allow_user_registration),
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: AUTH_ALLOW_LOCAL_REGISTRATION_KEY,
+        label_i18n_key: "settings_item_auth_allow_local_registration_label",
+        description_i18n_key: "settings_item_auth_allow_local_registration_desc",
+        value_type: ConfigValueType::Boolean,
+        default_fn: || "true".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_AUTH_REGISTRATION,
+        description: "Allow user registration via username and password",
         ..ConfigDefinition::private_system()
     },
     ConfigDefinition {
