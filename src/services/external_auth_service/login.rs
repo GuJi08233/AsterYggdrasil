@@ -192,6 +192,7 @@ pub async fn finish_callback(
             provider.client_secret.as_deref().unwrap_or(""),
             code,
             &flow.redirect_uri,
+            flow.pkce_verifier.as_deref(),
         )
         .await?;
         linuxdo_metadata = linuxdo_trust_level_metadata(linuxdo_result.trust_level);
@@ -433,6 +434,7 @@ pub(super) async fn exchange_linuxdo_callback(
     client_secret: &str,
     code: &str,
     redirect_uri: &str,
+    pkce_verifier: Option<&str>,
 ) -> Result<LinuxDoExchangeResult> {
     let http_client = reqwest::Client::builder()
         .user_agent(OUTBOUND_HTTP_USER_AGENT)
@@ -440,13 +442,16 @@ pub(super) async fn exchange_linuxdo_callback(
         .map_err(|err| AsterError::internal_error(format!("failed to build HTTP client: {err}")))?;
 
     // Exchange code for access_token
-    let form_body = format!(
+    let mut form_body = format!(
         "client_id={}&client_secret={}&code={}&redirect_uri={}&grant_type=authorization_code",
         urlencoding::encode(client_id),
         urlencoding::encode(client_secret),
         urlencoding::encode(code),
         urlencoding::encode(redirect_uri),
     );
+    if let Some(verifier) = pkce_verifier {
+        form_body.push_str(&format!("&code_verifier={}", urlencoding::encode(verifier)));
+    }
     let token_response = http_client
         .post("https://connect.linux.do/oauth2/token")
         .header("Accept", "application/json")
