@@ -267,6 +267,8 @@ mod tests {
             texture_public_base_url: None,
             signature_public_key: public_key.to_string(),
             signature_private_key: private_key.to_string(),
+            max_profiles_per_user: 1,
+            max_profile_renames: 1,
         }
     }
 
