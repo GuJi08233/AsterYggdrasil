@@ -282,6 +282,47 @@ pub async fn finish_callback(
                 },
             ));
         }
+
+        // LinuxDO: auto-provision with a placeholder email so users can register
+        // without configuring SMTP. The placeholder email is internal-only and
+        // never receives real mail.
+        if provider.provider_kind == ExternalAuthProviderKind::LinuxDo
+            && provider.auto_provision_enabled
+        {
+            let placeholder_email = format!("linuxdo_{}@local.placeholder", user_claims.subject);
+            let mut linuxdo_claims = user_claims.clone();
+            linuxdo_claims.email = Some(placeholder_email);
+            linuxdo_claims.email_verified = true;
+
+            if let Some(resolved) = resolve_external_auth_user(
+                state,
+                &provider,
+                &linuxdo_claims,
+                linuxdo_metadata.as_deref(),
+            )
+            .await?
+            {
+                tracing::debug!(
+                    provider_id = provider.id,
+                    user_id = resolved.user.id,
+                    "LinuxDO auto-provisioned with placeholder email"
+                );
+                return Ok(ExternalAuthCallbackOutcome::Login(
+                    ExternalAuthCallbackResult {
+                        primary_login: ExternalAuthPrimaryLogin {
+                            user: resolved.user,
+                            return_path: flow.return_path.unwrap_or_else(|| "/".to_string()),
+                            provider_key: provider.key,
+                            issuer: linuxdo_claims.identity_namespace,
+                            subject: linuxdo_claims.subject,
+                            linked: resolved.linked,
+                            auto_provisioned: resolved.auto_provisioned,
+                        },
+                    },
+                ));
+            }
+        }
+
         if provider.provider_kind == ExternalAuthProviderKind::GitHub
             && provider.require_email_verified
         {
