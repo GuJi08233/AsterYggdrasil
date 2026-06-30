@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use chrono::{Duration, Utc};
 use sea_orm::ActiveValue::Set;
 use serde::Deserialize;
@@ -441,11 +442,14 @@ pub(super) async fn exchange_linuxdo_callback(
         .build()
         .map_err(|err| AsterError::internal_error(format!("failed to build HTTP client: {err}")))?;
 
-    // Exchange code for access_token
+    // Exchange code for access_token using HTTP Basic Authentication.
+    // LinuxDO requires client credentials in the Authorization header (RFC 6749 §2.3.1),
+    // not in the request body.
+    let credentials = format!("{client_id}:{client_secret}");
+    let basic_auth = base64::engine::general_purpose::STANDARD.encode(credentials.as_bytes());
+
     let mut form_body = format!(
-        "client_id={}&client_secret={}&code={}&redirect_uri={}&grant_type=authorization_code",
-        urlencoding::encode(client_id),
-        urlencoding::encode(client_secret),
+        "grant_type=authorization_code&code={}&redirect_uri={}",
         urlencoding::encode(code),
         urlencoding::encode(redirect_uri),
     );
@@ -454,6 +458,7 @@ pub(super) async fn exchange_linuxdo_callback(
     }
     let token_response = http_client
         .post("https://connect.linux.do/oauth2/token")
+        .header("Authorization", format!("Basic {basic_auth}"))
         .header("Accept", "application/json")
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(form_body)

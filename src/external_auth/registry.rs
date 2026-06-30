@@ -25,7 +25,7 @@ fn linuxdo_descriptor() -> ExternalAuthProviderDescriptor {
         token_url_required: false,
         userinfo_url_required: false,
         supports_discovery: false,
-        supports_pkce: false,
+        supports_pkce: true,
         supports_email_verified_claim: false,
     }
 }
