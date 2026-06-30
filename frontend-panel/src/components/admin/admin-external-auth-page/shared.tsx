@@ -466,9 +466,23 @@ function isRedactedSecret(value: string) {
 
 export function callbackUrl(provider: AdminExternalAuthProviderInfo) {
 	const origin = typeof window === "undefined" ? "" : window.location.origin;
+	// LinuxDO uses a fixed callback path (no provider_key in URL)
+	if (provider.provider_kind === "linuxdo") {
+		return `${origin}/api/v1/auth/external-auth/linuxdo/callback`;
+	}
 	return provider.key
 		? `${origin}/api/v1/auth/external-auth/${encodeURIComponent(provider.provider_kind)}/${encodeURIComponent(provider.key)}/callback`
 		: "";
+}
+
+/**
+ * Returns the fixed callback URL for provider kinds that use a fixed path
+ * (e.g., LinuxDO). Returns null for kinds that require a provider_key.
+ */
+export function fixedCallbackUrl(kind: ExternalAuthKind): string | null {
+	if (kind !== "linuxdo") return null;
+	const origin = typeof window === "undefined" ? "" : window.location.origin;
+	return `${origin}/api/v1/auth/external-auth/linuxdo/callback`;
 }
 
 export function requiredFieldsMissing(

@@ -35,6 +35,7 @@ import {
 	type ExternalAuthProviderFieldChange,
 	type ExternalAuthProviderFormData,
 	ExternalAuthProviderIcon,
+	fixedCallbackUrl,
 	kindDescription,
 	kindDisplayName,
 	MICROSOFT_CUSTOM_TENANT_MODE,
@@ -437,22 +438,30 @@ function ProviderFormFields({
 							)}
 						</p>
 					</div>
-					{provider ? (
-						<Field label={t("admin.externalAuth.callbackUrl")}>
-							<div className="flex min-w-0 gap-2">
-								<Input readOnly value={callbackUrl(provider)} />
-								<Button
-									type="button"
-									variant="outline"
-									size="icon"
-									onClick={() => onCopyCallbackUrl(callbackUrl(provider))}
-									aria-label={t("admin.externalAuth.copyCallback")}
-								>
-									<Icon name="Copy" className="size-4" />
-								</Button>
-							</div>
-						</Field>
-					) : null}
+					{(() => {
+						const url = provider
+							? callbackUrl(provider)
+							: fixedCallbackUrl(form.providerKind);
+						return url ? (
+							<Field label={t("admin.externalAuth.callbackUrl")}>
+								<div className="flex min-w-0 gap-2">
+									<Input readOnly value={url} />
+									<Button
+										type="button"
+										variant="outline"
+										size="icon"
+										onClick={() => onCopyCallbackUrl(url)}
+										aria-label={t("admin.externalAuth.copyCallback")}
+									>
+										<Icon name="Copy" className="size-4" />
+									</Button>
+								</div>
+								<p className="text-xs leading-5 text-muted-foreground">
+									{t("admin.externalAuth.callbackUrlHint")}
+								</p>
+							</Field>
+						) : null;
+					})()}
 					<div className="flex min-w-0 flex-wrap items-center gap-3">
 						<Button
 							type="button"

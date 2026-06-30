@@ -45,7 +45,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     .route("/{id}", web::delete().to(delete_link)),
             )
             .route("/{kind}/{provider}/start", web::post().to(start_login))
-            .route("/{kind}/{provider}/callback", web::get().to(finish_login)),
+            .route("/{kind}/{provider}/callback", web::get().to(finish_login))
+            .route("/{kind}/callback", web::get().to(finish_login_auto_resolve)),
     );
 }
 
@@ -219,7 +220,87 @@ pub async fn finish_login(
     let outcome = match external_auth_service::finish_callback(
         state.get_ref(),
         kind,
-        &provider,
+        Some(&provider),
+        &query,
+        None,
+        None,
+    )
+    .await
+    {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            return Ok(external_auth_error_redirect_response(
+                state.get_ref(),
+                &error,
+            ));
+        }
+    };
+    match outcome {
+        external_auth_service::ExternalAuthCallbackOutcome::Login(result) => {
+            let session = auth_service::issue_tokens_for_user(
+                state.get_ref(),
+                result.primary_login.user,
+                &req,
+            )
+            .await?;
+            let redirect_path = if matches!(
+                session.status,
+                auth_service::AuthTokenStatus::PasswordChangeRequired
+            ) {
+                "/force-password-change"
+            } else {
+                &result.primary_login.return_path
+            };
+            let redirect_url = add_auth_redirect_status(
+                site_url::public_app_url_or_path(state.get_ref().runtime_config(), redirect_path),
+                AUTH_REDIRECT_LOGIN_SUCCESS,
+            );
+            Ok(super::auth::authenticated_redirect_response(
+                state.get_ref(),
+                session,
+                redirect_url,
+            )?)
+        }
+        external_auth_service::ExternalAuthCallbackOutcome::EmailVerificationRequired(pending) => {
+            Ok(external_auth_email_required_redirect_response(
+                state.get_ref(),
+                &pending.flow_token,
+                &pending.return_path,
+            ))
+        }
+    }
+}
+
+/// Fixed callback route for specialized providers (e.g., LinuxDO).
+///
+/// Resolves the provider automatically from the login flow's `state` parameter,
+/// without requiring `provider_key` in the URL path.
+pub async fn finish_login_auto_resolve(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<String>,
+    query: web::Query<ExternalAuthCallbackQuery>,
+) -> Result<HttpResponse> {
+    validate_request(&*query)?;
+    let kind = match parse_kind(&path) {
+        Ok(kind) => kind,
+        Err(error) => {
+            return Ok(external_auth_error_redirect_response(
+                state.get_ref(),
+                &error,
+            ));
+        }
+    };
+    let query = external_auth_service::ExternalAuthCallbackQuery {
+        code: query.code.clone(),
+        state: query.state.clone(),
+        error: query.error.clone(),
+        error_description: query.error_description.clone(),
+    };
+    let outcome = match external_auth_service::finish_callback(
+        state.get_ref(),
+        kind,
+        None,
         &query,
         None,
         None,

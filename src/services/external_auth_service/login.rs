@@ -100,7 +100,7 @@ pub async fn start_login(
 pub async fn finish_callback(
     state: &impl SharedRuntimeState,
     provider_kind: ExternalAuthProviderKind,
-    provider_key: &str,
+    provider_key: Option<&str>,
     query: &ExternalAuthCallbackQuery,
     _ip_address: Option<&str>,
     _user_agent: Option<&str>,
@@ -157,18 +157,20 @@ pub async fn finish_callback(
             "external auth callback provider kind does not match login flow",
         ));
     }
-    let expected_key = normalize_key(provider_key)?;
-    if provider.key != expected_key {
-        tracing::debug!(
-            flow_id = flow.id,
-            provider_id = provider.id,
-            expected_provider_key = %provider.key,
-            actual_provider_key = %expected_key,
-            "external auth callback rejected provider key mismatch"
-        );
-        return Err(AsterError::auth_invalid_credentials(
-            "external auth callback provider does not match login flow",
-        ));
+    if let Some(provider_key) = provider_key {
+        let expected_key = normalize_key(provider_key)?;
+        if provider.key != expected_key {
+            tracing::debug!(
+                flow_id = flow.id,
+                provider_id = provider.id,
+                expected_provider_key = %provider.key,
+                actual_provider_key = %expected_key,
+                "external auth callback rejected provider key mismatch"
+            );
+            return Err(AsterError::auth_invalid_credentials(
+                "external auth callback provider does not match login flow",
+            ));
+        }
     }
     if !provider.enabled {
         tracing::debug!(

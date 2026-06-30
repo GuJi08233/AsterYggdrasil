@@ -134,6 +134,11 @@ pub(super) fn normalize_email_for_external_auth(value: &str) -> Result<String> {
 }
 
 fn callback_path(provider_kind: ExternalAuthProviderKind, provider_key: &str) -> String {
+    // LinuxDO uses a fixed callback path (no provider_key) because only one
+    // LinuxDO provider can exist and the key is not needed for resolution.
+    if provider_kind == ExternalAuthProviderKind::LinuxDo {
+        return "/api/v1/auth/external-auth/linuxdo/callback".to_string();
+    }
     format!(
         "/api/v1/auth/external-auth/{}/{provider_key}/callback",
         provider_kind.as_str()
