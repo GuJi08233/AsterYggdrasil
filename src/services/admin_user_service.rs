@@ -185,6 +185,7 @@ fn normalize_update_role_and_scopes(
 
 fn validate_identity_input(username: &str, email: &str, password: &str) -> Result<String> {
     auth_service::validate_username(username)?;
+    auth_service::validate_reserved_username(username)?;
     let email = normalize_email(email)?;
     auth_service::validate_password(password)?;
     Ok(email)
@@ -362,6 +363,7 @@ where
     let normalized_username = username
         .map(|value| {
             auth_service::validate_username(&value)?;
+            auth_service::validate_reserved_username(&value)?;
             Ok::<_, AsterError>(value.trim().to_string())
         })
         .transpose()?;

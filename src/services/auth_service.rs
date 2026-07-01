@@ -389,6 +389,7 @@ where
                     status: UserStatus::Active,
                     must_change_password: false,
                     email_verified_at: None,
+                    allow_reserved_linuxdo_username: false,
                 },
             )
             .await?;
@@ -949,6 +950,7 @@ async fn create_user_with_options<C: ConnectionTrait>(
 ) -> Result<user::Model> {
     tracing::debug!(username, role = ?role, "creating user record");
     let email = validate_identity_input(username, email, password)?;
+    validate_reserved_username(username)?;
     shared::ensure_username_available(db, username, None).await?;
     let password_hash = hash_password(password)?;
     let user = user_repo::create_with_options(
@@ -983,6 +985,19 @@ pub fn validate_username(username: &str) -> Result<()> {
     {
         return Err(AsterError::validation_error(
             "username may only contain letters, numbers, underscores and hyphens",
+        ));
+    }
+    Ok(())
+}
+
+pub fn validate_reserved_username(username: &str) -> Result<()> {
+    let username = username.trim();
+    let Some(subject) = username.strip_prefix("linuxdo_") else {
+        return Ok(());
+    };
+    if !subject.is_empty() && subject.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(AsterError::validation_error(
+            "username is reserved for LinuxDO identities",
         ));
     }
     Ok(())
@@ -1616,6 +1631,7 @@ pub mod shared {
         pub status: UserStatus,
         pub must_change_password: bool,
         pub email_verified_at: Option<chrono::DateTime<Utc>>,
+        pub allow_reserved_linuxdo_username: bool,
     }
 
     pub async fn find_user_by_identifier<C: ConnectionTrait>(
@@ -1660,6 +1676,9 @@ pub mod shared {
         S: RuntimeConfigRuntimeState + ?Sized,
     {
         validate_username(input.username)?;
+        if !input.allow_reserved_linuxdo_username {
+            super::validate_reserved_username(input.username)?;
+        }
         let email = normalize_email(input.email)?;
         validate_email(&email)?;
         validate_password(input.password)?;
@@ -1704,6 +1723,7 @@ pub mod shared {
         pub role: UserRole,
         pub status: UserStatus,
         pub must_change_password: bool,
+        pub allow_reserved_linuxdo_username: bool,
     }
 
     pub async fn create_user_without_email_with_role<C, S>(
@@ -1716,6 +1736,9 @@ pub mod shared {
         S: RuntimeConfigRuntimeState + ?Sized,
     {
         validate_username(input.username)?;
+        if !input.allow_reserved_linuxdo_username {
+            super::validate_reserved_username(input.username)?;
+        }
         validate_password(input.password)?;
 
         ensure_username_available(db, input.username, None).await?;

@@ -2081,6 +2081,10 @@ async fn auth_register_enforces_username_policy_boundaries() {
             "用户名",
             "username may only contain letters, numbers, underscores and hyphens",
         ),
+        (
+            "linuxdo_148720",
+            "username is reserved for LinuxDO identities",
+        ),
     ]
     .into_iter()
     .enumerate()
@@ -2245,6 +2249,27 @@ async fn admin_create_user_uses_auth_username_and_password_policy() {
             .as_str()
             .unwrap_or_default()
             .contains("password must be 8-128 characters")
+    );
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/admin/users")
+        .insert_header(("Cookie", common::access_cookie_header(&token)))
+        .insert_header(common::csrf_header_for(&token))
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .set_json(serde_json::json!({
+            "username": "linuxdo_148720",
+            "email": "linuxdo-148720@example.com",
+            "password": "password1234"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert!(
+        body["msg"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("username is reserved for LinuxDO identities")
     );
 }
 

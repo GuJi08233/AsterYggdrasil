@@ -1152,6 +1152,7 @@ pub async fn create_external_auth_linked_user_without_email(
             role: UserRole::User,
             status: UserStatus::Active,
             must_change_password: false,
+            allow_reserved_linuxdo_username: false,
         },
     )
     .await

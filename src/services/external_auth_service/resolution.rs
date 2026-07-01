@@ -339,6 +339,8 @@ async fn create_external_auth_user_and_identity(
                     status: UserStatus::Active,
                     must_change_password: false,
                     email_verified_at: claims.email_verified.then_some(now),
+                    allow_reserved_linuxdo_username: provider.provider_kind
+                        == ExternalAuthProviderKind::LinuxDo,
                 },
             )
             .await?;
@@ -408,6 +410,8 @@ pub(super) async fn resolve_external_auth_user_without_email(
                     role: UserRole::User,
                     status: UserStatus::Active,
                     must_change_password: false,
+                    allow_reserved_linuxdo_username: provider.provider_kind
+                        == ExternalAuthProviderKind::LinuxDo,
                 },
             )
             .await?;
@@ -490,6 +494,8 @@ async fn create_external_auth_user_and_identity_in_connection<C: sea_orm::Connec
                 status: UserStatus::Active,
                 must_change_password: false,
                 email_verified_at: Some(now),
+                allow_reserved_linuxdo_username: provider.provider_kind
+                    == ExternalAuthProviderKind::LinuxDo,
             },
         )
         .await

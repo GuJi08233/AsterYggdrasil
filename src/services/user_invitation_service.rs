@@ -203,6 +203,7 @@ where
                 status: UserStatus::Active,
                 must_change_password: false,
                 email_verified_at: Some(Utc::now()),
+                allow_reserved_linuxdo_username: false,
             },
         )
         .await?;
