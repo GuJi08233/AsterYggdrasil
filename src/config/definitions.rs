@@ -643,6 +643,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_AUTH_REGISTRATION,
         description: "Allow user registration via username and password",
+        normalize_fn: Some(normalize_auth_bool),
         ..ConfigDefinition::private_system()
     },
     ConfigDefinition {
@@ -650,7 +651,7 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         label_i18n_key: "settings_item_auth_register_activation_enabled_label",
         description_i18n_key: "settings_item_auth_register_activation_enabled_desc",
         value_type: ConfigValueType::Boolean,
-        default_fn: || "false".to_string(),
+        default_fn: || "true".to_string(),
         requires_restart: false,
         is_sensitive: false,
         category: CONFIG_CATEGORY_AUTH_REGISTRATION,
@@ -2134,6 +2135,8 @@ mod tests {
             empty_origin_list_default()
         );
         assert_eq!(by_key[AUTH_COOKIE_SECURE_KEY].value, "true");
+        assert_eq!(by_key[AUTH_ALLOW_LOCAL_REGISTRATION_KEY].value, "true");
+        assert_eq!(by_key[AUTH_REGISTER_ACTIVATION_ENABLED_KEY].value, "true");
         assert_eq!(by_key[YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY].value, "");
         assert_eq!(by_key[YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY].value, "");
     }
@@ -2144,6 +2147,7 @@ mod tests {
             PUBLIC_SITE_URL_KEY,
             BRANDING_TITLE_KEY,
             AUTH_COOKIE_SECURE_KEY,
+            AUTH_ALLOW_LOCAL_REGISTRATION_KEY,
             AUTH_ACCESS_TOKEN_TTL_SECS_KEY,
             AUTH_CAPTCHA_PRESET_KEY,
             AUTH_LOCAL_EMAIL_ALLOWLIST_KEY,

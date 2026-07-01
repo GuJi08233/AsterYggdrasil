@@ -10,6 +10,7 @@ use crate::entities::{
 use crate::errors::{AsterError, Result, auth_forbidden_with_code};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service;
+use crate::types::external_auth::ExternalAuthProviderKind;
 use crate::types::user::{UserRole, UserStatus};
 use aster_forge_crypto as hash;
 use aster_forge_external_auth::ExternalAuthProfile;
@@ -22,6 +23,7 @@ pub(super) type ExternalAuthUserClaims = ExternalAuthProfile;
 const UNIQUE_USERNAME_MAX_ATTEMPTS: usize = 5;
 const UNIQUE_USERNAME_SUFFIX_LEN: usize = 6;
 const UNIQUE_USERNAME_SUFFIX_CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+const LINUXDO_USERNAME_PREFIX: &str = "linuxdo_";
 
 #[derive(Debug)]
 pub(super) struct ResolvedExternalAuthUser {
@@ -141,6 +143,40 @@ fn external_auth_username_candidate(base: &str, attempt: usize) -> String {
         stem = "oidc".to_string();
     }
     format!("{stem}-{suffix}")
+}
+
+fn linuxdo_subject_username_candidate(claims: &ExternalAuthUserClaims) -> Option<String> {
+    let mut subject = sanitize_username_piece(&claims.subject);
+    if subject.is_empty() {
+        return None;
+    }
+
+    let subject_max_len = USERNAME_MAX_LEN.saturating_sub(LINUXDO_USERNAME_PREFIX.len());
+    if subject.len() > subject_max_len {
+        subject.truncate(subject_max_len);
+    }
+
+    Some(format!("{LINUXDO_USERNAME_PREFIX}{subject}")).filter(|candidate| {
+        candidate.len() >= USERNAME_MIN_LEN && candidate.len() <= USERNAME_MAX_LEN
+    })
+}
+
+fn external_auth_username_candidate_for_provider(
+    provider: &external_auth_provider::Model,
+    claims: &ExternalAuthUserClaims,
+    base: &str,
+    attempt: usize,
+) -> String {
+    if provider.provider_kind != ExternalAuthProviderKind::LinuxDo {
+        return external_auth_username_candidate(base, attempt);
+    }
+
+    match attempt {
+        0 => base.to_string(),
+        1 => linuxdo_subject_username_candidate(claims)
+            .unwrap_or_else(|| external_auth_username_candidate(base, attempt)),
+        _ => external_auth_username_candidate(base, attempt - 1),
+    }
 }
 
 fn external_auth_username_conflict(err: &AsterError) -> bool {
@@ -280,7 +316,12 @@ async fn create_external_auth_user_and_identity(
 
     let username_base = external_auth_username_base(claims);
     for attempt in 0..UNIQUE_USERNAME_MAX_ATTEMPTS {
-        let username = external_auth_username_candidate(&username_base, attempt);
+        let username = external_auth_username_candidate_for_provider(
+            provider,
+            claims,
+            &username_base,
+            attempt,
+        );
         let password = random_internal_password();
 
         let txn = crate::db::transaction::begin(state.writer_db()).await?;
@@ -351,7 +392,12 @@ pub(super) async fn resolve_external_auth_user_without_email(
 
     let username_base = external_auth_username_base(claims);
     for attempt in 0..UNIQUE_USERNAME_MAX_ATTEMPTS {
-        let username = external_auth_username_candidate(&username_base, attempt);
+        let username = external_auth_username_candidate_for_provider(
+            provider,
+            claims,
+            &username_base,
+            attempt,
+        );
         let password = random_internal_password();
 
         let txn = crate::db::transaction::begin(state.writer_db()).await?;
@@ -429,7 +475,12 @@ async fn create_external_auth_user_and_identity_in_connection<C: sea_orm::Connec
 
     let username_base = external_auth_username_base(claims);
     for attempt in 0..UNIQUE_USERNAME_MAX_ATTEMPTS {
-        let username = external_auth_username_candidate(&username_base, attempt);
+        let username = external_auth_username_candidate_for_provider(
+            provider,
+            claims,
+            &username_base,
+            attempt,
+        );
         let password = random_internal_password();
         match auth_service::shared::create_user_with_role(
             db,

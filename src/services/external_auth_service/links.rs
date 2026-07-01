@@ -5,8 +5,9 @@ use crate::db::repository::{
     external_auth_login_flow_repo, external_auth_provider_repo,
 };
 use crate::entities::{external_auth_identity, external_auth_provider};
-use crate::errors::Result;
+use crate::errors::{AsterError, Result};
 use crate::runtime::SharedRuntimeState;
+use crate::types::external_auth::ExternalAuthProviderKind;
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 
 use super::ExternalAuthLinkInfo;
@@ -102,6 +103,19 @@ fn link_to_info(
 }
 
 pub async fn delete_link(state: &impl SharedRuntimeState, user_id: i64, id: i64) -> Result<bool> {
+    let Some(identity) =
+        external_auth_identity_repo::find_by_id_for_user(state.writer_db(), id, user_id).await?
+    else {
+        return Ok(false);
+    };
+    let provider =
+        external_auth_provider_repo::find_by_id(state.writer_db(), identity.provider_id).await?;
+    if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
+        return Err(AsterError::auth_forbidden(
+            "LinuxDO external identity cannot be unlinked",
+        ));
+    }
+
     external_auth_identity_repo::delete_for_user(state.writer_db(), id, user_id).await
 }
 

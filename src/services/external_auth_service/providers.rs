@@ -171,12 +171,13 @@ fn admin_manual_endpoint(
     value: Option<String>,
 ) -> Option<String> {
     match provider_kind {
-        ExternalAuthProviderKind::Oidc | ExternalAuthProviderKind::GenericOAuth2 => value,
+        ExternalAuthProviderKind::Oidc
+        | ExternalAuthProviderKind::GenericOAuth2
+        | ExternalAuthProviderKind::LinuxDo => value,
         ExternalAuthProviderKind::GitHub
         | ExternalAuthProviderKind::Google
         | ExternalAuthProviderKind::Microsoft
-        | ExternalAuthProviderKind::Qq
-        | ExternalAuthProviderKind::LinuxDo => None,
+        | ExternalAuthProviderKind::Qq => None,
     }
 }
 

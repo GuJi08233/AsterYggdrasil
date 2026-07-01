@@ -491,12 +491,8 @@ async fn auth_setup_saves_public_site_url_to_runtime_config() {
 }
 
 #[actix_web::test]
-async fn register_with_activation_requires_email_confirmation_before_login() {
+async fn register_defaults_to_activation_and_requires_email_confirmation_before_login() {
     let state = common::setup().await;
-    state.runtime_config.apply(common::system_config_model(
-        aster_yggdrasil::config::auth_runtime::AUTH_REGISTER_ACTIVATION_ENABLED_KEY,
-        "true",
-    ));
     state.runtime_config.apply(common::system_config_model(
         aster_yggdrasil::config::site_url::PUBLIC_SITE_URL_KEY,
         r#"["http://localhost:8080"]"#,

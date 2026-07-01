@@ -7,6 +7,7 @@ mod external_auth;
 
 use actix_web::http::StatusCode;
 use actix_web::test;
+use aster_yggdrasil::api::error_code::AsterErrorCode;
 use aster_yggdrasil::db::repository::external_auth_provider_repo;
 use aster_yggdrasil::entities::{external_auth_identity, user};
 use external_auth::oauth2::*;
@@ -1135,6 +1136,73 @@ async fn linuxdo_auto_provision_without_email_ignores_allowed_domains() {
         .expect("user should query")
         .expect("user should exist");
     assert_eq!(user.email.as_deref(), None);
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn linuxdo_username_conflict_uses_subject_fallback_and_link_cannot_be_deleted() {
+    let (mock_provider, server) = start_mock_oauth2_provider().await;
+    mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
+    mock_provider.set_linuxdo_user(441567, "takenuser", Some(3));
+
+    let state = common::setup().await;
+    configure_oauth2_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let (admin_token, _) = register_and_login!(app);
+    let _existing_user_id = admin_create_user!(
+        app,
+        admin_token,
+        "takenuser",
+        "takenuser@example.com",
+        "password1234"
+    );
+    let provider =
+        linuxdo_external_auth_provider_model("linuxdo-conflict", &mock_provider.base_url, true, 0)
+            .insert(state.writer_db())
+            .await
+            .expect("LinuxDo provider should insert");
+
+    let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
+    let resp = finish_linuxdo_callback(&app, &state_value).await;
+
+    assert_eq!(resp.status(), 302);
+    let access_token =
+        common::extract_cookie(&resp, "aster_access").expect("LinuxDo login should set cookie");
+    let identities = external_auth_identity::Entity::find()
+        .all(state.writer_db())
+        .await
+        .expect("identities should query");
+    assert_eq!(identities.len(), 1);
+    let identity = &identities[0];
+    assert_eq!(identity.subject, "441567");
+    assert_eq!(identity.email_snapshot.as_deref(), None);
+    let identity_id = identity.id;
+    let linuxdo_user_id = identity.user_id;
+
+    let linuxdo_user = user::Entity::find_by_id(linuxdo_user_id)
+        .one(state.writer_db())
+        .await
+        .expect("LinuxDo user should query")
+        .expect("LinuxDo user should exist");
+    assert_eq!(linuxdo_user.username, "linuxdo_441567");
+    assert_eq!(linuxdo_user.email.as_deref(), None);
+
+    let req = test::TestRequest::delete()
+        .uri(&format!("/api/v1/auth/external-auth/links/{identity_id}"))
+        .insert_header(("Cookie", common::access_cookie_header(&access_token)))
+        .insert_header(common::csrf_header_for(&access_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], AsterErrorCode::Forbidden.as_str());
+
+    let identity = external_auth_identity::Entity::find_by_id(identity_id)
+        .one(state.writer_db())
+        .await
+        .expect("LinuxDo identity should query");
+    assert!(identity.is_some());
 
     server.stop(true).await;
 }
