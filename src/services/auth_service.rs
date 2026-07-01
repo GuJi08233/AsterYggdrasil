@@ -949,6 +949,7 @@ async fn create_user_with_options<C: ConnectionTrait>(
 ) -> Result<user::Model> {
     tracing::debug!(username, role = ?role, "creating user record");
     let email = validate_identity_input(username, email, password)?;
+    shared::ensure_username_available(db, username, None).await?;
     let password_hash = hash_password(password)?;
     let user = user_repo::create_with_options(
         db,
@@ -1602,7 +1603,7 @@ pub mod shared {
 
     use super::{validate_email, validate_password, validate_username};
     use crate::api::error_code::AsterErrorCode;
-    use crate::db::repository::user_repo;
+    use crate::db::repository::{minecraft_profile_repo, user_repo};
     use crate::entities::user;
     use crate::errors::{AsterError, Result};
     use crate::runtime::RuntimeConfigRuntimeState;
@@ -1624,6 +1625,31 @@ pub mod shared {
         user_repo::find_by_identifier(db, identifier).await
     }
 
+    pub async fn ensure_username_available<C: ConnectionTrait>(
+        db: &C,
+        username: &str,
+        owner_user_id: Option<i64>,
+    ) -> Result<()> {
+        if let Some(existing) = user_repo::find_by_username_case_insensitive(db, username).await?
+            && Some(existing.id) != owner_user_id
+        {
+            return Err(username_exists_error());
+        }
+        if let Some(existing_profile) = minecraft_profile_repo::find_by_name(db, username).await?
+            && Some(existing_profile.user_id) != owner_user_id
+        {
+            return Err(username_exists_error());
+        }
+        Ok(())
+    }
+
+    fn username_exists_error() -> AsterError {
+        AsterError::validation_error_code(
+            AsterErrorCode::AuthUsernameExists,
+            "username already exists",
+        )
+    }
+
     pub async fn create_user_with_role<C, S>(
         db: &C,
         _state: &S,
@@ -1638,15 +1664,7 @@ pub mod shared {
         validate_email(&email)?;
         validate_password(input.password)?;
 
-        if user_repo::find_by_username(db, input.username)
-            .await?
-            .is_some()
-        {
-            return Err(AsterError::validation_error_code(
-                AsterErrorCode::AuthUsernameExists,
-                "username already exists",
-            ));
-        }
+        ensure_username_available(db, input.username, None).await?;
         if user_repo::find_by_email(db, &email).await?.is_some()
             || user_repo::find_by_pending_email(db, &email)
                 .await?
@@ -1700,15 +1718,7 @@ pub mod shared {
         validate_username(input.username)?;
         validate_password(input.password)?;
 
-        if user_repo::find_by_username(db, input.username)
-            .await?
-            .is_some()
-        {
-            return Err(AsterError::validation_error_code(
-                AsterErrorCode::AuthUsernameExists,
-                "username already exists",
-            ));
-        }
+        ensure_username_available(db, input.username, None).await?;
 
         let now = Utc::now();
         let public_uuid = user_repo::unique_public_uuid(db).await?;

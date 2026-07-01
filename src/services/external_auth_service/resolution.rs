@@ -171,12 +171,9 @@ fn external_auth_username_candidate_for_provider(
         return external_auth_username_candidate(base, attempt);
     }
 
-    match attempt {
-        0 => base.to_string(),
-        1 => linuxdo_subject_username_candidate(claims)
-            .unwrap_or_else(|| external_auth_username_candidate(base, attempt)),
-        _ => external_auth_username_candidate(base, attempt - 1),
-    }
+    let linuxdo_username =
+        linuxdo_subject_username_candidate(claims).unwrap_or_else(|| base.to_string());
+    external_auth_username_candidate(&linuxdo_username, attempt)
 }
 
 fn external_auth_username_conflict(err: &AsterError) -> bool {

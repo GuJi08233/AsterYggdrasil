@@ -11,7 +11,8 @@ use aster_forge_db::search_query;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set, sea_query::Expr,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    sea_query::{Expr, Func},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -102,6 +103,20 @@ pub async fn find_by_username<C: ConnectionTrait>(
 ) -> Result<Option<user::Model>> {
     User::find()
         .filter(user::Column::Username.eq(username))
+        .one(db)
+        .await
+        .map_aster_err(AsterError::database_operation)
+}
+
+pub async fn find_by_username_case_insensitive<C: ConnectionTrait>(
+    db: &C,
+    username: &str,
+) -> Result<Option<user::Model>> {
+    User::find()
+        .filter(
+            Expr::expr(Func::lower(Expr::col(user::Column::Username)))
+                .eq(username.to_ascii_lowercase()),
+        )
         .one(db)
         .await
         .map_aster_err(AsterError::database_operation)

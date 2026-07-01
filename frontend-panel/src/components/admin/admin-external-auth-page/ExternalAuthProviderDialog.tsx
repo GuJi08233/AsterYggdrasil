@@ -428,6 +428,23 @@ function ProviderFormFields({
 							{t("admin.externalAuth.linuxdoMinTrustLevelHint")}
 						</p>
 					</Field>
+					<div className="flex items-start gap-3">
+						<Switch
+							id="external-auth-linuxdo-auto-create-profile"
+							checked={form.linuxdoAutoCreateProfile}
+							onCheckedChange={(value) =>
+								onFieldChange("linuxdoAutoCreateProfile", value)
+							}
+						/>
+						<div className="space-y-1">
+							<Label htmlFor="external-auth-linuxdo-auto-create-profile">
+								{t("admin.externalAuth.linuxdoAutoCreateProfile")}
+							</Label>
+							<p className="text-sm text-muted-foreground">
+								{t("admin.externalAuth.linuxdoAutoCreateProfileHint")}
+							</p>
+						</div>
+					</div>
 					<div className="rounded-lg border border-border/70 bg-muted/25 p-4">
 						<p className="text-sm font-medium">
 							{t("admin.externalAuth.fixedConnection.title")}

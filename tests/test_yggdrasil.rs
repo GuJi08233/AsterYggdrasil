@@ -1726,6 +1726,114 @@ async fn minecraft_profile_duplicate_names_are_rejected_until_deleted() {
 }
 
 #[actix_web::test]
+async fn account_and_profile_names_do_not_shadow_across_users() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let admin_access = setup_admin!(app);
+    let _target_id = admin_create_user!(
+        app,
+        admin_access,
+        "targetuser",
+        "targetuser@example.com",
+        "password1234"
+    );
+    let _other_id = admin_create_user!(
+        app,
+        admin_access,
+        "otheruser",
+        "otheruser@example.com",
+        "password1234"
+    );
+    let target_access = login_user!(app, "targetuser", "password1234");
+    let other_access = login_user!(app, "otheruser", "password1234");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&other_access))
+        .set_json(serde_json::json!({ "name": "TargetUser" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let other_profile = create_profile!(app, &other_access, "OtherName");
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{other_profile}/name"))
+        .insert_header(common::bearer_header(&other_access))
+        .set_json(serde_json::json!({ "name": "TargetUser" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_taken");
+
+    let own_profile = create_profile!(app, &target_access, "targetuser");
+    assert!(!own_profile.is_empty());
+
+    let _profile_owner_id = admin_create_user!(
+        app,
+        admin_access,
+        "profileowner",
+        "profileowner@example.com",
+        "password1234"
+    );
+    let profile_owner_access = login_user!(app, "profileowner", "password1234");
+    let _profile = create_profile!(app, &profile_owner_access, "Steve");
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/register")
+        .set_json(serde_json::json!({
+            "username": "steve",
+            "email": "steve@example.com",
+            "password": "password1234"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "auth.username_exists");
+}
+
+#[actix_web::test]
+async fn linuxdo_subject_profile_names_are_reserved_for_system_fallbacks() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "linuxdo_148720" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert!(
+        body["msg"]
+            .as_str()
+            .unwrap()
+            .contains("reserved for LinuxDO fallback identities")
+    );
+
+    let profile_id = create_profile!(app, &access, "RegularName");
+    let req = test::TestRequest::put()
+        .uri(&format!("/api/v1/profiles/minecraft/{profile_id}/name"))
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "linuxdo_148720" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert!(
+        body["msg"]
+            .as_str()
+            .unwrap()
+            .contains("reserved for LinuxDO fallback identities")
+    );
+}
+
+#[actix_web::test]
 async fn minecraft_profile_rename_updates_name_and_temporarily_invalidates_bound_tokens() {
     let state = setup_yggdrasil_with_memory_cache().await;
     let app = create_test_app!(state.clone());
@@ -1880,12 +1988,14 @@ async fn minecraft_profile_rename_rejects_invalid_duplicate_missing_and_foreign_
     let access = setup_admin!(app);
     let first_profile = create_profile!(app, &access, "RenameOne");
     let second_profile = create_profile!(app, &access, "RenameTwo");
-    let user_access = register_user!(
+    let _user_id = admin_create_user!(
         app,
+        access,
         "rename-user",
         "rename-user@example.com",
         "password1234"
     );
+    let user_access = login_user!(app, "rename-user", "password1234");
 
     let req = test::TestRequest::put()
         .uri(&format!("/api/v1/profiles/minecraft/{first_profile}/name"))

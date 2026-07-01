@@ -1,6 +1,6 @@
 use crate::api::dto::yggdrasil::YggdrasilProfile;
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
-use crate::db::repository::{minecraft_profile_repo, yggdrasil_token_repo};
+use crate::db::repository::{minecraft_profile_repo, user_repo, yggdrasil_token_repo};
 use crate::entities::minecraft_profile;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{
@@ -69,6 +69,19 @@ pub async fn create_profile<S>(
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
+    create_profile_inner(state, user_id, user_role, name, false).await
+}
+
+async fn create_profile_inner<S>(
+    state: &S,
+    user_id: i64,
+    user_role: crate::types::user::UserRole,
+    name: &str,
+    allow_reserved_linuxdo_name: bool,
+) -> Result<minecraft_profile::Model>
+where
+    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+{
     tracing::debug!(user_id, name_len = name.len(), "creating minecraft profile");
     ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
         .await?;
@@ -90,10 +103,8 @@ where
         }
     }
     validate_profile_name(name)?;
-    if minecraft_profile_repo::find_by_name(state.reader_db(), name)
-        .await?
-        .is_some()
-    {
+    validate_reserved_profile_name(name, allow_reserved_linuxdo_name)?;
+    if profile_name_taken(state.reader_db(), name, user_id, None).await? {
         tracing::debug!(
             user_id,
             profile_name = name,
@@ -194,6 +205,7 @@ where
     ban_service::ensure_user_not_banned(state, user_id, UserBanScope::MinecraftProfileManage)
         .await?;
     validate_profile_name(new_name)?;
+    validate_reserved_profile_name(new_name, false)?;
     let Some(profile) =
         minecraft_profile_repo::find_by_uuid_for_user(state.reader_db(), uuid, user_id).await?
     else {
@@ -216,6 +228,7 @@ where
     S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
     validate_profile_name(new_name)?;
+    validate_reserved_profile_name(new_name, false)?;
     let policy = RuntimeYggdrasilPolicy::from_runtime_config(state.runtime_config());
     if u64::try_from(profile.rename_count).unwrap_or(0) >= policy.max_profile_renames {
         tracing::debug!(
@@ -243,8 +256,14 @@ where
         });
     }
 
-    let existing = minecraft_profile_repo::find_by_name(state.reader_db(), new_name).await?;
-    if existing.is_some_and(|existing| existing.id != profile.id) {
+    if profile_name_taken(
+        state.reader_db(),
+        new_name,
+        profile.user_id,
+        Some(profile.id),
+    )
+    .await?
+    {
         tracing::debug!(
             profile_id = profile.id,
             profile_uuid = %profile.uuid,
@@ -305,6 +324,41 @@ pub fn validate_profile_name(name: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_reserved_profile_name(name: &str, allow_reserved_linuxdo_name: bool) -> Result<()> {
+    if !allow_reserved_linuxdo_name && is_reserved_linuxdo_profile_name(name) {
+        return Err(AsterError::validation_error(
+            "profile name is reserved for LinuxDO fallback identities",
+        ));
+    }
+    Ok(())
+}
+
+fn is_reserved_linuxdo_profile_name(name: &str) -> bool {
+    let Some(subject) = name.strip_prefix("linuxdo_") else {
+        return false;
+    };
+    !subject.is_empty() && subject.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+async fn profile_name_taken<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    name: &str,
+    owner_user_id: i64,
+    exclude_profile_id: Option<i64>,
+) -> Result<bool> {
+    if let Some(existing_profile) = minecraft_profile_repo::find_by_name(db, name).await?
+        && Some(existing_profile.id) != exclude_profile_id
+    {
+        return Ok(true);
+    }
+    if let Some(existing_user) = user_repo::find_by_username_case_insensitive(db, name).await?
+        && existing_user.id != owner_user_id
+    {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
 /// Sanitize an external auth username into a valid Minecraft profile name.
 ///
 /// Replaces invalid characters with underscores, truncates to 16 chars,
@@ -361,11 +415,25 @@ pub async fn create_profile_for_external_auth<S>(
     user_id: i64,
     user_role: crate::types::user::UserRole,
     external_username: &str,
+    fallback_username: Option<&str>,
 ) -> Result<minecraft_profile::Model>
 where
     S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
 {
-    let Some(profile_name) = sanitize_external_username(external_username) else {
+    let mut profile_names: Vec<(String, bool)> = Vec::new();
+    if let Some(profile_name) = sanitize_external_username(external_username) {
+        profile_names.push((profile_name, false));
+    }
+    if let Some(fallback_username) = fallback_username
+        && let Some(fallback_name) = sanitize_external_username(fallback_username)
+        && !profile_names
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case(&fallback_name))
+    {
+        profile_names.push((fallback_name, true));
+    }
+
+    if profile_names.is_empty() {
         tracing::debug!(
             user_id,
             external_username = %external_username,
@@ -376,38 +444,49 @@ where
         ));
     };
 
-    // If the sanitized name is taken, append a numeric suffix
-    let final_name = if minecraft_profile_repo::find_by_name(state.reader_db(), &profile_name)
-        .await?
-        .is_some()
-    {
-        let mut candidate;
-        let mut suffix: u32 = 1;
-        loop {
-            candidate = format!("{profile_name}{suffix}");
-            // Truncate to 16 chars if needed
-            if candidate.len() > 16 {
-                let max_base = 16 - suffix.to_string().len();
-                candidate = format!(
-                    "{}{suffix}",
-                    &profile_name[..max_base.min(profile_name.len())]
-                );
-            }
-            if minecraft_profile_repo::find_by_name(state.reader_db(), &candidate)
-                .await?
-                .is_none()
-            {
-                break;
-            }
-            suffix += 1;
-            if suffix > 99 {
-                break;
-            }
+    for (profile_name, allow_reserved_linuxdo_name) in &profile_names {
+        if validate_reserved_profile_name(profile_name, *allow_reserved_linuxdo_name).is_err() {
+            continue;
         }
-        candidate
-    } else {
-        profile_name
-    };
+        if !profile_name_taken(state.reader_db(), profile_name, user_id, None).await? {
+            return create_profile_inner(
+                state,
+                user_id,
+                user_role,
+                profile_name,
+                *allow_reserved_linuxdo_name,
+            )
+            .await;
+        }
+    }
 
-    create_profile(state, user_id, user_role, &final_name).await
+    let (profile_name, allow_reserved_linuxdo_name) = profile_names
+        .last()
+        .expect("profile_names is checked to be non-empty");
+    let mut candidate = profile_name.clone();
+    for suffix in 1..=99u32 {
+        let suffix = suffix.to_string();
+        let max_base = 16usize.saturating_sub(suffix.len());
+        let base = &profile_name[..max_base.min(profile_name.len())];
+        candidate = format!("{base}{suffix}");
+        if !profile_name_taken(state.reader_db(), &candidate, user_id, None).await? {
+            return create_profile_inner(
+                state,
+                user_id,
+                user_role,
+                &candidate,
+                *allow_reserved_linuxdo_name,
+            )
+            .await;
+        }
+    }
+
+    create_profile_inner(
+        state,
+        user_id,
+        user_role,
+        &candidate,
+        *allow_reserved_linuxdo_name,
+    )
+    .await
 }

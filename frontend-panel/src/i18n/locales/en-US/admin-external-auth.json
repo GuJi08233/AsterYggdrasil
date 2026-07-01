@@ -105,6 +105,8 @@
 			},
 			"linuxdoMinTrustLevel": "Minimum Trust Level",
 			"linuxdoMinTrustLevelHint": "Users with a trust level below this value will be rejected during login. Valid values: 0–4.",
+			"linuxdoAutoCreateProfile": "Auto-create player profile",
+			"linuxdoAutoCreateProfileHint": "When LinuxDO first creates a site account, also create a player profile from the LinuxDO username. If the name is taken, linuxdo_numeric ID is used.",
 			"claims": {
 				"subject": "Subject claim",
 				"username": "Username claim",

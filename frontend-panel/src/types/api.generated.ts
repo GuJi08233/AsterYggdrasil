@@ -3642,6 +3642,7 @@ export interface components {
             limit?: number | null;
         };
         LinuxDoExternalAuthProviderOptions: {
+            auto_create_profile?: boolean;
             /** Format: int32 */
             min_trust_level?: number;
         };

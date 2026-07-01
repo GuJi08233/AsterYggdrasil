@@ -288,6 +288,7 @@ where
         generated_password.is_some() || must_change_password.unwrap_or(false);
     let (role, operator_scopes) = normalize_role_and_scopes(role, operator_scopes);
     let user = crate::db::transaction::with_transaction(state.writer_db(), async |txn| {
+        auth_service::shared::ensure_username_available(txn, username.trim(), None).await?;
         let user = user_repo::create_with_options(
             txn,
             username.trim(),
@@ -375,6 +376,9 @@ where
         || status == Some(UserStatus::Disabled)
         || must_change_password.is_some();
     let user = crate::db::transaction::with_transaction(state.writer_db(), async |txn| {
+        if let Some(username) = normalized_username.as_deref() {
+            auth_service::shared::ensure_username_available(txn, username, Some(id)).await?;
+        }
         let user = user_repo::update_admin(
             txn,
             id,

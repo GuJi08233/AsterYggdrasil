@@ -9,9 +9,13 @@ use actix_web::http::StatusCode;
 use actix_web::test;
 use aster_yggdrasil::api::error_code::AsterErrorCode;
 use aster_yggdrasil::db::repository::external_auth_provider_repo;
-use aster_yggdrasil::entities::{external_auth_identity, user};
+use aster_yggdrasil::entities::{external_auth_identity, minecraft_profile, user};
+use aster_yggdrasil::services::yggdrasil_service;
+use aster_yggdrasil::types::user::UserRole;
 use external_auth::oauth2::*;
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait, IntoActiveModel};
+use sea_orm::{
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use serde_json::Value;
 
 #[actix_web::test]
@@ -323,6 +327,10 @@ async fn admin_create_linuxdo_provider_uses_fixed_endpoints_and_auto_provision_d
     assert_eq!(body["data"]["require_email_verified"], false);
     assert_eq!(body["data"]["auto_provision_enabled"], true);
     assert_eq!(body["data"]["auto_link_verified_email_enabled"], false);
+    assert_eq!(
+        body["data"]["options"]["linuxdo"]["auto_create_profile"],
+        true
+    );
     assert_eq!(body["data"]["allowed_domains"], serde_json::json!([]));
 }
 
@@ -1135,28 +1143,87 @@ async fn linuxdo_auto_provision_without_email_ignores_allowed_domains() {
         .await
         .expect("user should query")
         .expect("user should exist");
+    assert_eq!(user.username, "linuxdo_1547");
     assert_eq!(user.email.as_deref(), None);
+
+    let profiles = minecraft_profile::Entity::find()
+        .filter(minecraft_profile::Column::UserId.eq(user.id))
+        .all(state.writer_db())
+        .await
+        .expect("profiles should query");
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(profiles[0].name, "linuxdo_user");
+    assert_eq!(profiles[0].rename_count, 0);
 
     server.stop(true).await;
 }
 
 #[actix_web::test]
-async fn linuxdo_username_conflict_uses_subject_fallback_and_link_cannot_be_deleted() {
+async fn linuxdo_auto_create_profile_option_can_be_disabled() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
-    mock_provider.set_linuxdo_user(441567, "takenuser", Some(3));
+    mock_provider.set_linuxdo_user(2457, "no-profile", Some(2));
+
+    let state = common::setup().await;
+    configure_oauth2_public_site_url(&state);
+    let app = create_test_app!(state.clone());
+    let mut provider = linuxdo_external_auth_provider_model(
+        "linuxdo-no-profile",
+        &mock_provider.base_url,
+        true,
+        0,
+    );
+    provider.options = Set(
+        aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions(
+            serde_json::json!({
+                "linuxdo": {
+                    "auto_create_profile": false,
+                    "min_trust_level": 0
+                }
+            })
+            .to_string(),
+        ),
+    );
+    let provider = provider
+        .insert(state.writer_db())
+        .await
+        .expect("LinuxDo provider should insert");
+
+    let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
+    let resp = finish_linuxdo_callback(&app, &state_value).await;
+
+    assert_eq!(resp.status(), 302);
+    let identities = external_auth_identity::Entity::find()
+        .all(state.writer_db())
+        .await
+        .expect("identities should query");
+    assert_eq!(identities.len(), 1);
+
+    let profiles = minecraft_profile::Entity::find()
+        .filter(minecraft_profile::Column::UserId.eq(identities[0].user_id))
+        .all(state.writer_db())
+        .await
+        .expect("profiles should query");
+    assert!(profiles.is_empty());
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn linuxdo_profile_name_conflict_uses_subject_fallback_and_link_cannot_be_deleted() {
+    let (mock_provider, server) = start_mock_oauth2_provider().await;
+    mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
+    mock_provider.set_linuxdo_user(441567, "Steve", Some(3));
 
     let state = common::setup().await;
     configure_oauth2_public_site_url(&state);
     let app = create_test_app!(state.clone());
     let (admin_token, _) = register_and_login!(app);
-    let _existing_user_id = admin_create_user!(
-        app,
-        admin_token,
-        "takenuser",
-        "takenuser@example.com",
-        "password1234"
-    );
+    let existing_user_id =
+        admin_create_user!(app, admin_token, "alex", "alex@example.com", "password1234");
+    yggdrasil_service::create_profile(&state, existing_user_id, UserRole::User, "Steve")
+        .await
+        .expect("existing profile should be created");
     let provider =
         linuxdo_external_auth_provider_model("linuxdo-conflict", &mock_provider.base_url, true, 0)
             .insert(state.writer_db())
@@ -1187,6 +1254,15 @@ async fn linuxdo_username_conflict_uses_subject_fallback_and_link_cannot_be_dele
         .expect("LinuxDo user should exist");
     assert_eq!(linuxdo_user.username, "linuxdo_441567");
     assert_eq!(linuxdo_user.email.as_deref(), None);
+
+    let profiles = minecraft_profile::Entity::find()
+        .filter(minecraft_profile::Column::UserId.eq(linuxdo_user.id))
+        .all(state.writer_db())
+        .await
+        .expect("LinuxDo profiles should query");
+    assert_eq!(profiles.len(), 1);
+    assert_eq!(profiles[0].name, "linuxdo_441567");
+    assert_eq!(profiles[0].rename_count, 0);
 
     let req = test::TestRequest::delete()
         .uri(&format!("/api/v1/auth/external-auth/links/{identity_id}"))

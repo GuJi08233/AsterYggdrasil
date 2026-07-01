@@ -227,17 +227,29 @@ impl MicrosoftExternalAuthProviderOptions {
 pub struct LinuxDoExternalAuthProviderOptions {
     #[serde(default)]
     pub min_trust_level: i32,
+    #[serde(default = "default_linuxdo_auto_create_profile")]
+    pub auto_create_profile: bool,
 }
 
 impl LinuxDoExternalAuthProviderOptions {
     pub fn new(min_trust_level: i32) -> Self {
-        Self { min_trust_level }
+        Self {
+            min_trust_level,
+            auto_create_profile: default_linuxdo_auto_create_profile(),
+        }
     }
 
     fn normalized(self) -> Option<Self> {
         let min_trust_level = self.min_trust_level.clamp(0, 4);
-        Some(Self { min_trust_level })
+        Some(Self {
+            min_trust_level,
+            auto_create_profile: self.auto_create_profile,
+        })
     }
+}
+
+fn default_linuxdo_auto_create_profile() -> bool {
+    true
 }
 
 impl From<MicrosoftExternalAuthProviderOptions>

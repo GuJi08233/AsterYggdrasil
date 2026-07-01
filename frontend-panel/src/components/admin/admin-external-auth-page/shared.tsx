@@ -62,6 +62,7 @@ export interface ExternalAuthProviderFormData {
 	iconUrl: string;
 	issuerUrl: string;
 	key: string;
+	linuxdoAutoCreateProfile: boolean;
 	linuxdoMinTrustLevel: number;
 	microsoftTenant: string;
 	microsoftTenantMode: MicrosoftTenantMode;
@@ -103,6 +104,7 @@ export const emptyExternalAuthForm: ExternalAuthProviderFormData = {
 	iconUrl: "",
 	issuerUrl: "",
 	key: "",
+	linuxdoAutoCreateProfile: true,
 	linuxdoMinTrustLevel: 0,
 	microsoftTenant: MICROSOFT_DEFAULT_TENANT,
 	microsoftTenantMode: MICROSOFT_DEFAULT_TENANT,
@@ -254,6 +256,10 @@ export function formFromProvider(
 		iconUrl: provider.icon_url ?? "",
 		issuerUrl: provider.issuer_url ?? "",
 		key: provider.key,
+		linuxdoAutoCreateProfile:
+			provider.provider_kind === "linuxdo"
+				? (provider.options.linuxdo?.auto_create_profile ?? true)
+				: true,
 		linuxdoMinTrustLevel:
 			provider.provider_kind === "linuxdo"
 				? (provider.options.linuxdo?.min_trust_level ?? 0)
@@ -415,6 +421,7 @@ function optionsPayload(
 	if (form.providerKind === "linuxdo") {
 		return {
 			linuxdo: {
+				auto_create_profile: form.linuxdoAutoCreateProfile,
 				min_trust_level: form.linuxdoMinTrustLevel,
 			},
 		};

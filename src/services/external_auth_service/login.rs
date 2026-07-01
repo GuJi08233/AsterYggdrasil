@@ -4,7 +4,7 @@ use sea_orm::ActiveValue::Set;
 use serde::Deserialize;
 
 use crate::db::repository::{external_auth_login_flow_repo, external_auth_provider_repo};
-use crate::entities::external_auth_login_flow;
+use crate::entities::{external_auth_login_flow, external_auth_provider};
 use crate::errors::{AsterError, Result};
 use crate::external_auth::{MapExternalAuthResult, registry};
 use crate::runtime::SharedRuntimeState;
@@ -17,8 +17,9 @@ use aster_forge_utils::numbers::u64_to_i64;
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};
 use super::providers::external_auth_provider_config;
 use super::resolution::{
-    external_auth_claims_missing_email, resolve_existing_external_auth_identity,
-    resolve_external_auth_user, resolve_external_auth_user_without_email,
+    ResolvedExternalAuthUser, external_auth_claims_missing_email,
+    resolve_existing_external_auth_identity, resolve_external_auth_user,
+    resolve_external_auth_user_without_email,
 };
 use super::verification::create_pending_email_verification_flow;
 use super::{
@@ -303,6 +304,7 @@ pub async fn finish_callback(
                 linuxdo_metadata.as_deref(),
             )
             .await?;
+            maybe_auto_create_linuxdo_profile(state, &provider, &resolved, &user_claims).await;
             tracing::debug!(
                 provider_id = provider.id,
                 user_id = resolved.user.id,
@@ -381,27 +383,7 @@ pub async fn finish_callback(
         "external auth callback resolved login"
     );
 
-    // Auto-create a Minecraft profile for newly provisioned LinuxDo users.
-    if resolved.auto_provisioned && provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
-        if let Some(preferred_username) = &user_claims.preferred_username {
-            if let Err(error) =
-                crate::services::yggdrasil_service::create_profile_for_external_auth(
-                    state,
-                    resolved.user.id,
-                    resolved.user.role,
-                    preferred_username,
-                )
-                .await
-            {
-                tracing::warn!(
-                    user_id = resolved.user.id,
-                    username = %preferred_username,
-                    error = %error,
-                    "failed to auto-create Minecraft profile for LinuxDo user"
-                );
-            }
-        }
-    }
+    maybe_auto_create_linuxdo_profile(state, &provider, &resolved, &user_claims).await;
 
     Ok(ExternalAuthCallbackOutcome::Login(
         ExternalAuthCallbackResult {
@@ -416,6 +398,48 @@ pub async fn finish_callback(
             },
         },
     ))
+}
+
+async fn maybe_auto_create_linuxdo_profile(
+    state: &impl SharedRuntimeState,
+    provider: &external_auth_provider::Model,
+    resolved: &ResolvedExternalAuthUser,
+    user_claims: &ExternalAuthProfile,
+) {
+    if provider.provider_kind != ExternalAuthProviderKind::LinuxDo || !resolved.auto_provisioned {
+        return;
+    }
+
+    let options = parse_external_auth_provider_options(provider.options.as_ref());
+    if !options
+        .linuxdo
+        .as_ref()
+        .is_none_or(|linuxdo| linuxdo.auto_create_profile)
+    {
+        return;
+    }
+
+    let Some(preferred_username) = &user_claims.preferred_username else {
+        return;
+    };
+
+    if let Err(error) = crate::services::yggdrasil_service::create_profile_for_external_auth(
+        state,
+        resolved.user.id,
+        resolved.user.role,
+        preferred_username,
+        Some(&format!("linuxdo_{}", user_claims.subject)),
+    )
+    .await
+    {
+        tracing::warn!(
+            user_id = resolved.user.id,
+            username = %preferred_username,
+            subject = %user_claims.subject,
+            error = %error,
+            "failed to auto-create Minecraft profile for LinuxDo user"
+        );
+    }
 }
 
 /// Result of a LinuxDo OAuth callback exchange.
