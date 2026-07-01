@@ -1,4 +1,4 @@
-//! Allow externally provisioned users without an email address.
+//! Ensure users.email remains nullable for external-auth-only accounts.
 
 use sea_orm_migration::prelude::*;
 use sea_orm_migration::sea_orm::DatabaseBackend;
@@ -10,78 +10,57 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         match manager.get_database_backend() {
-            DatabaseBackend::Sqlite => rebuild_sqlite_users(manager, true).await,
-            DatabaseBackend::MySql | DatabaseBackend::Postgres => {
-                modify_email_nullability(manager, true).await
+            DatabaseBackend::Sqlite => rebuild_sqlite_users(manager).await,
+            DatabaseBackend::MySql => {
+                manager
+                    .get_connection()
+                    .execute_unprepared("ALTER TABLE users MODIFY COLUMN email VARCHAR(255) NULL")
+                    .await?;
+                Ok(())
+            }
+            DatabaseBackend::Postgres => {
+                manager
+                    .get_connection()
+                    .execute_unprepared("ALTER TABLE users ALTER COLUMN email DROP NOT NULL")
+                    .await?;
+                Ok(())
             }
             backend => Err(DbErr::Migration(format!(
-                "unsupported database backend for nullable user email: {backend:?}"
+                "unsupported database backend for users.email nullability repair: {backend:?}"
             ))),
         }
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        match manager.get_database_backend() {
-            DatabaseBackend::Sqlite => rebuild_sqlite_users(manager, false).await,
-            DatabaseBackend::MySql | DatabaseBackend::Postgres => {
-                fill_missing_emails_for_rollback(manager).await?;
-                modify_email_nullability(manager, false).await
-            }
-            backend => Err(DbErr::Migration(format!(
-                "unsupported database backend for nullable user email rollback: {backend:?}"
-            ))),
-        }
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        Ok(())
     }
 }
 
-async fn modify_email_nullability(
-    manager: &SchemaManager<'_>,
-    nullable: bool,
-) -> Result<(), DbErr> {
-    let mut email = ColumnDef::new(Users::Email);
-    email.string_len(255);
-    if nullable {
-        email.null();
-    } else {
-        email.not_null();
-    }
-
-    manager
-        .alter_table(
-            Table::alter()
-                .table(Users::Table)
-                .modify_column(email)
-                .to_owned(),
-        )
-        .await
-}
-
-async fn rebuild_sqlite_users(manager: &SchemaManager<'_>, nullable: bool) -> Result<(), DbErr> {
+async fn rebuild_sqlite_users(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
     manager
         .get_connection()
         .execute_unprepared("PRAGMA foreign_keys=OFF")
         .await?;
-
-    create_sqlite_users_rebuild_table(manager, nullable).await?;
-    let email_expr = if nullable {
-        "email"
-    } else {
-        "'rollback-user-' || id || '@local.invalid'"
-    };
     manager
         .get_connection()
-        .execute_unprepared(&format!(
-            "INSERT INTO users_rebuild (
+        .execute_unprepared("DROP TABLE IF EXISTS users_email_nullable_rebuild")
+        .await?;
+
+    create_sqlite_users_rebuild_table(manager).await?;
+    manager
+        .get_connection()
+        .execute_unprepared(
+            "INSERT INTO users_email_nullable_rebuild (
                 id, public_uuid, username, email, password_hash, role, status,
                 must_change_password, session_version, email_verified_at,
                 pending_email, created_at, updated_at
              )
              SELECT
-                id, public_uuid, username, COALESCE(email, {email_expr}), password_hash,
-                role, status, must_change_password, session_version, email_verified_at,
+                id, public_uuid, username, email, password_hash, role, status,
+                must_change_password, session_version, email_verified_at,
                 pending_email, created_at, updated_at
-             FROM users"
-        ))
+             FROM users",
+        )
         .await?;
     manager
         .get_connection()
@@ -89,7 +68,7 @@ async fn rebuild_sqlite_users(manager: &SchemaManager<'_>, nullable: bool) -> Re
         .await?;
     manager
         .get_connection()
-        .execute_unprepared("ALTER TABLE users_rebuild RENAME TO users")
+        .execute_unprepared("ALTER TABLE users_email_nullable_rebuild RENAME TO users")
         .await?;
     create_user_indexes(manager).await?;
     manager
@@ -99,18 +78,7 @@ async fn rebuild_sqlite_users(manager: &SchemaManager<'_>, nullable: bool) -> Re
     Ok(())
 }
 
-async fn create_sqlite_users_rebuild_table(
-    manager: &SchemaManager<'_>,
-    nullable_email: bool,
-) -> Result<(), DbErr> {
-    let mut email = ColumnDef::new(Users::Email);
-    email.string_len(255);
-    if nullable_email {
-        email.null();
-    } else {
-        email.not_null();
-    }
-
+async fn create_sqlite_users_rebuild_table(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
     manager
         .create_table(
             Table::create()
@@ -124,7 +92,7 @@ async fn create_sqlite_users_rebuild_table(
                 )
                 .col(ColumnDef::new(Users::PublicUuid).string_len(32).not_null())
                 .col(ColumnDef::new(Users::Username).string_len(128).not_null())
-                .col(email)
+                .col(ColumnDef::new(Users::Email).string_len(255).null())
                 .col(
                     ColumnDef::new(Users::PasswordHash)
                         .string_len(255)
@@ -193,39 +161,31 @@ async fn create_user_indexes(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
             .unique()
             .if_not_exists()
             .to_owned(),
+        Index::create()
+            .name("idx_users_created_id")
+            .table(Users::Table)
+            .col(Users::CreatedAt)
+            .col(Users::Id)
+            .if_not_exists()
+            .to_owned(),
+        Index::create()
+            .name("idx_users_role_created_id")
+            .table(Users::Table)
+            .col(Users::Role)
+            .col(Users::CreatedAt)
+            .col(Users::Id)
+            .if_not_exists()
+            .to_owned(),
+        Index::create()
+            .name("idx_users_status_created_id")
+            .table(Users::Table)
+            .col(Users::Status)
+            .col(Users::CreatedAt)
+            .col(Users::Id)
+            .if_not_exists()
+            .to_owned(),
     ] {
         manager.create_index(index).await?;
-    }
-    Ok(())
-}
-
-async fn fill_missing_emails_for_rollback(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
-    match manager.get_database_backend() {
-        DatabaseBackend::MySql | DatabaseBackend::Postgres => {
-            manager
-                .get_connection()
-                .execute_unprepared(
-                    "UPDATE users
-                     SET email = CONCAT('rollback-user-', id, '@local.invalid')
-                     WHERE email IS NULL",
-                )
-                .await?;
-        }
-        DatabaseBackend::Sqlite => {
-            manager
-                .get_connection()
-                .execute_unprepared(
-                    "UPDATE users
-                 SET email = 'rollback-user-' || id || '@local.invalid'
-                 WHERE email IS NULL",
-                )
-                .await?;
-        }
-        backend => {
-            return Err(DbErr::Migration(format!(
-                "unsupported database backend for nullable user email rollback fill: {backend:?}"
-            )));
-        }
     }
     Ok(())
 }
@@ -250,6 +210,6 @@ enum Users {
 
 #[derive(DeriveIden)]
 enum UsersRebuild {
-    #[sea_orm(iden = "users_rebuild")]
+    #[sea_orm(iden = "users_email_nullable_rebuild")]
     Table,
 }

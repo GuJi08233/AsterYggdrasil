@@ -37,6 +37,7 @@ mod m20260629_000001_external_auth_identity_metadata;
 mod m20260630_000001_minecraft_profile_rename_count;
 mod m20260701_000001_nullable_user_email;
 mod m20260701_000002_minecraft_profile_normalized_name;
+mod m20260701_000003_ensure_user_email_nullable;
 mod time;
 
 pub struct Migrator;
@@ -77,6 +78,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260630_000001_minecraft_profile_rename_count::Migration),
             Box::new(m20260701_000001_nullable_user_email::Migration),
             Box::new(m20260701_000002_minecraft_profile_normalized_name::Migration),
+            Box::new(m20260701_000003_ensure_user_email_nullable::Migration),
         ]
     }
 }

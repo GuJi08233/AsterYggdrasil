@@ -121,7 +121,7 @@ async fn create_users(manager: &SchemaManager<'_>) -> Result<(), DbErr> {
                 .col(big_integer_pk(Users::Id))
                 .col(ColumnDef::new(Users::PublicUuid).string_len(32).not_null())
                 .col(ColumnDef::new(Users::Username).string_len(128).not_null())
-                .col(ColumnDef::new(Users::Email).string_len(255).not_null())
+                .col(ColumnDef::new(Users::Email).string_len(255).null())
                 .col(
                     ColumnDef::new(Users::PasswordHash)
                         .string_len(255)

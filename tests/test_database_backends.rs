@@ -115,6 +115,52 @@ async fn assert_mysql_datetime_columns(db: &DatabaseConnection) {
     );
 }
 
+async fn assert_users_email_column_nullable(db: &DatabaseConnection, backend: DbBackend) {
+    let sql = match backend {
+        DbBackend::Sqlite => {
+            "SELECT \"notnull\" FROM pragma_table_info('users') WHERE name = 'email'"
+        }
+        DbBackend::Postgres => {
+            "SELECT is_nullable \
+             FROM information_schema.columns \
+             WHERE table_schema = 'public' \
+               AND table_name = 'users' \
+               AND column_name = 'email'"
+        }
+        DbBackend::MySql => {
+            "SELECT IS_NULLABLE \
+             FROM INFORMATION_SCHEMA.COLUMNS \
+             WHERE TABLE_SCHEMA = DATABASE() \
+               AND TABLE_NAME = 'users' \
+               AND COLUMN_NAME = 'email'"
+        }
+        backend => panic!("unsupported test database backend: {backend:?}"),
+    };
+
+    let row = db
+        .query_one_raw(Statement::from_string(backend, sql))
+        .await
+        .expect("users.email nullability should query")
+        .expect("users.email column should exist");
+
+    match backend {
+        DbBackend::Sqlite => {
+            let not_null: i64 = row
+                .try_get_by_index(0)
+                .expect("sqlite notnull flag should decode");
+            assert_eq!(not_null, 0, "users.email must allow NULL on SQLite");
+        }
+        DbBackend::Postgres | DbBackend::MySql => {
+            let is_nullable: String = row.try_get_by_index(0).expect("is_nullable should decode");
+            assert_eq!(
+                is_nullable, "YES",
+                "users.email must allow NULL on {backend:?}"
+            );
+        }
+        backend => panic!("unsupported test database backend: {backend:?}"),
+    }
+}
+
 async fn assert_background_task_display_name_column_len(
     db: &DatabaseConnection,
     backend: DbBackend,
@@ -202,6 +248,7 @@ async fn exercise_foundation_api_smoke(database_url: &str, backend: DbBackend) {
     assert_eq!(state.writer_db().get_database_backend(), backend);
 
     assert_core_tables_exist(state.writer_db(), backend).await;
+    assert_users_email_column_nullable(state.writer_db(), backend).await;
     if backend == DbBackend::MySql {
         assert_mysql_datetime_columns(state.writer_db()).await;
     }
@@ -268,6 +315,13 @@ async fn exercise_foundation_api_smoke(database_url: &str, backend: DbBackend) {
             .is_some_and(|total| total >= 1),
         "admin task list should include the inserted smoke task: {body}"
     );
+}
+
+#[actix_web::test]
+async fn test_sqlite_users_email_column_is_nullable_after_migrations() {
+    let state = common::setup().await;
+
+    assert_users_email_column_nullable(state.writer_db(), DbBackend::Sqlite).await;
 }
 
 #[actix_web::test]
