@@ -39,6 +39,8 @@ interface CachedFrontendConfigPayload {
 }
 
 interface FrontendConfigState {
+	allowLocalLogin: boolean;
+	allowLocalRegistration: boolean;
 	allowUserRegistration: boolean;
 	passkeyLoginEnabled: boolean;
 	branding: AppliedBranding;
@@ -69,10 +71,24 @@ function publicPasskeyLoginEnabled(branding: PublicBranding | null): boolean {
 	return branding.passkey_login_enabled !== false;
 }
 
+function publicAllowLocalLogin(branding: PublicBranding | null): boolean {
+	if (!branding || !isRecord(branding)) return true;
+	return branding.allow_local_login !== false;
+}
+
+function publicAllowLocalRegistration(branding: PublicBranding | null): boolean {
+	if (!branding || !isRecord(branding)) return true;
+	return branding.allow_local_registration !== false;
+}
+
 function isPublicBranding(value: unknown): value is PublicBranding {
 	return (
 		isRecord(value) &&
 		typeof value.allow_user_registration === "boolean" &&
+		(value.allow_local_login === undefined ||
+			typeof value.allow_local_login === "boolean") &&
+		(value.allow_local_registration === undefined ||
+			typeof value.allow_local_registration === "boolean") &&
 		(value.passkey_login_enabled === undefined ||
 			typeof value.passkey_login_enabled === "boolean") &&
 		typeof value.description === "string" &&
@@ -192,6 +208,10 @@ function applyFrontendConfig(config: PublicFrontendConfig) {
 	const branding = resolveBranding(normalizedConfig.branding);
 	applyBranding(branding);
 	return {
+		allowLocalLogin: publicAllowLocalLogin(normalizedConfig.branding),
+		allowLocalRegistration: publicAllowLocalRegistration(
+			normalizedConfig.branding,
+		),
 		allowUserRegistration: normalizedConfig.branding.allow_user_registration,
 		passkeyLoginEnabled: publicPasskeyLoginEnabled(normalizedConfig.branding),
 		branding,
@@ -206,6 +226,8 @@ function applyFrontendConfig(config: PublicFrontendConfig) {
 function fallbackState() {
 	applyBranding(DEFAULT_BRANDING);
 	return {
+		allowLocalLogin: true,
+		allowLocalRegistration: true,
 		allowUserRegistration: true,
 		passkeyLoginEnabled: true,
 		branding: DEFAULT_BRANDING,
@@ -231,6 +253,10 @@ const initialBranding = resolveBranding(initialCachedConfig?.branding ?? null);
 
 export const useFrontendConfigStore = create<FrontendConfigState>(
 	(set, get) => ({
+		allowLocalLogin: publicAllowLocalLogin(initialCachedConfig?.branding ?? null),
+		allowLocalRegistration: publicAllowLocalRegistration(
+			initialCachedConfig?.branding ?? null,
+		),
 		allowUserRegistration:
 			initialCachedConfig?.branding.allow_user_registration ?? true,
 		passkeyLoginEnabled: publicPasskeyLoginEnabled(
@@ -248,6 +274,8 @@ export const useFrontendConfigStore = create<FrontendConfigState>(
 			clearCachedFrontendConfig();
 			lastRevalidationAttemptAt = 0;
 			set({
+				allowLocalLogin: true,
+				allowLocalRegistration: true,
 				allowUserRegistration: true,
 				passkeyLoginEnabled: true,
 				branding: DEFAULT_BRANDING,

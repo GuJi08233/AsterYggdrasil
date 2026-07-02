@@ -6,6 +6,7 @@ import type {
 	AuthSessionPage,
 	AuthUserInfo,
 	ExternalAuthLinkPage,
+	ExternalAuthPublicProviderPage,
 } from "@/types/api";
 import AccountSettingsPage from "./AccountSettingsPage";
 
@@ -27,6 +28,8 @@ const authServiceMock = vi.hoisted(() => ({
 const externalAuthServiceMock = vi.hoisted(() => ({
 	deleteLink: vi.fn(),
 	listLinksPage: vi.fn(),
+	listMinecraftBindingProvidersByKindPage: vi.fn(),
+	startMinecraftBinding: vi.fn(),
 }));
 
 const toastMock = vi.hoisted(() => ({
@@ -108,6 +111,25 @@ const emptyExternalAuthLinkPage: ExternalAuthLinkPage = {
 	total: 0,
 };
 
+const emptyMicrosoftBindingProviderPage: ExternalAuthPublicProviderPage = {
+	items: [],
+	limit: 20,
+	total: 0,
+};
+
+const microsoftBindingProviderPage: ExternalAuthPublicProviderPage = {
+	items: [
+		{
+			key: "ms-bind",
+			kind: "microsoft",
+			display_name: "Microsoft",
+			icon_url: null,
+		},
+	],
+	limit: 20,
+	total: 1,
+};
+
 function renderPage(
 	user: AuthUserInfo = baseUser,
 	initialEntry = "/account/settings",
@@ -160,6 +182,12 @@ describe("AccountSettingsPage", () => {
 		externalAuthServiceMock.listLinksPage.mockResolvedValue(
 			emptyExternalAuthLinkPage,
 		);
+		externalAuthServiceMock.listMinecraftBindingProvidersByKindPage.mockResolvedValue(
+			emptyMicrosoftBindingProviderPage,
+		);
+		externalAuthServiceMock.startMinecraftBinding.mockResolvedValue({
+			authorization_url: "https://login.example.test/authorize",
+		});
 	});
 
 	it("saves display name changes into the shared auth state", async () => {
@@ -399,5 +427,40 @@ describe("AccountSettingsPage", () => {
 		);
 		expect(authServiceMock.me).toHaveBeenCalledTimes(1);
 		expect(useAuthStore.getState().user?.email).toBe("next@example.com");
+	});
+
+	it("starts Microsoft Minecraft binding from the linked identities section", async () => {
+		externalAuthServiceMock.listMinecraftBindingProvidersByKindPage.mockResolvedValue(
+			microsoftBindingProviderPage,
+		);
+		externalAuthServiceMock.startMinecraftBinding.mockReturnValue(
+			new Promise(() => {}),
+		);
+		renderPage();
+
+		fireEvent.click(
+			await screen.findByRole("button", { name: "Bind Microsoft" }),
+		);
+
+		await waitFor(() =>
+			expect(
+				externalAuthServiceMock.startMinecraftBinding,
+			).toHaveBeenCalledWith("microsoft", "ms-bind", {
+				return_path: "/account/settings",
+			}),
+		);
+	});
+
+	it("shows Microsoft Minecraft binding callback status", async () => {
+		renderPage(
+			baseUser,
+			"/account/settings?minecraft_binding=success&profile_created=true&profile_uuid=069a79f444e94726a5befca90e38aaf5",
+		);
+
+		await waitFor(() =>
+			expect(toastMock.success).toHaveBeenCalledWith(
+				"Microsoft account bound. Minecraft profile created.",
+			),
+		);
 	});
 });

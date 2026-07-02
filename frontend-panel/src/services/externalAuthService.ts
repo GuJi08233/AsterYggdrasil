@@ -4,6 +4,8 @@ import type {
 	ExternalAuthLinkInfo,
 	ExternalAuthLinkPage,
 	ExternalAuthLinkQuery,
+	ExternalAuthMinecraftBindingProviderPage,
+	ExternalAuthMinecraftBindingProviderQuery,
 	ExternalAuthPublicProvider,
 	ExternalAuthPublicProviderByKindPage,
 	ExternalAuthPublicProviderByKindQuery,
@@ -21,6 +23,8 @@ type AuthExternalAuthFinishLoginQuery =
 	OperationQuery<"auth_external_auth_finish_login">;
 type AuthExternalAuthProviderPath =
 	OperationPath<"auth_external_auth_start_login">;
+type AuthExternalAuthMinecraftBindingProviderPath =
+	OperationPath<"auth_external_auth_start_minecraft_binding">;
 type AuthExternalAuthKindPath =
 	OperationPath<"auth_external_auth_list_providers_by_kind">;
 
@@ -147,6 +151,21 @@ function listPublicByKindPage(
 	);
 }
 
+function listMinecraftBindingProvidersByKindPage(
+	kind: AuthExternalAuthMinecraftBindingProviderPath["kind"],
+	params: ExternalAuthMinecraftBindingProviderQuery = {},
+	options?: AbortSignal | CachedRequestOptions,
+) {
+	const { signal } = normalizeOptions(options);
+	return api.get<ExternalAuthMinecraftBindingProviderPage>(
+		withQuery(
+			`/auth/external-auth/${encodeURIComponent(kind)}/binding/providers`,
+			params,
+		),
+		{ signal },
+	);
+}
+
 function listLinks(options?: AbortSignal | CachedRequestOptions) {
 	const { force = false, signal } = normalizeOptions(options);
 	if (!force && !signal && cachedLinks !== null) {
@@ -207,6 +226,7 @@ export const externalAuthService = {
 			(page) => page.items,
 		),
 	listAuthAliasesByKindPage: listPublicByKindPage,
+	listMinecraftBindingProvidersByKindPage,
 	startAuthAlias: (
 		kind: AuthExternalAuthProviderPath["kind"],
 		provider: AuthExternalAuthProviderPath["provider"],
@@ -219,6 +239,20 @@ export const externalAuthService = {
 			`/auth/external-auth/${encodeURIComponent(kind)}/${encodeURIComponent(
 				provider,
 			)}/start`,
+			data,
+		),
+	startMinecraftBinding: (
+		kind: AuthExternalAuthMinecraftBindingProviderPath["kind"],
+		provider: AuthExternalAuthMinecraftBindingProviderPath["provider"],
+		data: ExternalAuthStartLoginRequest,
+	) =>
+		api.post<
+			ExternalAuthStartLoginResponse,
+			OperationRequestBody<"auth_external_auth_start_minecraft_binding">
+		>(
+			`/auth/external-auth/${encodeURIComponent(kind)}/${encodeURIComponent(
+				provider,
+			)}/binding/start`,
 			data,
 		),
 	finishAuthAlias: (

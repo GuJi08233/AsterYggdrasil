@@ -163,7 +163,7 @@ pub async fn list_user_minecraft_profiles(
     let profiles = slice
         .items
         .iter()
-        .map(yggdrasil_service::profile_summary)
+        .map(yggdrasil_service::project_profile_summary)
         .collect::<Vec<_>>();
     tracing::debug!(
         user_id,

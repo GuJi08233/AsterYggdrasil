@@ -71,11 +71,13 @@ export type LoginFormCardProps = {
 	passkeySubmitting: boolean;
 	passkeySupported: boolean;
 	showPasskeyLogin: boolean;
+	showLocalForm: boolean;
 	externalAuthRecovery: ExternalAuthRecoveryState | null;
 	submitDisabled: boolean;
 	submitLabel: string;
 	passwordScore: number;
 	passwordStrengthLabel: string;
+	allowLocalRegistration: boolean;
 	allowUserRegistration: boolean;
 	captchaAnswer: string;
 	captchaImageBase64: string | null;
@@ -104,6 +106,7 @@ export type LoginFormCardProps = {
 
 export function LoginFormCard(props: LoginFormCardProps) {
 	const {
+		allowLocalRegistration,
 		allowUserRegistration,
 		cardDescription,
 		cardTitle,
@@ -111,6 +114,7 @@ export function LoginFormCard(props: LoginFormCardProps) {
 		loading,
 		onResetAccountOptions,
 		onSubmit,
+		showLocalForm,
 		submitDisabled,
 		submitLabel,
 		usesAccountCreationForm,
@@ -126,27 +130,37 @@ export function LoginFormCard(props: LoginFormCardProps) {
 					<ExternalAuthRecoveryPanel {...props} />
 				) : (
 					<>
-						{usesAccountCreationForm ? (
-							<AccountCreationFields {...props} />
+						{showLocalForm ? (
+							<>
+								{usesAccountCreationForm ? (
+									<AccountCreationFields {...props} />
+								) : (
+									<IdentifierField {...props} />
+								)}
+								<LoginPasswordField {...props} />
+								{usesAccountCreationForm ? (
+									<RegistrationFields {...props} />
+								) : null}
+								<CaptchaPanel {...props} />
+								<Button
+									type="submit"
+									disabled={submitDisabled}
+									className={authPrimaryButtonClassName}
+								>
+									<Icon
+										name={loading ? "Spinner" : "SignIn"}
+										className={loading ? "size-4 animate-spin" : "size-4"}
+									/>
+									{submitLabel}
+								</Button>
+							</>
 						) : (
-							<IdentifierField {...props} />
+							<ExternalAuthOnlyPanel {...props} />
 						)}
-						<LoginPasswordField {...props} />
-						{usesAccountCreationForm ? <RegistrationFields {...props} /> : null}
-						<CaptchaPanel {...props} />
-						<Button
-							type="submit"
-							disabled={submitDisabled}
-							className={authPrimaryButtonClassName}
-						>
-							<Icon
-								name={loading ? "Spinner" : "SignIn"}
-								className={loading ? "size-4 animate-spin" : "size-4"}
-							/>
-							{submitLabel}
-						</Button>
 						<AuthAlternatives {...props} />
-						{allowUserRegistration ? (
+						{showLocalForm &&
+						allowUserRegistration &&
+						allowLocalRegistration ? (
 							<AccountModeLink
 								isRegister={isRegister}
 								onResetAccountOptions={onResetAccountOptions}
@@ -349,6 +363,49 @@ function TermsField({
 	);
 }
 
+function ExternalAuthOnlyPanel({
+	externalLoadingKey,
+	onExternalLogin,
+	visibleProviders,
+}: LoginFormCardProps) {
+	const { t } = useTranslation();
+	if (visibleProviders.length === 0) {
+		return (
+			<div className="rounded-lg border border-black/10 bg-white/55 p-4 text-sm leading-6 text-slate-700 dark:border-white/8 dark:bg-white/5 dark:text-white/72">
+				<div className="flex items-start gap-3">
+					<Icon
+						name="Info"
+						className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-300"
+					/>
+					<p>{t("login.externalOnlyUnavailable")}</p>
+				</div>
+			</div>
+		);
+	}
+	return (
+		<div className="grid gap-2">
+			{visibleProviders.map((provider) => (
+				<Button
+					key={provider.key}
+					type="button"
+					className={authPrimaryButtonClassName}
+					onClick={() => onExternalLogin(provider)}
+					disabled={externalLoadingKey !== null}
+				>
+					{externalLoadingKey === provider.key ? (
+						<Icon name="Spinner" className="size-4 animate-spin" />
+					) : (
+						<ExternalProviderButtonIcon provider={provider} />
+					)}
+					{t("login.externalLogin", {
+						provider: provider.display_name,
+					})}
+				</Button>
+			))}
+		</div>
+	);
+}
+
 function AuthAlternatives({
 	externalLoadingKey,
 	externalAuthRecovery,
@@ -359,12 +416,14 @@ function AuthAlternatives({
 	passkeySubmitting,
 	passkeySupported,
 	showPasskeyLogin,
+	showLocalForm,
 	visibleProviders,
 }: LoginFormCardProps) {
 	const { t } = useTranslation();
 	if (
 		externalAuthRecovery ||
 		isRegister ||
+		!showLocalForm ||
 		(!showPasskeyLogin && visibleProviders.length === 0)
 	) {
 		return null;

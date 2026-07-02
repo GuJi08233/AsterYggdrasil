@@ -292,7 +292,15 @@ fn build_webauthn(state: &impl SharedRuntimeState) -> Result<Webauthn> {
 }
 
 fn ensure_passkey_login_enabled(state: &impl SharedRuntimeState) -> Result<()> {
-    if RuntimeAuthPolicy::from_runtime_config(state.runtime_config()).passkey_login_enabled {
+    let policy = RuntimeAuthPolicy::from_runtime_config(state.runtime_config());
+    if !policy.allow_local_login {
+        tracing::debug!("passkey login rejected because local site login is disabled");
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::AuthPasskeyLoginDisabled,
+            "passkey login is disabled by administrator policy",
+        ));
+    }
+    if policy.passkey_login_enabled {
         tracing::debug!("passkey login policy allows login");
         return Ok(());
     }

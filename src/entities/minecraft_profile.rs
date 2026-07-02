@@ -1,6 +1,6 @@
 //! Minecraft player profile entity.
 
-use crate::types::yggdrasil::MinecraftTextureModel;
+use crate::types::yggdrasil::{MinecraftProfileSource, MinecraftTextureModel};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -22,6 +22,7 @@ pub struct Model {
     pub name: String,
     #[sea_orm(unique)]
     pub normalized_name: String,
+    pub source: MinecraftProfileSource,
     pub texture_model: MinecraftTextureModel,
     pub uploadable_textures: String,
     pub rename_count: i32,

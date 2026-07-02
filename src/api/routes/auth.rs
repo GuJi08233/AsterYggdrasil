@@ -146,8 +146,14 @@ pub async fn check(state: web::Data<AppState>) -> Result<HttpResponse> {
     tracing::debug!("auth check request received");
     let initialized =
         crate::db::repository::user_repo::count_all(state.get_ref().reader_db()).await? > 0;
+    let auth_policy = RuntimeAuthPolicy::from_runtime_config(state.runtime_config());
     tracing::debug!(initialized, "auth check request completed");
-    Ok(HttpResponse::Ok().json(ApiResponse::ok(CheckResp { initialized })))
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(CheckResp {
+        initialized,
+        allow_user_registration: auth_policy.allow_user_registration,
+        allow_local_registration: auth_policy.allow_local_registration,
+        allow_local_login: auth_policy.allow_local_login,
+    })))
 }
 
 #[aster_forge_api_docs_macros::path(

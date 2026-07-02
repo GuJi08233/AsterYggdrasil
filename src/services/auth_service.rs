@@ -449,6 +449,19 @@ where
         identifier_has_at = identifier.contains('@'),
         "starting local login"
     );
+    let auth_policy =
+        crate::config::auth_runtime::RuntimeAuthPolicy::from_runtime_config(state.runtime_config());
+    if !auth_policy.allow_local_login {
+        tracing::debug!(
+            identifier_len = identifier.len(),
+            identifier_has_at = identifier.contains('@'),
+            "local login rejected because local password login is disabled"
+        );
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::AuthLocalLoginDisabled,
+            "local password login is disabled by administrator policy",
+        ));
+    }
     let Some(user) = user_repo::find_by_identifier(state.reader_db(), identifier).await? else {
         tracing::debug!(
             identifier_len = identifier.len(),

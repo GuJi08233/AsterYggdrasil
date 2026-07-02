@@ -2,7 +2,7 @@
 
 use crate::entities::minecraft_profile::{self, Entity as MinecraftProfile};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::yggdrasil::MinecraftTextureModel;
+use crate::types::yggdrasil::{MinecraftProfileSource, MinecraftTextureModel};
 use aster_forge_api::CursorSlice;
 use aster_forge_db::search_query;
 use chrono::{DateTime, Utc};
@@ -31,12 +31,34 @@ pub async fn create<C: ConnectionTrait>(
     texture_model: MinecraftTextureModel,
     uploadable_textures: &str,
 ) -> Result<minecraft_profile::Model> {
+    create_with_source(
+        db,
+        user_id,
+        uuid,
+        name,
+        MinecraftProfileSource::Local,
+        texture_model,
+        uploadable_textures,
+    )
+    .await
+}
+
+pub async fn create_with_source<C: ConnectionTrait>(
+    db: &C,
+    user_id: i64,
+    uuid: &str,
+    name: &str,
+    source: MinecraftProfileSource,
+    texture_model: MinecraftTextureModel,
+    uploadable_textures: &str,
+) -> Result<minecraft_profile::Model> {
     let now = chrono::Utc::now();
     minecraft_profile::ActiveModel {
         user_id: Set(user_id),
         uuid: Set(uuid.to_string()),
         name: Set(name.to_string()),
         normalized_name: Set(normalize_profile_name(name)),
+        source: Set(source),
         texture_model: Set(texture_model),
         uploadable_textures: Set(uploadable_textures.to_string()),
         created_at: Set(now),

@@ -18,7 +18,9 @@ pub use crate::config::definitions::{
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_ACTIVE_TOKENS_KEY,
     YGGDRASIL_MAX_PROFILE_RENAMES_KEY, YGGDRASIL_MAX_PROFILES_PER_USER_KEY,
     YGGDRASIL_MAX_TEXTURE_PIXELS_KEY, YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY,
-    YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SERVER_NAME_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
+    YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY, YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY,
+    YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY, YGGDRASIL_PUBLIC_BASE_URL_KEY,
+    YGGDRASIL_SERVER_NAME_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
     YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY, YGGDRASIL_SKIN_DOMAINS_KEY,
     YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
 };
@@ -38,6 +40,9 @@ pub const DEFAULT_YGGDRASIL_MAX_TEXTURE_PIXELS: u64 = 4096 * 4096;
 pub const DEFAULT_YGGDRASIL_SKIN_DOMAINS: &[&str] = &[".minecraft.net", ".mojang.com"];
 pub const DEFAULT_YGGDRASIL_MAX_PROFILES_PER_USER: u64 = 1;
 pub const DEFAULT_YGGDRASIL_MAX_PROFILE_RENAMES: u64 = 1;
+pub const DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_ENABLED: bool = true;
+pub const DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS: u64 = 3;
+pub const DEFAULT_YGGDRASIL_MOJANG_PROFILE_API_BASE_URL: &str = "https://api.mojang.com";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeYggdrasilPolicy {
@@ -53,6 +58,9 @@ pub struct RuntimeYggdrasilPolicy {
     pub max_texture_pixels: u64,
     pub max_profiles_per_user: u64,
     pub max_profile_renames: u64,
+    pub mojang_name_check_enabled: bool,
+    pub mojang_name_check_timeout_secs: u64,
+    pub mojang_profile_api_base_url: String,
     pub skin_domains: Vec<String>,
     pub public_base_urls: Vec<String>,
     pub texture_public_base_url: Option<String>,
@@ -122,6 +130,19 @@ impl RuntimeYggdrasilPolicy {
                 YGGDRASIL_MAX_PROFILE_RENAMES_KEY,
                 DEFAULT_YGGDRASIL_MAX_PROFILE_RENAMES,
             ),
+            mojang_name_check_enabled: runtime_config.get_bool_or(
+                YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY,
+                DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_ENABLED,
+            ),
+            mojang_name_check_timeout_secs: forge_read_positive_u64(
+                runtime_config,
+                YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY,
+                DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS,
+            ),
+            mojang_profile_api_base_url: runtime_config.get_string_or(
+                YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY,
+                DEFAULT_YGGDRASIL_MOJANG_PROFILE_API_BASE_URL,
+            ),
             skin_domains,
             public_base_urls,
             texture_public_base_url,
@@ -163,8 +184,12 @@ pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String
         | YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY
         | YGGDRASIL_MAX_TEXTURE_PIXELS_KEY
         | YGGDRASIL_MAX_PROFILES_PER_USER_KEY
-        | YGGDRASIL_MAX_PROFILE_RENAMES_KEY => {
+        | YGGDRASIL_MAX_PROFILE_RENAMES_KEY
+        | YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY => {
             normalize_positive_u64_config_value(key, value).map_err(Into::into)
+        }
+        YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY => {
+            normalize_mojang_profile_api_base_url_config_value(value)
         }
         YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY => {
             validate_signature_private_key_config_value(value)?;
@@ -176,6 +201,20 @@ pub fn normalize_yggdrasil_config_value(key: &str, value: &str) -> Result<String
         }
         _ => Ok(value.to_string()),
     }
+}
+
+pub fn normalize_mojang_profile_api_base_url_config_value(value: &str) -> Result<String> {
+    aster_forge_utils::url::normalize_http_base_url(
+        value,
+        "Mojang profile API base URL",
+        HttpBaseUrlOptions::required_without_query_fragment(),
+    )
+    .map_err(|error| AsterError::validation_error(error.to_string()))
+    .and_then(|normalized| {
+        normalized.ok_or_else(|| {
+            AsterError::validation_error("Mojang profile API base URL cannot be empty")
+        })
+    })
 }
 
 pub fn normalize_texture_public_base_url_config_value(value: &str) -> Result<String> {

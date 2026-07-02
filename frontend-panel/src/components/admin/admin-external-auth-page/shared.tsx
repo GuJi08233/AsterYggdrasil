@@ -47,6 +47,8 @@ export const STANDARD_CLAIMS = {
 
 export interface ExternalAuthProviderFormData {
 	allowedDomains: string;
+	allowLogin: boolean;
+	allowUnlink: boolean;
 	authorizationUrl: string;
 	autoLinkVerifiedEmailEnabled: boolean;
 	autoProvisionEnabled: boolean;
@@ -89,6 +91,8 @@ export interface ExternalAuthCreateStep {
 
 export const emptyExternalAuthForm: ExternalAuthProviderFormData = {
 	allowedDomains: "",
+	allowLogin: true,
+	allowUnlink: true,
 	authorizationUrl: "",
 	autoLinkVerifiedEmailEnabled: false,
 	autoProvisionEnabled: false,
@@ -239,6 +243,8 @@ export function formFromProvider(
 			: MICROSOFT_DEFAULT_TENANT;
 	return {
 		allowedDomains: provider.allowed_domains.join(", "),
+		allowLogin: provider.options.allow_login ?? true,
+		allowUnlink: provider.options.allow_unlink ?? true,
 		authorizationUrl: provider.authorization_url ?? "",
 		autoLinkVerifiedEmailEnabled: provider.auto_link_verified_email_enabled,
 		autoProvisionEnabled: provider.auto_provision_enabled,
@@ -411,8 +417,13 @@ export function parseAllowedDomains(value: string) {
 function optionsPayload(
 	form: ExternalAuthProviderFormData,
 ): ExternalAuthProviderOptions {
+	const policy = {
+		allow_login: form.allowLogin,
+		allow_unlink: form.allowUnlink,
+	};
 	if (form.providerKind === "microsoft") {
 		return {
+			...policy,
 			microsoft: {
 				tenant: microsoftTenantValue(form) || MICROSOFT_DEFAULT_TENANT,
 			},
@@ -420,13 +431,14 @@ function optionsPayload(
 	}
 	if (form.providerKind === "linuxdo") {
 		return {
+			...policy,
 			linuxdo: {
 				auto_create_profile: form.linuxdoAutoCreateProfile,
 				min_trust_level: form.linuxdoMinTrustLevel,
 			},
 		};
 	}
-	return {};
+	return policy;
 }
 
 function microsoftTenantValue(form: ExternalAuthProviderFormData) {

@@ -455,6 +455,50 @@ async fn auth_setup_login_me_and_logout_flow() {
 }
 
 #[actix_web::test]
+async fn local_password_login_policy_disables_site_login() {
+    let state = common::setup().await;
+    let app = create_test_app!(state.clone());
+    let access_token = setup_admin!(app);
+
+    state.runtime_config.apply(common::system_config_model(
+        aster_yggdrasil::config::auth_runtime::AUTH_ALLOW_LOCAL_LOGIN_KEY,
+        "false",
+    ));
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/check")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["allow_local_login"], false);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .set_json(serde_json::json!({
+            "identifier": "admin",
+            "password": "password1234"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+    assert!(common::extract_cookie(&resp, "aster_access").is_none());
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["code"],
+        AsterErrorCode::AuthLocalLoginDisabled.as_str()
+    );
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/me")
+        .insert_header(common::bearer_header(&access_token))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+}
+
+#[actix_web::test]
 async fn auth_setup_saves_public_site_url_to_runtime_config() {
     let state = common::setup().await;
     let app = create_test_app!(state.clone());

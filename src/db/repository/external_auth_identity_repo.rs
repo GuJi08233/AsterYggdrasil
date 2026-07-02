@@ -88,6 +88,19 @@ pub async fn find_by_provider_subject<C: ConnectionTrait>(
         .map_err(AsterError::from)
 }
 
+pub async fn find_by_provider_for_user<C: ConnectionTrait>(
+    db: &C,
+    provider_id: i64,
+    user_id: i64,
+) -> Result<Option<external_auth_identity::Model>> {
+    ExternalAuthIdentity::find()
+        .filter(external_auth_identity::Column::ProviderId.eq(provider_id))
+        .filter(external_auth_identity::Column::UserId.eq(user_id))
+        .one(db)
+        .await
+        .map_err(AsterError::from)
+}
+
 pub async fn find_by_identity_namespace_subject<C: ConnectionTrait>(
     db: &C,
     identity_namespace: &str,

@@ -65,6 +65,26 @@ impl YggdrasilSessionForwardServerSortBy {
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::N(16))")]
 #[serde(rename_all = "snake_case")]
+pub enum MinecraftProfileSource {
+    #[sea_orm(string_value = "local")]
+    Local,
+    #[sea_orm(string_value = "microsoft")]
+    Microsoft,
+}
+
+impl MinecraftProfileSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Microsoft => "microsoft",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
+#[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
+#[sea_orm(rs_type = "String", db_type = "String(StringLen::N(16))")]
+#[serde(rename_all = "snake_case")]
 pub enum MinecraftTextureModel {
     #[sea_orm(string_value = "default")]
     Default,

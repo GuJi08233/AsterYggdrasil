@@ -225,6 +225,8 @@ describe("frontend entry routes", () => {
 					wordmark_dark_url: "",
 					wordmark_light_url: "",
 					site_urls: ["http://localhost:5173"],
+					allow_local_login: true,
+					allow_local_registration: true,
 					allow_user_registration: true,
 				},
 				yggdrasil: {

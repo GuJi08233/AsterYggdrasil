@@ -100,7 +100,7 @@ function MinecraftProfilesLayout({
 	onDropTextureFile: (event: DragEvent<HTMLLabelElement>) => void;
 	onLeaveTextureDropZone: () => void;
 	onOpenDeleteTextureDialog: (type: MinecraftTextureType) => void;
-	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	onOpenRenameDialog: (profile: YggdrasilProfile) => void;
 	onOpenTextureDialog: (type: MinecraftTextureType) => void;
 	onNextProfilePage: () => void;
 	onPreviousProfilePage: () => void;
@@ -241,7 +241,7 @@ function ProfileListSection({
 	onChangePageSize: (value: string | null) => void;
 	onCreateProfile: (event: FormEvent<HTMLFormElement>) => void;
 	onNextProfilePage: () => void;
-	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	onOpenRenameDialog: (profile: YggdrasilProfile) => void;
 	onPreviousProfilePage: () => void;
 	profileCurrentPage: number;
 	profileName: string;
@@ -387,7 +387,7 @@ function ProfileList({
 }: {
 	deletingProfile: boolean;
 	dispatch: ProfilesDispatch;
-	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	onOpenRenameDialog: (profile: YggdrasilProfile) => void;
 	profileSkinUrls: Record<string, string | null>;
 	profiles: YggdrasilProfile[];
 	query: string;
@@ -447,12 +447,16 @@ function ProfileListRow({
 }: {
 	deletingProfile: boolean;
 	dispatch: ProfilesDispatch;
-	onOpenRenameDialog: (profile: { id: string; name: string }) => void;
+	onOpenRenameDialog: (profile: YggdrasilProfile) => void;
 	profile: YggdrasilProfile;
 	selected: boolean;
 	skinUrl: string | null;
 }) {
 	const { t } = useTranslation();
+	const officialProfile = profile.source === "microsoft";
+	const sourceLabel = officialProfile
+		? t("profiles.sourceMicrosoft")
+		: t("profiles.sourceLocal");
 
 	return (
 		<div
@@ -474,6 +478,20 @@ function ProfileListRow({
 						skinUrl={skinUrl}
 					/>
 					<span className="truncate font-medium">{profile.name}</span>
+					<Badge
+						variant={officialProfile ? "secondary" : "outline"}
+						className={cn(
+							"rounded-md",
+							officialProfile &&
+								"border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+						)}
+					>
+						<Icon
+							name={officialProfile ? "Shield" : "User"}
+							className="size-3"
+						/>
+						{sourceLabel}
+					</Badge>
 					{selected ? (
 						<Badge variant="outline" className="rounded-md">
 							{t("profiles.selected")}
@@ -499,8 +517,13 @@ function ProfileListRow({
 						ariaLabel={t("profiles.renameAction", {
 							name: profile.name,
 						})}
+						disabled={officialProfile}
 						icon="PencilSimple"
-						label={t("profiles.renameShortAction")}
+						label={
+							officialProfile
+								? t("profiles.officialRenameDisabled")
+								: t("profiles.renameShortAction")
+						}
 						testId={`profile-rename-action-${profile.id}`}
 						onClick={() => onOpenRenameDialog(profile)}
 					/>

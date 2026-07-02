@@ -74,6 +74,7 @@ define_error_codes! {
     AuthSetupRequired => "auth.setup_required",
     AuthSetupAlreadyCompleted => "auth.setup_already_completed",
     AuthRegistrationDisabled => "auth.registration_disabled",
+    AuthLocalLoginDisabled => "auth.local_login_disabled",
     AuthPasswordPolicyFailed => "auth.password_policy_failed",
     AuthUsernameExists => "auth.username_exists",
     AuthEmailExists => "auth.email_exists",
@@ -109,6 +110,8 @@ define_error_codes! {
     ExternalAuthError => "external_auth.error",
     ExternalAuthProviderNotFound => "external_auth.provider_not_found",
     ExternalAuthProviderDisabled => "external_auth.provider_disabled",
+    ExternalAuthProviderLoginDisabled => "external_auth.provider_login_disabled",
+    ExternalAuthProviderUnlinkDisabled => "external_auth.provider_unlink_disabled",
     ExternalAuthProviderMisconfigured => "external_auth.provider_misconfigured",
     ExternalAuthStateInvalid => "external_auth.state_invalid",
     ExternalAuthStateExpired => "external_auth.state_expired",
@@ -139,11 +142,15 @@ define_error_codes! {
     // Minecraft profile errors exposed by project API endpoints.
     MinecraftProfileNotFound => "minecraft_profile.not_found",
     MinecraftProfileUuidInvalid => "minecraft_profile.uuid_invalid",
+    MinecraftProfileUuidTaken => "minecraft_profile.uuid_taken",
     MinecraftProfileNameInvalid => "minecraft_profile.name_invalid",
     MinecraftProfileNameTaken => "minecraft_profile.name_taken",
+    MinecraftProfileNameReservedByMojang => "minecraft_profile.name_reserved_by_mojang",
+    MinecraftProfileMojangLookupFailed => "minecraft_profile.mojang_lookup_failed",
     MinecraftProfileLimitExceeded => "minecraft_profile.limit_exceeded",
     MinecraftProfileDeleteForbidden => "minecraft_profile.delete_forbidden",
     MinecraftProfileRenameLimitExceeded => "minecraft_profile.rename_limit_exceeded",
+    MinecraftProfileOfficialNameReadonly => "minecraft_profile.official_name_readonly",
 
     // User capability ban errors.
     UserBanNotFound => "user_ban.not_found",

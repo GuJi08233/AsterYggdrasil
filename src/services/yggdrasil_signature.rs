@@ -269,6 +269,11 @@ mod tests {
             signature_private_key: private_key.to_string(),
             max_profiles_per_user: 1,
             max_profile_renames: 1,
+            mojang_name_check_enabled: true,
+            mojang_name_check_timeout_secs:
+                crate::config::yggdrasil::DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS,
+            mojang_profile_api_base_url:
+                crate::config::yggdrasil::DEFAULT_YGGDRASIL_MOJANG_PROFILE_API_BASE_URL.to_string(),
         }
     }
 

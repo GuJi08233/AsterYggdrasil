@@ -967,6 +967,10 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         .reload(&writer)
         .await
         .expect("runtime config should reload");
+    runtime_config.apply(system_config_model(
+        aster_yggdrasil::config::yggdrasil::YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY,
+        "false",
+    ));
 
     let cache = aster_forge_cache::create_cache(&config.cache).await;
     let object_storage =

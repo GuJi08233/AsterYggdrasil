@@ -141,6 +141,9 @@ pub struct UpdateAvatarSourceReq {
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct CheckResp {
     pub initialized: bool,
+    pub allow_user_registration: bool,
+    pub allow_local_registration: bool,
+    pub allow_local_login: bool,
 }
 
 #[derive(Debug, Serialize)]

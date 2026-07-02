@@ -3,6 +3,7 @@ use chrono::{Duration, Utc};
 use sea_orm::ActiveValue::Set;
 use serde::Deserialize;
 
+use crate::api::error_code::AsterErrorCode;
 use crate::db::repository::{external_auth_login_flow_repo, external_auth_provider_repo};
 use crate::entities::{external_auth_login_flow, external_auth_provider};
 use crate::errors::{AsterError, Result};
@@ -65,6 +66,19 @@ pub async fn start_login(
         );
         return Err(AsterError::auth_forbidden(
             "external auth provider is disabled",
+        ));
+    }
+    let provider_options = parse_external_auth_provider_options(provider.options.as_ref());
+    if !provider_options.allow_login {
+        tracing::debug!(
+            provider_id = provider.id,
+            provider_kind = ?provider.provider_kind,
+            provider_key = %provider.key,
+            "external auth login rejected because provider does not allow login"
+        );
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::ExternalAuthProviderLoginDisabled,
+            "external auth provider is not available for login",
         ));
     }
 
@@ -188,6 +202,19 @@ pub async fn finish_callback(
             "external auth provider is disabled",
         ));
     }
+    let provider_options = parse_external_auth_provider_options(provider.options.as_ref());
+    if !provider_options.allow_login {
+        tracing::debug!(
+            provider_id = provider.id,
+            provider_kind = ?provider.provider_kind,
+            provider_key = %provider.key,
+            "external auth callback rejected because provider does not allow login"
+        );
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::ExternalAuthProviderLoginDisabled,
+            "external auth provider is not available for login",
+        ));
+    }
 
     // LinuxDo uses a custom flow to also fetch trust_level
     let linuxdo_metadata;
@@ -237,8 +264,7 @@ pub async fn finish_callback(
 
     // LinuxDo trust_level gate: reject users below the configured minimum.
     if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
-        let options = parse_external_auth_provider_options(provider.options.as_ref());
-        if let Some(linuxdo_opts) = &options.linuxdo {
+        if let Some(linuxdo_opts) = &provider_options.linuxdo {
             let user_trust_level = linuxdo_metadata.as_ref().and_then(|m| {
                 serde_json::from_str::<serde_json::Value>(m)
                     .ok()

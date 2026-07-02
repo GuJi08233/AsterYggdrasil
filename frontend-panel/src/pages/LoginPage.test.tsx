@@ -153,6 +153,42 @@ describe("LoginPage", () => {
 		expect(toastMock.success).toHaveBeenCalledWith("login.loginSuccess");
 	});
 
+	it("uses external auth as the primary action when local login is disabled", async () => {
+		useFrontendConfigStore.setState({
+			allowLocalLogin: false,
+			allowLocalRegistration: false,
+			passkeyLoginEnabled: true,
+		});
+		externalAuthServiceMock.listPublic.mockResolvedValue([
+			{
+				display_name: "LinuxDo",
+				icon_url: "/static/external-auth/linuxdo.svg",
+				key: "linuxdo",
+				kind: "linuxdo",
+			},
+		]);
+		externalAuthServiceMock.startAuthAlias.mockRejectedValueOnce(
+			new Error("blocked by test"),
+		);
+
+		renderLoginPage();
+
+		expect(await screen.findByText("login.externalOnlyTitle")).toBeInTheDocument();
+		expect(screen.queryByLabelText("login.identifier")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("login.password")).not.toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "login.externalLogin" }));
+
+		await waitFor(() =>
+			expect(externalAuthServiceMock.startAuthAlias).toHaveBeenCalledWith(
+				"linuxdo",
+				"linuxdo",
+				{ return_path: "/account" },
+			),
+		);
+		expect(authServiceMock.login).not.toHaveBeenCalled();
+	});
+
 	it("opens external auth recovery from callback query and clears callback params", async () => {
 		renderLoginPage(
 			"/login?external_auth=email_required&flow=flow-1&return_path=%2Faccount%2Fwardrobe&kept=1",

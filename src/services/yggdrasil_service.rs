@@ -6,6 +6,7 @@ mod error;
 mod login;
 mod metadata;
 mod minecraft_services;
+mod mojang;
 mod profile;
 mod properties;
 mod session;
@@ -20,8 +21,9 @@ pub use minecraft_services::{
 };
 pub use profile::{
     DeleteMinecraftProfileResult, MinecraftProfileInfo, RenameMinecraftProfileResult,
-    create_profile, create_profile_for_external_auth, delete_profile_for_user, profile_info,
-    profile_summary, rename_profile, rename_profile_for_user, validate_profile_name,
+    create_profile, create_profile_for_external_auth, create_profile_with_uuid_in_connection,
+    delete_profile_for_user, profile_info, profile_summary, project_profile_summary,
+    rename_profile, rename_profile_for_user, validate_profile_name,
 };
 pub(crate) use properties::invalidate_profile_properties_cache;
 pub(crate) use session::invalidate_session_forward_server_cache;

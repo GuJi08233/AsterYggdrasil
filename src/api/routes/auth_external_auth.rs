@@ -9,7 +9,7 @@ use crate::config::site_url;
 use crate::errors::{AsterError, Result};
 use crate::runtime::AppState;
 use crate::services::auth_service::AuthUserInfo;
-use crate::services::{auth_service, external_auth_service};
+use crate::services::{audit_service, auth_service, external_auth_service};
 use crate::types::external_auth::ExternalAuthProviderKind;
 use actix_web::http::header;
 use actix_web::{HttpRequest, HttpResponse, web};
@@ -29,6 +29,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         web::scope("/auth/external-auth")
             .route("/providers", web::get().to(list_providers))
             .route("/{kind}/providers", web::get().to(list_providers_by_kind))
+            .service(
+                web::resource("/{kind}/binding/providers")
+                    .wrap(JwtAuth)
+                    .route(web::get().to(list_minecraft_binding_providers)),
+            )
             .route(
                 "/email-verification/start",
                 web::post().to(start_email_verification),
@@ -45,6 +50,15 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                     .route("/{id}", web::delete().to(delete_link)),
             )
             .route("/{kind}/{provider}/start", web::post().to(start_login))
+            .service(
+                web::resource("/{kind}/{provider}/binding/start")
+                    .wrap(JwtAuth)
+                    .route(web::post().to(start_minecraft_binding)),
+            )
+            .route(
+                "/{kind}/{provider}/binding/callback",
+                web::get().to(finish_minecraft_binding),
+            )
             .route("/{kind}/{provider}/callback", web::get().to(finish_login))
             .route("/{kind}/callback", web::get().to(finish_login_auto_resolve)),
     );
@@ -129,6 +143,42 @@ pub async fn list_providers_by_kind(
 }
 
 #[aster_forge_api_docs_macros::path(
+    get,
+    path = "/api/v1/auth/external-auth/{kind}/binding/providers",
+    tag = "external-auth",
+    operation_id = "auth_external_auth_list_minecraft_binding_providers",
+    params(("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"), LimitQuery, ExternalAuthProviderCursorQuery),
+    responses(
+        (status = 200, description = "Enabled Microsoft providers available for Minecraft account binding", body = inline(ApiResponse<CursorPage<external_auth_service::ExternalAuthPublicProvider, StringIdCursor>>)),
+        (status = 400, description = "Provider kind cannot be used for Minecraft account binding"),
+        (status = 401, description = "Not authenticated"),
+        (status = 404, description = "Provider kind not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn list_minecraft_binding_providers(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    page: web::Query<LimitQuery>,
+    cursor: web::Query<ExternalAuthProviderCursorQuery>,
+) -> Result<HttpResponse> {
+    let kind = parse_kind(&path)?;
+    let after = parse_string_id_cursor(
+        cursor.after_display_name.clone(),
+        cursor.after_id,
+        "external auth provider",
+    )?;
+    let providers = external_auth_service::list_minecraft_binding_providers_by_kind_paginated(
+        state.get_ref(),
+        kind,
+        page.limit_or(20, 100),
+        after,
+    )
+    .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(providers)))
+}
+
+#[aster_forge_api_docs_macros::path(
     post,
     path = "/api/v1/auth/external-auth/{kind}/{provider}/start",
     tag = "external-auth",
@@ -153,10 +203,50 @@ pub async fn start_login(
     validate_request(&*body)?;
     let (kind, provider) = path.into_inner();
     let kind = parse_kind(&kind)?;
-    ensure_provider_kind(state.get_ref(), kind, &provider).await?;
     let data = external_auth_service::start_login(
         state.get_ref(),
         &req,
+        kind,
+        &provider,
+        body.return_path.as_deref(),
+    )
+    .await?;
+    Ok(HttpResponse::Ok().json(ApiResponse::ok(data)))
+}
+
+#[aster_forge_api_docs_macros::path(
+    post,
+    path = "/api/v1/auth/external-auth/{kind}/{provider}/binding/start",
+    tag = "external-auth",
+    operation_id = "auth_external_auth_start_minecraft_binding",
+    params(
+        ("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"),
+        ("provider" = String, Path, description = "External auth provider slug"),
+    ),
+    request_body = StartExternalAuthReq,
+    responses(
+        (status = 200, description = "Microsoft Minecraft binding authorization start response", body = inline(ApiResponse<external_auth_service::ExternalAuthStartLoginResponse>)),
+        (status = 400, description = "Provider is misconfigured or request is invalid"),
+        (status = 401, description = "Not authenticated"),
+        (status = 403, description = "Provider is disabled"),
+        (status = 404, description = "Provider not found"),
+    ),
+    security(("bearer" = [])),
+)]
+pub async fn start_minecraft_binding(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    user: web::ReqData<AuthUserInfo>,
+    path: web::Path<(String, String)>,
+    body: web::Json<StartExternalAuthReq>,
+) -> Result<HttpResponse> {
+    validate_request(&*body)?;
+    let (kind, provider) = path.into_inner();
+    let kind = parse_kind(&kind)?;
+    let data = external_auth_service::start_minecraft_binding(
+        state.get_ref(),
+        &req,
+        user.id,
         kind,
         &provider,
         body.return_path.as_deref(),
@@ -205,12 +295,6 @@ pub async fn finish_login(
             ));
         }
     };
-    if let Err(error) = ensure_provider_kind(state.get_ref(), kind, &provider).await {
-        return Ok(external_auth_error_redirect_response(
-            state.get_ref(),
-            &error,
-        ));
-    }
     let query = external_auth_service::ExternalAuthCallbackQuery {
         code: query.code.clone(),
         state: query.state.clone(),
@@ -269,6 +353,99 @@ pub async fn finish_login(
             ))
         }
     }
+}
+
+#[aster_forge_api_docs_macros::path(
+    get,
+    path = "/api/v1/auth/external-auth/{kind}/{provider}/binding/callback",
+    tag = "external-auth",
+    operation_id = "auth_external_auth_finish_minecraft_binding",
+    params(
+        ("kind" = ExternalAuthProviderKind, Path, description = "External auth provider kind"),
+        ("provider" = String, Path, description = "External auth provider slug"),
+        ExternalAuthCallbackQuery,
+    ),
+    responses(
+        (status = 302, description = "Minecraft account binding callback completed and redirected"),
+    ),
+)]
+pub async fn finish_minecraft_binding(
+    state: web::Data<AppState>,
+    req: HttpRequest,
+    path: web::Path<(String, String)>,
+    query: web::Query<ExternalAuthCallbackQuery>,
+) -> Result<HttpResponse> {
+    validate_request(&*query)?;
+    let (kind, provider) = path.into_inner();
+    let kind = match parse_kind(&kind) {
+        Ok(kind) => kind,
+        Err(error) => {
+            return Ok(external_auth_binding_error_redirect_response(
+                state.get_ref(),
+                &error,
+            ));
+        }
+    };
+    let query = external_auth_service::ExternalAuthCallbackQuery {
+        code: query.code.clone(),
+        state: query.state.clone(),
+        error: query.error.clone(),
+        error_description: query.error_description.clone(),
+    };
+    let result = match external_auth_service::finish_minecraft_binding_callback(
+        state.get_ref(),
+        kind,
+        Some(&provider),
+        &query,
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            return Ok(external_auth_binding_error_redirect_response(
+                state.get_ref(),
+                &error,
+            ));
+        }
+    };
+
+    let ctx = audit_service::AuditContext::from_request(&req, result.user_id);
+    if result.identity_linked {
+        audit_service::log_with_details(
+            state.get_ref(),
+            &ctx,
+            audit_service::AuditAction::UserExternalAuthLink,
+            audit_service::AuditEntityType::ExternalAuthIdentity,
+            Some(result.identity_id),
+            Some(&result.profile.name),
+            || None,
+        )
+        .await;
+    }
+    if result.profile_created {
+        audit_service::log_with_details(
+            state.get_ref(),
+            &ctx,
+            audit_service::AuditAction::MinecraftProfileCreate,
+            audit_service::AuditEntityType::MinecraftProfile,
+            Some(result.profile.id),
+            Some(&result.profile.name),
+            || {
+                audit_service::details(audit_service::MinecraftProfileAuditDetails {
+                    profile_uuid: &result.profile.uuid,
+                    profile_name: &result.profile.name,
+                    deleted_texture_count: None,
+                    revoked_token_count: None,
+                })
+            },
+        )
+        .await;
+    }
+
+    Ok(external_auth_binding_success_redirect_response(
+        state.get_ref(),
+        &result,
+    ))
 }
 
 /// Fixed callback route for specialized providers (e.g., LinuxDO).
@@ -594,6 +771,64 @@ fn external_auth_status_redirect_response(state: &AppState, status: &str) -> Htt
         .finish()
 }
 
+fn external_auth_binding_success_redirect_response(
+    state: &AppState,
+    result: &external_auth_service::ExternalAuthMinecraftBindingCallbackResult,
+) -> HttpResponse {
+    let redirect_url = add_query_params(
+        site_url::public_app_url_or_path(state.runtime_config(), &result.return_path),
+        &[
+            ("minecraft_binding", "success".to_string()),
+            ("profile_uuid", result.profile.uuid.clone()),
+            ("profile_created", result.profile_created.to_string()),
+        ],
+    );
+    HttpResponse::Found()
+        .append_header((header::LOCATION, redirect_url))
+        .finish()
+}
+
+fn external_auth_binding_error_redirect_response(
+    state: &AppState,
+    error: &AsterError,
+) -> HttpResponse {
+    tracing::warn!(error = %error, "external auth Minecraft binding callback failed");
+    let mut params = vec![("minecraft_binding", "error".to_string())];
+    if !error.status_code().is_server_error() {
+        params.push(("code", error.api_error_code().as_str().to_string()));
+    }
+    let redirect_url = add_query_params(
+        site_url::public_app_url_or_path(state.runtime_config(), "/account"),
+        &params,
+    );
+    HttpResponse::Found()
+        .append_header((header::LOCATION, redirect_url))
+        .finish()
+}
+
+fn add_query_params(location: String, params: &[(&str, String)]) -> String {
+    let (base, hash) = location
+        .split_once('#')
+        .map_or((location.as_str(), ""), |(base, hash)| (base, hash));
+    let mut next = base.to_string();
+    for (index, (key, value)) in params.iter().enumerate() {
+        let separator = if index == 0 {
+            if next.contains('?') { '&' } else { '?' }
+        } else {
+            '&'
+        };
+        next.push(separator);
+        next.push_str(&urlencoding::encode(key));
+        next.push('=');
+        next.push_str(&urlencoding::encode(value));
+    }
+    if !hash.is_empty() {
+        next.push('#');
+        next.push_str(hash);
+    }
+    next
+}
+
 fn add_auth_redirect_status(location: String, status: &str) -> String {
     let (base, hash) = location
         .split_once('#')
@@ -608,20 +843,6 @@ fn add_auth_redirect_status(location: String, status: &str) -> String {
         next.push_str(hash);
     }
     next
-}
-
-async fn ensure_provider_kind(
-    state: &AppState,
-    kind: ExternalAuthProviderKind,
-    provider: &str,
-) -> Result<()> {
-    let providers = external_auth_service::list_public_providers_by_kind(state, kind).await?;
-    if providers.iter().any(|item| item.key == provider) {
-        return Ok(());
-    }
-    Err(AsterError::record_not_found(format!(
-        "external auth provider {provider}"
-    )))
 }
 
 #[cfg(test)]

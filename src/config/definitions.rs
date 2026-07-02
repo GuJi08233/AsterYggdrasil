@@ -71,6 +71,7 @@ pub const AUTH_ACCESS_TOKEN_TTL_SECS_KEY: &str = "auth_access_token_ttl_secs";
 pub const AUTH_REFRESH_TOKEN_TTL_SECS_KEY: &str = "auth_refresh_token_ttl_secs";
 pub const AUTH_ALLOW_USER_REGISTRATION_KEY: &str = "auth_allow_user_registration";
 pub const AUTH_ALLOW_LOCAL_REGISTRATION_KEY: &str = "auth_allow_local_registration";
+pub const AUTH_ALLOW_LOCAL_LOGIN_KEY: &str = "auth_allow_local_login";
 pub const AUTH_REGISTER_ACTIVATION_ENABLED_KEY: &str = "auth_register_activation_enabled";
 pub const AUTH_REGISTER_ACTIVATION_TTL_SECS_KEY: &str = "auth_register_activation_ttl_secs";
 pub const AUTH_USER_INVITATION_TTL_SECS_KEY: &str = "auth_user_invitation_ttl_secs";
@@ -175,6 +176,10 @@ pub const YGGDRASIL_SIGNATURE_PUBLIC_KEY_KEY: &str = "yggdrasil_signature_public
 pub const YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY: &str = "yggdrasil_signature_private_key";
 pub const YGGDRASIL_MAX_PROFILES_PER_USER_KEY: &str = "yggdrasil_max_profiles_per_user";
 pub const YGGDRASIL_MAX_PROFILE_RENAMES_KEY: &str = "yggdrasil_max_profile_renames";
+pub const YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY: &str = "yggdrasil_mojang_name_check_enabled";
+pub const YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY: &str =
+    "yggdrasil_mojang_name_check_timeout_secs";
+pub const YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY: &str = "yggdrasil_mojang_profile_api_base_url";
 
 pub const TEXTURE_LIBRARY_ENABLED_KEY: &str = "texture_library_enabled";
 pub const TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY: &str = "texture_library_review_required";
@@ -737,6 +742,19 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         category: CONFIG_CATEGORY_AUTH_RECOVERY,
         description: "Minimum cooldown between password reset requests in seconds",
         normalize_fn: Some(normalize_token_ttl),
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: AUTH_ALLOW_LOCAL_LOGIN_KEY,
+        label_i18n_key: "settings_item_auth_allow_local_login_label",
+        description_i18n_key: "settings_item_auth_allow_local_login_desc",
+        value_type: ConfigValueType::Boolean,
+        default_fn: || "true".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_AUTH_LOGIN,
+        description: "Allow browser users to sign in with local site credentials",
+        normalize_fn: Some(normalize_auth_bool),
         ..ConfigDefinition::private_system()
     },
     ConfigDefinition {
@@ -1644,6 +1662,48 @@ pub static ALL_CONFIGS: &[ConfigDefinition] = &[
         is_sensitive: false,
         category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
         description: "Maximum number of profile renames allowed per user",
+        normalize_fn: Some(normalize_yggdrasil),
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY,
+        label_i18n_key: "config.yggdrasil_mojang_name_check_enabled.label",
+        description_i18n_key: "config.yggdrasil_mojang_name_check_enabled.description",
+        value_type: ConfigValueType::Boolean,
+        default_fn: || "true".to_string(),
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
+        description: "Check Mojang profile names before creating local Minecraft profiles",
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY,
+        label_i18n_key: "config.yggdrasil_mojang_name_check_timeout_secs.label",
+        description_i18n_key: "config.yggdrasil_mojang_name_check_timeout_secs.description",
+        value_type: ConfigValueType::Number,
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS.to_string()
+        },
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
+        description: "Timeout in seconds for Mojang profile name availability checks",
+        normalize_fn: Some(normalize_yggdrasil),
+        ..ConfigDefinition::private_system()
+    },
+    ConfigDefinition {
+        key: YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY,
+        label_i18n_key: "config.yggdrasil_mojang_profile_api_base_url.label",
+        description_i18n_key: "config.yggdrasil_mojang_profile_api_base_url.description",
+        value_type: ConfigValueType::String,
+        default_fn: || {
+            crate::config::yggdrasil::DEFAULT_YGGDRASIL_MOJANG_PROFILE_API_BASE_URL.to_string()
+        },
+        requires_restart: false,
+        is_sensitive: false,
+        category: CONFIG_CATEGORY_YGGDRASIL_AUTH,
+        description: "Mojang profile API base URL used to check official username occupancy",
         normalize_fn: Some(normalize_yggdrasil),
         ..ConfigDefinition::private_system()
     },

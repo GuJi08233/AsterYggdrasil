@@ -28,6 +28,7 @@ where
         return Ok(YggdrasilProfile {
             id: profile.uuid.clone(),
             name: profile.name.clone(),
+            source: None,
             properties: Some(properties),
         });
     }
@@ -93,6 +94,7 @@ where
     Ok(YggdrasilProfile {
         id: profile.uuid.clone(),
         name: profile.name.clone(),
+        source: None,
         properties: Some(properties),
     })
 }

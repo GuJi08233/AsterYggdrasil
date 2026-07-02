@@ -13,6 +13,8 @@ vi.mock("@/services/frontendConfigService", () => ({
 const frontendConfig = {
 	version: 1,
 	branding: {
+		allow_local_login: true,
+		allow_local_registration: true,
 		allow_user_registration: true,
 		passkey_login_enabled: false,
 		description: "A test Yggdrasil server",
@@ -60,6 +62,8 @@ describe("frontendConfigStore cache", () => {
 		const { useFrontendConfigStore } = await loadStore();
 
 		expect(useFrontendConfigStore.getState()).toMatchObject({
+			allowLocalLogin: true,
+			allowLocalRegistration: true,
 			allowUserRegistration: true,
 			passkeyLoginEnabled: false,
 			isLoaded: true,

@@ -13,7 +13,7 @@ import { validateMinecraftTextureFile } from "@/lib/minecraftTextureValidation";
 import { ApiError, formatUnknownError } from "@/services/http";
 import { yggdrasilService } from "@/services/yggdrasilService";
 import { useFrontendConfigStore } from "@/stores/frontendConfigStore";
-import type { MinecraftTextureType } from "@/types/api";
+import type { MinecraftTextureType, YggdrasilProfile } from "@/types/api";
 import { useMinecraftProfilesPageState } from "./useMinecraftProfilesPageState";
 
 const DEFAULT_PROFILE_PAGE_SIZE = 5;
@@ -180,6 +180,24 @@ export function useMinecraftProfilesPageController() {
 	const yggdrasilConfig = useFrontendConfigStore((store) => store.yggdrasil);
 	const renameUuidRef = useRef("");
 
+	function profileActionErrorMessage(error: unknown): string {
+		if (!(error instanceof ApiError)) return formatUnknownError(error);
+		switch (error.code) {
+			case "minecraft_profile.limit_exceeded":
+				return t("profiles.limitExceeded");
+			case "minecraft_profile.name_reserved_by_mojang":
+				return t("profiles.nameReservedByMojang");
+			case "minecraft_profile.mojang_lookup_failed":
+				return t("profiles.mojangLookupFailed");
+			case "minecraft_profile.rename_limit_exceeded":
+				return t("profiles.renameLimitExceeded");
+			case "minecraft_profile.official_name_readonly":
+				return t("profiles.officialNameReadonly");
+			default:
+				return formatUnknownError(error);
+		}
+	}
+
 	async function createProfile(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		dispatch({ type: "loading", value: true });
@@ -190,20 +208,17 @@ export function useMinecraftProfilesPageController() {
 			dispatch({ type: "profileName", value: "" });
 			await loadProfiles([], profilePageSize, created.id);
 		} catch (nextError) {
-			if (
-				nextError instanceof ApiError &&
-				nextError.code === "minecraft_profile.limit_exceeded"
-			) {
-				toast.error(t("profiles.limitExceeded"));
-			} else {
-				toast.error(formatUnknownError(nextError));
-			}
+			toast.error(profileActionErrorMessage(nextError));
 		} finally {
 			dispatch({ type: "loading", value: false });
 		}
 	}
 
-	function openRenameDialog(profile: { id: string; name: string }) {
+	function openRenameDialog(profile: YggdrasilProfile) {
+		if (profile.source === "microsoft") {
+			toast.error(t("profiles.officialNameReadonly"));
+			return;
+		}
 		renameUuidRef.current = profile.id;
 		dispatch({ type: "renameName", value: profile.name });
 		dispatch({ type: "renameDialogOpen", value: true });
@@ -224,14 +239,7 @@ export function useMinecraftProfilesPageController() {
 			await loadProfiles([], profilePageSize, renamed.id);
 			toast.success(t("profiles.renameToast"));
 		} catch (nextError) {
-			if (
-				nextError instanceof ApiError &&
-				nextError.code === "minecraft_profile.rename_limit_exceeded"
-			) {
-				toast.error(t("profiles.renameLimitExceeded"));
-			} else {
-				toast.error(formatUnknownError(nextError));
-			}
+			toast.error(profileActionErrorMessage(nextError));
 		} finally {
 			dispatch({ type: "renaming", value: false });
 		}

@@ -17,6 +17,7 @@ pub struct PublicBranding {
     pub site_urls: Vec<String>,
     pub allow_user_registration: bool,
     pub allow_local_registration: bool,
+    pub allow_local_login: bool,
     pub passkey_login_enabled: bool,
 }
 
@@ -72,6 +73,7 @@ pub fn get_public_branding(state: &impl RuntimeConfigRuntimeState) -> PublicBran
         site_urls: site_url::public_site_urls(runtime_config),
         allow_user_registration: auth_policy.allow_user_registration,
         allow_local_registration: auth_policy.allow_local_registration,
+        allow_local_login: auth_policy.allow_local_login,
         passkey_login_enabled: auth_policy.passkey_login_enabled,
     }
 }

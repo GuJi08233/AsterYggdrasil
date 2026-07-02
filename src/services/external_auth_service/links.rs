@@ -1,16 +1,19 @@
 use chrono::Utc;
 
+use crate::api::error_code::AsterErrorCode;
 use crate::db::repository::{
-    external_auth_email_verification_flow_repo, external_auth_identity_repo,
-    external_auth_login_flow_repo, external_auth_provider_repo,
+    external_auth_binding_flow_repo, external_auth_email_verification_flow_repo,
+    external_auth_identity_repo, external_auth_login_flow_repo, external_auth_provider_repo,
 };
 use crate::entities::{external_auth_identity, external_auth_provider};
 use crate::errors::{AsterError, Result};
 use crate::runtime::SharedRuntimeState;
-use crate::types::external_auth::ExternalAuthProviderKind;
+use crate::types::external_auth::parse_external_auth_provider_options;
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
 
 use super::ExternalAuthLinkInfo;
+
+const MINECRAFT_IDENTITY_NAMESPACE: &str = "https://api.minecraftservices.com/minecraft/profile";
 
 pub async fn list_links(
     state: &impl SharedRuntimeState,
@@ -84,6 +87,9 @@ fn link_to_info(
         .metadata
         .as_deref()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok());
+    let options = parse_external_auth_provider_options(provider.options.as_ref());
+    let allow_unlink =
+        identity.identity_namespace != MINECRAFT_IDENTITY_NAMESPACE && options.allow_unlink;
     ExternalAuthLinkInfo {
         id: identity.id,
         provider_id: identity.provider_id,
@@ -99,6 +105,7 @@ fn link_to_info(
         updated_at: identity.updated_at,
         last_login_at: identity.last_login_at,
         metadata,
+        allow_unlink,
     }
 }
 
@@ -110,9 +117,11 @@ pub async fn delete_link(state: &impl SharedRuntimeState, user_id: i64, id: i64)
     };
     let provider =
         external_auth_provider_repo::find_by_id(state.writer_db(), identity.provider_id).await?;
-    if provider.provider_kind == ExternalAuthProviderKind::LinuxDo {
-        return Err(AsterError::auth_forbidden(
-            "LinuxDO external identity cannot be unlinked",
+    let options = parse_external_auth_provider_options(provider.options.as_ref());
+    if identity.identity_namespace == MINECRAFT_IDENTITY_NAMESPACE || !options.allow_unlink {
+        return Err(AsterError::auth_forbidden_code(
+            AsterErrorCode::ExternalAuthProviderUnlinkDisabled,
+            "external auth identity cannot be unlinked",
         ));
     }
 
@@ -123,7 +132,9 @@ pub async fn cleanup_expired_flows(state: &impl SharedRuntimeState) -> Result<u6
     let now = Utc::now();
     let login_flows =
         external_auth_login_flow_repo::cleanup_expired(state.writer_db(), now).await?;
+    let binding_flows =
+        external_auth_binding_flow_repo::cleanup_expired(state.writer_db(), now).await?;
     let email_flows =
         external_auth_email_verification_flow_repo::cleanup_expired(state.writer_db(), now).await?;
-    Ok(login_flows + email_flows)
+    Ok(login_flows + binding_flows + email_flows)
 }

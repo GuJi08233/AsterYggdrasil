@@ -6,7 +6,9 @@ mod common;
 use actix_web::{App, HttpResponse, HttpServer, Responder, http::header, test, web};
 use aster_forge_crypto::sha256_hex;
 use aster_yggdrasil::api::middleware::yggdrasil_rate_limit::YggdrasilRateLimiter;
-use aster_yggdrasil::config::auth_runtime::AUTH_ALLOW_USER_REGISTRATION_KEY;
+use aster_yggdrasil::config::auth_runtime::{
+    AUTH_ALLOW_LOCAL_LOGIN_KEY, AUTH_ALLOW_USER_REGISTRATION_KEY,
+};
 use aster_yggdrasil::config::definitions::PUBLIC_SITE_URL_KEY;
 use aster_yggdrasil::config::texture_library::{
     TEXTURE_LIBRARY_ENABLED_KEY, TEXTURE_LIBRARY_REVIEW_REQUIRED_KEY,
@@ -14,9 +16,10 @@ use aster_yggdrasil::config::texture_library::{
 use aster_yggdrasil::config::yggdrasil::{
     YGGDRASIL_ALLOW_PROFILE_NAME_LOGIN_KEY, YGGDRASIL_ENABLE_MOJANG_ANTI_FEATURES_KEY,
     YGGDRASIL_ENABLE_PROFILE_KEY_KEY, YGGDRASIL_MAX_TEXTURE_PIXELS_KEY,
-    YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY, YGGDRASIL_PUBLIC_BASE_URL_KEY,
-    YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY, YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY,
-    YGGDRASIL_TOKEN_TTL_DAYS_KEY,
+    YGGDRASIL_MAX_TEXTURE_UPLOAD_BYTES_KEY, YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY,
+    YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY, YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY,
+    YGGDRASIL_PUBLIC_BASE_URL_KEY, YGGDRASIL_SIGNATURE_PRIVATE_KEY_KEY,
+    YGGDRASIL_TEXTURE_PUBLIC_BASE_URL_KEY, YGGDRASIL_TOKEN_TTL_DAYS_KEY,
 };
 use aster_yggdrasil::config::{RateLimitConfig, RateLimitTier};
 use aster_yggdrasil::db::repository::{minecraft_profile_repo, system_config_repo, user_repo};
@@ -28,8 +31,8 @@ use aster_yggdrasil::errors::{AsterError, Result};
 use aster_yggdrasil::object_storage::{ObjectBlobMetadata, ObjectStorage};
 use aster_yggdrasil::services::{audit_service, auth_service, profile_service};
 use aster_yggdrasil::types::{
-    user::AvatarSource, yggdrasil::MinecraftTextureModel,
-    yggdrasil::YggdrasilSessionForwardProviderKind,
+    user::AvatarSource, yggdrasil::MinecraftProfileSource, yggdrasil::MinecraftTextureModel,
+    yggdrasil::YggdrasilSessionForwardEndpointKind, yggdrasil::YggdrasilSessionForwardProviderKind,
 };
 use base64::Engine;
 use sea_orm::{
@@ -206,6 +209,47 @@ async fn start_mock_session_forward_server(
     (provider, handle)
 }
 
+async fn start_mock_mojang_profile_api(
+    status: u16,
+    body: Value,
+) -> (MockMojangProfileApi, actix_web::dev::ServerHandle) {
+    async fn profile(
+        provider: web::Data<MockMojangProfileApi>,
+        path: web::Path<String>,
+    ) -> impl Responder {
+        provider
+            .requested_names
+            .lock()
+            .expect("requested names lock should not be poisoned")
+            .push(path.into_inner());
+        let status = actix_web::http::StatusCode::from_u16(provider.status)
+            .expect("mock status should be valid");
+        HttpResponse::build(status).json(provider.body.clone())
+    }
+
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).expect("listener should bind");
+    let addr = listener.local_addr().expect("listener addr should exist");
+    let provider = MockMojangProfileApi {
+        base_url: format!("http://127.0.0.1:{}", addr.port()),
+        requested_names: Arc::new(Mutex::new(Vec::new())),
+        status,
+        body,
+    };
+    let app_provider = provider.clone();
+    let server = HttpServer::new(move || {
+        App::new()
+            .app_data(web::Data::new(app_provider.clone()))
+            .route("/users/profiles/minecraft/{name}", web::get().to(profile))
+    })
+    .workers(1)
+    .listen(listener)
+    .expect("mock Mojang profile API server should listen")
+    .run();
+    let handle = server.handle();
+    tokio::spawn(server);
+    (provider, handle)
+}
+
 async fn configure_yggdrasil_public_site_url(state: &aster_yggdrasil::runtime::AppState) {
     let saved = system_config_repo::upsert_with_options(
         state.writer_db(),
@@ -217,6 +261,20 @@ async fn configure_yggdrasil_public_site_url(state: &aster_yggdrasil::runtime::A
     .await
     .expect("public_site_url config should update");
     state.runtime_config().apply(saved);
+}
+
+async fn configure_mojang_profile_api(state: &aster_yggdrasil::runtime::AppState, base_url: &str) {
+    for (key, value) in [
+        (YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY, "true"),
+        (YGGDRASIL_MOJANG_NAME_CHECK_TIMEOUT_SECS_KEY, "2"),
+        (YGGDRASIL_MOJANG_PROFILE_API_BASE_URL_KEY, base_url),
+    ] {
+        let saved =
+            system_config_repo::upsert_with_options(state.writer_db(), key, value, None, None)
+                .await
+                .expect("Mojang profile API config should update");
+        state.runtime_config().apply(saved);
+    }
 }
 
 async fn create_operator_user<S, B>(
@@ -609,6 +667,54 @@ async fn yggdrasil_authenticate_validate_refresh_and_invalidate_flow() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 204);
+}
+
+#[derive(Clone)]
+struct MockMojangProfileApi {
+    base_url: String,
+    requested_names: Arc<Mutex<Vec<String>>>,
+    status: u16,
+    body: Value,
+}
+
+impl MockMojangProfileApi {
+    fn requested_names(&self) -> Vec<String> {
+        self.requested_names
+            .lock()
+            .expect("requested names lock should not be poisoned")
+            .clone()
+    }
+}
+
+#[actix_web::test]
+async fn yggdrasil_authenticate_still_allows_launcher_password_when_site_login_is_disabled() {
+    let state = setup_yggdrasil().await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+    let _profile_id = create_profile!(app, access, "LauncherOnly");
+
+    state.runtime_config.apply(common::system_config_model(
+        AUTH_ALLOW_LOCAL_LOGIN_KEY,
+        "false",
+    ));
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/login")
+        .peer_addr("127.0.0.1:12345".parse().unwrap())
+        .set_json(serde_json::json!({
+            "identifier": "admin@example.com",
+            "password": "password1234"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+
+    let login = ygg_login!(
+        app,
+        "admin@example.com",
+        "launcher-password-when-site-login-disabled"
+    );
+    assert!(!login.access_token.is_empty());
 }
 
 #[actix_web::test]
@@ -1793,6 +1899,100 @@ async fn account_and_profile_names_do_not_shadow_across_users() {
     assert_eq!(resp.status(), 400);
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["code"], "auth.username_exists");
+}
+
+#[actix_web::test]
+async fn minecraft_profile_creation_rejects_mojang_reserved_name() {
+    let (mojang, server) = start_mock_mojang_profile_api(
+        200,
+        serde_json::json!({
+            "id": "da54e3cc2d59409e8bf00267c4460117",
+            "name": "Gu___ji"
+        }),
+    )
+    .await;
+    let state = setup_yggdrasil().await;
+    configure_mojang_profile_api(&state, &mojang.base_url).await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "Gu___ji" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.name_reserved_by_mojang");
+    assert_eq!(mojang.requested_names(), vec!["Gu___ji".to_string()]);
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn minecraft_profile_creation_allows_mojang_missing_name_and_marks_local_source() {
+    let (mojang, server) = start_mock_mojang_profile_api(
+        404,
+        serde_json::json!({
+            "path": "/users/profiles/minecraft/Gu___ji1",
+            "errorMessage": "Couldn't find any profile with name Gu___ji1"
+        }),
+    )
+    .await;
+    let state = setup_yggdrasil().await;
+    configure_mojang_profile_api(&state, &mojang.base_url).await;
+    let app = create_test_app!(state.clone());
+    let access = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "Gu___ji1" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["name"], "Gu___ji1");
+    assert_eq!(body["data"]["source"], "local");
+    let uuid = body["data"]["id"].as_str().expect("profile uuid");
+    uuid::Uuid::parse_str(uuid).expect("local profile uuid should be valid UUID");
+    let profile = minecraft_profile_repo::find_by_uuid(state.reader_db(), uuid)
+        .await
+        .expect("profile query should succeed")
+        .expect("profile should exist");
+    assert_eq!(profile.source, MinecraftProfileSource::Local);
+    assert_eq!(mojang.requested_names(), vec!["Gu___ji1".to_string()]);
+
+    server.stop(true).await;
+}
+
+#[actix_web::test]
+async fn minecraft_profile_creation_fails_when_mojang_lookup_fails() {
+    let (mojang, server) = start_mock_mojang_profile_api(
+        503,
+        serde_json::json!({
+            "error": "service unavailable"
+        }),
+    )
+    .await;
+    let state = setup_yggdrasil().await;
+    configure_mojang_profile_api(&state, &mojang.base_url).await;
+    let app = create_test_app!(state);
+    let access = setup_admin!(app);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/profiles/minecraft")
+        .insert_header(common::bearer_header(&access))
+        .set_json(serde_json::json!({ "name": "LookupDown" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 400);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["code"], "minecraft_profile.mojang_lookup_failed");
+    assert_eq!(mojang.requested_names(), vec!["LookupDown".to_string()]);
+
+    server.stop(true).await;
 }
 
 #[actix_web::test]
@@ -6822,7 +7022,23 @@ async fn yggdrasil_has_joined_allows_remote_priority_before_local_ay() {
 async fn yggdrasil_has_joined_uses_mojang_session_endpoint_path() {
     let state = setup_yggdrasil_with_memory_cache().await;
     let app = create_test_app!(state.clone());
+    let _access = setup_admin!(app);
+    let admin = user_repo::find_by_email(state.reader_db(), "admin@example.com")
+        .await
+        .expect("admin lookup should succeed")
+        .expect("admin should exist");
     let remote_profile_id = "33333333333333333333333333333333";
+    minecraft_profile_repo::create_with_source(
+        state.writer_db(),
+        admin.id,
+        remote_profile_id,
+        "MojangPathUser",
+        MinecraftProfileSource::Microsoft,
+        MinecraftTextureModel::Default,
+        "skin,cape",
+    )
+    .await
+    .expect("bound Microsoft profile should create");
     let (remote_upstream, remote_handle) = start_mock_session_forward_server(
         200,
         Some(serde_json::json!({
@@ -6836,9 +7052,7 @@ async fn yggdrasil_has_joined_uses_mojang_session_endpoint_path() {
     yggdrasil_session_forward_server::ActiveModel {
         display_name: Set("mojang endpoint mock".to_string()),
         provider_kind: Set(YggdrasilSessionForwardProviderKind::Remote),
-        endpoint_kind: Set(
-            aster_yggdrasil::types::yggdrasil::YggdrasilSessionForwardEndpointKind::MojangSession,
-        ),
+        endpoint_kind: Set(YggdrasilSessionForwardEndpointKind::MojangSession),
         base_url: Set(Some(remote_upstream.root_url.clone())),
         enabled: Set(true),
         priority: Set(10),
@@ -6881,6 +7095,123 @@ async fn yggdrasil_has_joined_uses_mojang_session_endpoint_path() {
     };
     assert!(used_mojang_path);
     assert!(!used_authlib_path);
+
+    remote_handle.stop(true).await;
+}
+
+#[actix_web::test]
+async fn yggdrasil_has_joined_rejects_unbound_mojang_session_profile() {
+    let state = setup_yggdrasil_with_memory_cache().await;
+    let app = create_test_app!(state.clone());
+    let remote_profile_id = "55555555555555555555555555555555";
+    let (remote_upstream, remote_handle) = start_mock_session_forward_server(
+        200,
+        Some(serde_json::json!({
+            "id": remote_profile_id,
+            "name": "UnboundMojang"
+        })),
+    )
+    .await;
+
+    let now = chrono::Utc::now();
+    let remote = yggdrasil_session_forward_server::ActiveModel {
+        display_name: Set("unbound mojang endpoint mock".to_string()),
+        provider_kind: Set(YggdrasilSessionForwardProviderKind::Remote),
+        endpoint_kind: Set(YggdrasilSessionForwardEndpointKind::MojangSession),
+        base_url: Set(Some(remote_upstream.root_url.clone())),
+        enabled: Set(true),
+        priority: Set(10),
+        weight: Set(1),
+        timeout_ms: Set(1500),
+        texture_forward_enabled: Set(false),
+        last_checked_at: Set(None),
+        last_success_at: Set(None),
+        last_failure_at: Set(None),
+        last_failure_message: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(state.writer_db())
+    .await
+    .expect("mojang endpoint upstream should insert");
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/sessionserver/session/minecraft/hasJoined?username=UnboundMojang&serverId=unbound-mojang-server")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
+
+    let remote = yggdrasil_session_forward_server::Entity::find_by_id(remote.id)
+        .one(state.writer_db())
+        .await
+        .unwrap()
+        .expect("remote upstream row should exist");
+    assert!(remote.last_checked_at.is_some());
+    assert!(remote.last_success_at.is_some());
+    assert!(remote.last_failure_at.is_none());
+
+    remote_handle.stop(true).await;
+}
+
+#[actix_web::test]
+async fn yggdrasil_has_joined_rejects_mojang_session_profile_bound_as_local() {
+    let state = setup_yggdrasil_with_memory_cache().await;
+    let app = create_test_app!(state.clone());
+    let _access = setup_admin!(app);
+    let admin = user_repo::find_by_email(state.reader_db(), "admin@example.com")
+        .await
+        .expect("admin lookup should succeed")
+        .expect("admin should exist");
+    let remote_profile_id = "66666666666666666666666666666666";
+    minecraft_profile_repo::create_with_source(
+        state.writer_db(),
+        admin.id,
+        remote_profile_id,
+        "LocalMojang",
+        MinecraftProfileSource::Local,
+        MinecraftTextureModel::Default,
+        "skin,cape",
+    )
+    .await
+    .expect("local profile should create");
+    let (remote_upstream, remote_handle) = start_mock_session_forward_server(
+        200,
+        Some(serde_json::json!({
+            "id": remote_profile_id,
+            "name": "LocalMojang"
+        })),
+    )
+    .await;
+
+    let now = chrono::Utc::now();
+    yggdrasil_session_forward_server::ActiveModel {
+        display_name: Set("local-source mojang endpoint mock".to_string()),
+        provider_kind: Set(YggdrasilSessionForwardProviderKind::Remote),
+        endpoint_kind: Set(YggdrasilSessionForwardEndpointKind::MojangSession),
+        base_url: Set(Some(remote_upstream.root_url.clone())),
+        enabled: Set(true),
+        priority: Set(10),
+        weight: Set(1),
+        timeout_ms: Set(1500),
+        texture_forward_enabled: Set(false),
+        last_checked_at: Set(None),
+        last_success_at: Set(None),
+        last_failure_at: Set(None),
+        last_failure_message: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(state.writer_db())
+    .await
+    .expect("mojang endpoint upstream should insert");
+
+    let req = test::TestRequest::get()
+        .uri("/api/yggdrasil/sessionserver/session/minecraft/hasJoined?username=LocalMojang&serverId=local-source-mojang-server")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 204);
 
     remote_handle.stop(true).await;
 }

@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MinecraftProfilesPage from "@/pages/account/MinecraftProfilesPage";
+import { ApiError } from "@/services/http";
 import type {
 	MinecraftTextureMetadata,
 	MinecraftWardrobeTextureMetadata,
@@ -93,8 +94,12 @@ vi.mock("@/components/yggdrasil/MinecraftPreview", () => ({
 	),
 }));
 
-function profile(id: string, name: string): YggdrasilProfile {
-	return { id, name, properties: [] };
+function profile(
+	id: string,
+	name: string,
+	overrides: Partial<YggdrasilProfile> = {},
+): YggdrasilProfile {
+	return { id, name, properties: [], ...overrides };
 }
 
 function texture(
@@ -294,6 +299,40 @@ describe("MinecraftProfilesPage", () => {
 		).toBeInTheDocument();
 	});
 
+	it("marks official Microsoft profiles and disables local rename", async () => {
+		yggdrasilServiceMock.listProfiles.mockResolvedValueOnce(
+			cursorPage([
+				profile("official-profile", "Notch", { source: "microsoft" }),
+				profile("local-profile", "LocalName", { source: "local" }),
+			]),
+		);
+		yggdrasilServiceMock.listProfileSkinTextureUrls.mockResolvedValueOnce({
+			"local-profile": null,
+			"official-profile": null,
+		});
+
+		render(<MinecraftProfilesPage />);
+		await screen.findByTestId("profile-rename-action-official-profile");
+
+		const officialRow = rowFor("Notch");
+		expect(
+			within(officialRow).getByText("profiles.sourceMicrosoft"),
+		).toBeVisible();
+		expect(
+			within(officialRow).getByTestId("profile-rename-action-official-profile"),
+		).toBeDisabled();
+		expect(screen.getByText("profiles.officialRenameDisabled")).toHaveAttribute(
+			"role",
+			"tooltip",
+		);
+
+		const localRow = rowFor("LocalName");
+		expect(within(localRow).getByText("profiles.sourceLocal")).toBeVisible();
+		expect(
+			within(localRow).getByTestId("profile-rename-action-local-profile"),
+		).not.toBeDisabled();
+	});
+
 	it("keeps the left table scoped to profile names and row actions", async () => {
 		await renderPage();
 
@@ -489,6 +528,27 @@ describe("MinecraftProfilesPage", () => {
 		expect(screen.getByLabelText("profiles.profileName")).toHaveValue(
 			"TakenName",
 		);
+	});
+
+	it("shows a dedicated message when Mojang reserves the created profile name", async () => {
+		yggdrasilServiceMock.createProfile.mockRejectedValueOnce(
+			new ApiError(
+				"minecraft_profile.name_reserved_by_mojang",
+				"name is reserved",
+			),
+		);
+		await renderPage();
+
+		fireEvent.change(screen.getByLabelText("profiles.profileName"), {
+			target: { value: "Notch" },
+		});
+		fireEvent.click(screen.getByRole("button", { name: /common.create/ }));
+
+		await waitFor(() => {
+			expect(toastMock.error).toHaveBeenCalledWith(
+				"profiles.nameReservedByMojang",
+			);
+		});
 	});
 
 	it("opens texture management from the selected table row without exposing it as a standalone panel", async () => {

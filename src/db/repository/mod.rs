@@ -4,6 +4,7 @@ pub mod audit_log_repo;
 pub mod auth_session_repo;
 pub mod background_task_repo;
 pub mod contact_verification_token_repo;
+pub mod external_auth_binding_flow_repo;
 pub mod external_auth_email_verification_flow_repo;
 pub mod external_auth_identity_repo;
 pub mod external_auth_login_flow_repo;

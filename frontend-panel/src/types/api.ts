@@ -221,6 +221,10 @@ export type ExternalAuthPublicProviderByKindQuery =
 	OperationQuery<"auth_external_auth_list_providers_by_kind">;
 export type ExternalAuthPublicProviderByKindPage =
 	OperationData<"auth_external_auth_list_providers_by_kind">;
+export type ExternalAuthMinecraftBindingProviderQuery =
+	OperationQuery<"auth_external_auth_list_minecraft_binding_providers">;
+export type ExternalAuthMinecraftBindingProviderPage =
+	OperationData<"auth_external_auth_list_minecraft_binding_providers">;
 export type ExternalAuthLinkQuery =
 	OperationQuery<"auth_external_auth_list_links">;
 export type ExternalAuthLinkPage =
@@ -388,6 +392,8 @@ export type YggdrasilProfileQuery =
 export type YggdrasilProfilePage =
 	OperationData<"list_current_user_minecraft_profiles">;
 export type YggdrasilProfile = YggdrasilProfilePage["items"][number];
+export type MinecraftProfileSource =
+	components["schemas"]["MinecraftProfileSource"];
 export type AdminUserMinecraftProfileQuery =
 	OperationQuery<"admin_list_user_minecraft_profiles">;
 export type YggdrasilProfileProperty =

@@ -348,6 +348,12 @@ function useLoginPageController() {
 	const loginWithPasskey = useAuthStore((state) => state.loginWithPasskey);
 	const register = useAuthStore((state) => state.register);
 	const branding = useFrontendConfigStore((state) => state.branding);
+	const allowLocalLogin = useFrontendConfigStore(
+		(state) => state.allowLocalLogin,
+	);
+	const allowLocalRegistration = useFrontendConfigStore(
+		(state) => state.allowLocalRegistration,
+	);
 	const allowUserRegistration = useFrontendConfigStore(
 		(state) => state.allowUserRegistration,
 	);
@@ -356,8 +362,13 @@ function useLoginPageController() {
 	);
 	const captchaConfig = useFrontendConfigStore((state) => state.captcha);
 	const navigate = useNavigate();
-	const isRegister = locationPathname === publicPaths.register;
+	const isRegisterRoute = locationPathname === publicPaths.register;
+	const canUseLocalRegistration =
+		allowUserRegistration && allowLocalRegistration;
+	const isRegister = isRegisterRoute && canUseLocalRegistration;
+	const showLocalForm = isRegister ? canUseLocalRegistration : allowLocalLogin;
 	const captchaRequired =
+		showLocalForm &&
 		captchaConfig.enabled &&
 		(isRegister
 			? captchaConfig.register_required
@@ -542,6 +553,8 @@ function useLoginPageController() {
 			}
 			return;
 		}
+
+		if (!showLocalForm) return;
 
 		if (isRegister) {
 			const validation = registerFormSchema.safeParse({
@@ -757,27 +770,36 @@ function useLoginPageController() {
 	const description = isRegister
 		? t("login.registerHeroDescription")
 		: t("login.welcomeDescription");
-	const cardTitle = isRegister ? t("login.registerTitle") : t("login.title");
-	const cardDescription = isRegister
-		? t("login.registerDescription")
-		: t("login.cardDescription");
+	const cardTitle = !showLocalForm
+		? t("login.externalOnlyTitle")
+		: isRegister
+			? t("login.registerTitle")
+			: t("login.title");
+	const cardDescription = !showLocalForm
+		? t("login.externalOnlyDescription")
+		: isRegister
+			? t("login.registerDescription")
+			: t("login.cardDescription");
 	const submitLabel = isRegister ? t("login.registerNow") : t("nav.login");
-	const canSubmit = isRegister
-		? registerFormSchema.safeParse({
-				username,
-				email,
-				password,
-				confirmPassword,
-				acceptedTerms,
-			}).success
-		: loginFormSchema.safeParse({ identifier, password }).success;
+	const canSubmit =
+		showLocalForm &&
+		(isRegister
+			? registerFormSchema.safeParse({
+					username,
+					email,
+					password,
+					confirmPassword,
+					acceptedTerms,
+				}).success
+			: loginFormSchema.safeParse({ identifier, password }).success);
 	const captchaReady =
 		!captchaRequired ||
 		(Boolean(captcha.challengeId) && captcha.answer.trim().length > 0);
 	const submitDisabled = loading || !canSubmit || !captchaReady;
 	const brandTitle = branding.title || t("brand.name");
 	const visibleProviders = providers.slice(0, 3);
-	const showPasskeyLogin = !usesAccountCreationForm && passkeyLoginEnabled;
+	const showPasskeyLogin =
+		showLocalForm && !usesAccountCreationForm && passkeyLoginEnabled;
 
 	usePageTitle(cardTitle);
 
@@ -800,11 +822,13 @@ function useLoginPageController() {
 		passkeySubmitting,
 		passkeySupported,
 		showPasskeyLogin,
+		showLocalForm,
 		externalAuthRecovery,
 		submitDisabled,
 		submitLabel,
 		passwordScore,
 		passwordStrengthLabel: t(passwordStrengthKey),
+		allowLocalRegistration,
 		allowUserRegistration,
 		captchaAnswer: captcha.answer,
 		captchaImageBase64: captcha.imageBase64,

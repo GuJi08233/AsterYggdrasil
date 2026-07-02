@@ -5,6 +5,7 @@
 //! `crate::services::external_auth_service::*` so route code does not need to know
 //! the internal module split.
 
+mod binding;
 mod links;
 mod login;
 mod normalize;
@@ -23,15 +24,19 @@ use crate::types::{
 };
 use aster_forge_api::NullablePatch;
 
+pub use binding::{
+    ExternalAuthMinecraftBindingCallbackResult, finish_minecraft_binding_callback,
+    start_minecraft_binding,
+};
 pub use links::{cleanup_expired_flows, delete_link, list_links, list_links_paginated};
 pub use login::{finish_callback, start_login};
 pub use normalize::callback_redirect_uri;
 pub use password_link::link_with_password;
 pub use providers::{
     create_provider, delete_provider, get_admin_provider, list_admin_providers,
-    list_provider_kinds, list_public_providers, list_public_providers_by_kind,
-    list_public_providers_by_kind_paginated, list_public_providers_paginated, test_provider,
-    test_provider_params, update_provider,
+    list_minecraft_binding_providers_by_kind_paginated, list_provider_kinds, list_public_providers,
+    list_public_providers_by_kind, list_public_providers_by_kind_paginated,
+    list_public_providers_paginated, test_provider, test_provider_params, update_provider,
 };
 pub use verification::{confirm_email_verification, start_email_verification};
 
@@ -148,6 +153,7 @@ pub struct ExternalAuthLinkInfo {
     /// Provider-specific metadata (e.g., LinuxDo trust_level).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    pub allow_unlink: bool,
 }
 
 #[derive(Debug, Clone)]

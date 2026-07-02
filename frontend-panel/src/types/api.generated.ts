@@ -996,6 +996,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/external-auth/{kind}/binding/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["auth_external_auth_list_minecraft_binding_providers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/external-auth/{kind}/providers": {
         parameters: {
             query?: never;
@@ -1006,6 +1022,38 @@ export interface paths {
         get: operations["auth_external_auth_list_providers_by_kind"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/{kind}/{provider}/binding/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["auth_external_auth_finish_minecraft_binding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/external-auth/{kind}/{provider}/binding/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_external_auth_start_minecraft_binding"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2363,7 +2411,7 @@ export interface components {
             retryable?: boolean | null;
         };
         /** @enum {string} */
-        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_profile.rename_limit_exceeded" | "user_ban.not_found" | "user_ban.already_active" | "user_ban.not_active" | "user_ban.duration_invalid" | "user_ban.reason_invalid" | "user_ban.forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
+        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.local_login_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_login_disabled" | "external_auth.provider_unlink_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.uuid_taken" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.name_reserved_by_mojang" | "minecraft_profile.mojang_lookup_failed" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_profile.rename_limit_exceeded" | "minecraft_profile.official_name_readonly" | "user_ban.not_found" | "user_ban.already_active" | "user_ban.not_active" | "user_ban.duration_invalid" | "user_ban.reason_invalid" | "user_ban.forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
         AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_create_user_ban" | "admin_update_user_ban" | "admin_revoke_user_ban" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "admin_create_yggdrasil_session_forward_server" | "admin_update_yggdrasil_session_forward_server" | "admin_delete_yggdrasil_session_forward_server" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "minecraft_texture_library_submit" | "minecraft_texture_library_withdraw" | "minecraft_texture_library_approve" | "minecraft_texture_library_reject" | "minecraft_texture_library_unpublish" | "minecraft_texture_report_create" | "minecraft_texture_report_accept" | "minecraft_texture_report_reject" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server" | "yggdrasil_session_forward_check";
         /** @enum {string} */
@@ -2552,6 +2600,9 @@ export interface components {
             new_password: string;
         };
         CheckResp: {
+            allow_local_login: boolean;
+            allow_local_registration: boolean;
+            allow_user_registration: boolean;
             initialized: boolean;
         };
         /** @enum {string} */
@@ -2953,6 +3004,7 @@ export interface components {
         CursorPage_ExternalAuthLinkInfo_DateTimeIdCursor: {
             /** @description Items in the current page. */
             items: {
+                allow_unlink: boolean;
                 created_at: string;
                 display_name_snapshot?: string | null;
                 email_snapshot?: string | null;
@@ -3030,6 +3082,7 @@ export interface components {
                 /** Format: int64 */
                 id: number;
                 name: string;
+                source: components["schemas"]["MinecraftProfileSource"];
                 texture_model: components["schemas"]["MinecraftTextureModel"];
                 updated_at: string;
                 uploadable_textures: string;
@@ -3423,6 +3476,7 @@ export interface components {
                 id: string;
                 name: string;
                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                source?: null | components["schemas"]["MinecraftProfileSource"];
             }[];
             /**
              * Format: int64
@@ -3537,6 +3591,8 @@ export interface components {
             userinfo_url_required: boolean;
         };
         ExternalAuthProviderOptions: {
+            allow_login?: boolean;
+            allow_unlink?: boolean;
             linuxdo?: null | components["schemas"]["LinuxDoExternalAuthProviderOptions"];
             microsoft?: null | components["schemas"]["MicrosoftExternalAuthProviderOptions"];
         };
@@ -3681,6 +3737,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+            source: components["schemas"]["MinecraftProfileSource"];
             texture_model: components["schemas"]["MinecraftTextureModel"];
             updated_at: string;
             uploadable_textures: string;
@@ -3696,6 +3753,7 @@ export interface components {
             normalized_name: string;
             /** Format: int32 */
             rename_count: number;
+            source: components["schemas"]["MinecraftProfileSource"];
             texture_model: components["schemas"]["MinecraftTextureModel"];
             updated_at: string;
             uploadable_textures: string;
@@ -3703,6 +3761,8 @@ export interface components {
             user_id: number;
             uuid: string;
         };
+        /** @enum {string} */
+        MinecraftProfileSource: "local" | "microsoft";
         MinecraftProfileTextureModelEntity: {
             created_at: string;
             /** Format: int64 */
@@ -3997,6 +4057,7 @@ export interface components {
             name: string;
         };
         PublicBranding: {
+            allow_local_login: boolean;
             allow_local_registration: boolean;
             allow_user_registration: boolean;
             description: string;
@@ -4573,6 +4634,7 @@ export interface components {
             id: string;
             name: string;
             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+            source?: null | components["schemas"]["MinecraftProfileSource"];
         };
         YggdrasilProfileProperty: {
             name: string;
@@ -5963,6 +6025,7 @@ export interface operations {
                                 /** Format: int64 */
                                 id: number;
                                 name: string;
+                                source: components["schemas"]["MinecraftProfileSource"];
                                 texture_model: components["schemas"]["MinecraftTextureModel"];
                                 updated_at: string;
                                 uploadable_textures: string;
@@ -6035,6 +6098,7 @@ export interface operations {
                             /** Format: int64 */
                             id: number;
                             name: string;
+                            source: components["schemas"]["MinecraftProfileSource"];
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             updated_at: string;
                             uploadable_textures: string;
@@ -6155,6 +6219,7 @@ export interface operations {
                             /** Format: int64 */
                             id: number;
                             name: string;
+                            source: components["schemas"]["MinecraftProfileSource"];
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             updated_at: string;
                             uploadable_textures: string;
@@ -8866,6 +8931,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                                source?: null | components["schemas"]["MinecraftProfileSource"];
                             }[];
                             /**
                              * Format: int64
@@ -9387,6 +9453,9 @@ export interface operations {
                     "application/json": {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
+                            allow_local_login: boolean;
+                            allow_local_registration: boolean;
+                            allow_user_registration: boolean;
                             initialized: boolean;
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
@@ -9612,6 +9681,7 @@ export interface operations {
                         data?: {
                             /** @description Items in the current page. */
                             items: {
+                                allow_unlink: boolean;
                                 created_at: string;
                                 display_name_snapshot?: string | null;
                                 email_snapshot?: string | null;
@@ -9808,6 +9878,89 @@ export interface operations {
             };
         };
     };
+    auth_external_auth_list_minecraft_binding_providers: {
+        parameters: {
+            query?: {
+                /** @description Requested page size. */
+                limit?: number | null;
+                after_display_name?: string | null;
+                after_id?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description External auth provider kind */
+                kind: components["schemas"]["ExternalAuthProviderKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled Microsoft providers available for Minecraft account binding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        /** @description Serialized cursor page response. */
+                        data?: {
+                            /** @description Items in the current page. */
+                            items: {
+                                display_name: string;
+                                icon_url?: string | null;
+                                key: string;
+                                kind: components["schemas"]["ExternalAuthProviderKind"];
+                            }[];
+                            /**
+                             * Format: int64
+                             * @description Effective page size.
+                             */
+                            limit: number;
+                            /** @description String value plus numeric id cursor for resources sorted by text and then id. */
+                            next_cursor?: {
+                                /**
+                                 * Format: int64
+                                 * @description Cursor numeric id used as a stable tie breaker.
+                                 */
+                                id: number;
+                                /** @description Cursor string value. */
+                                value: string;
+                            };
+                            /**
+                             * Format: int64
+                             * @description Total number of items matching the query.
+                             */
+                            total: number;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Provider kind cannot be used for Minecraft account binding */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider kind not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     auth_external_auth_list_providers_by_kind: {
         parameters: {
             query?: {
@@ -9869,6 +10022,98 @@ export interface operations {
                 };
             };
             /** @description Provider kind not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_finish_minecraft_binding: {
+        parameters: {
+            query?: {
+                state?: string | null;
+                code?: string | null;
+                error?: string | null;
+                error_description?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description External auth provider kind */
+                kind: components["schemas"]["ExternalAuthProviderKind"];
+                /** @description External auth provider slug */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minecraft account binding callback completed and redirected */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_external_auth_start_minecraft_binding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description External auth provider kind */
+                kind: components["schemas"]["ExternalAuthProviderKind"];
+                /** @description External auth provider slug */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartExternalAuthReq"];
+            };
+        };
+        responses: {
+            /** @description Microsoft Minecraft binding authorization start response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: components["schemas"]["AsterErrorCode"];
+                        data?: {
+                            authorization_url: string;
+                        };
+                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        msg: string;
+                    };
+                };
+            };
+            /** @description Provider is misconfigured or request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider is disabled */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11222,6 +11467,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                                source?: null | components["schemas"]["MinecraftProfileSource"];
                             }[];
                             /**
                              * Format: int64
@@ -11281,6 +11527,7 @@ export interface operations {
                             id: string;
                             name: string;
                             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                            source?: null | components["schemas"]["MinecraftProfileSource"];
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;
@@ -11373,6 +11620,7 @@ export interface operations {
                             id: string;
                             name: string;
                             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
+                            source?: null | components["schemas"]["MinecraftProfileSource"];
                         };
                         error?: null | components["schemas"]["ApiErrorInfo"];
                         msg: string;

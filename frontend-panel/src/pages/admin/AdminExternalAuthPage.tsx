@@ -188,14 +188,24 @@ function reducer(state: UiState, action: UiAction): UiState {
 					...state.form,
 					allowedDomains:
 						action.kind === "linuxdo" ? "" : state.form.allowedDomains,
+					allowLogin: action.kind !== "microsoft",
+					allowUnlink: action.kind !== "microsoft",
 					authorizationUrl: "",
 					autoLinkVerifiedEmailEnabled:
 						action.kind === "linuxdo"
 							? false
 							: state.form.autoLinkVerifiedEmailEnabled,
 					autoProvisionEnabled:
-						action.kind === "linuxdo" ? true : state.form.autoProvisionEnabled,
+						action.kind === "linuxdo"
+							? true
+							: action.kind === "microsoft"
+								? false
+								: state.form.autoProvisionEnabled,
 					issuerUrl: "",
+					linuxdoAutoCreateProfile:
+						action.kind === "linuxdo"
+							? false
+							: state.form.linuxdoAutoCreateProfile,
 					microsoftTenant: "common",
 					microsoftTenantMode: "common",
 					providerKind: action.kind,

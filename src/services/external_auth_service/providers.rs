@@ -12,6 +12,7 @@ use crate::runtime::SharedRuntimeState;
 use crate::types::{
     external_auth::ExternalAuthProviderKind, external_auth::ExternalAuthProviderOptions,
     external_auth::MicrosoftExternalAuthProviderOptions,
+    external_auth::parse_external_auth_provider_options,
     external_auth::serialize_external_auth_provider_options,
 };
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
@@ -63,6 +64,101 @@ pub(super) fn provider_to_public(
         display_name: model.display_name,
         icon_url: model.icon_url,
     }
+}
+
+fn provider_allows_login(model: &external_auth_provider::Model) -> bool {
+    parse_external_auth_provider_options(model.options.as_ref()).allow_login
+}
+
+fn provider_is_public_login_candidate(model: &external_auth_provider::Model) -> bool {
+    registry::default_registry().contains(model.provider_kind) && provider_allows_login(model)
+}
+
+fn provider_is_minecraft_binding_candidate(model: &external_auth_provider::Model) -> bool {
+    model.provider_kind == ExternalAuthProviderKind::Microsoft
+        && registry::default_registry().contains(model.provider_kind)
+}
+
+fn public_provider_next_cursor(
+    providers: &[external_auth_provider::Model],
+    has_more: bool,
+) -> Option<StringIdCursor> {
+    if !has_more {
+        return None;
+    }
+    providers.last().map(|provider| StringIdCursor {
+        value: provider.display_name.clone(),
+        id: provider.id,
+    })
+}
+
+fn is_after_display_name_cursor(
+    provider: &external_auth_provider::Model,
+    display_name: &str,
+    id: i64,
+) -> bool {
+    provider.display_name.as_str() > display_name
+        || (provider.display_name == display_name && provider.id > id)
+}
+
+fn public_provider_page(
+    providers: Vec<external_auth_provider::Model>,
+    limit: u64,
+    after: Option<(String, i64)>,
+) -> CursorPage<ExternalAuthPublicProvider, StringIdCursor> {
+    let limit = limit.clamp(1, 100);
+    let filtered = providers
+        .into_iter()
+        .filter(provider_is_public_login_candidate)
+        .collect::<Vec<_>>();
+    let total = u64::try_from(filtered.len()).unwrap_or(u64::MAX);
+    let overfetch_limit = usize::try_from(limit.saturating_add(1)).unwrap_or(usize::MAX);
+    let mut items = filtered
+        .into_iter()
+        .filter(|provider| {
+            after.as_ref().is_none_or(|(display_name, id)| {
+                is_after_display_name_cursor(provider, display_name, *id)
+            })
+        })
+        .take(overfetch_limit)
+        .collect::<Vec<_>>();
+    let has_more = u64::try_from(items.len()).unwrap_or(u64::MAX) > limit;
+    if has_more {
+        items.pop();
+    }
+    let next_cursor = public_provider_next_cursor(&items, has_more);
+    let public_items = items.into_iter().map(provider_to_public).collect();
+    CursorPage::new(public_items, total, limit, next_cursor)
+}
+
+fn minecraft_binding_provider_page(
+    providers: Vec<external_auth_provider::Model>,
+    limit: u64,
+    after: Option<(String, i64)>,
+) -> CursorPage<ExternalAuthPublicProvider, StringIdCursor> {
+    let limit = limit.clamp(1, 100);
+    let filtered = providers
+        .into_iter()
+        .filter(provider_is_minecraft_binding_candidate)
+        .collect::<Vec<_>>();
+    let total = u64::try_from(filtered.len()).unwrap_or(u64::MAX);
+    let overfetch_limit = usize::try_from(limit.saturating_add(1)).unwrap_or(usize::MAX);
+    let mut items = filtered
+        .into_iter()
+        .filter(|provider| {
+            after.as_ref().is_none_or(|(display_name, id)| {
+                is_after_display_name_cursor(provider, display_name, *id)
+            })
+        })
+        .take(overfetch_limit)
+        .collect::<Vec<_>>();
+    let has_more = u64::try_from(items.len()).unwrap_or(u64::MAX) > limit;
+    if has_more {
+        items.pop();
+    }
+    let next_cursor = public_provider_next_cursor(&items, has_more);
+    let public_items = items.into_iter().map(provider_to_public).collect();
+    CursorPage::new(public_items, total, limit, next_cursor)
 }
 
 fn nullable_patch_to_update<T>(value: NullablePatch<T>) -> Option<Option<T>> {
@@ -416,7 +512,7 @@ pub async fn list_public_providers(
     Ok(external_auth_provider_repo::find_enabled(state.writer_db())
         .await?
         .into_iter()
-        .filter(|provider| registry::default_registry().contains(provider.provider_kind))
+        .filter(provider_is_public_login_candidate)
         .map(provider_to_public)
         .collect())
 }
@@ -427,16 +523,8 @@ pub async fn list_public_providers_paginated(
     after: Option<(String, i64)>,
 ) -> Result<CursorPage<ExternalAuthPublicProvider, StringIdCursor>> {
     let limit = limit.clamp(1, 100);
-    let page = external_auth_provider_repo::find_enabled_cursor(
-        state.writer_db(),
-        limit,
-        after,
-        registry::default_registry().supported_kinds(),
-    )
-    .await?;
-    let next_cursor = provider_next_cursor(&page.items, page.has_more);
-    let items = page.items.into_iter().map(provider_to_public).collect();
-    Ok(CursorPage::new(items, page.total, limit, next_cursor))
+    let providers = external_auth_provider_repo::find_enabled(state.writer_db()).await?;
+    Ok(public_provider_page(providers, limit, after))
 }
 
 pub async fn list_public_providers_by_kind(
@@ -447,7 +535,7 @@ pub async fn list_public_providers_by_kind(
         external_auth_provider_repo::find_enabled_by_kind(state.writer_db(), provider_kind)
             .await?
             .into_iter()
-            .filter(|provider| registry::default_registry().contains(provider.provider_kind))
+            .filter(provider_is_public_login_candidate)
             .map(provider_to_public)
             .collect(),
     )
@@ -460,21 +548,27 @@ pub async fn list_public_providers_by_kind_paginated(
     after: Option<(String, i64)>,
 ) -> Result<CursorPage<ExternalAuthPublicProvider, StringIdCursor>> {
     let limit = limit.clamp(1, 100);
-    let page = external_auth_provider_repo::find_enabled_by_kind_cursor(
-        state.writer_db(),
-        provider_kind,
-        limit,
-        after,
-    )
-    .await?;
-    let next_cursor = provider_next_cursor(&page.items, page.has_more);
-    let items = page
-        .items
-        .into_iter()
-        .filter(|provider| registry::default_registry().contains(provider.provider_kind))
-        .map(provider_to_public)
-        .collect();
-    Ok(CursorPage::new(items, page.total, limit, next_cursor))
+    let providers =
+        external_auth_provider_repo::find_enabled_by_kind(state.writer_db(), provider_kind).await?;
+    Ok(public_provider_page(providers, limit, after))
+}
+
+pub async fn list_minecraft_binding_providers_by_kind_paginated(
+    state: &impl SharedRuntimeState,
+    provider_kind: ExternalAuthProviderKind,
+    limit: u64,
+    after: Option<(String, i64)>,
+) -> Result<CursorPage<ExternalAuthPublicProvider, StringIdCursor>> {
+    if provider_kind != ExternalAuthProviderKind::Microsoft {
+        return Err(AsterError::validation_error_code(
+            crate::api::error_code::AsterErrorCode::ExternalAuthProviderMisconfigured,
+            "Minecraft account binding requires a Microsoft external auth provider",
+        ));
+    }
+    let limit = limit.clamp(1, 100);
+    let providers =
+        external_auth_provider_repo::find_enabled_by_kind(state.writer_db(), provider_kind).await?;
+    Ok(minecraft_binding_provider_page(providers, limit, after))
 }
 
 pub async fn list_admin_providers(

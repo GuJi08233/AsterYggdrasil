@@ -286,6 +286,7 @@ mod tests {
         let profile = YggdrasilProfile {
             id: "0123456789abcdef0123456789abcdef".to_string(),
             name: "Steve".to_string(),
+            source: None,
             properties: None,
         };
 

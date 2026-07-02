@@ -19,7 +19,8 @@ use crate::runtime::{
 use crate::services::{audit_service, ban_service, yggdrasil_signature};
 use crate::types::user::UserBanScope;
 use crate::types::{
-    yggdrasil::YggdrasilSessionForwardEndpointKind, yggdrasil::YggdrasilSessionForwardProviderKind,
+    yggdrasil::MinecraftProfileSource, yggdrasil::YggdrasilSessionForwardEndpointKind,
+    yggdrasil::YggdrasilSessionForwardProviderKind,
 };
 use aster_forge_crypto::sha256_hex;
 
@@ -303,6 +304,45 @@ where
         };
         match result {
             Ok(Some(mut profile)) => {
+                if requires_bound_microsoft_profile(&upstream)
+                    && !forwarded_mojang_profile_is_bound(state, &profile).await?
+                {
+                    if let Err(error) = yggdrasil_session_forward_server_repo::mark_success(
+                        state.writer_db(),
+                        upstream.id,
+                        checked_at,
+                    )
+                    .await
+                    {
+                        tracing::warn!(
+                            error = %error,
+                            upstream_id = upstream.id,
+                            "failed to record yggdrasil session forward unbound-profile check"
+                        );
+                    }
+                    tracing::debug!(
+                        upstream_id = upstream.id,
+                        upstream_name = %upstream.display_name,
+                        profile_uuid = %profile.id,
+                        profile_name = %profile.name,
+                        server_id_hash = %server_id_hash,
+                        "yggdrasil Mojang forwarded profile is not bound to a local Microsoft profile"
+                    );
+                    log_forward_check(
+                        state,
+                        request_info,
+                        ForwardCheckAuditEvent {
+                            username,
+                            server_id_hash: &server_id_hash,
+                            upstream: &upstream,
+                            result: "no_match",
+                            profile_uuid: None,
+                            error: None,
+                        },
+                    )
+                    .await;
+                    continue;
+                }
                 if upstream.texture_forward_enabled {
                     match rewrite_forwarded_texture_urls(state, &upstream, &mut profile).await {
                         Ok(rewritten_count) => {
@@ -433,6 +473,27 @@ where
     }
 
     Ok(None)
+}
+
+fn requires_bound_microsoft_profile(upstream: &yggdrasil_session_forward_server::Model) -> bool {
+    upstream.provider_kind == YggdrasilSessionForwardProviderKind::Remote
+        && upstream.endpoint_kind == YggdrasilSessionForwardEndpointKind::MojangSession
+}
+
+async fn forwarded_mojang_profile_is_bound<S>(
+    state: &S,
+    profile: &YggdrasilProfile,
+) -> std::result::Result<bool, YggdrasilError>
+where
+    S: DatabaseRuntimeState,
+{
+    let Some(bound_profile) = minecraft_profile_repo::find_by_uuid(state.reader_db(), &profile.id)
+        .await
+        .map_err(YggdrasilError::from)?
+    else {
+        return Ok(false);
+    };
+    Ok(bound_profile.source == MinecraftProfileSource::Microsoft)
 }
 
 struct ForwardCheckAuditEvent<'a> {

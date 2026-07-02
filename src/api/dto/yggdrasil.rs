@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
+use crate::types::yggdrasil::MinecraftProfileSource;
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct YggdrasilErrorBody {
@@ -34,6 +36,8 @@ pub struct YggdrasilProfile {
     pub id: String,
     #[validate(custom(function = "crate::api::dto::validation::validate_minecraft_profile_name"))]
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<MinecraftProfileSource>,
     #[validate(nested)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<YggdrasilProfileProperty>>,

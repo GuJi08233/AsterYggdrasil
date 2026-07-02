@@ -182,13 +182,17 @@ impl From<StoredExternalAuthProviderOptions> for String {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(all(debug_assertions, feature = "openapi"), derive(ToSchema))]
 pub struct ExternalAuthProviderOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub microsoft: Option<MicrosoftExternalAuthProviderOptions>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub linuxdo: Option<LinuxDoExternalAuthProviderOptions>,
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub allow_login: bool,
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    pub allow_unlink: bool,
 }
 
 impl ExternalAuthProviderOptions {
@@ -200,6 +204,17 @@ impl ExternalAuthProviderOptions {
             self.linuxdo = linuxdo.normalized();
         }
         self
+    }
+}
+
+impl Default for ExternalAuthProviderOptions {
+    fn default() -> Self {
+        Self {
+            microsoft: None,
+            linuxdo: None,
+            allow_login: default_true(),
+            allow_unlink: default_true(),
+        }
     }
 }
 
@@ -235,7 +250,7 @@ impl LinuxDoExternalAuthProviderOptions {
     pub fn new(min_trust_level: i32) -> Self {
         Self {
             min_trust_level,
-            auto_create_profile: default_linuxdo_auto_create_profile(),
+            auto_create_profile: false,
         }
     }
 
@@ -250,6 +265,14 @@ impl LinuxDoExternalAuthProviderOptions {
 
 fn default_linuxdo_auto_create_profile() -> bool {
     true
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn is_true(value: &bool) -> bool {
+    *value
 }
 
 impl From<MicrosoftExternalAuthProviderOptions>
@@ -281,6 +304,8 @@ impl From<aster_forge_external_auth::ExternalAuthProviderOptions> for ExternalAu
         Self {
             microsoft: value.microsoft.map(Into::into),
             linuxdo: None,
+            allow_login: default_true(),
+            allow_unlink: default_true(),
         }
     }
 }

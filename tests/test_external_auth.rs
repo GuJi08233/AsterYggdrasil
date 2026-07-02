@@ -4,6 +4,7 @@
 mod common;
 
 use actix_web::test;
+use aster_yggdrasil::api::error_code::AsterErrorCode;
 use aster_yggdrasil::entities::{external_auth_login_flow, external_auth_provider};
 use aster_yggdrasil::types::{
     external_auth::ExternalAuthProtocol, external_auth::ExternalAuthProviderKind,
@@ -147,6 +148,63 @@ async fn external_auth_provider_lists_are_paginated() {
     assert_eq!(second_page_body["data"]["limit"], 1);
     assert_eq!(second_page_body["data"]["total"], 2);
     assert_eq!(second_page_body["data"]["items"][0]["key"], "charlie");
+}
+
+#[actix_web::test]
+async fn external_auth_login_policy_hides_provider_and_rejects_start() {
+    let state = common::setup().await;
+    state.runtime_config.apply(common::system_config_model(
+        aster_yggdrasil::config::site_url::PUBLIC_SITE_URL_KEY,
+        r#"["http://localhost:8080"]"#,
+    ));
+    oidc_provider_model("visible", true)
+        .insert(state.db_handles.writer())
+        .await
+        .expect("visible external auth provider should insert");
+    let mut hidden = oauth2_provider_model("hidden", true);
+    hidden.display_name = Set("Hidden".to_string());
+    hidden.options = Set(StoredExternalAuthProviderOptions(
+        serde_json::json!({ "allow_login": false }).to_string(),
+    ));
+    hidden
+        .insert(state.db_handles.writer())
+        .await
+        .expect("hidden external auth provider should insert");
+
+    let app = create_test_app!(state);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/external-auth/providers")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["total"], 1);
+    assert_eq!(body["data"]["items"][0]["key"], "visible");
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/auth/external-auth/generic_oauth2/providers")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["data"]["total"], 0);
+    assert_eq!(body["data"]["items"].as_array().unwrap().len(), 0);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/auth/external-auth/generic_oauth2/hidden/start")
+        .insert_header(("Origin", "http://localhost:8080"))
+        .set_json(serde_json::json!({
+            "return_path": "/dashboard"
+        }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 403);
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(
+        body["code"],
+        AsterErrorCode::ExternalAuthProviderLoginDisabled.as_str()
+    );
 }
 
 #[actix_web::test]

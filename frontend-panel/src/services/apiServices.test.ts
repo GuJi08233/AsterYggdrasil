@@ -131,6 +131,7 @@ function externalAuthLink(
 	overrides: Partial<import("@/types/api").ExternalAuthLinkInfo> = {},
 ) {
 	return {
+		allow_unlink: true,
 		created_at: "2026-06-15T00:00:00Z",
 		display_name_snapshot: "Steve",
 		email_snapshot: "steve@example.com",
@@ -1201,6 +1202,54 @@ describe("externalAuthService", () => {
 		expect(apiMock.get).toHaveBeenCalledWith(
 			"/auth/external-auth/oidc/providers?limit=20",
 			{ signal: undefined },
+		);
+	});
+
+	it("loads Microsoft binding providers and starts the binding flow", async () => {
+		apiMock.get.mockResolvedValueOnce(
+			cursorPage(
+				[
+					externalAuthProvider({
+						display_name: "Microsoft",
+						kind: "microsoft",
+						key: "ms-bind",
+					}),
+				],
+				20,
+			),
+		);
+		apiMock.post.mockResolvedValueOnce({
+			authorization_url: "https://login.example.test/authorize",
+		});
+		const { externalAuthService } = await import("./externalAuthService");
+
+		await expect(
+			externalAuthService.listMinecraftBindingProvidersByKindPage("microsoft", {
+				limit: 20,
+			}),
+		).resolves.toEqual(
+			cursorPage(
+				[
+					externalAuthProvider({
+						display_name: "Microsoft",
+						kind: "microsoft",
+						key: "ms-bind",
+					}),
+				],
+				20,
+			),
+		);
+		await externalAuthService.startMinecraftBinding("microsoft", "ms-bind", {
+			return_path: "/account/settings",
+		});
+
+		expect(apiMock.get).toHaveBeenCalledWith(
+			"/auth/external-auth/microsoft/binding/providers?limit=20",
+			{ signal: undefined },
+		);
+		expect(apiMock.post).toHaveBeenCalledWith(
+			"/auth/external-auth/microsoft/ms-bind/binding/start",
+			{ return_path: "/account/settings" },
 		);
 	});
 

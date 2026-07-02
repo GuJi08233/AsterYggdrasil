@@ -853,6 +853,36 @@ function AccessPanel({
 				</div>
 				<div className="flex items-start gap-3">
 					<Switch
+						id="external-auth-allow-login"
+						checked={form.allowLogin}
+						onCheckedChange={(value) => onFieldChange("allowLogin", value)}
+					/>
+					<div className="space-y-1">
+						<Label htmlFor="external-auth-allow-login">
+							{t("admin.externalAuth.allowLogin")}
+						</Label>
+						<p className="text-sm text-muted-foreground">
+							{t("admin.externalAuth.allowLoginDesc")}
+						</p>
+					</div>
+				</div>
+				<div className="flex items-start gap-3">
+					<Switch
+						id="external-auth-allow-unlink"
+						checked={form.allowUnlink}
+						onCheckedChange={(value) => onFieldChange("allowUnlink", value)}
+					/>
+					<div className="space-y-1">
+						<Label htmlFor="external-auth-allow-unlink">
+							{t("admin.externalAuth.allowUnlink")}
+						</Label>
+						<p className="text-sm text-muted-foreground">
+							{t("admin.externalAuth.allowUnlinkDesc")}
+						</p>
+					</div>
+				</div>
+				<div className="flex items-start gap-3">
+					<Switch
 						id="external-auth-require-email-verified"
 						checked={form.requireEmailVerified}
 						onCheckedChange={(value) =>
@@ -971,6 +1001,16 @@ function ProviderSummaryPanel({
 					{form.enabled
 						? t("admin.externalAuth.enabled")
 						: t("admin.externalAuth.disabled")}
+				</SummaryItem>
+				<SummaryItem label={t("admin.externalAuth.loginPolicy")}>
+					{form.allowLogin
+						? t("admin.externalAuth.allowLogin")
+						: t("admin.externalAuth.loginDisabled")}
+				</SummaryItem>
+				<SummaryItem label={t("admin.externalAuth.unlinkPolicy")}>
+					{form.allowUnlink
+						? t("admin.externalAuth.allowUnlink")
+						: t("admin.externalAuth.unlinkDisabled")}
 				</SummaryItem>
 				{provider ? (
 					<SummaryItem label={t("admin.externalAuth.callbackUrl")}>

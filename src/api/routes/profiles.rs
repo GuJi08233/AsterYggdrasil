@@ -294,7 +294,7 @@ pub async fn list_minecraft_profiles(
     let profiles = slice
         .items
         .iter()
-        .map(yggdrasil_service::profile_summary)
+        .map(yggdrasil_service::project_profile_summary)
         .collect::<Vec<_>>();
     tracing::debug!(
         user_id = user.id,
@@ -362,7 +362,7 @@ pub async fn create_minecraft_profile(
         "current user minecraft profile created"
     );
     Ok(
-        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::profile_summary(
+        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::project_profile_summary(
             &profile,
         ))),
     )
@@ -432,7 +432,7 @@ pub async fn rename_minecraft_profile(
         "current user minecraft profile renamed"
     );
     Ok(
-        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::profile_summary(
+        HttpResponse::Ok().json(ApiResponse::ok(yggdrasil_service::project_profile_summary(
             &renamed.profile,
         ))),
     )

@@ -290,7 +290,8 @@ async fn admin_create_and_test_qq_provider_uses_fixed_endpoints_and_defaults() {
 }
 
 #[actix_web::test]
-async fn admin_create_linuxdo_provider_uses_fixed_endpoints_and_auto_provision_default() {
+async fn admin_create_linuxdo_provider_uses_fixed_endpoints_and_disables_profile_auto_create_by_default()
+ {
     let state = common::setup().await;
     let app = create_test_app!(state);
     let (admin_token, _) = register_and_login!(app);
@@ -329,7 +330,7 @@ async fn admin_create_linuxdo_provider_uses_fixed_endpoints_and_auto_provision_d
     assert_eq!(body["data"]["auto_link_verified_email_enabled"], false);
     assert_eq!(
         body["data"]["options"]["linuxdo"]["auto_create_profile"],
-        true
+        false
     );
     assert_eq!(body["data"]["allowed_domains"], serde_json::json!([]));
 }
@@ -1210,7 +1211,7 @@ async fn linuxdo_auto_create_profile_option_can_be_disabled() {
 }
 
 #[actix_web::test]
-async fn linuxdo_profile_name_conflict_uses_subject_fallback_and_link_cannot_be_deleted() {
+async fn linuxdo_profile_name_conflict_uses_subject_fallback_and_unlink_policy_is_enforced() {
     let (mock_provider, server) = start_mock_oauth2_provider().await;
     mock_provider.set_expected_token_auth(TokenAuthObservation::Basic);
     mock_provider.set_linuxdo_user(441567, "Steve", Some(3));
@@ -1224,11 +1225,23 @@ async fn linuxdo_profile_name_conflict_uses_subject_fallback_and_link_cannot_be_
     yggdrasil_service::create_profile(&state, existing_user_id, UserRole::User, "Steve")
         .await
         .expect("existing profile should be created");
-    let provider =
-        linuxdo_external_auth_provider_model("linuxdo-conflict", &mock_provider.base_url, true, 0)
-            .insert(state.writer_db())
-            .await
-            .expect("LinuxDo provider should insert");
+    let mut provider =
+        linuxdo_external_auth_provider_model("linuxdo-conflict", &mock_provider.base_url, true, 0);
+    provider.options = Set(
+        aster_yggdrasil::types::external_auth::StoredExternalAuthProviderOptions(
+            serde_json::json!({
+                "allow_unlink": false,
+                "linuxdo": {
+                    "min_trust_level": 0
+                }
+            })
+            .to_string(),
+        ),
+    );
+    let provider = provider
+        .insert(state.writer_db())
+        .await
+        .expect("LinuxDo provider should insert");
 
     let state_value = start_linuxdo_login(&app, &mock_provider, &provider.key, "/account").await;
     let resp = finish_linuxdo_callback(&app, &state_value).await;
@@ -1272,7 +1285,10 @@ async fn linuxdo_profile_name_conflict_uses_subject_fallback_and_link_cannot_be_
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 403);
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["code"], AsterErrorCode::Forbidden.as_str());
+    assert_eq!(
+        body["code"],
+        AsterErrorCode::ExternalAuthProviderUnlinkDisabled.as_str()
+    );
 
     let identity = external_auth_identity::Entity::find_by_id(identity_id)
         .one(state.writer_db())

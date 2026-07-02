@@ -46,6 +46,7 @@ import type {
 	AvatarSource,
 	DateTimeIdCursor,
 	ExternalAuthLinkInfo,
+	ExternalAuthPublicProvider,
 } from "@/types/api";
 
 type SettingsSectionId = "profile" | "security" | "passkeys" | "external-auth";
@@ -178,6 +179,31 @@ function scrollToSettingsSection(id: SettingsSectionId) {
 	if (!element) return;
 	window.history.replaceState(null, "", `#${id}`);
 	element.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getMinecraftBindingRedirectState(search: string) {
+	const params = new URLSearchParams(search);
+	const status = params.get("minecraft_binding");
+	if (status !== "success" && status !== "error") return null;
+	return {
+		code: params.get("code"),
+		profileCreated: params.get("profile_created") === "true",
+		status,
+	};
+}
+
+function clearMinecraftBindingRedirectSearch(search: string) {
+	const params = new URLSearchParams(search);
+	for (const key of [
+		"minecraft_binding",
+		"profile_uuid",
+		"profile_created",
+		"code",
+	]) {
+		params.delete(key);
+	}
+	const next = params.toString();
+	return next ? `?${next}` : "";
 }
 
 function initialActiveSettingsSection(): SettingsSectionId {
@@ -401,9 +427,23 @@ function ExternalAuthLinksSection() {
 		externalAuthLinksReducer,
 		externalAuthLinksInitialState,
 	);
+	const [bindingProviders, setBindingProviders] = useState<
+		ExternalAuthPublicProvider[]
+	>([]);
+	const [bindingLoading, setBindingLoading] = useState(false);
+	const [bindingBusyKey, setBindingBusyKey] = useState<string | null>(null);
 	const [cursorStack, setCursorStack] = useState<DateTimeIdCursor[]>([]);
 	const [nextCursor, setNextCursor] = useState<DateTimeIdCursor | null>(null);
 	const { busyId, links, linkTotal, loading } = state;
+	const linkedProviderKeys = useMemo(
+		() =>
+			new Set(
+				links
+					.filter((link) => link.provider_kind === "microsoft")
+					.map((link) => link.provider_key),
+			),
+		[links],
+	);
 
 	const reload = useCallback(
 		async (stack: DateTimeIdCursor[] = cursorStack) => {
@@ -439,7 +479,31 @@ function ExternalAuthLinksSection() {
 		void reload();
 	}, [reload]);
 
+	useEffect(() => {
+		const controller = new AbortController();
+		setBindingLoading(true);
+		externalAuthService
+			.listMinecraftBindingProvidersByKindPage(
+				"microsoft",
+				{ limit: 20 },
+				controller.signal,
+			)
+			.then((page) => setBindingProviders(page.items))
+			.catch((error) => {
+				if (!controller.signal.aborted) {
+					toast.error(formatUnknownError(error));
+				}
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) {
+					setBindingLoading(false);
+				}
+			});
+		return () => controller.abort();
+	}, []);
+
 	async function unlink(link: ExternalAuthLinkInfo) {
+		if (!link.allow_unlink) return;
 		dispatch({ type: "set_busy_id", value: link.id });
 		try {
 			await externalAuthService.deleteLink(link.id);
@@ -449,6 +513,21 @@ function ExternalAuthLinksSection() {
 			toast.error(formatUnknownError(error));
 		} finally {
 			dispatch({ type: "set_busy_id", value: null });
+		}
+	}
+
+	async function startMinecraftBinding(provider: ExternalAuthPublicProvider) {
+		setBindingBusyKey(provider.key);
+		try {
+			const response = await externalAuthService.startMinecraftBinding(
+				provider.kind,
+				provider.key,
+				{ return_path: accountPaths.settings },
+			);
+			window.location.assign(response.authorization_url);
+		} catch (error) {
+			toast.error(formatUnknownError(error));
+			setBindingBusyKey(null);
 		}
 	}
 
@@ -477,6 +556,42 @@ function ExternalAuthLinksSection() {
 					{t("common.refresh")}
 				</Button>
 			</div>
+
+			{bindingProviders.length > 0 ? (
+				<div className="flex flex-col gap-3 border-b border-border/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+					<div className="min-w-0 text-sm font-semibold">
+						{t("personalSettings.minecraftBindingTitle")}
+					</div>
+					<div className="flex flex-wrap gap-2 sm:justify-end">
+						{bindingProviders.map((provider) => {
+							const linked = linkedProviderKeys.has(provider.key);
+							const busy = bindingBusyKey === provider.key;
+							return (
+								<Button
+									key={provider.key}
+									type="button"
+									variant={linked ? "outline" : "default"}
+									size="sm"
+									disabled={bindingLoading || bindingBusyKey !== null || linked}
+									onClick={() => void startMinecraftBinding(provider)}
+								>
+									<Icon
+										name={
+											busy ? "Spinner" : linked ? "Check" : "ArrowSquareOut"
+										}
+										className={cn("mr-2 size-4", busy && "animate-spin")}
+									/>
+									{linked
+										? t("personalSettings.minecraftBindingBound")
+										: t("personalSettings.minecraftBindingStart", {
+												provider: provider.display_name,
+											})}
+								</Button>
+							);
+						})}
+					</div>
+				</div>
+			) : null}
 
 			<div className="divide-y divide-border/70 dark:divide-white/10">
 				{loading ? (
@@ -520,13 +635,21 @@ function ExternalAuthLinksSection() {
 								{link.provider_kind === "linuxdo" ? (
 									<LinuxDoTrustLevelBadge metadata={link.metadata} />
 								) : null}
+								{link.allow_unlink ? null : (
+									<Badge variant="secondary" className="rounded-md">
+										{t("personalSettings.externalAuthUnlinkDisabled")}
+									</Badge>
+								)}
 								<Button
 									type="button"
 									size="sm"
 									variant="outline"
-									disabled={busyId === link.id}
+									disabled={busyId === link.id || !link.allow_unlink}
 									onClick={() => void unlink(link)}
-									className="border-destructive/35 text-destructive hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive"
+									className={cn(
+										link.allow_unlink &&
+											"border-destructive/35 text-destructive hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive",
+									)}
 								>
 									<Icon
 										name={busyId === link.id ? "Spinner" : "Trash"}
@@ -907,7 +1030,7 @@ function PasswordSecuritySection({ user }: { user: AuthUserInfo }) {
 					</div>
 				)}
 				<div className="grid gap-3 md:grid-cols-2">
-					<div className="grid gap-2">
+					<div className="grid min-w-0 grid-rows-[auto_auto_minmax(1.25rem,auto)] gap-2">
 						<label
 							htmlFor="new-local-password"
 							className="text-xs font-medium text-muted-foreground"
@@ -934,20 +1057,20 @@ function PasswordSecuritySection({ user }: { user: AuthUserInfo }) {
 						{errors.newPassword ? (
 							<p
 								id="new-local-password-error"
-								className="text-xs leading-5 text-destructive"
+								className="min-h-5 text-xs leading-5 text-destructive"
 							>
 								{t(errors.newPassword)}
 							</p>
 						) : (
 							<p
 								id="new-local-password-help"
-								className="text-xs leading-5 text-muted-foreground"
+								className="min-h-5 text-xs leading-5 text-muted-foreground"
 							>
 								{t("personalSettings.passwordHint")}
 							</p>
 						)}
 					</div>
-					<div className="grid gap-2">
+					<div className="grid min-w-0 grid-rows-[auto_auto_minmax(1.25rem,auto)] gap-2">
 						<label
 							htmlFor="confirm-local-password"
 							className="text-xs font-medium text-muted-foreground"
@@ -974,11 +1097,13 @@ function PasswordSecuritySection({ user }: { user: AuthUserInfo }) {
 						{errors.confirmPassword ? (
 							<p
 								id="confirm-local-password-error"
-								className="text-xs leading-5 text-destructive"
+								className="min-h-5 text-xs leading-5 text-destructive"
 							>
 								{t(errors.confirmPassword)}
 							</p>
-						) : null}
+						) : (
+							<p aria-hidden="true" className="min-h-5 text-xs leading-5" />
+						)}
 					</div>
 				</div>
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1215,6 +1340,35 @@ export default function AccountSettingsPage() {
 			{ replace: true },
 		);
 	}, [locationSearch, navigate, refreshUser, t]);
+
+	useEffect(() => {
+		const redirect = getMinecraftBindingRedirectState(locationSearch);
+		if (!redirect) return;
+		if (redirect.status === "success") {
+			toast.success(
+				redirect.profileCreated
+					? t("personalSettings.minecraftBindingSucceededCreated")
+					: t("personalSettings.minecraftBindingSucceededExisting"),
+			);
+		} else if (redirect.code) {
+			toast.error(
+				t("personalSettings.minecraftBindingFailedWithCode", {
+					code: redirect.code,
+				}),
+			);
+		} else {
+			toast.error(t("personalSettings.minecraftBindingFailed"));
+		}
+
+		navigate(
+			{
+				pathname: accountPaths.settings,
+				search: clearMinecraftBindingRedirectSearch(locationSearch),
+				hash: "external-auth",
+			},
+			{ replace: true },
+		);
+	}, [locationSearch, navigate, t]);
 
 	const sections = useMemo<SectionDefinition[]>(
 		() => [

@@ -45,6 +45,8 @@ function form(
 ): ExternalAuthProviderFormData {
 	return {
 		allowedDomains: "",
+		allowLogin: true,
+		allowUnlink: true,
 		authorizationUrl: "https://id.example.com/oauth/authorize",
 		autoLinkVerifiedEmailEnabled: false,
 		autoProvisionEnabled: false,
@@ -157,6 +159,8 @@ describe("external auth provider shared helpers", () => {
 		const payload = createPayload(
 			form({
 				allowedDomains: "Example.COM, @example.org\nexample.com\n",
+				allowLogin: false,
+				allowUnlink: false,
 				autoLinkVerifiedEmailEnabled: true,
 				autoProvisionEnabled: true,
 				avatarUrlClaim: "picture",
@@ -183,7 +187,11 @@ describe("external auth provider shared helpers", () => {
 			email_claim: "mail",
 			email_verified_claim: "email_verified",
 			groups_claim: "groups",
-			options: { microsoft: { tenant: "tenant.example.com" } },
+			options: {
+				allow_login: false,
+				allow_unlink: false,
+				microsoft: { tenant: "tenant.example.com" },
+			},
 			provider_kind: "microsoft",
 			require_email_verified: false,
 			subject_claim: "oid",
@@ -324,7 +332,11 @@ describe("external auth provider shared helpers", () => {
 			id: 1,
 			issuer_url: null,
 			key: "microsoft",
-			options: { microsoft: { tenant: "organizations" } },
+			options: {
+				allow_login: false,
+				allow_unlink: false,
+				microsoft: { tenant: "organizations" },
+			},
 			protocol: "oidc",
 			provider_kind: "microsoft",
 			require_email_verified: false,
@@ -338,6 +350,8 @@ describe("external auth provider shared helpers", () => {
 
 		expect(formFromProvider(provider)).toMatchObject({
 			allowedDomains: "example.com, example.org",
+			allowLogin: false,
+			allowUnlink: false,
 			autoLinkVerifiedEmailEnabled: true,
 			autoProvisionEnabled: true,
 			avatarUrlClaim: "picture",
