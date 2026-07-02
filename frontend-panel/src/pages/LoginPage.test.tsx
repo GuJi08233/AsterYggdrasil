@@ -173,11 +173,15 @@ describe("LoginPage", () => {
 
 		renderLoginPage();
 
-		expect(await screen.findByText("login.externalOnlyTitle")).toBeInTheDocument();
+		expect(
+			await screen.findByText("login.externalOnlyTitle"),
+		).toBeInTheDocument();
 		expect(screen.queryByLabelText("login.identifier")).not.toBeInTheDocument();
 		expect(screen.queryByLabelText("login.password")).not.toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "login.externalLogin" }));
+		fireEvent.click(
+			screen.getByRole("button", { name: "login.externalLogin" }),
+		);
 
 		await waitFor(() =>
 			expect(externalAuthServiceMock.startAuthAlias).toHaveBeenCalledWith(

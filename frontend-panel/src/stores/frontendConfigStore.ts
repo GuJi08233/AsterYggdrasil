@@ -76,7 +76,9 @@ function publicAllowLocalLogin(branding: PublicBranding | null): boolean {
 	return branding.allow_local_login !== false;
 }
 
-function publicAllowLocalRegistration(branding: PublicBranding | null): boolean {
+function publicAllowLocalRegistration(
+	branding: PublicBranding | null,
+): boolean {
 	if (!branding || !isRecord(branding)) return true;
 	return branding.allow_local_registration !== false;
 }
@@ -253,7 +255,9 @@ const initialBranding = resolveBranding(initialCachedConfig?.branding ?? null);
 
 export const useFrontendConfigStore = create<FrontendConfigState>(
 	(set, get) => ({
-		allowLocalLogin: publicAllowLocalLogin(initialCachedConfig?.branding ?? null),
+		allowLocalLogin: publicAllowLocalLogin(
+			initialCachedConfig?.branding ?? null,
+		),
 		allowLocalRegistration: publicAllowLocalRegistration(
 			initialCachedConfig?.branding ?? null,
 		),
