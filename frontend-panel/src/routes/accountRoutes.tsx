@@ -1,4 +1,4 @@
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/shell/AppShell";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { accountPaths } from "@/routes/routePaths";
@@ -19,6 +19,16 @@ const TextureWardrobePage = lazyWithPreload(
 	() => import("@/pages/account/TextureWardrobePage"),
 );
 
+export function Pcl2ClosetRedirect() {
+	const location = useLocation();
+	return (
+		<Navigate
+			replace
+			to={`${accountPaths.wardrobe}${location.search}${location.hash}`}
+		/>
+	);
+}
+
 export const accountRoutes = [
 	{
 		element: <AppShell scope="account" />,
@@ -26,6 +36,10 @@ export const accountRoutes = [
 			{ path: accountPaths.home, element: <AccountOverviewPage /> },
 			{ path: accountPaths.profiles, element: <MinecraftProfilesPage /> },
 			{ path: accountPaths.wardrobe, element: <TextureWardrobePage /> },
+			{
+				path: accountPaths.wardrobePcl2Compat,
+				element: <Pcl2ClosetRedirect />,
+			},
 			{ path: accountPaths.audit, element: <AccountAuditPage /> },
 			{ path: accountPaths.settings, element: <AccountSettingsPage /> },
 			{

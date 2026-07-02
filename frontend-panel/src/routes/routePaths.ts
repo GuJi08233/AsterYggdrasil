@@ -20,6 +20,7 @@ export const accountPaths = {
 	forcePasswordChange: "/force-password-change",
 	profiles: "/account/profiles",
 	wardrobe: "/account/wardrobe",
+	wardrobePcl2Compat: "/user/closet",
 	audit: "/account/audit",
 	settings: "/account/settings",
 	settingsSecurityCompat: "/settings/security",
