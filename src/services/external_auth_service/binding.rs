@@ -33,6 +33,7 @@ const MINECRAFT_LOGIN_WITH_XBOX_URL: &str =
     "https://api.minecraftservices.com/authentication/login_with_xbox";
 const MINECRAFT_PROFILE_URL: &str = "https://api.minecraftservices.com/minecraft/profile";
 const BINDING_HTTP_TIMEOUT_SECS: u64 = 10;
+const ERROR_RESPONSE_LOG_BODY_CHARS: usize = 2048;
 
 pub struct ExternalAuthMinecraftBindingCallbackResult {
     pub user_id: i64,
@@ -678,7 +679,14 @@ async fn parse_json_response<T: for<'de> Deserialize<'de>>(
 ) -> Result<T> {
     let status = response.status();
     if !status.is_success() {
-        tracing::warn!(status = %status, context, "Microsoft Minecraft binding HTTP step failed");
+        let body = response.text().await.unwrap_or_default();
+        let body = truncate_log_body(&body, ERROR_RESPONSE_LOG_BODY_CHARS);
+        tracing::warn!(
+            status = %status,
+            context,
+            response_body = %body,
+            "Microsoft Minecraft binding HTTP step failed"
+        );
         return Err(AsterError::auth_invalid_credentials(format!(
             "{context} returned non-success status"
         )));
@@ -686,6 +694,15 @@ async fn parse_json_response<T: for<'de> Deserialize<'de>>(
     response.json::<T>().await.map_err(|error| {
         AsterError::auth_invalid_credentials(format!("{context} response parse failed: {error}"))
     })
+}
+
+fn truncate_log_body(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let truncated = chars.by_ref().take(max_chars).collect::<String>();
+    if chars.next().is_none() {
+        return truncated;
+    }
+    format!("{truncated}...<truncated>")
 }
 
 fn minecraft_services_endpoints(token_url: &str) -> Result<MinecraftServicesEndpoints> {
