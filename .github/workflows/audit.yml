@@ -55,4 +55,6 @@ jobs:
 
       - name: Run audit
         working-directory: frontend-panel
-        run: bun audit --audit-level=high
+        # GHSA-vfj7-8cjw-p6xm: braces 3.0.3 是上游最新版，无可用修复；
+        # 只存在于 shadcn CLI 的 fast-glob > micromatch 传递链，不进生产 bundle。
+        run: bun audit --audit-level=high --ignore=GHSA-vfj7-8cjw-p6xm
