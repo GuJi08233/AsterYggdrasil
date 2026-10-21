@@ -7861,7 +7861,7 @@ fn png_texture_with_marker(marker: &[u8; 16], variant: u8) -> Vec<u8> {
         0,
         image::Rgba([variant, marker[0], marker[1], marker[2]]),
     );
-    for (index, chunk) in marker[3..15].chunks_exact(4).enumerate() {
+    for (index, chunk) in marker[3..15].as_chunks::<4>().0.iter().enumerate() {
         image.put_pixel(
             index as u32 + 1,
             0,
