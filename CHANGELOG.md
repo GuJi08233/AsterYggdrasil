@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.13] - 2026-10-22
+
+### Fixed
+
+- **Rust 1.99 Clippy 兼容**：CI 的 `stable` 工具链推进到 1.99 后新增两条 lint。`async-trait` 0.1.89 会为 trait 方法注入 `#[must_use]`，与 `clippy::double_must_use` 冲突（6 处），升级到 0.1.92（该版本不再生成该属性）；测试中的 `chunks_exact(4)` 改为 `as_chunks::<4>()` 以适配 `clippy::chunks_exact_to_as_chunks`。
+- **审计忽略上游无修复项**：`braces` 3.0.3 是上游最新版且无可用修复，仅存在于 `shadcn` CLI 的 `fast-glob > micromatch` 传递链，不进入生产 bundle，在 `bun audit` 中显式忽略。
+
 ## [v0.2.12] - 2026-10-22
 
 ### Security
