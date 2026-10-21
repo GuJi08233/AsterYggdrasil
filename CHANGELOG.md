@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.12] - 2026-10-22
+
+### Security
+
+- **eMudhra 中间 CA 信任链修复（CVE-2026-111943 等价 RustSec 公告）**：升级 `rustls` 0.23.41 → 0.23.46、`rustls-webpki` 0.103.13 → 0.103.16、`webpki-roots` / `webpki-root-certs` 1.0.8 → 1.0.10。此前编译进二进制的信任库包含已被攻破私钥的 `emSign ECC Root CA - G3`，具备中间人位置的攻击者可据此伪造 SMTP、PostgreSQL/MySQL、OIDC/LinuxDO、Minecraft Services 与 S3 端点的 TLS 证书。同步修复 `rustls` 的 TLS 1.3 跨加密层级握手、会话密钥 `Debug` 泄露、ServerHello 降级与 Brotli 证书解压放大问题。
+- **依赖漏洞清理**：`h2` 0.4.15 → 0.4.16（RUSTSEC-2026-0258）、`aws-sdk-s3` 1.137 → 1.153（连带 `lru` 0.16.4 → 0.18.5，RUSTSEC-2026-0253）、`event-listener` 5.4.2、`crossbeam-epoch` 0.9.20、`xxhash-rust` 0.8.16。
+- **前端依赖**：`axios` 1.20.0、`vite` 8.3.5、`vitest` 4.1.12、`react-router-dom` 7.18.4；刷新 `overrides` 中的安全修复版本，`bun audit` 从 36 项降到 1 项（剩余 `braces` 3.0.3 为上游最新版且无可用修复，仅存在于 `shadcn` CLI 传递链）。
+- **审计与构建流程**：`audit.yml` 从每周改为每日，并在 `Cargo.toml` / `Cargo.lock` / 前端锁文件变更的 push 与 PR 上触发；`.cargo/audit.toml` 记录已核实不可达或无补丁的传递依赖；`Dockerfile` 固定 `bun@1.4.3`，去掉 `@latest` 浮动版本。
+
 ## [v0.1.0-beta.1] - 2026-06-20
 
 ### Release Highlights
