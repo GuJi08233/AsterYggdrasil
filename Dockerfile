@@ -1,7 +1,7 @@
 # Stage 1: Build frontend
 FROM node:24-alpine AS frontend
 
-RUN npm install -g bun@latest
+RUN npm install -g bun@1.4.3
 
 WORKDIR /build/frontend-panel
 COPY frontend-panel/package.json ./

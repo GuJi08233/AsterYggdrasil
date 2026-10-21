@@ -6,4 +6,35 @@ ignore = [
     # paste 1.0.x unmaintained — dtolnay 不再维护
     # 纯编译期宏，零运行时代码，无安全风险
     "RUSTSEC-2024-0436",
+
+    # h2 0.3.x 空 DATA 帧无界排队。actix-web 用 HttpServer::bind()（.tcp()），
+    # 只接受 HTTP/1.x；未启用 bind_auto_h2c / TLS ALPN，运行期走不到 h2 0.3。
+    # 0.4 线的 h2 已升到 0.4.16（出站 HTTP/2 走这里）。
+    "RUSTSEC-2026-0258",
+
+    # quinn-proto DoS 系列：HTTP/3 未启用，`cargo tree -i quinn` 无输出，
+    # quinn 只作为 reqwest 的可选特性存在，未编译进产物。
+    "RUSTSEC-2026-0338",
+    "RUSTSEC-2026-0339",
+    "RUSTSEC-2026-0340",
+    "RUSTSEC-2026-0341",
+    "RUSTSEC-2026-0342",
+
+    # zip 3.0.0 解压类问题：只经 utoipa-swagger-ui 的 openapi feature 引入，
+    # 解压的是编译期嵌入的可信 Swagger UI 资源，不处理用户上传。
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+
+    # rkyv 0.7.46：rust_decimal 的可选 feature，本项目未启用。
+    "RUSTSEC-2026-0235",
+
+    # rsa Marvin 时序攻击：上游至今无补丁（0.9 / 0.10-rc 均受影响）。
+    # 本项目的 RSA 用途是 Yggdrasil 材质签名（PKCS#1 v1.5 SHA1），
+    # 通过网络侧信道恢复私钥需要海量精确计时样本，列为已知残余风险。
+    "RUSTSEC-2023-0071",
+
+    # ttf-parser / proc-macro-error2 unmaintained，非可利用漏洞。
+    "RUSTSEC-2026-0192",
+    "RUSTSEC-2026-0173",
 ]

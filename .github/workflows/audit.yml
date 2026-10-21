@@ -2,8 +2,24 @@ name: Security Audit
 
 on:
   schedule:
-    # 每周一 09:17 UTC（北京时间 17:17）
-    - cron: '17 9 * * 1'
+    # 每天 09:17 UTC（北京时间 17:17）
+    - cron: '17 9 * * *'
+  push:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'frontend-panel/package.json'
+      - 'frontend-panel/bun.lock'
+      - '.github/workflows/audit.yml'
+    branches: [master]
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'frontend-panel/package.json'
+      - 'frontend-panel/bun.lock'
+      - '.github/workflows/audit.yml'
+    branches: [master, develop]
   workflow_dispatch: # 支持手动触发
 
 permissions:
@@ -21,6 +37,7 @@ jobs:
         run: cargo install cargo-audit --locked
 
       - name: Run cargo audit
+        # 已确认不可达或上游无修复的传递依赖记录在 .cargo/audit.toml 的 ignore 中
         run: cargo audit
 
   frontend-audit:
