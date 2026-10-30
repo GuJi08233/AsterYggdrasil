@@ -34,6 +34,12 @@ ignore = [
     # 通过网络侧信道恢复私钥需要海量精确计时样本，列为已知残余风险。
     "RUSTSEC-2023-0071",
 
+    # crypto-bigint 常数时间问题：0.7 线已升到修复版（>=0.7.6）。0.5.5 无补丁，
+    # 经 elliptic-curve 0.13 被 openidconnect / webauthn-rs（p256 验签，只处理公开数据）
+    # 和 aws-sigv4（仅 S3 多区域接入点走 SigV4a 时用派生私钥签名）引入。
+    # 远程计时出站签名不现实，列为已知残余风险；注意此 ignore 按 ID 生效，0.7 线不得回退。
+    "RUSTSEC-2026-0387",
+
     # ttf-parser / proc-macro-error2 unmaintained，非可利用漏洞。
     "RUSTSEC-2026-0192",
     "RUSTSEC-2026-0173",

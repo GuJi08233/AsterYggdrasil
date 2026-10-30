@@ -280,10 +280,6 @@ jobs:
 
       - name: Build release body
         run: |
-          cat > release_body.md << 'EOF'
-          ${{ steps.changelog.outputs.body }}
-          EOF
-
           # 合并 changelog + download 表格
           {
             cat release_notes.md
