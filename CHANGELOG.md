@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.14] - 2026-10-31
+
+### Security
+
+- **Rust 依赖漏洞**：`crypto-bigint` 0.7.5 → 0.7.10、`ctutils` 0.4.2 → 0.4.7（RUSTSEC-2026-0387 / 0385，常数时间问题，影响 Yggdrasil 材质签名所用的 `rsa`）；`actix-http` 3.13 → 3.20，连带 `zstd` 0.14.3 / `zstd-safe` 8.2.0 / `zstd-sys` 2.1.2（RUSTSEC-2026-0391 / 0398 / 0403 / 0410 及多项 unsound）；`tokio` 1.54.1（RUSTSEC-2026-0386）。
+- **残余风险登记**：`crypto-bigint` 0.5.5 无补丁，仅经 `elliptic-curve` 0.13 用于 OIDC / WebAuthn 公开验签与 S3 SigV4a 出站签名，记入 `.cargo/audit.toml`。
+- **前端依赖**：`zod` 4.6.6（GHSA-mrhx-c7xc-m3w5）、`body-parser` override 2.4.0（GHSA-27r3-jxmh-p828）。
+
+### Changed
+
+- **合并上游 AsterCommunity/AsterYggdrasil**：AsterForge 升级到 `6f0c9f41`，`sea-orm` 2.0 正式版、`jsonwebtoken` 11、`validator` 0.21、`base64` 0.23；移除未使用的 `argon2`、`openidconnect`、`ipnet`、`http` 直接依赖。
+- **数据库迁移加分布式锁**：迁移改用 `aster_forge_db_migration::run_migrator_with_lock`，多实例同时启动时不会并发执行迁移。
+- **部署拓扑配置**：新增 `[deployment].profile`，默认 `single` 与此前行为一致；`cluster` 要求 PostgreSQL/MySQL、Redis 缓存与配置同步、S3/MinIO，就绪检查不再容忍缓存降级，后台任务通过 Forge lease 跨实例协调。
+- **数据库凭据**：`[database].url` 仍接受原有字符串写法，并新增 `{ base_url, username, password }` 结构化写法，调试输出不再包含明文凭据。
+- **CI**：清理 release 工作流中的无效步骤，修正 Docker 镜像描述。
+
 ## [v0.2.13] - 2026-10-22
 
 ### Fixed

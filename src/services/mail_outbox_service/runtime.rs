@@ -119,11 +119,9 @@ mod tests {
             descriptor.dependencies,
             vec![aster_forge_tasks::BACKGROUND_TASKS_COMPONENT]
         );
+        assert_eq!(descriptor.shutdown.len(), 1);
         assert_eq!(
-            descriptor
-                .shutdown
-                .expect("mail outbox shutdown should be registered")
-                .phase_name,
+            descriptor.shutdown[0].phase_name,
             aster_forge_mail::MAIL_OUTBOX_DRAIN_SHUTDOWN_PHASE
         );
     }
@@ -160,11 +158,13 @@ mod tests {
         .await
         .expect("mail outbox drain test row should enqueue");
 
-        let report =
-            aster_forge_runtime::RuntimeComponentRegistry::shutdown_bundle(mail_outbox_component(
-                MailOutboxRuntimeResources::new(db.clone(), runtime_config, mail_sender.clone()),
-            ))
-            .await;
+        let mut registry = aster_forge_runtime::RuntimeComponentRegistry::new();
+        registry.register_bundle(mail_outbox_component(MailOutboxRuntimeResources::new(
+            db.clone(),
+            runtime_config,
+            mail_sender.clone(),
+        )));
+        let report = registry.shutdown().await;
 
         assert!(!report.has_failures());
         assert_eq!(report.phases.len(), 1);
