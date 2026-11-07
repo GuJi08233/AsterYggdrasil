@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Rust 依赖漏洞**：`actix-http` 3.20.0 → 3.20.3（RUSTSEC-2026-0446 请求走私、0448 解压无上限耗内存、0455 Brotli 大窗口绕过解压限制）、`actix-web` 4.14.0 → 4.18.2（RUSTSEC-2026-0447 压缩请求体在限额前耗内存），一次清掉 5 条漏洞中的 4 条。`Cargo.toml` 同步把 `actix-web` 下限提到 4.18.2、dev-dependency `actix-http` 提到 3.20.3，防止锁文件回退。
+- **残余风险登记**：`zip` 3.0.0（RUSTSEC-2026-0429，`ZipArchive::extract()` 按声明 size 预分配符号链接缓冲区可致进程 abort）仅经 `utoipa-swagger-ui` 的 **build-dependency** 引入。该 crate 的 `build.rs` 实际只调用 `by_index()` + `enclosed_name()` + 流式 `io::copy()`，不走被点名的 `extract()`，且解压对象是 crates.io 发布包内置的官方 Swagger UI 资源，运行期不处理任何外部 ZIP。升级需 `utoipa-swagger-ui` 10 + `utoipa` 6，而 `utoipa` 6 由 AsterForge pin 的 workspace 版本决定，记入 `.cargo/audit.toml` 待跟进上游 revision 时移除。
+- **前端依赖**：`follow-redirects` 1.16.1 → 1.16.2（GHSA-mrwp-f3q8-3g9p / CVE-2026-116689，跨域重定向时的敏感 header 处理缺陷，经 `axios` 传递引入）。
+
 ## [v0.2.14] - 2026-10-31
 
 ### Security
