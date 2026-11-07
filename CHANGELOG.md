@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.15] - 2026-11-07
+
 ### Security
 
 - **Rust 依赖漏洞**：`actix-http` 3.20.0 → 3.20.3（RUSTSEC-2026-0446 请求走私、0448 解压无上限耗内存、0455 Brotli 大窗口绕过解压限制）、`actix-web` 4.14.0 → 4.18.2（RUSTSEC-2026-0447 压缩请求体在限额前耗内存），一次清掉 5 条漏洞中的 4 条。`Cargo.toml` 同步把 `actix-web` 下限提到 4.18.2、dev-dependency `actix-http` 提到 3.20.3，防止锁文件回退。
