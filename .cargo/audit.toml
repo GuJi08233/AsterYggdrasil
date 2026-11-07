@@ -26,6 +26,14 @@ ignore = [
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
 
+    # zip 3.0.0 ZipArchive::extract() 按条目声明的 size 预分配符号链接缓冲区
+    # （Vec::with_capacity），恶意 ZIP64 可致进程 abort。该 API 只在 build-dependency
+    # utoipa-swagger-ui 的 build.rs 里出现，且实际走的是 by_index() + enclosed_name()
+    # + 流式 io::copy()，并未调用 extract()；解压对象是 crates.io 发布包内置的官方
+    # Swagger UI 资源，运行期不触碰。升级需 utoipa-swagger-ui 10 + utoipa 6，
+    # 而 utoipa 6 由 AsterForge pin 的 workspace 版本决定，待跟进上游 revision 时一并移除。
+    "RUSTSEC-2026-0429",
+
     # rkyv 0.7.46：rust_decimal 的可选 feature，本项目未启用。
     "RUSTSEC-2026-0235",
 
