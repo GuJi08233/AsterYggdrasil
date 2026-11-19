@@ -149,7 +149,7 @@ webauthn-rs-proto = "0.6.1-dev"
 chrono = "0.4"
 
 [dev-dependencies]
-actix-http = "3.20.3"
+actix-http = "3.22.0"
 fs2 = "0.4"
 rand_08 = { package = "rand", version = "0.8" }
 getrandom = "0.4"

@@ -25,6 +25,10 @@ ignore = [
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
+    # zip 3.0.0 的 ZipStreamReader 本地头名不一致和 AES 认证码问题：
+    # 同样只发生在 build.rs 解压 trusted Swagger UI release，不处理用户 ZIP。
+    "RUSTSEC-2026-0548",
+    "RUSTSEC-2026-0545",
 
     # zip 3.0.0 ZipArchive::extract() 按条目声明的 size 预分配符号链接缓冲区
     # （Vec::with_capacity），恶意 ZIP64 可致进程 abort。该 API 只在 build-dependency
