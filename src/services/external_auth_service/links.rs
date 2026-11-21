@@ -5,11 +5,13 @@ use crate::db::repository::{
     external_auth_binding_flow_repo, external_auth_email_verification_flow_repo,
     external_auth_identity_repo, external_auth_login_flow_repo, external_auth_provider_repo,
 };
-use crate::entities::{external_auth_identity, external_auth_provider};
 use crate::errors::{AsterError, Result};
 use crate::runtime::SharedRuntimeState;
-use crate::types::external_auth::{ExternalAuthProviderKind, parse_external_auth_provider_options};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
+use aster_yggdrasil_model::entities::{external_auth_identity, external_auth_provider};
+use aster_yggdrasil_model::types::external_auth::{
+    ExternalAuthProviderKind, parse_external_auth_provider_options,
+};
 
 use super::ExternalAuthLinkInfo;
 

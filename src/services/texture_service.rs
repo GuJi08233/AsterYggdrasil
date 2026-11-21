@@ -49,23 +49,23 @@ use crate::db::repository::{
     minecraft_profile_texture_repo, minecraft_texture_repo, minecraft_texture_report_repo,
     minecraft_texture_tag_repo, user_repo,
 };
-use crate::entities::{
-    minecraft_profile, minecraft_texture, minecraft_texture_report, user, yggdrasil_token,
-};
 use crate::errors::{AsterError, Result};
 use crate::runtime::{
     CacheRuntimeState, DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState,
 };
 use crate::services::ban_service;
-use crate::types::{
+use crate::utils::OUTBOUND_HTTP_USER_AGENT;
+use aster_forge_api::{CursorPage, DateTimeIdCursor, NullablePatch, SortOrderNameIdCursor};
+use aster_yggdrasil_model::entities::{
+    minecraft_profile, minecraft_texture, minecraft_texture_report, user, yggdrasil_token,
+};
+use aster_yggdrasil_model::types::{
     user::UserBanScope, yggdrasil::MinecraftProfileSource,
     yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
     yggdrasil::MinecraftTextureReportReason, yggdrasil::MinecraftTextureReportStatus,
     yggdrasil::MinecraftTextureSource, yggdrasil::MinecraftTextureType,
     yggdrasil::MinecraftTextureVisibility,
 };
-use crate::utils::OUTBOUND_HTTP_USER_AGENT;
-use aster_forge_api::{CursorPage, DateTimeIdCursor, NullablePatch, SortOrderNameIdCursor};
 use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use reqwest::Url;

@@ -2,10 +2,10 @@ use super::YggdrasilError;
 use crate::api::dto::yggdrasil::{YggdrasilProfile, YggdrasilProfileProperty};
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::minecraft_profile_texture_repo;
-use crate::entities::minecraft_profile;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use crate::services::{texture_service, yggdrasil_signature};
+use aster_yggdrasil_model::entities::minecraft_profile;
 use chrono::Utc;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -136,9 +136,11 @@ fn texture_property_value(
     let mut entries = BTreeMap::new();
     for texture in textures {
         let metadata = (texture.binding.texture_type
-            == crate::types::yggdrasil::MinecraftTextureType::Skin)
+            == aster_yggdrasil_model::types::yggdrasil::MinecraftTextureType::Skin)
             .then_some(texture.texture.texture_model)
-            .and_then(crate::types::yggdrasil::MinecraftTextureModel::as_metadata_value)
+            .and_then(
+                aster_yggdrasil_model::types::yggdrasil::MinecraftTextureModel::as_metadata_value,
+            )
             .map(|model| TexturePropertyMetadata { model });
         entries.insert(
             texture.binding.texture_type.textures_property_key(),
@@ -152,16 +154,17 @@ fn texture_property_value(
             },
         );
     }
-    if !entries
-        .contains_key(crate::types::yggdrasil::MinecraftTextureType::Skin.textures_property_key())
-    {
+    if !entries.contains_key(
+        aster_yggdrasil_model::types::yggdrasil::MinecraftTextureType::Skin.textures_property_key(),
+    ) {
         let skin = texture_service::default_skin_for_profile_uuid(&profile.uuid);
         let metadata = skin
             .model
             .as_metadata_value()
             .map(|model| TexturePropertyMetadata { model });
         entries.insert(
-            crate::types::yggdrasil::MinecraftTextureType::Skin.textures_property_key(),
+            aster_yggdrasil_model::types::yggdrasil::MinecraftTextureType::Skin
+                .textures_property_key(),
             TexturePropertyItem {
                 url: yggdrasil_signature::required_texture_public_url(policy, skin.hash)?,
                 metadata,

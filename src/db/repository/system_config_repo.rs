@@ -99,7 +99,7 @@ pub async fn upsert_with_options<C: ConnectionTrait>(
 ) -> Result<system_config::Model> {
     map_store_result(
         STORE
-            .upsert(
+            .upsert_prevalidated(
                 db,
                 SystemConfigUpsert {
                     key,
@@ -161,7 +161,7 @@ mod tests {
         )
         .await
         .expect("system config repo test DB should connect");
-        migration::Migrator::up(&db, None)
+        aster_yggdrasil_migration::Migrator::up(&db, None)
             .await
             .expect("system config repo test migrations should succeed");
         db

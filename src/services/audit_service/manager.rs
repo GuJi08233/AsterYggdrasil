@@ -3,8 +3,8 @@ use sea_orm::DatabaseConnection;
 
 use super::context::AuditContext;
 use crate::config::RuntimeConfig;
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::audit::{AuditAction, AuditEntityType};
+use crate::runtime::{AuditRuntimeState, RuntimeConfigRuntimeState, SharedRuntimeState};
+use aster_yggdrasil_model::types::audit::{AuditAction, AuditEntityType};
 
 pub fn should_record<S: RuntimeConfigRuntimeState>(state: &S, action: AuditAction) -> bool {
     state.runtime_config().should_record_audit_action(action)
@@ -44,7 +44,7 @@ fn audit_log_request(
     }
 }
 
-async fn record_prechecked<S: DatabaseRuntimeState>(
+async fn record_prechecked<S: AuditRuntimeState>(
     state: &S,
     ctx: &AuditContext,
     action: AuditAction,
@@ -55,7 +55,15 @@ async fn record_prechecked<S: DatabaseRuntimeState>(
 ) {
     let request = audit_log_request(ctx, action, entity_type, entity_id, entity_name, details);
 
-    aster_forge_audit::record_audit_log(state.writer_db(), request).await;
+    // Admission is best-effort: overflow records fall back to direct writes inside
+    // the writer, and the shutdown drain reconciles whatever remains queued.
+    if let Err(error) = state.audit_writer().record(request).await {
+        tracing::warn!(
+            ?error,
+            action = action.as_str(),
+            "audit record admission failed"
+        );
+    }
 }
 
 async fn record_prechecked_with_db(
@@ -68,7 +76,13 @@ async fn record_prechecked_with_db(
     details: Option<serde_json::Value>,
 ) {
     let request = audit_log_request(ctx, action, entity_type, entity_id, entity_name, details);
-    aster_forge_audit::write_audit_log_direct(db, request).await;
+    if let Err(error) = aster_forge_db::create_audit_log_row(db, request).await {
+        tracing::warn!(
+            ?error,
+            action = action.as_str(),
+            "direct audit write failed"
+        );
+    }
 }
 
 pub async fn log<S>(
@@ -80,7 +94,7 @@ pub async fn log<S>(
     entity_name: Option<&str>,
     details: Option<serde_json::Value>,
 ) where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     if !should_record(state, action) {
         return;
@@ -132,7 +146,7 @@ pub async fn log_with_details<S, F>(
     entity_name: Option<&str>,
     details: F,
 ) where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
     F: FnOnce() -> Option<serde_json::Value>,
 {
     if !should_record(state, action) {

@@ -2206,17 +2206,6 @@ export interface components {
             password: string;
             username: string;
         };
-        AccessClaims: {
-            exp: number;
-            jti?: string | null;
-            password_change?: boolean;
-            /** Format: int64 */
-            session_version: number;
-            sub: string;
-            token_type: components["schemas"]["TokenType"];
-            /** Format: int64 */
-            user_id: number;
-        };
         AccountAuditLogFilterQuery: {
             action?: string | null;
             after?: string | null;
@@ -2227,7 +2216,7 @@ export interface components {
             before?: string | null;
             /** Format: int64 */
             entity_id?: number | null;
-            entity_type?: null | components["schemas"]["AuditEntityType"];
+            entity_type?: components["schemas"]["AuditEntityType"] | null;
         };
         AccountOverviewResp: {
             /** Format: int64 */
@@ -2255,8 +2244,8 @@ export interface components {
             /** Format: int64 */
             after_id?: number | null;
             effective_only?: boolean | null;
-            scope?: null | components["schemas"]["UserBanScope"];
-            status?: null | components["schemas"]["UserBanStatus"];
+            scope?: components["schemas"]["UserBanScope"] | null;
+            status?: components["schemas"]["UserBanStatus"] | null;
         };
         ActionMessageResp: {
             message: string;
@@ -2364,16 +2353,16 @@ export interface components {
         AdminTaskCleanupReq: {
             /** Format: date-time */
             finished_before: string;
-            kind?: null | components["schemas"]["BackgroundTaskKind"];
-            status?: null | components["schemas"]["BackgroundTaskStatus"];
+            kind?: components["schemas"]["BackgroundTaskKind"] | null;
+            status?: components["schemas"]["BackgroundTaskStatus"] | null;
         };
         AdminTaskListQuery: {
             /** Format: int64 */
             after_id?: number | null;
             /** Format: date-time */
             after_updated_at?: string | null;
-            kind?: null | components["schemas"]["BackgroundTaskKind"];
-            status?: null | components["schemas"]["BackgroundTaskStatus"];
+            kind?: components["schemas"]["BackgroundTaskKind"] | null;
+            status?: components["schemas"]["BackgroundTaskStatus"] | null;
         };
         AdminTextureLibraryTextureQuery: {
             /** Format: int64 */
@@ -2381,20 +2370,20 @@ export interface components {
             /** Format: date-time */
             after_updated_at?: string | null;
             keyword?: string | null;
-            library_status?: null | components["schemas"]["MinecraftTextureLibraryStatus"];
+            library_status?: components["schemas"]["MinecraftTextureLibraryStatus"] | null;
             published?: boolean | null;
             tag_ids?: number[];
             tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
-            texture_type?: null | components["schemas"]["MinecraftTextureType"];
-            visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
+            texture_type?: components["schemas"]["MinecraftTextureType"] | null;
+            visibility?: components["schemas"]["MinecraftTextureVisibility"] | null;
         };
         AdminTextureReportQuery: {
             /** Format: date-time */
             after_created_at?: string | null;
             /** Format: int64 */
             after_id?: number | null;
-            reason?: null | components["schemas"]["MinecraftTextureReportReason"];
-            status?: null | components["schemas"]["MinecraftTextureReportStatus"];
+            reason?: components["schemas"]["MinecraftTextureReportReason"] | null;
+            status?: components["schemas"]["MinecraftTextureReportStatus"] | null;
             /** Format: int64 */
             texture_id?: number | null;
         };
@@ -2404,8 +2393,8 @@ export interface components {
             /** Format: int64 */
             after_id?: number | null;
             effective_only?: boolean;
-            scope?: null | components["schemas"]["UserBanScope"];
-            status?: null | components["schemas"]["UserBanStatus"];
+            scope?: components["schemas"]["UserBanScope"] | null;
+            status?: components["schemas"]["UserBanStatus"] | null;
             /** Format: int64 */
             user_id?: number | null;
         };
@@ -2453,8 +2442,8 @@ export interface components {
             /** Format: int64 */
             after_id?: number | null;
             keyword?: string | null;
-            role?: null | components["schemas"]["UserRole"];
-            status?: null | components["schemas"]["UserStatus"];
+            role?: components["schemas"]["UserRole"] | null;
+            status?: components["schemas"]["UserStatus"] | null;
         };
         AdminYggdrasilSessionForwardServerInfo: {
             base_url?: string | null;
@@ -2491,7 +2480,7 @@ export interface components {
             retryable?: boolean | null;
         };
         /** @enum {string} */
-        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.local_login_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_login_disabled" | "external_auth.provider_unlink_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.uuid_taken" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.name_reserved_by_mojang" | "minecraft_profile.mojang_lookup_failed" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_profile.rename_limit_exceeded" | "minecraft_profile.official_name_readonly" | "user_ban.not_found" | "user_ban.already_active" | "user_ban.not_active" | "user_ban.duration_invalid" | "user_ban.reason_invalid" | "user_ban.forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
+        AsterErrorCode: "success" | "bad_request" | "validation.failed" | "request.malformed" | "request.payload_too_large" | "not_found" | "internal_server_error" | "database.error" | "cache.error" | "storage.error" | "config.error" | "runtime.unavailable" | "endpoint.not_found" | "endpoint.method_not_allowed" | "rate_limited" | "auth.setup_required" | "auth.setup_already_completed" | "auth.registration_disabled" | "auth.local_login_disabled" | "auth.password_policy_failed" | "auth.username_exists" | "auth.email_exists" | "auth.email_blocked" | "auth.email_not_allowlisted" | "auth.user_disabled" | "auth.pending_activation" | "auth.password_change_required" | "auth.passkey_login_disabled" | "auth.captcha_required" | "auth.captcha_invalid" | "auth.captcha_expired" | "auth.contact_verification_invalid" | "auth.contact_verification_expired" | "auth.invitation_invalid" | "auth.invitation_expired" | "auth.invitation_accepted" | "auth.invitation_revoked" | "mail.not_configured" | "mail.delivery_failed" | "auth.credentials_failed" | "auth.token_expired" | "auth.token_invalid" | "auth.session_not_found" | "auth.session_revocation_failed" | "auth.csrf_missing" | "auth.csrf_invalid" | "auth.admin_required" | "forbidden" | "external_auth.error" | "external_auth.provider_not_found" | "external_auth.provider_disabled" | "external_auth.provider_login_disabled" | "external_auth.provider_unlink_disabled" | "external_auth.provider_misconfigured" | "external_auth.state_invalid" | "external_auth.state_expired" | "external_auth.callback_failed" | "external_auth.identity_conflict" | "external_auth.callback_redirect_uri_required" | "mail.template_invalid" | "mail.outbox_not_found" | "config.not_found" | "config.read_only" | "config.validation_failed" | "config.action_not_found" | "config.action_invalid" | "config.action_failed" | "audit_log.invalid_filter" | "task.not_found" | "task.invalid_state" | "task.retry_not_allowed" | "task.cleanup_failed" | "task.lease_conflict" | "minecraft_profile.not_found" | "minecraft_profile.uuid_invalid" | "minecraft_profile.uuid_taken" | "minecraft_profile.name_invalid" | "minecraft_profile.name_taken" | "minecraft_profile.name_reserved_by_mojang" | "minecraft_profile.mojang_lookup_failed" | "minecraft_profile.limit_exceeded" | "minecraft_profile.delete_forbidden" | "minecraft_profile.rename_limit_exceeded" | "minecraft_profile.official_name_readonly" | "user_ban.not_found" | "user_ban.already_active" | "user_ban.not_active" | "user_ban.duration_invalid" | "user_ban.reason_invalid" | "user_ban.forbidden" | "minecraft_texture.not_found" | "minecraft_texture.invalid_type" | "minecraft_texture.upload_disabled" | "minecraft_texture.invalid_png" | "minecraft_texture.invalid_dimensions" | "minecraft_texture.invalid_model" | "minecraft_texture.unsupported_mime" | "minecraft_texture.too_large" | "minecraft_texture.storage_failed" | "minecraft_texture.bind_conflict" | "wardrobe.texture_not_found" | "wardrobe.texture_type_mismatch" | "wardrobe.texture_delete_conflict" | "wardrobe.texture_edit_conflict" | "wardrobe.texture_name_invalid" | "wardrobe.texture_name_taken" | "texture_library.tag_not_found" | "texture_library.tag_name_invalid" | "texture_library.tag_color_invalid" | "texture_library.tag_name_taken" | "texture_library.texture_not_found" | "texture_library.disabled" | "texture_library.texture_not_public" | "texture_library.texture_not_pending" | "texture_library.texture_not_published" | "texture_library.review_note_invalid" | "texture_report.texture_not_reportable" | "texture_report.self_report_not_allowed" | "texture_report.pending_exists" | "texture_report.message_invalid" | "texture_report.not_found" | "texture_report.not_pending" | "passkey.name_invalid" | "passkey.name_too_long" | "passkey.not_discoverable" | "avatar.not_found" | "avatar.file_required" | "avatar.upload_read_failed" | "avatar.empty_image" | "avatar.source_invalid" | "avatar.size_invalid" | "avatar.render_failed" | "avatar.output_invalid" | "config.public_site_url_required" | "config.public_site_url_invalid" | "frontend_config.unavailable";
         /** @enum {string} */
         AuditAction: "system_setup" | "server_start" | "server_shutdown" | "config_update" | "config_delete" | "config_action_execute" | "user_register" | "user_login" | "user_logout" | "user_refresh_token" | "user_revoke_session" | "user_revoke_other_sessions" | "user_change_password" | "user_confirm_registration" | "user_request_email_change" | "user_resend_email_change" | "user_confirm_email_change" | "user_request_password_reset" | "user_confirm_password_reset" | "user_update_profile" | "user_passkey_register" | "user_passkey_rename" | "user_passkey_delete" | "user_passkey_login" | "admin_create_user" | "admin_update_user" | "admin_disable_user" | "admin_delete_user" | "admin_create_invitation" | "admin_revoke_invitation" | "admin_revoke_user_sessions" | "admin_create_user_ban" | "admin_update_user_ban" | "admin_revoke_user_ban" | "admin_delete_config" | "admin_cleanup_tasks" | "task_retry" | "admin_create_external_auth_provider" | "admin_update_external_auth_provider" | "admin_delete_external_auth_provider" | "admin_test_external_auth_provider" | "admin_create_yggdrasil_session_forward_server" | "admin_update_yggdrasil_session_forward_server" | "admin_delete_yggdrasil_session_forward_server" | "mail_send" | "mail_delivery_failed" | "external_auth_provider_create" | "external_auth_provider_update" | "external_auth_provider_delete" | "user_external_auth_login" | "user_external_auth_link" | "user_external_auth_unlink" | "minecraft_profile_create" | "minecraft_profile_rename" | "minecraft_profile_delete" | "minecraft_texture_upload" | "minecraft_texture_bind" | "minecraft_texture_delete" | "minecraft_texture_library_submit" | "minecraft_texture_library_withdraw" | "minecraft_texture_library_approve" | "minecraft_texture_library_reject" | "minecraft_texture_library_unpublish" | "minecraft_texture_report_create" | "minecraft_texture_report_accept" | "minecraft_texture_report_reject" | "yggdrasil_authenticate" | "yggdrasil_refresh_token" | "yggdrasil_invalidate_token" | "yggdrasil_signout" | "yggdrasil_join_server" | "yggdrasil_session_forward_check" | "minecraft_texture_edit";
         /** @enum {string} */
@@ -2507,8 +2496,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             ip_address?: string | null;
-            presentation?: null | components["schemas"]["AuditPresentation"];
-            user?: null | components["schemas"]["AuditUserSummary"];
+            presentation?: components["schemas"]["AuditPresentation"] | null;
+            user?: components["schemas"]["AuditUserSummary"] | null;
             user_agent?: string | null;
             /** Format: int64 */
             user_id: number;
@@ -2523,7 +2512,7 @@ export interface components {
             before?: string | null;
             /** Format: int64 */
             entity_id?: number | null;
-            entity_type?: null | components["schemas"]["AuditEntityType"];
+            entity_type?: components["schemas"]["AuditEntityType"] | null;
             /** Format: int64 */
             user_id?: number | null;
         };
@@ -2543,9 +2532,9 @@ export interface components {
             user_id: number;
         };
         AuditPresentation: {
-            detail?: null | components["schemas"]["AuditPresentationMessage"];
-            summary?: null | components["schemas"]["AuditPresentationMessage"];
-            target?: null | components["schemas"]["AuditPresentationMessage"];
+            detail?: components["schemas"]["AuditPresentationMessage"] | null;
+            summary?: components["schemas"]["AuditPresentationMessage"] | null;
+            target?: components["schemas"]["AuditPresentationMessage"] | null;
         };
         AuditPresentationMessage: {
             code: string;
@@ -2732,8 +2721,8 @@ export interface components {
             must_change_password?: boolean | null;
             operator_scopes?: components["schemas"]["OperatorScope"][] | null;
             password?: string | null;
-            role?: null | components["schemas"]["UserRole"];
-            status?: null | components["schemas"]["UserStatus"];
+            role?: components["schemas"]["UserRole"] | null;
+            status?: components["schemas"]["UserStatus"] | null;
             username: string;
         };
         CreateExternalAuthProviderReq: {
@@ -2753,7 +2742,7 @@ export interface components {
             groups_claim?: string | null;
             icon_url?: string | null;
             issuer_url?: string | null;
-            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
+            options?: components["schemas"]["ExternalAuthProviderOptions"] | null;
             provider_kind: components["schemas"]["ExternalAuthProviderKind"];
             require_email_verified?: boolean | null;
             scopes?: string | null;
@@ -2792,7 +2781,7 @@ export interface components {
             base_url: string;
             display_name: string;
             enabled?: boolean | null;
-            endpoint_kind?: null | components["schemas"]["YggdrasilSessionForwardEndpointKind"];
+            endpoint_kind?: components["schemas"]["YggdrasilSessionForwardEndpointKind"] | null;
             /** Format: int32 */
             priority?: number | null;
             texture_forward_enabled?: boolean | null;
@@ -3340,7 +3329,7 @@ export interface components {
                 texture_model: components["schemas"]["MinecraftTextureModel"];
                 texture_type: components["schemas"]["MinecraftTextureType"];
                 updated_at: string;
-                uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                 url: string;
                 visibility: components["schemas"]["MinecraftTextureVisibility"];
                 /** Format: int32 */
@@ -3414,7 +3403,7 @@ export interface components {
                 attempt_count: number;
                 can_retry: boolean;
                 created_at: string;
-                creator?: null | components["schemas"]["TaskCreatorSummary"];
+                creator?: components["schemas"]["TaskCreatorSummary"] | null;
                 /** Format: int64 */
                 creator_user_id?: number | null;
                 display_name: string;
@@ -3428,14 +3417,14 @@ export interface components {
                 /** Format: int32 */
                 max_attempts: number;
                 payload: components["schemas"]["TaskPayload"];
-                presentation?: null | components["schemas"]["TaskPresentation"];
+                presentation?: components["schemas"]["TaskPresentation"] | null;
                 /** Format: int64 */
                 progress_current: number;
                 /** Format: int32 */
                 progress_percent: number;
                 /** Format: int64 */
                 progress_total: number;
-                result?: null | components["schemas"]["TaskResult"];
+                result?: components["schemas"]["TaskResult"] | null;
                 started_at?: string | null;
                 status: components["schemas"]["BackgroundTaskStatus"];
                 status_text?: string | null;
@@ -3470,14 +3459,14 @@ export interface components {
                 admin_note?: string | null;
                 created_at: string;
                 handled_at: string;
-                handler?: null | components["schemas"]["TextureReportUserInfo"];
+                handler?: components["schemas"]["TextureReportUserInfo"] | null;
                 /** Format: int64 */
                 id: number;
                 message?: string | null;
                 reason: components["schemas"]["MinecraftTextureReportReason"];
-                reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                 status: components["schemas"]["MinecraftTextureReportStatus"];
-                texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                 /** Format: int64 */
                 texture_id: number;
                 updated_at: string;
@@ -3557,7 +3546,7 @@ export interface components {
                 id: string;
                 name: string;
                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                source?: null | components["schemas"]["MinecraftProfileSource"];
+                source?: components["schemas"]["MinecraftProfileSource"] | null;
             }[];
             /**
              * Format: int64
@@ -3681,8 +3670,8 @@ export interface components {
         ExternalAuthProviderOptions: {
             allow_login?: boolean;
             allow_unlink?: boolean;
-            linuxdo?: null | components["schemas"]["LinuxDoExternalAuthProviderOptions"];
-            microsoft?: null | components["schemas"]["MicrosoftExternalAuthProviderOptions"];
+            linuxdo?: components["schemas"]["LinuxDoExternalAuthProviderOptions"] | null;
+            microsoft?: components["schemas"]["MicrosoftExternalAuthProviderOptions"] | null;
         };
         ExternalAuthProviderTestCheck: {
             message: string;
@@ -3695,9 +3684,9 @@ export interface components {
             client_id: string;
             client_secret?: string | null;
             issuer_url?: string | null;
-            kind?: null | components["schemas"]["ExternalAuthProviderKind"];
-            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
-            provider_kind?: null | components["schemas"]["ExternalAuthProviderKind"];
+            kind?: components["schemas"]["ExternalAuthProviderKind"] | null;
+            options?: components["schemas"]["ExternalAuthProviderOptions"] | null;
+            provider_kind?: components["schemas"]["ExternalAuthProviderKind"] | null;
             scopes?: string | null;
             token_url?: string | null;
             userinfo_url?: string | null;
@@ -3975,7 +3964,7 @@ export interface components {
             /** Format: int64 */
             texture_id: number;
             texture_model: components["schemas"]["MinecraftTextureModel"];
-            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
             texture_type: components["schemas"]["MinecraftTextureType"];
             updated_at: string;
             url: string;
@@ -4203,7 +4192,7 @@ export interface components {
             keyword?: string | null;
             tag_ids?: number[];
             tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
-            texture_type?: null | components["schemas"]["MinecraftTextureType"];
+            texture_type?: components["schemas"]["MinecraftTextureType"] | null;
         };
         PublicTextureLibraryTextureMetadata: {
             created_at: string;
@@ -4226,7 +4215,7 @@ export interface components {
             texture_model: components["schemas"]["MinecraftTextureModel"];
             texture_type: components["schemas"]["MinecraftTextureType"];
             updated_at: string;
-            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
             url: string;
             visibility: components["schemas"]["MinecraftTextureVisibility"];
             /** Format: int32 */
@@ -4308,11 +4297,11 @@ export interface components {
             /** Format: int64 */
             duration_ms: number;
             summary?: string | null;
-            system_health?: null | components["schemas"]["RuntimeSystemHealthResult"];
+            system_health?: components["schemas"]["RuntimeSystemHealthResult"] | null;
         };
         SetConfigReq: {
             value: components["schemas"]["ConfigValue"];
-            visibility?: null | components["schemas"]["ConfigVisibility"];
+            visibility?: components["schemas"]["ConfigVisibility"] | null;
         };
         SetLocalPasswordReq: {
             new_password: string;
@@ -4399,7 +4388,7 @@ export interface components {
             attempt_count: number;
             can_retry: boolean;
             created_at: string;
-            creator?: null | components["schemas"]["TaskCreatorSummary"];
+            creator?: components["schemas"]["TaskCreatorSummary"] | null;
             /** Format: int64 */
             creator_user_id?: number | null;
             display_name: string;
@@ -4413,14 +4402,14 @@ export interface components {
             /** Format: int32 */
             max_attempts: number;
             payload: components["schemas"]["TaskPayload"];
-            presentation?: null | components["schemas"]["TaskPresentation"];
+            presentation?: components["schemas"]["TaskPresentation"] | null;
             /** Format: int64 */
             progress_current: number;
             /** Format: int32 */
             progress_percent: number;
             /** Format: int64 */
             progress_total: number;
-            result?: null | components["schemas"]["TaskResult"];
+            result?: components["schemas"]["TaskResult"] | null;
             started_at?: string | null;
             status: components["schemas"]["BackgroundTaskStatus"];
             status_text?: string | null;
@@ -4432,8 +4421,8 @@ export interface components {
             kind: "system_runtime";
         };
         TaskPresentation: {
-            status?: null | components["schemas"]["TaskPresentationMessage"];
-            title?: null | components["schemas"]["TaskPresentationMessage"];
+            status?: components["schemas"]["TaskPresentationMessage"] | null;
+            title?: components["schemas"]["TaskPresentationMessage"] | null;
         };
         /** @enum {string} */
         TaskPresentationCode: "runtime_system_health_issue_detail" | "runtime_task_audit_cleanup" | "runtime_task_auth_session_cleanup" | "runtime_task_background_task_dispatch" | "runtime_task_external_auth_flow_cleanup" | "runtime_task_mail_outbox_dispatch" | "runtime_task_system_health_check" | "runtime_task_task_cleanup" | "runtime_task_yggdrasil_storage_consistency_check" | "runtime_task_yggdrasil_token_cleanup" | "runtime_task_yggdrasil_texture_cleanup" | "status_text_failed" | "status_text_quiet" | "status_text_succeeded" | "status_text_system_healthy";
@@ -4501,14 +4490,14 @@ export interface components {
             admin_note?: string | null;
             created_at: string;
             handled_at: string;
-            handler?: null | components["schemas"]["TextureReportUserInfo"];
+            handler?: components["schemas"]["TextureReportUserInfo"] | null;
             /** Format: int64 */
             id: number;
             message?: string | null;
             reason: components["schemas"]["MinecraftTextureReportReason"];
-            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+            reporter?: components["schemas"]["TextureReportUserInfo"] | null;
             status: components["schemas"]["MinecraftTextureReportStatus"];
-            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+            texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
             /** Format: int64 */
             texture_id: number;
             updated_at: string;
@@ -4519,15 +4508,13 @@ export interface components {
         };
         /** @enum {string} */
         TextureTagSearchMethod: "all" | "any";
-        /** @enum {string} */
-        TokenType: "access" | "refresh";
         UpdateAdminUserReq: {
             email?: string | null;
             must_change_password?: boolean | null;
             operator_scopes?: components["schemas"]["OperatorScope"][] | null;
             password?: string | null;
-            role?: null | components["schemas"]["UserRole"];
-            status?: null | components["schemas"]["UserStatus"];
+            role?: components["schemas"]["UserRole"] | null;
+            status?: components["schemas"]["UserStatus"] | null;
             username?: string | null;
         };
         UpdateAvatarSourceReq: {
@@ -4550,7 +4537,7 @@ export interface components {
             groups_claim?: string | null;
             icon_url?: string | null;
             issuer_url?: string | null;
-            options?: null | components["schemas"]["ExternalAuthProviderOptions"];
+            options?: components["schemas"]["ExternalAuthProviderOptions"] | null;
             require_email_verified?: boolean | null;
             scopes?: string | null;
             subject_claim?: string | null;
@@ -4578,14 +4565,14 @@ export interface components {
         };
         UpdateWardrobeTextureReq: {
             display_name?: string | null;
-            texture_model?: null | components["schemas"]["MinecraftTextureModel"];
-            visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
+            texture_model?: components["schemas"]["MinecraftTextureModel"] | null;
+            visibility?: components["schemas"]["MinecraftTextureVisibility"] | null;
         };
         UpdateYggdrasilSessionForwardServerReq: {
             base_url?: string | null;
             display_name?: string | null;
             enabled?: boolean | null;
-            endpoint_kind?: null | components["schemas"]["YggdrasilSessionForwardEndpointKind"];
+            endpoint_kind?: components["schemas"]["YggdrasilSessionForwardEndpointKind"] | null;
             /** Format: int32 */
             priority?: number | null;
             texture_forward_enabled?: boolean | null;
@@ -4618,11 +4605,11 @@ export interface components {
             id: number;
             next_expires_at?: string | null;
             next_scopes?: components["schemas"]["UserBanScope"][] | null;
-            next_status?: null | components["schemas"]["UserBanStatus"];
+            next_status?: components["schemas"]["UserBanStatus"] | null;
             note?: string | null;
             previous_expires_at?: string | null;
             previous_scopes?: components["schemas"]["UserBanScope"][] | null;
-            previous_status?: null | components["schemas"]["UserBanStatus"];
+            previous_status?: components["schemas"]["UserBanStatus"] | null;
         };
         /** @enum {string} */
         UserBanEventType: "created" | "updated" | "revoked";
@@ -4685,7 +4672,7 @@ export interface components {
             version: number;
         };
         YggdrasilAuthenticateReq: {
-            agent?: null | components["schemas"]["YggdrasilAgentReq"];
+            agent?: components["schemas"]["YggdrasilAgentReq"] | null;
             clientToken?: string | null;
             password: string;
             requestUser?: boolean;
@@ -4695,8 +4682,8 @@ export interface components {
             accessToken: string;
             availableProfiles: components["schemas"]["YggdrasilProfile"][];
             clientToken: string;
-            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
-            user?: null | components["schemas"]["YggdrasilUser"];
+            selectedProfile?: components["schemas"]["YggdrasilProfile"] | null;
+            user?: components["schemas"]["YggdrasilUser"] | null;
         };
         YggdrasilErrorBody: {
             cause?: string | null;
@@ -4720,7 +4707,7 @@ export interface components {
             "feature.username_check": boolean;
             implementationName: string;
             implementationVersion: string;
-            links?: null | components["schemas"]["YggdrasilMetaLinks"];
+            links?: components["schemas"]["YggdrasilMetaLinks"] | null;
             serverName: string;
         };
         YggdrasilMetaLinks: {
@@ -4736,7 +4723,7 @@ export interface components {
             id: string;
             name: string;
             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-            source?: null | components["schemas"]["MinecraftProfileSource"];
+            source?: components["schemas"]["MinecraftProfileSource"] | null;
         };
         YggdrasilProfileProperty: {
             name: string;
@@ -4750,13 +4737,13 @@ export interface components {
             accessToken: string;
             clientToken?: string | null;
             requestUser?: boolean;
-            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
+            selectedProfile?: components["schemas"]["YggdrasilProfile"] | null;
         };
         YggdrasilRefreshResp: {
             accessToken: string;
             clientToken: string;
-            selectedProfile?: null | components["schemas"]["YggdrasilProfile"];
-            user?: null | components["schemas"]["YggdrasilUser"];
+            selectedProfile?: components["schemas"]["YggdrasilProfile"] | null;
+            user?: components["schemas"]["YggdrasilUser"] | null;
         };
         /** @enum {string} */
         YggdrasilSessionForwardEndpointKind: "authlib_injector" | "mojang_session";
@@ -4791,7 +4778,7 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 action?: string | null;
-                entity_type?: null | components["schemas"]["AuditEntityType"];
+                entity_type?: components["schemas"]["AuditEntityType"] | null;
                 entity_id?: number | null;
                 after?: string | null;
                 before?: string | null;
@@ -4826,8 +4813,8 @@ export interface operations {
                                 /** Format: int64 */
                                 id: number;
                                 ip_address?: string | null;
-                                presentation?: null | components["schemas"]["AuditPresentation"];
-                                user?: null | components["schemas"]["AuditUserSummary"];
+                                presentation?: components["schemas"]["AuditPresentation"] | null;
+                                user?: components["schemas"]["AuditUserSummary"] | null;
                                 user_agent?: string | null;
                                 /** Format: int64 */
                                 user_id: number;
@@ -4853,7 +4840,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -4872,8 +4859,8 @@ export interface operations {
             query?: {
                 /** @description Requested page size. */
                 limit?: number | null;
-                scope?: null | components["schemas"]["UserBanScope"];
-                status?: null | components["schemas"]["UserBanStatus"];
+                scope?: components["schemas"]["UserBanScope"] | null;
+                status?: components["schemas"]["UserBanStatus"] | null;
                 effective_only?: boolean | null;
                 after_created_at?: string | null;
                 after_id?: number | null;
@@ -4931,7 +4918,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -4967,7 +4954,7 @@ export interface operations {
                             profile_count: number;
                             recent_activity: components["schemas"]["AuditLogEntry"][];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -4988,7 +4975,7 @@ export interface operations {
                 limit?: number | null;
                 user_id?: number | null;
                 action?: string | null;
-                entity_type?: null | components["schemas"]["AuditEntityType"];
+                entity_type?: components["schemas"]["AuditEntityType"] | null;
                 entity_id?: number | null;
                 after?: string | null;
                 before?: string | null;
@@ -5023,8 +5010,8 @@ export interface operations {
                                 /** Format: int64 */
                                 id: number;
                                 ip_address?: string | null;
-                                presentation?: null | components["schemas"]["AuditPresentation"];
-                                user?: null | components["schemas"]["AuditUserSummary"];
+                                presentation?: components["schemas"]["AuditPresentation"] | null;
+                                user?: components["schemas"]["AuditUserSummary"] | null;
                                 user_agent?: string | null;
                                 /** Format: int64 */
                                 user_id: number;
@@ -5050,7 +5037,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5175,7 +5162,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5224,7 +5211,7 @@ export interface operations {
                             requires_restart: boolean;
                             value_type: components["schemas"]["ConfigValueType"];
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5272,7 +5259,7 @@ export interface operations {
                             /** @description Variables accepted by the template. */
                             variables: components["schemas"]["TemplateVariableItem"][];
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5330,7 +5317,7 @@ export interface operations {
                             value_type: components["schemas"]["ConfigValueType"];
                             visibility: components["schemas"]["ConfigVisibility"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5386,7 +5373,7 @@ export interface operations {
                             config: components["schemas"]["SystemConfig"];
                             warnings: components["schemas"]["SystemConfigWarning"][];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5484,7 +5471,7 @@ export interface operations {
                             message: string;
                             value?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5558,7 +5545,7 @@ export interface operations {
                             token_url_required: boolean;
                             userinfo_url_required: boolean;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5657,7 +5644,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5731,7 +5718,7 @@ export interface operations {
                             userinfo_url?: string | null;
                             username_claim?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5789,7 +5776,7 @@ export interface operations {
                             token_endpoint?: string | null;
                             userinfo_endpoint?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5869,7 +5856,7 @@ export interface operations {
                             userinfo_url?: string | null;
                             username_claim?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -5995,7 +5982,7 @@ export interface operations {
                             userinfo_url?: string | null;
                             username_claim?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6059,7 +6046,7 @@ export interface operations {
                             token_endpoint?: string | null;
                             userinfo_endpoint?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6154,7 +6141,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6208,7 +6195,7 @@ export interface operations {
                             user_id: number;
                             uuid: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6329,7 +6316,7 @@ export interface operations {
                             user_id: number;
                             uuid: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6405,7 +6392,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -6413,7 +6400,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6559,7 +6546,7 @@ export interface operations {
                             system_health: components["schemas"]["AdminOverviewSystemHealthSummary"];
                             system_info: components["schemas"]["SystemInfoResponse"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6603,7 +6590,7 @@ export interface operations {
                             uptime_seconds: number;
                             version: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6629,8 +6616,8 @@ export interface operations {
             query?: {
                 /** @description Requested page size. */
                 limit?: number | null;
-                kind?: null | components["schemas"]["BackgroundTaskKind"];
-                status?: null | components["schemas"]["BackgroundTaskStatus"];
+                kind?: components["schemas"]["BackgroundTaskKind"] | null;
+                status?: components["schemas"]["BackgroundTaskStatus"] | null;
                 after_updated_at?: string | null;
                 after_id?: number | null;
             };
@@ -6656,7 +6643,7 @@ export interface operations {
                                 attempt_count: number;
                                 can_retry: boolean;
                                 created_at: string;
-                                creator?: null | components["schemas"]["TaskCreatorSummary"];
+                                creator?: components["schemas"]["TaskCreatorSummary"] | null;
                                 /** Format: int64 */
                                 creator_user_id?: number | null;
                                 display_name: string;
@@ -6670,14 +6657,14 @@ export interface operations {
                                 /** Format: int32 */
                                 max_attempts: number;
                                 payload: components["schemas"]["TaskPayload"];
-                                presentation?: null | components["schemas"]["TaskPresentation"];
+                                presentation?: components["schemas"]["TaskPresentation"] | null;
                                 /** Format: int64 */
                                 progress_current: number;
                                 /** Format: int32 */
                                 progress_percent: number;
                                 /** Format: int64 */
                                 progress_total: number;
-                                result?: null | components["schemas"]["TaskResult"];
+                                result?: components["schemas"]["TaskResult"] | null;
                                 started_at?: string | null;
                                 status: components["schemas"]["BackgroundTaskStatus"];
                                 status_text?: string | null;
@@ -6705,7 +6692,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6751,7 +6738,7 @@ export interface operations {
                             /** Format: int64 */
                             removed: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6804,7 +6791,7 @@ export interface operations {
                             attempt_count: number;
                             can_retry: boolean;
                             created_at: string;
-                            creator?: null | components["schemas"]["TaskCreatorSummary"];
+                            creator?: components["schemas"]["TaskCreatorSummary"] | null;
                             /** Format: int64 */
                             creator_user_id?: number | null;
                             display_name: string;
@@ -6818,21 +6805,21 @@ export interface operations {
                             /** Format: int32 */
                             max_attempts: number;
                             payload: components["schemas"]["TaskPayload"];
-                            presentation?: null | components["schemas"]["TaskPresentation"];
+                            presentation?: components["schemas"]["TaskPresentation"] | null;
                             /** Format: int64 */
                             progress_current: number;
                             /** Format: int32 */
                             progress_percent: number;
                             /** Format: int64 */
                             progress_total: number;
-                            result?: null | components["schemas"]["TaskResult"];
+                            result?: components["schemas"]["TaskResult"] | null;
                             started_at?: string | null;
                             status: components["schemas"]["BackgroundTaskStatus"];
                             status_text?: string | null;
                             steps: components["schemas"]["TaskStepInfo"][];
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6872,8 +6859,8 @@ export interface operations {
             query?: {
                 /** @description Requested page size. */
                 limit?: number | null;
-                status?: null | components["schemas"]["MinecraftTextureReportStatus"];
-                reason?: null | components["schemas"]["MinecraftTextureReportReason"];
+                status?: components["schemas"]["MinecraftTextureReportStatus"] | null;
+                reason?: components["schemas"]["MinecraftTextureReportReason"] | null;
                 texture_id?: number | null;
                 after_created_at?: string | null;
                 after_id?: number | null;
@@ -6899,14 +6886,14 @@ export interface operations {
                                 admin_note?: string | null;
                                 created_at: string;
                                 handled_at: string;
-                                handler?: null | components["schemas"]["TextureReportUserInfo"];
+                                handler?: components["schemas"]["TextureReportUserInfo"] | null;
                                 /** Format: int64 */
                                 id: number;
                                 message?: string | null;
                                 reason: components["schemas"]["MinecraftTextureReportReason"];
-                                reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                                reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                                 status: components["schemas"]["MinecraftTextureReportStatus"];
-                                texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                                texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                                 /** Format: int64 */
                                 texture_id: number;
                                 updated_at: string;
@@ -6932,7 +6919,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -6977,19 +6964,19 @@ export interface operations {
                             admin_note?: string | null;
                             created_at: string;
                             handled_at: string;
-                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            handler?: components["schemas"]["TextureReportUserInfo"] | null;
                             /** Format: int64 */
                             id: number;
                             message?: string | null;
                             reason: components["schemas"]["MinecraftTextureReportReason"];
-                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                             status: components["schemas"]["MinecraftTextureReportStatus"];
-                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                             /** Format: int64 */
                             texture_id: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7045,19 +7032,19 @@ export interface operations {
                             admin_note?: string | null;
                             created_at: string;
                             handled_at: string;
-                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            handler?: components["schemas"]["TextureReportUserInfo"] | null;
                             /** Format: int64 */
                             id: number;
                             message?: string | null;
                             reason: components["schemas"]["MinecraftTextureReportReason"];
-                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                             status: components["schemas"]["MinecraftTextureReportStatus"];
-                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                             /** Format: int64 */
                             texture_id: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7120,19 +7107,19 @@ export interface operations {
                             admin_note?: string | null;
                             created_at: string;
                             handled_at: string;
-                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            handler?: components["schemas"]["TextureReportUserInfo"] | null;
                             /** Format: int64 */
                             id: number;
                             message?: string | null;
                             reason: components["schemas"]["MinecraftTextureReportReason"];
-                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                             status: components["schemas"]["MinecraftTextureReportStatus"];
-                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                             /** Format: int64 */
                             texture_id: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7229,7 +7216,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7281,7 +7268,7 @@ export interface operations {
                             sort_order: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7385,7 +7372,7 @@ export interface operations {
                             sort_order: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7426,9 +7413,9 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 keyword?: string | null;
-                texture_type?: null | components["schemas"]["MinecraftTextureType"];
-                visibility?: null | components["schemas"]["MinecraftTextureVisibility"];
-                library_status?: null | components["schemas"]["MinecraftTextureLibraryStatus"];
+                texture_type?: components["schemas"]["MinecraftTextureType"] | null;
+                visibility?: components["schemas"]["MinecraftTextureVisibility"] | null;
+                library_status?: components["schemas"]["MinecraftTextureLibraryStatus"] | null;
                 published?: boolean | null;
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
@@ -7473,7 +7460,7 @@ export interface operations {
                                 texture_model: components["schemas"]["MinecraftTextureModel"];
                                 texture_type: components["schemas"]["MinecraftTextureType"];
                                 updated_at: string;
-                                uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                                uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                                 url: string;
                                 visibility: components["schemas"]["MinecraftTextureVisibility"];
                                 /** Format: int32 */
@@ -7500,7 +7487,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7562,13 +7549,13 @@ export interface operations {
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
-                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                             url: string;
                             visibility: components["schemas"]["MinecraftTextureVisibility"];
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7683,13 +7670,13 @@ export interface operations {
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
-                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                             url: string;
                             visibility: components["schemas"]["MinecraftTextureVisibility"];
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7769,13 +7756,13 @@ export interface operations {
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
-                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                             url: string;
                             visibility: components["schemas"]["MinecraftTextureVisibility"];
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7855,13 +7842,13 @@ export interface operations {
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
-                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                             url: string;
                             visibility: components["schemas"]["MinecraftTextureVisibility"];
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -7902,8 +7889,8 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 user_id?: number | null;
-                scope?: null | components["schemas"]["UserBanScope"];
-                status?: null | components["schemas"]["UserBanStatus"];
+                scope?: components["schemas"]["UserBanScope"] | null;
+                status?: components["schemas"]["UserBanStatus"] | null;
                 effective_only?: boolean;
                 after_created_at?: string | null;
                 after_id?: number | null;
@@ -7969,7 +7956,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8033,7 +8020,7 @@ export interface operations {
                             /** Format: int64 */
                             user_id: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8108,7 +8095,7 @@ export interface operations {
                             /** Format: int64 */
                             user_id: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8174,13 +8161,13 @@ export interface operations {
                             id: number;
                             next_expires_at?: string | null;
                             next_scopes?: components["schemas"]["UserBanScope"][] | null;
-                            next_status?: null | components["schemas"]["UserBanStatus"];
+                            next_status?: components["schemas"]["UserBanStatus"] | null;
                             note?: string | null;
                             previous_expires_at?: string | null;
                             previous_scopes?: components["schemas"]["UserBanScope"][] | null;
-                            previous_status?: null | components["schemas"]["UserBanStatus"];
+                            previous_status?: components["schemas"]["UserBanStatus"] | null;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8255,7 +8242,7 @@ export interface operations {
                             /** Format: int64 */
                             user_id: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8296,8 +8283,8 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 keyword?: string | null;
-                role?: null | components["schemas"]["UserRole"];
-                status?: null | components["schemas"]["UserStatus"];
+                role?: components["schemas"]["UserRole"] | null;
+                status?: components["schemas"]["UserStatus"] | null;
                 after_created_at?: string | null;
                 after_id?: number | null;
             };
@@ -8360,7 +8347,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8406,7 +8393,7 @@ export interface operations {
                             generated_password?: string | null;
                             user: components["schemas"]["AdminUserInfo"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8499,7 +8486,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8558,7 +8545,7 @@ export interface operations {
                             status: components["schemas"]["UserInvitationStatus"];
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8623,7 +8610,7 @@ export interface operations {
                             status: components["schemas"]["UserInvitationStatus"];
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8699,7 +8686,7 @@ export interface operations {
                             updated_at: string;
                             username: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8757,7 +8744,7 @@ export interface operations {
                             revoked_yggdrasil_token_count: number;
                             user: components["schemas"]["AdminUserInfo"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8830,7 +8817,7 @@ export interface operations {
                             updated_at: string;
                             username: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8889,7 +8876,7 @@ export interface operations {
                             /** Format: int64 */
                             removed: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -8964,7 +8951,7 @@ export interface operations {
                             /** Format: int64 */
                             user_id: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9034,7 +9021,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                                source?: null | components["schemas"]["MinecraftProfileSource"];
+                                source?: components["schemas"]["MinecraftProfileSource"] | null;
                             }[];
                             /**
                              * Format: int64
@@ -9055,7 +9042,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9160,7 +9147,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9232,7 +9219,7 @@ export interface operations {
                             /** Format: int32 */
                             weight: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9310,7 +9297,7 @@ export interface operations {
                             /** Format: int32 */
                             weight: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9441,7 +9428,7 @@ export interface operations {
                             /** Format: int32 */
                             weight: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9500,7 +9487,7 @@ export interface operations {
                             image_base64: string;
                             mime: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9531,7 +9518,7 @@ export interface operations {
                             register_activation_resend_required: boolean;
                             register_required: boolean;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9561,7 +9548,7 @@ export interface operations {
                             allow_user_registration: boolean;
                             initialized: boolean;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9622,7 +9609,7 @@ export interface operations {
                             status: components["schemas"]["UserStatus"];
                             username: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9670,7 +9657,7 @@ export interface operations {
                         data?: {
                             message: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9714,11 +9701,11 @@ export interface operations {
                         code: components["schemas"]["AsterErrorCode"];
                         data?: {
                             identity_linked?: boolean | null;
-                            profile?: null | components["schemas"]["DeviceCodeCheckProfile"];
+                            profile?: components["schemas"]["DeviceCodeCheckProfile"] | null;
                             profile_created?: boolean | null;
                             status: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9783,7 +9770,7 @@ export interface operations {
                         data?: {
                             message: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9872,7 +9859,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -9949,7 +9936,7 @@ export interface operations {
                             return_path?: string | null;
                             status: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10022,7 +10009,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10084,7 +10071,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10167,7 +10154,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10245,7 +10232,7 @@ export interface operations {
                             user_code?: string | null;
                             verification_uri?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10344,7 +10331,7 @@ export interface operations {
                             user_code?: string | null;
                             verification_uri?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10389,7 +10376,7 @@ export interface operations {
                             email: string;
                             expires_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10440,7 +10427,7 @@ export interface operations {
                             status: components["schemas"]["UserStatus"];
                             username: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10480,7 +10467,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10525,7 +10512,7 @@ export interface operations {
                         data?: {
                             revoked: boolean;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10562,7 +10549,7 @@ export interface operations {
                             status: components["schemas"]["UserStatus"];
                             username: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10642,7 +10629,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10682,7 +10669,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10721,7 +10708,7 @@ export interface operations {
                             flow_id: string;
                             public_key: unknown;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10769,7 +10756,7 @@ export interface operations {
                             transports?: string[] | null;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10815,7 +10802,7 @@ export interface operations {
                             flow_id: string;
                             public_key: unknown;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10901,7 +10888,7 @@ export interface operations {
                             transports?: string[] | null;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -10955,7 +10942,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11002,7 +10989,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11054,7 +11041,7 @@ export interface operations {
                         data?: {
                             message: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11099,7 +11086,7 @@ export interface operations {
                         data?: {
                             message: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11138,7 +11125,7 @@ export interface operations {
                             avatar: components["schemas"]["AvatarInfo"];
                             display_name?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11184,7 +11171,7 @@ export interface operations {
                             avatar: components["schemas"]["AvatarInfo"];
                             display_name?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11231,7 +11218,7 @@ export interface operations {
                             avatar: components["schemas"]["AvatarInfo"];
                             display_name?: string | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11313,7 +11300,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11353,7 +11340,7 @@ export interface operations {
                             expires_in: number;
                             requires_activation: boolean;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11398,7 +11385,7 @@ export interface operations {
                         data?: {
                             message: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11458,7 +11445,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11500,7 +11487,7 @@ export interface operations {
                             /** Format: int64 */
                             removed: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11589,7 +11576,7 @@ export interface operations {
                             expires_in: number;
                             status: components["schemas"]["AuthTokenStatus"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11632,7 +11619,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                                 properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                                source?: null | components["schemas"]["MinecraftProfileSource"];
+                                source?: components["schemas"]["MinecraftProfileSource"] | null;
                             }[];
                             /**
                              * Format: int64
@@ -11653,7 +11640,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11692,9 +11679,9 @@ export interface operations {
                             id: string;
                             name: string;
                             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                            source?: null | components["schemas"]["MinecraftProfileSource"];
+                            source?: components["schemas"]["MinecraftProfileSource"] | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11785,9 +11772,9 @@ export interface operations {
                             id: string;
                             name: string;
                             properties?: components["schemas"]["YggdrasilProfileProperty"][] | null;
-                            source?: null | components["schemas"]["MinecraftProfileSource"];
+                            source?: components["schemas"]["MinecraftProfileSource"] | null;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11856,7 +11843,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -11864,7 +11851,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -11940,7 +11927,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -11948,7 +11935,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12024,7 +12011,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -12032,7 +12019,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12108,7 +12095,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -12116,7 +12103,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         }[];
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12191,7 +12178,7 @@ export interface operations {
                             /** Format: int64 */
                             texture_id: number;
                             texture_model: components["schemas"]["MinecraftTextureModel"];
-                            texture_source?: null | components["schemas"]["MinecraftTextureSource"];
+                            texture_source?: components["schemas"]["MinecraftTextureSource"] | null;
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
                             url: string;
@@ -12199,7 +12186,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12310,7 +12297,7 @@ export interface operations {
                             version: number;
                             yggdrasil: components["schemas"]["PublicYggdrasilConfig"];
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12380,7 +12367,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12393,7 +12380,7 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 keyword?: string | null;
-                texture_type?: null | components["schemas"]["MinecraftTextureType"];
+                texture_type?: components["schemas"]["MinecraftTextureType"] | null;
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
                 after_updated_at?: string | null;
@@ -12437,7 +12424,7 @@ export interface operations {
                                 texture_model: components["schemas"]["MinecraftTextureModel"];
                                 texture_type: components["schemas"]["MinecraftTextureType"];
                                 updated_at: string;
-                                uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                                uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                                 url: string;
                                 visibility: components["schemas"]["MinecraftTextureVisibility"];
                                 /** Format: int32 */
@@ -12464,7 +12451,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12519,13 +12506,13 @@ export interface operations {
                             texture_model: components["schemas"]["MinecraftTextureModel"];
                             texture_type: components["schemas"]["MinecraftTextureType"];
                             updated_at: string;
-                            uploader?: null | components["schemas"]["MinecraftTextureUploaderInfo"];
+                            uploader?: components["schemas"]["MinecraftTextureUploaderInfo"] | null;
                             url: string;
                             visibility: components["schemas"]["MinecraftTextureVisibility"];
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12590,7 +12577,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12646,19 +12633,19 @@ export interface operations {
                             admin_note?: string | null;
                             created_at: string;
                             handled_at: string;
-                            handler?: null | components["schemas"]["TextureReportUserInfo"];
+                            handler?: components["schemas"]["TextureReportUserInfo"] | null;
                             /** Format: int64 */
                             id: number;
                             message?: string | null;
                             reason: components["schemas"]["MinecraftTextureReportReason"];
-                            reporter?: null | components["schemas"]["TextureReportUserInfo"];
+                            reporter?: components["schemas"]["TextureReportUserInfo"] | null;
                             status: components["schemas"]["MinecraftTextureReportStatus"];
-                            texture?: null | components["schemas"]["PublicTextureLibraryTextureMetadata"];
+                            texture?: components["schemas"]["PublicTextureLibraryTextureMetadata"] | null;
                             /** Format: int64 */
                             texture_id: number;
                             updated_at: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12781,7 +12768,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12801,7 +12788,7 @@ export interface operations {
                 /** @description Requested page size. */
                 limit?: number | null;
                 keyword?: string | null;
-                texture_type?: null | components["schemas"]["MinecraftTextureType"];
+                texture_type?: components["schemas"]["MinecraftTextureType"] | null;
                 tag_ids?: number[];
                 tag_search_method?: components["schemas"]["TextureTagSearchMethod"];
                 after_updated_at?: string | null;
@@ -12872,7 +12859,7 @@ export interface operations {
                              */
                             total: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -12933,7 +12920,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13047,7 +13034,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13127,7 +13114,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13148,6 +13135,13 @@ export interface operations {
             };
             /** @description Wardrobe texture not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Texture was modified concurrently */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13202,7 +13196,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13277,7 +13271,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13349,7 +13343,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -13429,7 +13423,7 @@ export interface operations {
                             /** Format: int32 */
                             width: number;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };
@@ -14222,7 +14216,7 @@ export interface operations {
                         data?: {
                             status: string;
                         };
-                        error?: null | components["schemas"]["ApiErrorInfo"];
+                        error?: components["schemas"]["ApiErrorInfo"] | null;
                         msg: string;
                     };
                 };

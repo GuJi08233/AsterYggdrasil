@@ -1,102 +1,56 @@
 //! Audit runtime component integration.
+//!
+//! The audit writer is product-owned (AsterDrive model): the runtime state carries an
+//! `Arc<aster_forge_audit::AuditWriter>`, this bundle starts it, records the product's
+//! lifecycle audit entries, and always drains it before the database component shuts down.
 
-use std::sync::Arc;
+use std::time::Duration;
 
-use crate::config::RuntimeConfig;
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
 use aster_forge_runtime::RuntimeComponentBundleRegistration;
-use sea_orm::DatabaseConnection;
 
-/// Minimal runtime resources needed to record the process shutdown audit event.
-#[derive(Clone)]
-pub struct AuditRuntimeResources {
-    db: DatabaseConnection,
-    runtime_config: Arc<RuntimeConfig>,
-}
+use crate::runtime::SharedRuntimeState;
 
-impl AuditRuntimeResources {
-    /// Creates audit runtime resources from concrete runtime dependencies.
-    pub fn new(db: DatabaseConnection, runtime_config: Arc<RuntimeConfig>) -> Self {
-        Self { db, runtime_config }
-    }
+/// Drain timeout used by the standard audit bundle shutdown phase.
+pub const AUDIT_DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
-    /// Captures audit runtime resources from product runtime state.
-    pub fn from_state<S>(state: &S) -> Self
-    where
-        S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
-    {
-        Self::new(state.writer_db().clone(), state.runtime_config().clone())
-    }
-}
-
-impl DatabaseRuntimeState for AuditRuntimeResources {
-    fn writer_db(&self) -> &DatabaseConnection {
-        &self.db
-    }
-
-    fn reader_db(&self) -> &DatabaseConnection {
-        &self.db
-    }
-}
-
-impl RuntimeConfigRuntimeState for AuditRuntimeResources {
-    fn runtime_config(&self) -> &Arc<RuntimeConfig> {
-        &self.runtime_config
-    }
-}
-
-/// Creates the audit runtime component used by the product entrypoint.
-pub fn audit_component(
-    resources: AuditRuntimeResources,
-) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle> {
-    aster_forge_audit::audit_component(
-        resources,
-        record_server_start_on_startup,
-        record_server_shutdown_on_shutdown,
-        |()| async {
-            aster_forge_audit::shutdown_global_audit_log_manager().await;
+/// Creates the audit runtime component from product state.
+///
+/// The bundle starts the owned writer first, records the server start event, and on
+/// shutdown records the server shutdown event before draining the writer. With the
+/// `mail-outbox-dependency` feature, mail drain finishes before the shutdown record
+/// is admitted.
+pub fn audit_runtime_component<S>(
+    state: &S,
+) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle + use<S>>
+where
+    S: SharedRuntimeState + Clone + Send + Sync + 'static,
+{
+    let writer = state.audit_writer().clone();
+    aster_forge_audit::audit_component_with_writer(
+        state.clone(),
+        writer,
+        AUDIT_DRAIN_TIMEOUT,
+        |state| async move {
+            record_server_start(&state).await;
+            Ok(())
+        },
+        |state| async move {
+            record_server_shutdown(&state).await;
             Ok(())
         },
     )
 }
 
-/// Creates the full audit runtime component from product state.
-pub fn audit_runtime_component<S>(
-    state: &S,
-) -> RuntimeComponentBundleRegistration<impl aster_forge_runtime::RuntimeComponentBundle + use<S>>
-where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
-{
-    audit_component(AuditRuntimeResources::from_state(state))
-}
-
-/// Initializes the global audit log manager for runtime writes.
-pub fn prepare_runtime_audit_manager(db: DatabaseConnection) {
-    aster_forge_audit::init_global_audit_log_manager(db);
-}
-
-async fn record_server_shutdown_on_shutdown(
-    resources: AuditRuntimeResources,
-) -> Result<(), String> {
-    record_server_shutdown(&resources).await;
-    Ok(())
-}
-
-async fn record_server_start_on_startup(resources: AuditRuntimeResources) -> Result<(), String> {
-    record_server_start(&resources).await;
-    Ok(())
-}
-
 /// Records the process start audit event.
 pub async fn record_server_start<S>(state: &S)
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState + Sync,
 {
     super::log(
         state,
         &super::AuditContext::system(),
-        crate::types::audit::AuditAction::ServerStart,
-        crate::types::audit::AuditEntityType::System,
+        aster_yggdrasil_model::types::audit::AuditAction::ServerStart,
+        aster_yggdrasil_model::types::audit::AuditEntityType::System,
         None,
         Some("server"),
         None,
@@ -107,14 +61,14 @@ where
 /// Records the process shutdown audit event.
 pub async fn record_server_shutdown<S>(state: &S)
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState + Sync,
 {
     let backend = state.writer_db().get_database_backend();
     super::log(
         state,
         &super::AuditContext::system(),
-        crate::types::audit::AuditAction::ServerShutdown,
-        crate::types::audit::AuditEntityType::System,
+        aster_yggdrasil_model::types::audit::AuditAction::ServerShutdown,
+        aster_yggdrasil_model::types::audit::AuditEntityType::System,
         None,
         Some("server"),
         None,
@@ -125,21 +79,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{AuditRuntimeResources, audit_component};
     use aster_forge_runtime::RuntimeComponentBundle;
 
-    async fn test_resources() -> AuditRuntimeResources {
-        let db = sea_orm::Database::connect("sqlite::memory:")
-            .await
-            .expect("audit runtime test database should connect");
-        AuditRuntimeResources::new(db, std::sync::Arc::new(crate::config::RuntimeConfig::new()))
-    }
+    use super::audit_runtime_component;
 
     #[tokio::test]
-    async fn audit_component_registers_shutdown_phase() {
-        let resources = test_resources().await;
+    async fn audit_component_registers_writer_and_lifecycle_phases() {
+        let state = crate::runtime::test_support::setup_state().await;
         let registry = aster_forge_runtime::RuntimeComponentRegistry::configured(|registry| {
-            audit_component(resources).register(registry);
+            audit_runtime_component(&state).register(registry);
         });
 
         let descriptor = registry
@@ -149,27 +97,24 @@ mod tests {
             descriptor.kind,
             aster_forge_runtime::RuntimeComponentKind::Product
         );
-        assert_eq!(
-            descriptor.dependencies,
-            vec![aster_forge_mail::MAIL_OUTBOX_COMPONENT]
-        );
-        assert_eq!(descriptor.shutdown.len(), 1);
-        assert_eq!(
-            descriptor.shutdown[0].phase_name,
-            aster_forge_audit::SERVER_SHUTDOWN_AUDIT_PHASE
+        assert!(
+            descriptor
+                .shutdown
+                .iter()
+                .any(|phase| phase.phase_name == aster_forge_audit::SERVER_SHUTDOWN_AUDIT_PHASE),
+            "shutdown audit phase should be registered"
         );
 
         let descriptor = registry
             .descriptor(aster_forge_audit::AUDIT_MANAGER_COMPONENT)
             .expect("audit manager component should be registered");
-        assert_eq!(
-            descriptor.dependencies,
-            vec![aster_forge_audit::AUDIT_LOGS_COMPONENT]
-        );
-        assert_eq!(descriptor.shutdown.len(), 1);
-        assert_eq!(
-            descriptor.shutdown[0].phase_name,
-            aster_forge_audit::AUDIT_MANAGER_FLUSH_SHUTDOWN_PHASE
+        assert!(
+            descriptor
+                .shutdown
+                .iter()
+                .any(|phase| phase.phase_name
+                    == aster_forge_audit::AUDIT_MANAGER_FLUSH_SHUTDOWN_PHASE),
+            "audit writer drain phase should be registered"
         );
     }
 }

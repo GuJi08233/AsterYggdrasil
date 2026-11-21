@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.16] - 2026-11-21
+
+### Changed
+
+- **合并上游 `AsterCommunity/AsterYggdrasil` `refactor/asterforge-alignment` 并迁移至 crates.io 发布包**：所有 `aster_forge_*` 依赖从直接引用 GitHub 源码仓库切换为 crates.io 精确发布版本（`=0.1.0-alpha.x`），`aster_forge_actix_middleware` / `aster_forge_actix_observability` 同步更名为 `aster_forge_middleware` / `aster_forge_observability`。
+- **工作区结构对齐**：拆分 `crates/aster_yggdrasil_model`（实体与领域类型，补齐独立构建所需的 `aster_forge_mail/persistence` feature）与 `crates/aster_yggdrasil_migration`（原 `migration/`），完整保留本分支的自定义迁移与实体，同步更新 `Dockerfile` 与 `frontend-e2e.yml` 路径，并采用 `MIT OR Apache-2.0` 双许可。
+- **认证与运行时重构**：本地 JWT 签发/校验与密码哈希迁移至 `aster_forge_auth`（`JwtSigner` / `JwtVerifier` / `PasswordHashRuntime`），涵盖第三方无邮箱账号与本地密码设置路径；`aster_forge_audit` 迁移至 `AuditWriter`，`aster_forge_metrics` 迁移至 `MetricsProvider`，收敛服务层 `SharedRuntimeState` 约束。
+- **前端与 OpenAPI 同步**：重新导出 OpenAPI 文档并生成 `frontend-panel/src/types/api.generated.ts`，对齐 `ConfigValue` / `ConfigVisibility` 等契约，升级 `axios` 1.21.1、`react-dom` 19.3.1、`recharts` 3.11.0、`vite` 8.3.8 等依赖，保留衣柜皮肤编辑器、微软正版绑定与 LinuxDO 登录能力。
+
+### Security
+
+- **依赖安全升级与审计清理**：升级 `actix-web` 4.20.0、`sea-orm` 2.0.4、`sqlx` 0.9.1（连带 `libsqlite3-sys` 0.40.0，移除临时 `[patch.crates-io]` SQLx 补丁）、`jsonwebtoken` 12、`utoipa` 6.0.0、`utoipa-swagger-ui` 10.0.2（连带 `zip` 9.8.1）、`webauthn-rs` 0.6.2 与 `aws-sdk-s3` 1.161.0；清理 `.cargo/audit.toml` 中已彻底修复的旧忽略项（`zip`、`quinn-proto`、`rkyv`、`crypto-bigint`、`libsqlite3-sys`、`proc-macro-error2`）。
+
 ## [v0.2.15] - 2026-11-07
 
 ### Security

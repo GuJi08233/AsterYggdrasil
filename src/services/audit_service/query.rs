@@ -6,10 +6,18 @@ use super::filters::AuditLogFilters;
 use super::models::{AuditLogEntry, AuditUserSummary};
 use super::presentation::build_audit_presentation;
 use crate::db::repository::{audit_log_repo, user_repo};
-use crate::entities::audit_log;
-use crate::runtime::{DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::audit::AuditEntityType;
+use crate::runtime::{DatabaseRuntimeState, SharedRuntimeState};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
+use aster_yggdrasil_model::entities::audit_log;
+use aster_yggdrasil_model::types::audit::AuditEntityType;
+
+/// Best-effort drain so queries observe just-admitted records.
+pub async fn flush_audit_writer(writer: &aster_forge_audit::AuditWriter) {
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    if let Err(error) = writer.flush(deadline).await {
+        tracing::warn!(?error, "audit writer flush before query failed");
+    }
+}
 
 async fn build_audit_entries<S: DatabaseRuntimeState>(
     state: &S,
@@ -66,13 +74,13 @@ async fn build_audit_entries<S: DatabaseRuntimeState>(
     Ok(items)
 }
 
-pub async fn query<S: DatabaseRuntimeState>(
+pub async fn query<S: SharedRuntimeState>(
     state: &S,
     filters: AuditLogFilters,
     limit: u64,
     cursor: Option<(chrono::DateTime<chrono::Utc>, i64)>,
 ) -> crate::errors::Result<CursorPage<AuditLogEntry, DateTimeIdCursor>> {
-    aster_forge_audit::flush_global_audit_log_manager().await;
+    flush_audit_writer(state.audit_writer()).await;
     let limit = limit.clamp(1, 200);
     let page = audit_log_repo::find_with_filters_cursor(
         state.reader_db(),
@@ -100,7 +108,7 @@ pub async fn query<S: DatabaseRuntimeState>(
     Ok(CursorPage::new(items, page.total, limit, next_cursor))
 }
 
-pub async fn recent<S: DatabaseRuntimeState>(
+pub async fn recent<S: SharedRuntimeState>(
     state: &S,
     filters: AuditLogFilters,
     limit: u64,
@@ -110,7 +118,7 @@ pub async fn recent<S: DatabaseRuntimeState>(
 
 pub async fn cleanup_expired<S>(state: &S) -> crate::errors::Result<u64>
 where
-    S: DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     let retention_days = state
         .runtime_config()

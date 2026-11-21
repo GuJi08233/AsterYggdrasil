@@ -5,7 +5,7 @@ use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, DbErr, SqlErr};
 use serde::{Deserialize, Serialize};
 use webauthn_rs::prelude::{
-    CreationChallengeResponse, CredentialID, DiscoverableAuthentication, DiscoverableKey, Passkey,
+    CreationChallengeResponse, CredentialID, DiscoverableAuthentication, Passkey,
     PasskeyRegistration, PublicKeyCredential, RegisterPublicKeyCredential,
     RequestChallengeResponse, Uuid, Webauthn, WebauthnBuilder, WebauthnError,
 };
@@ -14,16 +14,16 @@ use webauthn_rs_proto::{ResidentKeyRequirement, UserVerificationPolicy};
 use crate::api::error_code::AsterErrorCode;
 use crate::config::{auth_runtime::RuntimeAuthPolicy, branding, site_url};
 use crate::db::repository::{passkey_repo, user_repo};
-use crate::entities::{passkey, user};
 use crate::errors::{AsterError, MapAsterErr, Result};
 use crate::runtime::SharedRuntimeState;
 use crate::services::auth_service::{self, is_email_activation_satisfied};
-use crate::types::passkey::StoredPasskeyCredential;
 use actix_web::HttpRequest;
 use aster_forge_cache::CacheExt;
 use aster_forge_utils::net::is_loopback_host;
 use aster_forge_utils::numbers::{u32_to_i64, u64_to_i64};
 use aster_forge_utils::text::char_count;
+use aster_yggdrasil_model::entities::{passkey, user};
+use aster_yggdrasil_model::types::passkey::StoredPasskeyCredential;
 
 const PASSKEY_CHALLENGE_TTL_SECS: u64 = 300;
 const PASSKEY_NAME_MAX_LEN: usize = 128;
@@ -815,9 +815,8 @@ pub async fn finish_login(
     }
     ensure_login_user(&user)?;
     let mut stored = passkey_from_json(&passkey.credential)?;
-    let discoverable = DiscoverableKey::from(&stored);
     let result = webauthn
-        .finish_discoverable_authentication(&credential, challenge.state, &[discoverable])
+        .finish_discoverable_authentication_v2(&credential, challenge.state, &stored)
         .map_err(webauthn_error)?;
     if !result.user_verified() {
         tracing::debug!(

@@ -9,7 +9,7 @@ pub use state::prepare_runtime_state;
 mod tests {
     use std::sync::Arc;
 
-    use migration::Migrator;
+    use aster_yggdrasil_migration::Migrator;
     use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
     use crate::runtime::{AppState, AppStateParts};
@@ -33,9 +33,12 @@ mod tests {
             .reload(&db)
             .await
             .expect("runtime config should load");
+        runtime_config
+            .install_auth_runtimes(crate::config::TEST_JWT_SECRET)
+            .await
+            .expect("auth runtimes should install");
         let config = Arc::new(crate::config::Config::default());
         let cache = aster_forge_cache::create_cache(&config.cache).await;
-        crate::services::audit_service::init_global_audit_log_manager(db.clone());
 
         let state = AppState::from_parts(AppStateParts {
             db_handles: aster_forge_db::DbHandles::single(db.clone()),
@@ -49,6 +52,7 @@ mod tests {
                 "aster_yggdrasil",
             ),
             metrics: aster_forge_metrics::NoopMetrics::arc(),
+            audit_writer: std::sync::Arc::new(aster_forge_audit::AuditWriter::new(db.clone())),
         })
         .expect("runtime startup test AppState should build");
 
@@ -59,13 +63,23 @@ mod tests {
     async fn record_server_start_writes_audit_log() {
         let (state, db) = test_state().await;
 
+        state
+            .audit_writer()
+            .start()
+            .await
+            .expect("audit writer should start");
         crate::services::audit_service::runtime::record_server_start(&state).await;
-        crate::services::audit_service::flush_global_audit_log_manager().await;
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        state
+            .audit_writer()
+            .flush(deadline)
+            .await
+            .expect("audit writer flush should succeed");
 
-        let count = crate::entities::audit_log::Entity::find()
+        let count = aster_yggdrasil_model::entities::audit_log::Entity::find()
             .filter(
-                crate::entities::audit_log::Column::Action
-                    .eq(crate::types::audit::AuditAction::ServerStart),
+                aster_yggdrasil_model::entities::audit_log::Column::Action
+                    .eq(aster_yggdrasil_model::types::audit::AuditAction::ServerStart),
             )
             .count(&db)
             .await

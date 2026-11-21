@@ -1,5 +1,8 @@
 //! Persisted background task subsystem.
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "Task subsystem exposes registry/wire helpers ahead of their dispatch call sites; drop once fully wired."
+)]
 
 mod admin;
 mod create;
@@ -22,8 +25,8 @@ use crate::config::operations;
 use crate::db::repository::background_task_repo;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{AppConfigRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
-use crate::types::task::StoredTaskResult;
 use aster_forge_tasks::{TaskLease, TaskLeaseGuard};
+use aster_yggdrasil_model::types::task::StoredTaskResult;
 
 pub(crate) use admin::{
     AdminTaskCleanupFilters, AdminTaskListFilters, cleanup_tasks_for_admin,

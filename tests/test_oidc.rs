@@ -14,7 +14,7 @@ use aster_yggdrasil::entities::{
     audit_log, external_auth_email_verification_flow, external_auth_identity,
     external_auth_login_flow, external_auth_provider, user,
 };
-use aster_yggdrasil::services::{audit_service, external_auth_service};
+use aster_yggdrasil::services::external_auth_service;
 use aster_yggdrasil::types::audit::AuditAction;
 use chrono::{Duration, Utc};
 use external_auth::oidc::*;
@@ -242,12 +242,12 @@ async fn admin_provider_kind_api_drives_create_contract() {
 }
 
 #[actix_web::test]
-async fn admin_create_and_test_google_provider_uses_oidc_defaults() {
-    let (mock_provider, server) = start_mock_external_auth_provider().await;
+async fn admin_google_provider_pins_production_issuer_and_oidc_defaults() {
     let state = common::setup().await;
     let app = create_test_app!(state);
     let (admin_token, _) = register_and_login!(app);
 
+    // Google is a preset provider: manual authorization endpoints are rejected.
     let req = test::TestRequest::post()
         .uri("/api/v1/admin/external-auth/providers")
         .insert_header(("Cookie", common::access_cookie_header(&admin_token)))
@@ -284,36 +284,6 @@ async fn admin_create_and_test_google_provider_uses_oidc_defaults() {
     assert_eq!(body["data"]["token_url"], Value::Null);
     assert_eq!(body["data"]["userinfo_url"], Value::Null);
     assert_eq!(body["data"]["scopes"], "openid profile email");
-
-    let req = test::TestRequest::post()
-        .uri("/api/v1/admin/external-auth/providers/test")
-        .insert_header(("Cookie", common::access_cookie_header(&admin_token)))
-        .insert_header(common::csrf_header_for(&admin_token))
-        .set_json(serde_json::json!({
-            "provider_kind": "google",
-            "issuer_url": mock_provider.issuer,
-            "client_id": TEST_CLIENT_ID,
-            "client_secret": "super-secret",
-        }))
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-    let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["data"]["provider"], "Google");
-    assert_eq!(body["data"]["issuer"], mock_provider.issuer);
-    assert_eq!(
-        body["data"]["authorization_endpoint"],
-        format!("{}/authorize", mock_provider.issuer)
-    );
-    assert_eq!(
-        body["data"]["token_endpoint"],
-        format!("{}/token", mock_provider.issuer)
-    );
-    assert_eq!(body["data"]["jwks_key_count"], 1);
-    assert_eq!(body["data"]["checks"][0]["name"], "discovery");
-    assert_eq!(body["data"]["checks"][1]["name"], "jwks");
-
-    server.stop(true).await;
 }
 
 #[actix_web::test]
@@ -644,7 +614,14 @@ async fn admin_tests_external_auth_provider_draft_params_without_persisting() {
         .await
         .expect("providers should query");
     assert!(providers.is_empty());
-    audit_service::flush_global_audit_log_manager().await;
+    {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        state
+            .audit_writer()
+            .flush(deadline)
+            .await
+            .expect("audit writer flush should succeed");
+    }
     let audit_entry = audit_log::Entity::find()
         .filter(audit_log::Column::Action.eq(AuditAction::AdminTestExternalAuthProvider))
         .order_by_desc(audit_log::Column::Id)
@@ -676,7 +653,14 @@ async fn admin_tests_external_auth_provider_draft_params_without_persisting() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
-    audit_service::flush_global_audit_log_manager().await;
+    {
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        state
+            .audit_writer()
+            .flush(deadline)
+            .await
+            .expect("audit writer flush should succeed");
+    }
     let audit_entry = audit_log::Entity::find()
         .filter(audit_log::Column::Action.eq(AuditAction::AdminTestExternalAuthProvider))
         .order_by_desc(audit_log::Column::Id)
@@ -910,40 +894,44 @@ async fn finish_callback_verifies_jwks_and_issues_asterdrive_cookies() {
 }
 
 #[actix_web::test]
-async fn google_callback_uses_oidc_sub_as_stable_identity() {
+async fn oidc_callback_uses_sub_as_stable_identity() {
     let (mock_provider, server) = start_mock_external_auth_provider().await;
-    mock_provider.set_subject("google-subject-1");
-    mock_provider.set_email("google-user@example.com");
+    mock_provider.set_subject("oidc-subject-1");
+    mock_provider.set_email("oidc-user@example.com");
 
     let state = common::setup().await;
     configure_oidc_public_site_url(&state);
     let app = create_test_app!(state.clone());
-    let mut provider_model =
-        google_external_auth_provider_model("google-test", &mock_provider.issuer, true);
+    let mut provider_model = oidc_external_auth_provider_model(
+        "oidc-test",
+        &mock_provider.issuer,
+        true,
+        "openid profile email",
+    );
     provider_model.auto_provision_enabled = Set(true);
     let provider = provider_model
         .insert(state.writer_db())
         .await
-        .expect("Google provider should insert");
+        .expect("OIDC provider should insert");
 
-    let state_value = start_google_login(&app, &mock_provider, &provider.key, "/files").await;
+    let state_value = start_oidc_login(&app, &mock_provider, &provider.key, "/files").await;
     let authorize_request = mock_provider.last_authorize_request();
     assert_eq!(
         authorize_request.redirect_uri,
         format!(
-            "http://localhost:8080/api/v1/auth/external-auth/google/{}/callback",
+            "http://localhost:8080/api/v1/auth/external-auth/oidc/{}/callback",
             provider.key
         )
     );
     let scope = authorize_request
         .scope
         .as_deref()
-        .expect("Google OIDC authorization request should include scopes");
+        .expect("OIDC authorization request should include scopes");
     assert!(scope.split_whitespace().any(|item| item == "openid"));
     assert!(scope.split_whitespace().any(|item| item == "profile"));
     assert!(scope.split_whitespace().any(|item| item == "email"));
 
-    let resp = finish_google_callback(&app, &provider.key, &state_value).await;
+    let resp = finish_oidc_callback(&app, &provider.key, &state_value).await;
     assert_eq!(resp.status(), 302);
     assert_eq!(
         resp.headers()
@@ -960,15 +948,15 @@ async fn google_callback_uses_oidc_sub_as_stable_identity() {
     assert_eq!(identities.len(), 1);
     let user_id = identities[0].user_id;
     assert_eq!(identities[0].identity_namespace, mock_provider.issuer);
-    assert_eq!(identities[0].subject, "google-subject-1");
+    assert_eq!(identities[0].subject, "oidc-subject-1");
     assert_eq!(
         identities[0].email_snapshot.as_deref(),
-        Some("google-user@example.com")
+        Some("oidc-user@example.com")
     );
 
-    mock_provider.set_email("renamed-google-user@example.com");
-    let state_value = start_google_login(&app, &mock_provider, &provider.key, "/files").await;
-    let resp = finish_google_callback(&app, &provider.key, &state_value).await;
+    mock_provider.set_email("renamed-oidc-user@example.com");
+    let state_value = start_oidc_login(&app, &mock_provider, &provider.key, "/files").await;
+    let resp = finish_oidc_callback(&app, &provider.key, &state_value).await;
     assert_eq!(resp.status(), 302);
 
     let identities = external_auth_identity::Entity::find()
@@ -977,21 +965,21 @@ async fn google_callback_uses_oidc_sub_as_stable_identity() {
         .expect("identities should query");
     assert_eq!(identities.len(), 1);
     assert_eq!(identities[0].user_id, user_id);
-    assert_eq!(identities[0].subject, "google-subject-1");
+    assert_eq!(identities[0].subject, "oidc-subject-1");
     assert_eq!(
         identities[0].email_snapshot.as_deref(),
-        Some("renamed-google-user@example.com")
+        Some("renamed-oidc-user@example.com")
     );
 
     server.stop(true).await;
 }
 
 #[actix_web::test]
-async fn google_callback_rejects_unverified_missing_or_non_boolean_email_verified() {
+async fn oidc_callback_rejects_unverified_missing_or_non_boolean_email_verified() {
     for (case_name, configure_claim) in [("false", 0_u8), ("missing", 1_u8), ("string", 2_u8)] {
         let (mock_provider, server) = start_mock_external_auth_provider().await;
-        mock_provider.set_subject(&format!("google-{case_name}-subject"));
-        mock_provider.set_email(&format!("google-{case_name}@example.com"));
+        mock_provider.set_subject(&format!("oidc-{case_name}-subject"));
+        mock_provider.set_email(&format!("oidc-{case_name}@example.com"));
         match configure_claim {
             0 => mock_provider.set_email_verified(false),
             1 => mock_provider.clear_email_verified_claim(),
@@ -1002,16 +990,20 @@ async fn google_callback_rejects_unverified_missing_or_non_boolean_email_verifie
         let state = common::setup().await;
         configure_oidc_public_site_url(&state);
         let app = create_test_app!(state.clone());
-        let mut provider_model =
-            google_external_auth_provider_model("google-test", &mock_provider.issuer, true);
+        let mut provider_model = oidc_external_auth_provider_model(
+            "oidc-test",
+            &mock_provider.issuer,
+            true,
+            "openid profile email",
+        );
         provider_model.auto_provision_enabled = Set(true);
         let provider = provider_model
             .insert(state.writer_db())
             .await
-            .expect("Google provider should insert");
+            .expect("OIDC provider should insert");
 
-        let state_value = start_google_login(&app, &mock_provider, &provider.key, "/files").await;
-        let resp = finish_google_callback(&app, &provider.key, &state_value).await;
+        let state_value = start_oidc_login(&app, &mock_provider, &provider.key, "/").await;
+        let resp = finish_oidc_callback(&app, &provider.key, &state_value).await;
         assert_oidc_error_redirect(&resp);
 
         let identities = external_auth_identity::Entity::find()

@@ -1,13 +1,13 @@
 //! User repository.
 
-use crate::entities::{
+use crate::errors::{AsterError, MapAsterErr, Result};
+use aster_forge_api::CursorSlice;
+use aster_forge_db::search_query;
+use aster_yggdrasil_model::entities::{
     auth_session, minecraft_profile,
     user::{self, Entity as User},
 };
-use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::user::{UserRole, UserStatus};
-use aster_forge_api::CursorSlice;
-use aster_forge_db::search_query;
+use aster_yggdrasil_model::types::user::{UserRole, UserStatus};
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ExprTrait,
@@ -404,7 +404,7 @@ mod tests {
         find_by_ids, find_by_public_uuid,
     };
     use crate::config::DatabaseConfig;
-    use crate::types::user::{UserRole, UserStatus};
+    use aster_yggdrasil_model::types::user::{UserRole, UserStatus};
     async fn build_test_db() -> sea_orm::DatabaseConnection {
         let db = crate::db::connect_with_metrics(
             &DatabaseConfig {
@@ -416,7 +416,7 @@ mod tests {
         )
         .await
         .expect("user repo test DB should connect");
-        migration::Migrator::up(&db, None)
+        aster_yggdrasil_migration::Migrator::up(&db, None)
             .await
             .expect("user repo test migrations should succeed");
         db

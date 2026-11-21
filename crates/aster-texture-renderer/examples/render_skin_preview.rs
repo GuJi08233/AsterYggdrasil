@@ -199,9 +199,14 @@ where
 }
 
 fn parse_u32_value(value: f32) -> Result<u32, String> {
-    if value < 0.0 || value > u32::MAX as f32 {
+    if !value.is_finite() || value < 0.0 || value > u32::MAX as f32 {
         return Err("spacing must fit in u32".to_string());
     }
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "checked finite and within [0.0, u32::MAX] above"
+    )]
     Ok(value.round() as u32)
 }
 
@@ -242,7 +247,6 @@ fn usage() -> String {
     "usage: render_skin_preview --input <skin.png> --output <preview.png> [--engine skin-3d|skin-2d] [--profile fast|default|quality] [--model default|slim] [--format png|webp] [--pitch deg] [--front-yaw deg] [--back-yaw deg] [--supersampling 1-4] [--padding px] [--background transparent|white|black|#RRGGBB|#RRGGBBAA]".to_string()
 }
 
-#[allow(dead_code)]
 fn _assert_error_send_sync(error: RenderError) -> RenderError {
     error
 }

@@ -5,15 +5,17 @@ use serde::Deserialize;
 
 use crate::api::error_code::AsterErrorCode;
 use crate::db::repository::{external_auth_login_flow_repo, external_auth_provider_repo};
-use crate::entities::{external_auth_login_flow, external_auth_provider};
 use crate::errors::{AsterError, Result};
 use crate::external_auth::{MapExternalAuthResult, registry};
 use crate::runtime::SharedRuntimeState;
-use crate::types::external_auth::{ExternalAuthProviderKind, parse_external_auth_provider_options};
 use crate::utils::OUTBOUND_HTTP_USER_AGENT;
 use aster_forge_external_auth::ExternalAuthCallback;
 use aster_forge_external_auth::ExternalAuthProfile;
 use aster_forge_utils::numbers::u64_to_i64;
+use aster_yggdrasil_model::entities::{external_auth_login_flow, external_auth_provider};
+use aster_yggdrasil_model::types::external_auth::{
+    ExternalAuthProviderKind, parse_external_auth_provider_options,
+};
 
 use super::normalize::{callback_redirect_uri, normalize_key, normalize_return_path, state_hash};
 use super::providers::external_auth_provider_config;

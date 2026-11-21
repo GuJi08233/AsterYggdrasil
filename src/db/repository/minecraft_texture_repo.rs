@@ -1,13 +1,13 @@
 //! Minecraft texture asset repository.
 
-use crate::entities::minecraft_texture::{self, Entity as MinecraftTexture};
 use crate::errors::{AsterError, MapAsterErr, Result};
-use crate::types::{
+use aster_forge_api::CursorSlice;
+use aster_yggdrasil_model::entities::minecraft_texture::{self, Entity as MinecraftTexture};
+use aster_yggdrasil_model::types::{
     yggdrasil::MinecraftTextureLibraryStatus, yggdrasil::MinecraftTextureModel,
     yggdrasil::MinecraftTextureSource, yggdrasil::MinecraftTextureType,
     yggdrasil::MinecraftTextureVisibility, yggdrasil::TextureTagSearchMethod,
 };
-use aster_forge_api::CursorSlice;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, ModelTrait,
@@ -384,10 +384,10 @@ fn apply_tag_filter(
         TextureTagSearchMethod::Any => query.filter(
             minecraft_texture::Column::Id.in_subquery(
                 sea_orm::sea_query::Query::select()
-                    .column(crate::entities::minecraft_texture_tag_binding::Column::TextureId)
-                    .from(crate::entities::minecraft_texture_tag_binding::Entity)
+                    .column(aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Column::TextureId)
+                    .from(aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Entity)
                     .and_where(
-                        crate::entities::minecraft_texture_tag_binding::Column::TagId
+                        aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Column::TagId
                             .is_in(filter.tag_ids.clone()),
                     )
                     .to_owned(),
@@ -400,9 +400,9 @@ fn texture_has_tag_condition(tag_id: i64) -> Condition {
     minecraft_texture::Column::Id
         .in_subquery(
             sea_orm::sea_query::Query::select()
-                .column(crate::entities::minecraft_texture_tag_binding::Column::TextureId)
-                .from(crate::entities::minecraft_texture_tag_binding::Entity)
-                .and_where(crate::entities::minecraft_texture_tag_binding::Column::TagId.eq(tag_id))
+                .column(aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Column::TextureId)
+                .from(aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Entity)
+                .and_where(aster_yggdrasil_model::entities::minecraft_texture_tag_binding::Column::TagId.eq(tag_id))
                 .to_owned(),
         )
         .into()

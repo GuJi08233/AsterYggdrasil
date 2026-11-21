@@ -1,58 +1,37 @@
 # cargo-audit 配置
-# 忽略已确认不影响本项目的上游传递依赖 advisory
+# 仅列精确上游例外；包含无兼容修复的残留风险，不表示漏洞已经修复
 
 [advisories]
 ignore = [
-    # paste 1.0.x unmaintained — dtolnay 不再维护
-    # 纯编译期宏，零运行时代码，无安全风险
-    "RUSTSEC-2024-0436",
-
-    # h2 0.3.x 空 DATA 帧无界排队。actix-web 用 HttpServer::bind()（.tcp()），
-    # 只接受 HTTP/1.x；未启用 bind_auto_h2c / TLS ALPN，运行期走不到 h2 0.3。
-    # 0.4 线的 h2 已升到 0.4.16（出站 HTTP/2 走这里）。
-    "RUSTSEC-2026-0258",
-
-    # quinn-proto DoS 系列：HTTP/3 未启用，`cargo tree -i quinn` 无输出，
-    # quinn 只作为 reqwest 的可选特性存在，未编译进产物。
-    "RUSTSEC-2026-0338",
-    "RUSTSEC-2026-0339",
-    "RUSTSEC-2026-0340",
-    "RUSTSEC-2026-0341",
-    "RUSTSEC-2026-0342",
-
-    # zip 3.0.0 解压类问题：只经 utoipa-swagger-ui 的 openapi feature 引入，
-    # 解压的是编译期嵌入的可信 Swagger UI 资源，不处理用户上传。
-    "RUSTSEC-2026-0367",
-    "RUSTSEC-2026-0368",
-    "RUSTSEC-2026-0369",
-    # zip 3.0.0 的 ZipStreamReader 本地头名不一致和 AES 认证码问题：
-    # 同样只发生在 build.rs 解压 trusted Swagger UI release，不处理用户 ZIP。
-    "RUSTSEC-2026-0548",
-    "RUSTSEC-2026-0545",
-
-    # zip 3.0.0 ZipArchive::extract() 按条目声明的 size 预分配符号链接缓冲区
-    # （Vec::with_capacity），恶意 ZIP64 可致进程 abort。该 API 只在 build-dependency
-    # utoipa-swagger-ui 的 build.rs 里出现，且实际走的是 by_index() + enclosed_name()
-    # + 流式 io::copy()，并未调用 extract()；解压对象是 crates.io 发布包内置的官方
-    # Swagger UI 资源，运行期不触碰。升级需 utoipa-swagger-ui 10 + utoipa 6，
-    # 而 utoipa 6 由 AsterForge pin 的 workspace 版本决定，待跟进上游 revision 时一并移除。
-    "RUSTSEC-2026-0429",
-
-    # rkyv 0.7.46：rust_decimal 的可选 feature，本项目未启用。
-    "RUSTSEC-2026-0235",
-
-    # rsa Marvin 时序攻击：上游至今无补丁（0.9 / 0.10-rc 均受影响）。
-    # 本项目的 RSA 用途是 Yggdrasil 材质签名（PKCS#1 v1.5 SHA1），
-    # 通过网络侧信道恢复私钥需要海量精确计时样本，列为已知残余风险。
+    # rsa Marvin Attack (timing sidechannel)
+    # 0.9.10 经 openidconnect / webauthn 传递引入，0.10.0-rc.x 为直接依赖及 crypto-glue /
+    # webauthn-authenticator-rs 传递依赖。本项目的 RSA 用途为 Yggdrasil 材质签名
+    # （PKCS#1 v1.5 SHA1），通过网络侧信道恢复私钥需要海量精确计时样本，列为已知残余风险。
+    # rsa 0.10.0 正式版移除了 crypto-glue 需要的 feature 集，在 crypto-glue / webauthn-rs
+    # 发布兼容版本前无法升级。
     "RUSTSEC-2023-0071",
 
-    # crypto-bigint 常数时间问题：0.7 线已升到修复版（>=0.7.6）。0.5.5 无补丁，
-    # 经 elliptic-curve 0.13 被 openidconnect / webauthn-rs（p256 验签，只处理公开数据）
-    # 和 aws-sigv4（仅 S3 多区域接入点走 SigV4a 时用派生私钥签名）引入。
-    # 远程计时出站签名不现实，列为已知残余风险；注意此 ignore 按 ID 生效，0.7 线不得回退。
-    "RUSTSEC-2026-0387",
+    # h2 0.3.27 unbounded empty DATA frames (RUSTSEC-2026-0258)
+    # actix-http 3.x 仍依赖 h2 ^0.3；h2 0.4 不满足该依赖的 semver 约束，h2 0.3 线没有修复版本。
+    # 本项目 actix-web 仅使用 HttpServer::bind()（HTTP/1.x），出站 HTTP/2 走 h2 0.4.20。
+    # 待 actix-http 发布切换到 h2 >= 0.4.16 的版本后立即删除本项并刷新 Cargo.lock。
+    "RUSTSEC-2026-0258",
 
-    # ttf-parser / proc-macro-error2 unmaintained，非可利用漏洞。
+    # astral-tokio-tar 0.6.4 unmaintained (RUSTSEC-2026-0440)
+    # 由 testcontainers 0.28 引入，只在开发/容器 fixture 中使用，不在产品运行时依赖树。
+    # 待 testcontainers 发布迁移受维护 tar 实现的版本后升级并删除本项。
+    "RUSTSEC-2026-0440",
+
+    # chrono 0.4.45 unmaintained (RUSTSEC-2026-0543)
+    # 维护状态例外：SeaORM / actix / Forge 全生态仍以 chrono 为标准时间类型，项目无可用替代。
+    # 本例外只接受维护告警，不代表 chrono 恢复维护。待生态迁移（如 jiff）后再评估。
+    "RUSTSEC-2026-0543",
+
+    # ttf-parser 0.25.1 unmaintained (RUSTSEC-2026-0192)
+    # 由 captcha-rs / imageproc 传递引入的字体解析维护状态例外。
     "RUSTSEC-2026-0192",
-    "RUSTSEC-2026-0173",
+
+    # paste 1.0.x unmaintained (RUSTSEC-2024-0436)
+    # 传递使用的编译期宏，零运行时代码；维护状态例外，待调用方迁移后移除。
+    "RUSTSEC-2024-0436",
 ]

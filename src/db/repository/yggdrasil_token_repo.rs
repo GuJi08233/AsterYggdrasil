@@ -1,7 +1,7 @@
 //! Yggdrasil token repository.
 
-use crate::entities::yggdrasil_token::{self, Entity as YggdrasilToken};
 use crate::errors::{AsterError, MapAsterErr, Result};
+use aster_yggdrasil_model::entities::yggdrasil_token::{self, Entity as YggdrasilToken};
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, EntityTrait, PaginatorTrait,
@@ -269,7 +269,7 @@ mod tests {
     };
     use crate::config::DatabaseConfig;
     use crate::db::repository::user_repo;
-    use crate::types::user::UserRole;
+    use aster_yggdrasil_model::types::user::UserRole;
     use chrono::{Duration, Utc};
 
     async fn build_test_db() -> sea_orm::DatabaseConnection {
@@ -283,7 +283,7 @@ mod tests {
         )
         .await
         .expect("yggdrasil token repo test DB should connect");
-        migration::Migrator::up(&db, None)
+        aster_yggdrasil_migration::Migrator::up(&db, None)
             .await
             .expect("yggdrasil token repo test migrations should succeed");
         db

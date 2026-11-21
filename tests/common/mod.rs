@@ -1,5 +1,10 @@
 //! Shared integration test helpers.
 
+#![expect(
+    dead_code,
+    reason = "shared integration-test support exposes helpers used by different test binaries"
+)]
+
 use aster_yggdrasil::runtime::{AppState, AppStateParts};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -25,10 +30,13 @@ const SHARED_TEST_CONTAINER_STATE_DIR: &str = "/tmp/asteryggdrasil-testcontainer
 
 fn init_test_process_state() {
     static INIT: OnceLock<()> = OnceLock::new();
-    INIT.get_or_init(|| {});
+    INIT.get_or_init(|| {
+        // Forge JWT issue/verify refuses to run until the crypto backend is
+        // initialized; binaries do this in bootstrap, test processes do it here.
+        let _ = aster_forge_auth::initialize_jwt_crypto_provider();
+    });
 }
 
-#[allow(dead_code)]
 pub async fn set_foreign_key_checks(
     db: &sea_orm::DatabaseConnection,
     enabled: bool,
@@ -713,7 +721,7 @@ async fn build_postgres_database_template() -> PostgresDatabaseTemplate {
             .await
             .expect("postgres template database connection should succeed");
 
-    migration::Migrator::up(&db, None)
+    aster_yggdrasil_migration::Migrator::up(&db, None)
         .await
         .expect("postgres template database migrations should succeed");
     db.close()
@@ -752,24 +760,20 @@ async fn resolve_test_database_url() -> String {
     resolve_test_database_url_for(configured_test_database_backend()).await
 }
 
-#[allow(dead_code)]
 pub async fn postgres_test_database_url() -> String {
     resolve_test_database_url_for(TestDatabaseBackend::Postgres).await
 }
 
-#[allow(dead_code)]
 pub async fn mysql_test_database_url() -> String {
     resolve_test_database_url_for(TestDatabaseBackend::MySql).await
 }
 
-#[allow(dead_code)]
 pub async fn setup() -> AppState {
     init_test_process_state();
     let database_url = resolve_test_database_url().await;
     setup_with_database_url(&database_url).await
 }
 
-#[allow(dead_code)]
 pub async fn setup_with_memory_cache() -> AppState {
     let base = setup().await;
     let cache_config = aster_forge_cache::CacheConfig {
@@ -788,6 +792,7 @@ pub async fn setup_with_memory_cache() -> AppState {
         mail_sender: aster_forge_mail::memory_sender(),
         config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
+        audit_writer: base.audit_writer.clone(),
     })
     .expect("memory-cache test AppState should build")
 }
@@ -862,7 +867,7 @@ async fn build_mysql_schema_template() -> MySqlSchemaTemplate {
             .await
             .expect("mysql schema template connection should succeed");
 
-    migration::Migrator::up(&db, None)
+    aster_yggdrasil_migration::Migrator::up(&db, None)
         .await
         .expect("mysql schema template migrations should succeed");
 
@@ -903,7 +908,6 @@ async fn clone_mysql_schema_from_template(db: &sea_orm::DatabaseConnection) {
         .expect("mysql schema clone should restore foreign key checks");
 }
 
-#[allow(dead_code)]
 pub async fn setup_with_database_url(database_url: &str) -> AppState {
     init_test_process_state();
 
@@ -920,7 +924,7 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
     if should_use_mysql_schema_template(database_url) {
         clone_mysql_schema_from_template(&writer).await;
     } else {
-        migration::Migrator::up(&writer, None)
+        aster_yggdrasil_migration::Migrator::up(&writer, None)
             .await
             .expect("test database migrations should run");
     }
@@ -971,6 +975,10 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         aster_yggdrasil::config::yggdrasil::YGGDRASIL_MOJANG_NAME_CHECK_ENABLED_KEY,
         "false",
     ));
+    runtime_config
+        .install_auth_runtimes(&config.auth.jwt_secret)
+        .await
+        .expect("auth runtimes should install");
 
     let cache = aster_forge_cache::create_cache(&config.cache).await;
     let object_storage =
@@ -978,12 +986,12 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
             .expect("object storage should initialize");
     let db_handles = aster_yggdrasil::db::connect_reader_for_writer_with_metrics(
         &db_cfg,
-        writer,
+        writer.clone(),
         aster_forge_metrics::NoopMetrics::arc(),
     )
     .await
     .expect("test db handles should initialize");
-    AppState::from_parts(AppStateParts {
+    let state = AppState::from_parts(AppStateParts {
         db_handles,
         config,
         runtime_config,
@@ -992,16 +1000,25 @@ pub async fn setup_with_database_url(database_url: &str) -> AppState {
         mail_sender: aster_forge_mail::memory_sender(),
         config_sync: aster_forge_config::ConfigSyncRuntime::disabled_for_test("aster_yggdrasil"),
         metrics: aster_forge_metrics::NoopMetrics::arc(),
+        audit_writer: std::sync::Arc::new(aster_forge_audit::AuditWriter::new(writer)),
     })
-    .expect("integration test AppState should build")
+    .expect("integration test AppState should build");
+
+    // The runtime component bundle never runs in this process, so start the
+    // writer here for audit-writing endpoints under test.
+    state
+        .audit_writer()
+        .start()
+        .await
+        .expect("integration test audit writer should start");
+
+    state
 }
 
-#[allow(dead_code)]
 pub fn bearer_header(access_token: impl AsRef<str>) -> (&'static str, String) {
     ("Authorization", format!("Bearer {}", access_token.as_ref()))
 }
 
-#[allow(dead_code)]
 pub fn access_cookie_header(access_token: impl AsRef<str>) -> String {
     let access_token = access_token.as_ref();
     let csrf_token = csrf_token_for(access_token);
@@ -1009,7 +1026,6 @@ pub fn access_cookie_header(access_token: impl AsRef<str>) -> String {
     format!("aster_access={access_token}; aster_yggdrasil_csrf={csrf_token}")
 }
 
-#[allow(dead_code)]
 pub fn refresh_cookie_header(
     refresh_token: impl AsRef<str>,
     csrf_token: impl AsRef<str>,
@@ -1020,7 +1036,6 @@ pub fn refresh_cookie_header(
     format!("aster_refresh={refresh_token}; aster_yggdrasil_csrf={csrf_token}")
 }
 
-#[allow(dead_code)]
 pub fn access_and_refresh_cookie_header(
     access_token: impl AsRef<str>,
     refresh_token: impl AsRef<str>,
@@ -1036,7 +1051,6 @@ pub fn access_and_refresh_cookie_header(
     )
 }
 
-#[allow(dead_code)]
 pub fn csrf_header(csrf_token: impl AsRef<str>) -> (&'static str, String) {
     ("X-Aster-Yggdrasil-CSRF", csrf_token.as_ref().to_string())
 }
@@ -1061,7 +1075,6 @@ fn pin_csrf_token_for_current_thread(session_token: &str, csrf_token: &str) {
     });
 }
 
-#[allow(dead_code)]
 pub fn csrf_token_for(session_token: impl AsRef<str>) -> String {
     let token = session_token.as_ref();
     if let Some(csrf_token) =
@@ -1078,12 +1091,10 @@ pub fn csrf_token_for(session_token: impl AsRef<str>) -> String {
         .unwrap_or_else(|| panic!("missing csrf token for session token: {token}"))
 }
 
-#[allow(dead_code)]
 pub fn csrf_header_for(session_token: impl AsRef<str>) -> (&'static str, String) {
     csrf_header(csrf_token_for(session_token))
 }
 
-#[allow(dead_code)]
 pub fn extract_cookie<B>(resp: &actix_web::dev::ServiceResponse<B>, name: &str) -> Option<String> {
     let value = resp
         .headers()
@@ -1114,12 +1125,10 @@ pub fn extract_cookie<B>(resp: &actix_web::dev::ServiceResponse<B>, name: &str) 
     Some(value)
 }
 
-#[allow(dead_code)]
 pub async fn flush_mail_outbox(state: &AppState) {
     flush_mail_outbox_with(state.writer_db(), &state.runtime_config, &state.mail_sender).await;
 }
 
-#[allow(dead_code)]
 pub async fn flush_mail_outbox_with(
     db: &sea_orm::DatabaseConnection,
     runtime_config: &std::sync::Arc<aster_yggdrasil::config::RuntimeConfig>,
@@ -1130,7 +1139,6 @@ pub async fn flush_mail_outbox_with(
         .expect("mail outbox drain should succeed");
 }
 
-#[allow(dead_code)]
 pub async fn create_external_auth_linked_user_without_email(
     state: &AppState,
     username: &str,
@@ -1219,7 +1227,6 @@ pub async fn create_external_auth_linked_user_without_email(
     user
 }
 
-#[allow(dead_code)]
 fn extract_token_from_content(content: &str, marker: &str) -> Option<String> {
     let (_, suffix) = content.split_once(marker)?;
     let encoded: String = suffix
@@ -1235,7 +1242,6 @@ fn extract_token_from_content(content: &str, marker: &str) -> Option<String> {
         .map(|value| value.into_owned())
 }
 
-#[allow(dead_code)]
 pub fn extract_token_from_mail_message(
     message: &aster_forge_mail::MailMessage,
     marker: &str,
@@ -1244,7 +1250,6 @@ pub fn extract_token_from_mail_message(
         .or_else(|| extract_token_from_content(&message.html_body, marker))
 }
 
-#[allow(dead_code)]
 pub fn system_config_model(key: &str, value: &str) -> aster_forge_db::system_config::Model {
     aster_forge_db::system_config::Model {
         id: 0,
@@ -1263,7 +1268,6 @@ pub fn system_config_model(key: &str, value: &str) -> aster_forge_db::system_con
     }
 }
 
-#[allow(dead_code)]
 pub fn disable_registration_activation(state: &AppState) {
     state.runtime_config.apply(system_config_model(
         aster_yggdrasil::config::auth_runtime::AUTH_REGISTER_ACTIVATION_ENABLED_KEY,
@@ -1281,10 +1285,10 @@ macro_rules! create_test_app {
 
         test::init_service(
             App::new()
-                .wrap(aster_forge_actix_middleware::request_id::RequestIdMiddleware)
+                .wrap(aster_forge_middleware::actix::request_id::RequestIdMiddleware)
                 .wrap(aster_yggdrasil::api::middleware::cors::RuntimeCors)
-                .wrap(aster_forge_actix_middleware::security_headers::default_headers())
-                .wrap(aster_forge_actix_middleware::metrics::MetricsMiddleware)
+                .wrap(aster_forge_middleware::actix::security_headers::default_headers())
+                .wrap(aster_forge_middleware::actix::metrics::MetricsMiddleware)
                 .app_data(web::PayloadConfig::new(10 * 1024 * 1024))
                 .app_data(web::JsonConfig::default().limit(1024 * 1024))
                 .app_data(web::Data::new(metrics))
@@ -1452,7 +1456,11 @@ macro_rules! admin_create_user {
             }))
             .to_request();
         let resp = test::call_service(&$app, req).await;
-        assert_eq!(resp.status(), 201, "admin create user should return 201");
+        if resp.status() != 201 {
+            let status = resp.status();
+            let body: Value = test::read_body_json(resp).await;
+            panic!("admin create user should return 201, got {status}: {body}");
+        }
         let body: Value = test::read_body_json(resp).await;
         body["data"]["user"]["id"].as_i64().unwrap()
     }};

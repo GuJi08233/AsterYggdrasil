@@ -6,7 +6,7 @@ on:
     paths:
       - 'frontend-panel/**'
       - 'src/**'
-      - 'migration/**'
+      - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'build.rs'
@@ -16,7 +16,7 @@ on:
     paths:
       - 'frontend-panel/**'
       - 'src/**'
-      - 'migration/**'
+      - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'build.rs'

@@ -12,11 +12,12 @@
     )
 )]
 
+pub use aster_yggdrasil_model::{entities, types};
+
 pub mod api;
 pub mod build_info;
 pub mod config;
 pub mod db;
-pub mod entities;
 pub mod errors;
 pub mod external_auth;
 pub mod metrics;
@@ -24,5 +25,4 @@ pub mod object_storage;
 pub mod runtime;
 pub mod services;
 pub mod tasks;
-pub mod types;
 pub mod utils;

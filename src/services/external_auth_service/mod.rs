@@ -17,12 +17,12 @@ mod verification;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::user;
-use crate::types::{
+use aster_forge_api::NullablePatch;
+use aster_yggdrasil_model::entities::user;
+use aster_yggdrasil_model::types::{
     external_auth::ExternalAuthProtocol, external_auth::ExternalAuthProviderKind,
     external_auth::ExternalAuthProviderOptions,
 };
-use aster_forge_api::NullablePatch;
 
 pub use binding::{
     ExternalAuthMinecraftBindingCallbackResult, check_device_code_status,

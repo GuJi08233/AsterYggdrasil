@@ -1,13 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::types::user::{UserBanScope, UserBanStatus, UserRole, UserStatus};
-use crate::types::yggdrasil::{
+use aster_forge_config::ConfigVisibility;
+use aster_yggdrasil_model::types::user::{UserBanScope, UserBanStatus, UserRole, UserStatus};
+use aster_yggdrasil_model::types::yggdrasil::{
     MinecraftTextureLibraryStatus, MinecraftTextureModel, MinecraftTextureReportReason,
     MinecraftTextureReportStatus, MinecraftTextureType,
 };
-use crate::types::{task::BackgroundTaskKind, task::BackgroundTaskStatus};
-use aster_forge_config::ConfigVisibility;
+use aster_yggdrasil_model::types::{task::BackgroundTaskKind, task::BackgroundTaskStatus};
 
 #[derive(Serialize)]
 pub struct ConfigUpdateDetails<'a> {
@@ -257,10 +257,10 @@ mod tests {
         MailAuditDetails, TaskRetryAuditDetails, UserAuditDetails, UserSessionRevokeAuditDetails,
         details,
     };
-    use crate::types::{
+    use aster_forge_config::ConfigVisibility;
+    use aster_yggdrasil_model::types::{
         task::BackgroundTaskKind, task::BackgroundTaskStatus, user::UserRole, user::UserStatus,
     };
-    use aster_forge_config::ConfigVisibility;
     #[test]
     fn details_serializes_config_update_and_omits_missing_prior_visibility() {
         assert_eq!(

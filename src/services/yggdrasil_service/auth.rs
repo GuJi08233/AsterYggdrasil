@@ -6,11 +6,9 @@ use crate::api::dto::yggdrasil::{
 };
 use crate::config::yggdrasil::RuntimeYggdrasilPolicy;
 use crate::db::repository::{minecraft_profile_repo, user_repo};
-use crate::errors::AsterError;
-use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState, RuntimeConfigRuntimeState};
+use crate::runtime::{CacheRuntimeState, DatabaseRuntimeState, SharedRuntimeState};
 use crate::services::{audit_service, auth_service, ban_service};
-use crate::types::user::UserBanScope;
-use aster_forge_crypto::verify_password;
+use aster_yggdrasil_model::types::user::UserBanScope;
 
 use super::error::{YggdrasilError, YggdrasilErrorKind};
 use super::login::{resolve_login_target, user_info};
@@ -26,7 +24,7 @@ pub async fn authenticate<S>(
     req: &HttpRequest,
 ) -> std::result::Result<YggdrasilAuthenticateResp, YggdrasilError>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     tracing::debug!(
         identifier_len = body.username.len(),
@@ -70,9 +68,13 @@ where
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }
-    if !verify_password(&body.password, &login_target.user.password_hash)
-        .map_err(AsterError::from)
-        .map_err(YggdrasilError::from)?
+    if !crate::services::auth_service::verify_user_password(
+        state,
+        &body.password,
+        &login_target.user.password_hash,
+    )
+    .await
+    .map_err(YggdrasilError::from)?
     {
         tracing::debug!(
             user_id = login_target.user.id,
@@ -176,7 +178,7 @@ pub async fn refresh<S>(
     req: &HttpRequest,
 ) -> std::result::Result<YggdrasilRefreshResp, YggdrasilError>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     tracing::debug!(
         has_client_token = body
@@ -327,7 +329,7 @@ pub async fn invalidate<S>(
     body: YggdrasilTokenReq,
 ) -> std::result::Result<(), YggdrasilError>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     tracing::debug!(
         has_client_token = body
@@ -376,7 +378,7 @@ pub async fn signout<S>(
     password: &str,
 ) -> std::result::Result<(), YggdrasilError>
 where
-    S: CacheRuntimeState + DatabaseRuntimeState + RuntimeConfigRuntimeState,
+    S: SharedRuntimeState,
 {
     tracing::debug!(
         identifier_len = username.len(),
@@ -392,9 +394,13 @@ where
         );
         return Err(YggdrasilError::new(YggdrasilErrorKind::InvalidCredentials));
     }
-    if !verify_password(password, &login_target.user.password_hash)
-        .map_err(AsterError::from)
-        .map_err(YggdrasilError::from)?
+    if !crate::services::auth_service::verify_user_password(
+        state,
+        password,
+        &login_target.user.password_hash,
+    )
+    .await
+    .map_err(YggdrasilError::from)?
     {
         tracing::debug!(
             user_id = login_target.user.id,

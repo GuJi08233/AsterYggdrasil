@@ -8,9 +8,13 @@ pub mod startup;
 pub mod state;
 pub mod state_traits;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub use state::{AppState, AppStateParts};
 pub use state_traits::{
-    AppConfigRuntimeState, CacheRuntimeState, ConfigSyncRuntimeState, DatabaseRuntimeState,
-    MailRuntimeState, MetricsRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState,
-    SharedRuntimeState, TaskRuntimeState, YggdrasilSessionForwardRuntimeState,
+    AppConfigRuntimeState, AuditRuntimeState, CacheRuntimeState, ConfigSyncRuntimeState,
+    DatabaseRuntimeState, MailRuntimeState, MetricsRuntimeState, ObjectStorageRuntimeState,
+    RuntimeConfigRuntimeState, SharedRuntimeState, TaskRuntimeState,
+    YggdrasilSessionForwardRuntimeState,
 };

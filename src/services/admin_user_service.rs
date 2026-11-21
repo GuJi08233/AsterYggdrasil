@@ -3,18 +3,17 @@
 use crate::db::repository::{
     minecraft_profile_repo, user_operator_scope_repo, user_repo, yggdrasil_token_repo,
 };
-use crate::entities::user;
 use crate::errors::{AsterError, Result};
 use crate::runtime::{
     CacheRuntimeState, DatabaseRuntimeState, ObjectStorageRuntimeState, RuntimeConfigRuntimeState,
 };
 use crate::services::profile_service::{self, AvatarAudience, AvatarInfo, UserProfileInfo};
 use crate::services::{auth_service, texture_service, yggdrasil_service};
-use crate::types::user::{OperatorScope, UserRole, UserStatus};
 use aster_forge_api::{CursorPage, DateTimeIdCursor};
-use aster_forge_crypto::hash_password;
 use aster_forge_utils::numbers::u64_to_usize;
 use aster_forge_validation::email::normalize_email;
+use aster_yggdrasil_model::entities::user;
+use aster_yggdrasil_model::types::user::{OperatorScope, UserRole, UserStatus};
 use rand::RngExt;
 use serde::Serialize;
 #[cfg(all(debug_assertions, feature = "openapi"))]
@@ -104,7 +103,7 @@ fn default_user_profile_info() -> UserProfileInfo {
     UserProfileInfo {
         display_name: None,
         avatar: AvatarInfo {
-            source: crate::types::user::AvatarSource::None,
+            source: aster_yggdrasil_model::types::user::AvatarSource::None,
             url_512: None,
             url_1024: None,
             version: 0,
@@ -284,7 +283,8 @@ where
         .or(explicit_password)
         .ok_or_else(|| AsterError::internal_error("temporary password generation failed"))?;
     let email = validate_identity_input(&username, &email, password)?;
-    let password_hash = hash_password(password)?;
+    let password_hash =
+        crate::services::auth_service::hash_password_with_runtime(state, password).await?;
     let must_change_password =
         generated_password.is_some() || must_change_password.unwrap_or(false);
     let (role, operator_scopes) = normalize_role_and_scopes(role, operator_scopes);
@@ -368,12 +368,13 @@ where
         })
         .transpose()?;
     let normalized_email = email.map(|value| normalize_email(&value)).transpose()?;
-    let password_hash = password
-        .map(|password| {
+    let password_hash = match password {
+        Some(password) => {
             auth_service::validate_password(&password)?;
-            Ok::<_, AsterError>(hash_password(&password)?)
-        })
-        .transpose()?;
+            Some(crate::services::auth_service::hash_password_with_runtime(state, &password).await?)
+        }
+        None => None,
+    };
     let bump_session_version = password_hash.is_some()
         || status == Some(UserStatus::Disabled)
         || must_change_password.is_some();
@@ -540,9 +541,11 @@ mod tests {
         auth_session_repo, minecraft_profile_texture_repo, minecraft_texture_repo,
         user_profile_repo,
     };
-    use crate::entities::{auth_session, minecraft_profile, minecraft_texture, user_profile};
     use crate::runtime::{AppState, AppStateParts};
-    use crate::types::{
+    use aster_yggdrasil_model::entities::{
+        auth_session, minecraft_profile, minecraft_texture, user_profile,
+    };
+    use aster_yggdrasil_model::types::{
         user::AvatarSource, yggdrasil::MinecraftTextureModel, yggdrasil::MinecraftTextureType,
         yggdrasil::MinecraftTextureVisibility,
     };
@@ -563,7 +566,7 @@ mod tests {
         let db = crate::db::connect_with_metrics(&db_cfg, aster_forge_metrics::NoopMetrics::arc())
             .await
             .expect("admin user test database should connect");
-        migration::Migrator::up(&db, None)
+        aster_yggdrasil_migration::Migrator::up(&db, None)
             .await
             .expect("admin user test migrations should run");
         crate::services::config_service::ensure_defaults(&db)
@@ -575,6 +578,10 @@ mod tests {
             .reload(&db)
             .await
             .expect("admin user test runtime config should reload");
+        runtime_config
+            .install_auth_runtimes(crate::config::TEST_JWT_SECRET)
+            .await
+            .expect("admin user test auth runtimes should install");
         let config = Arc::new(crate::config::Config {
             database: db_cfg,
             object_storage: crate::config::ObjectStorageConfig {
@@ -591,6 +598,7 @@ mod tests {
         let object_storage = crate::object_storage::create_object_storage(&config.object_storage)
             .expect("admin user test object storage should initialize");
         let state = AppState::from_parts(AppStateParts {
+            audit_writer: std::sync::Arc::new(aster_forge_audit::AuditWriter::new(db.clone())),
             db_handles: aster_forge_db::DbHandles::single(db),
             config,
             runtime_config,
